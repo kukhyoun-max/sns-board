@@ -1,0 +1,712 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="robots" content="noindex">
+<title>전주대 SNS 성과 보드</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@400;500;600;700&display=swap">
+<style>
+/* 레이아웃: 상단 고정 필터 바 → 요약 수치 → 추이(주 차트) → 유형·품질 2열 → 계정 → 타 대학 → 콘텐츠 표 */
+:root {
+  --bg: #f4f6f9;
+  --surface: #fdfdfc;
+  --fg: #141820;
+  --muted: #565d6b;
+  --faint: #868c97;
+  --line: #e2e5eb;
+  --axis: #c6cad2;
+  --accent: #1d4f91;
+  --accent-soft: #e5edf8;
+  --good: #006300;
+  --bad: #b02f2f;
+  --ch1: #2a78d6; --ch2: #eb6834; --ch3: #1baf7a; --ch4: #eda100; --ch5: #e87ba4; --ch6: #008300;
+  --font: "IBM Plex Sans KR", "Apple SD Gothic Neo", "Malgun Gothic", system-ui, sans-serif;
+  --r: 10px;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0f1115; --surface: #171a1f; --fg: #f1f3f6; --muted: #b6bcc6; --faint: #868c97;
+    --line: #2a2e36; --axis: #3a3f48; --accent: #82b1ee; --accent-soft: #1b2738;
+    --good: #2fbf4f; --bad: #ef7b7b;
+    --ch1: #3987e5; --ch2: #d95926; --ch3: #199e70; --ch4: #c98500; --ch5: #d55181; --ch6: #008300;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0f1115; --surface: #171a1f; --fg: #f1f3f6; --muted: #b6bcc6; --faint: #868c97;
+  --line: #2a2e36; --axis: #3a3f48; --accent: #82b1ee; --accent-soft: #1b2738;
+  --good: #2fbf4f; --bad: #ef7b7b;
+  --ch1: #3987e5; --ch2: #d95926; --ch3: #199e70; --ch4: #c98500; --ch5: #d55181; --ch6: #008300;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--fg); font-family: var(--font); font-size: 14px; line-height: 1.5; }
+.wrap { max-width: 1240px; margin: 0 auto; padding-inline: clamp(16px, 3vw, 28px); padding-block: 20px 48px; display: flex; flex-direction: column; gap: 18px; }
+h1, h2, h3 { margin: 0; text-wrap: balance; }
+.num, td.n, .tile b { font-variant-numeric: tabular-nums; }
+
+/* 헤더 */
+.top { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 8px 20px; }
+.top h1 { font-size: 22px; font-weight: 700; letter-spacing: -0.01em; }
+.top p { margin: 2px 0 0; color: var(--muted); font-size: 13px; }
+.stamp { font-size: 12px; color: var(--muted); display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.stamp span { background: var(--accent-soft); color: var(--accent); padding: 3px 9px; border-radius: 999px; font-weight: 600; }
+
+/* 필터 */
+.filters { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5; background: color-mix(in srgb, var(--bg) 92%, transparent); backdrop-filter: blur(6px); padding-block: 10px; border-bottom: 1px solid var(--line); display: flex; flex-direction: column; gap: 10px; }
+.frow { display: flex; flex-wrap: wrap; gap: 8px 18px; align-items: center; }
+.fgroup { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; min-width: 0; }
+.flabel { font-size: 11px; font-weight: 600; color: var(--faint); letter-spacing: 0.06em; margin-right: 2px; }
+.chip { display: inline-flex; align-items: center; gap: 6px; padding: 5px 11px; border-radius: 999px; border: 1px solid var(--line); background: var(--surface); color: var(--muted); font: inherit; font-size: 13px; cursor: pointer; }
+.chip:hover { border-color: var(--axis); color: var(--fg); }
+.chip[aria-pressed="true"] { border-color: var(--accent); color: var(--fg); background: var(--accent-soft); font-weight: 600; }
+.chip .dot { width: 9px; height: 9px; border-radius: 50%; flex: none; }
+.chip.bench { border-style: dashed; }
+.seg { display: inline-flex; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; background: var(--surface); }
+.seg button { font: inherit; font-size: 13px; padding: 5px 12px; border: 0; background: transparent; color: var(--muted); cursor: pointer; }
+.seg button + button { border-left: 1px solid var(--line); }
+.seg button[aria-pressed="true"] { background: var(--accent); color: var(--surface); font-weight: 600; }
+select, input[type="date"], input[type="search"] { font: inherit; font-size: 13px; padding: 5px 9px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); color: var(--fg); }
+input[type="search"] { width: 200px; max-width: 100%; }
+.link { font: inherit; font-size: 13px; background: none; border: 0; color: var(--accent); cursor: pointer; padding: 4px 2px; text-decoration: underline; text-underline-offset: 3px; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+/* 요약 수치 */
+.tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; }
+.tile { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); padding: 14px 16px; display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.tile small { font-size: 12px; color: var(--muted); }
+.tile b { font-size: 26px; font-weight: 700; letter-spacing: -0.01em; line-height: 1.2; }
+.tile em { font-style: normal; font-size: 12px; color: var(--faint); }
+
+/* 카드 */
+.grid2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+@media (max-width: 900px) { .grid2 { grid-template-columns: minmax(0, 1fr); } }
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); padding: 16px 18px; display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+.card header { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 6px 12px; align-items: baseline; }
+.card h2 { font-size: 15px; font-weight: 700; }
+.card .sub { font-size: 12px; color: var(--muted); }
+.chartbox { position: relative; height: 300px; }
+.chartbox.tall { height: 340px; }
+.chartbox.short { height: 220px; }
+.legend { display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: 12px; color: var(--muted); }
+.legend i { display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 5px; vertical-align: -1px; }
+.empty { border: 1px dashed var(--axis); border-radius: 8px; padding: 22px; text-align: center; color: var(--muted); font-size: 13px; }
+.note { font-size: 12px; color: var(--faint); margin: 0; }
+
+/* 계정 */
+.acct { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; }
+.acct div { border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; display: flex; flex-direction: column; gap: 2px; }
+.acct small { font-size: 11px; color: var(--muted); }
+.acct b { font-size: 19px; font-variant-numeric: tabular-nums; }
+.acct em { font-style: normal; font-size: 11px; }
+.up { color: var(--good); } .down { color: var(--bad); } .flat { color: var(--faint); }
+
+/* 표 */
+.tablewrap { overflow-x: auto; border: 1px solid var(--line); border-radius: 8px; }
+table { border-collapse: collapse; width: 100%; min-width: 860px; font-size: 13px; }
+th, td { padding: 8px 10px; border-bottom: 1px solid var(--line); text-align: left; vertical-align: top; }
+th { font-size: 12px; color: var(--muted); font-weight: 600; background: var(--bg); position: sticky; top: 0; white-space: nowrap; }
+th button { font: inherit; color: inherit; background: none; border: 0; padding: 0; cursor: pointer; }
+th button[data-dir]::after { content: " ↓"; color: var(--accent); }
+th button[data-dir="asc"]::after { content: " ↑"; }
+td.n, th.n { text-align: right; white-space: nowrap; }
+td.title { max-width: 360px; }
+td.title a { color: var(--fg); text-decoration-color: var(--axis); text-underline-offset: 3px; }
+.tag { display: inline-flex; align-items: center; gap: 5px; white-space: nowrap; }
+.tag i { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
+tbody tr:hover { background: var(--accent-soft); }
+.tfoot { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; font-size: 12px; color: var(--muted); }
+.btn { font: inherit; font-size: 13px; padding: 6px 14px; border-radius: 8px; border: 1px solid var(--line); background: var(--surface); color: var(--fg); cursor: pointer; }
+.btn:hover { border-color: var(--accent); }
+@media (max-width: 560px) { .tile b { font-size: 22px; } .chartbox { height: 260px; } input[type="search"] { width: 100%; } }
+@media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }
+</style>
+</head>
+<body>
+
+
+<div class="wrap">
+  <div class="top">
+    <div>
+      <h1>전주대 SNS 성과 보드</h1>
+      <p>인스타그램 · 유튜브 · hong._.video 와 타 대학 계정을 한 화면에서 비교합니다.</p>
+    </div>
+    <div class="stamp"><span id="stamp">데이터 불러오는 중</span><small id="stampNote">시트 최신 기록을 실시간으로 읽어요</small></div>
+  </div>
+
+  <section class="filters" aria-label="필터">
+    <div class="frow">
+      <div class="fgroup" id="chGroup"><span class="flabel">채널</span></div>
+    </div>
+    <div class="frow">
+      <div class="fgroup" id="typeGroup"><span class="flabel">유형</span></div>
+    </div>
+    <div class="frow">
+      <div class="fgroup">
+        <span class="flabel">게시일</span>
+        <select id="range" aria-label="게시일 범위">
+          <option value="all">전체 기간</option>
+          <option value="30">최근 30일</option>
+          <option value="90">최근 90일</option>
+          <option value="180">최근 180일</option>
+          <option value="365">최근 1년</option>
+          <option value="thisYear">올해</option>
+          <option value="lastYear">작년</option>
+          <option value="custom">직접 지정</option>
+        </select>
+        <input type="date" id="from" aria-label="시작일" hidden>
+        <input type="date" id="to" aria-label="종료일" hidden>
+      </div>
+      <div class="fgroup"><span class="flabel">지표</span><div class="seg" id="metricSeg"></div></div>
+      <div class="fgroup"><span class="flabel">보기</span><div class="seg" id="modeSeg"></div></div>
+      <div class="fgroup"><span class="flabel">단위</span><div class="seg" id="unitSeg"></div></div>
+      <div class="fgroup">
+        <input type="search" id="q" placeholder="제목·캡션 검색" aria-label="제목 검색">
+        <button class="link" id="reset" type="button">필터 초기화</button>
+      </div>
+    </div>
+  </section>
+
+  <section class="tiles" id="tiles" aria-label="요약"></section>
+
+  <section class="card">
+    <header>
+      <h2 id="trendTitle">추이</h2>
+      <span class="sub" id="trendSub"></span>
+    </header>
+    <div class="legend" id="trendLegend"></div>
+    <div class="chartbox tall"><canvas id="trendChart" aria-label="추이 차트"></canvas></div>
+    <div class="empty" id="trendEmpty" hidden></div>
+    <p class="note" id="trendNote"></p>
+  </section>
+
+  <div class="grid2">
+    <section class="card">
+      <header><h2 id="typeTitle">유형별 콘텐츠당 평균</h2><span class="sub">선택한 채널·기간 기준</span></header>
+      <div class="chartbox"><canvas id="typeChart" aria-label="유형별 평균 차트"></canvas></div>
+      <div class="empty" id="typeEmpty" hidden>조건에 맞는 콘텐츠가 없어요.</div>
+    </section>
+    <section class="card">
+      <header><h2>반응 품질</h2><span class="sub">인스타 참여율 · 유튜브 시청 완료율</span></header>
+      <div class="chartbox"><canvas id="qualChart" aria-label="반응 품질 차트"></canvas></div>
+      <div class="empty" id="qualEmpty" hidden>인스타그램 또는 유튜브를 선택하면 보여요.</div>
+      <p class="note">참여율 = (좋아요+댓글+공유+저장) ÷ 리치 · 시청 완료율 = 평균 시청 시간 ÷ 영상 길이</p>
+    </section>
+  </div>
+
+  <div class="grid2">
+    <section class="card">
+      <header><h2>계정 지표</h2><span class="sub" id="acctSub"></span></header>
+      <div class="acct" id="acctTiles"></div>
+      <div class="chartbox short"><canvas id="acctChart" aria-label="계정 지표 추이"></canvas></div>
+      <div class="empty" id="acctEmpty" hidden></div>
+      <div class="fgroup"><span class="flabel">추이 지표</span><select id="acctMetric" aria-label="계정 추이 지표"></select></div>
+    </section>
+    <section class="card">
+      <header><h2 id="benchTitle">타 대학 비교</h2><span class="sub">인스타그램 계정, 게시물당 평균</span></header>
+      <div class="chartbox"><canvas id="benchChart" aria-label="타 대학 비교 차트"></canvas></div>
+      <div class="empty" id="benchEmpty" hidden></div>
+      <p class="note">퍼블릭 데이터는 최근 180일 게시물만 기록돼요. 좋아요를 숨긴 계정은 0으로 보입니다.</p>
+    </section>
+  </div>
+
+  <section class="card">
+    <header><h2>콘텐츠 목록</h2><span class="sub" id="tableSub"></span></header>
+    <div class="tablewrap">
+      <table>
+        <thead><tr id="thead"></tr></thead>
+        <tbody id="tbody"></tbody>
+      </table>
+    </div>
+    <div class="tfoot"><span id="tableCount"></span><button class="btn" id="more" type="button">더 보기</button></div>
+  </section>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.js"></script>
+<script>
+(function () {
+  const METRICS = ['조회수', '좋아요', '댓글', '공유', '저장'];
+  const MODES = [['total', '누적 성과'], ['inc', '주간 증가']];
+  const UNITS = [['day', '일'], ['month', '월'], ['year', '년']];
+  const STORE = 'jj-sns-board-filters-v2';
+  let D = null, charts = {}, shown = 40;
+  const S = { ch: null, types: null, range: '365', from: '', to: '', metric: 0, mode: 'total', unit: 'month', q: '', sort: { key: 'metric', dir: 'desc' } };
+
+  // ───────── 유틸 ─────────
+  const $ = id => document.getElementById(id);
+  const css = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+  const fmt = n => (n == null || isNaN(n)) ? '–' : Math.round(n).toLocaleString('ko-KR');
+  const fmtK = n => {
+    if (n == null || isNaN(n)) return '–';
+    const a = Math.abs(n);
+    if (a >= 1e8) return (n / 1e8).toFixed(a >= 1e9 ? 0 : 1).replace(/\.0$/, '') + '억';
+    if (a >= 1e4) return (n / 1e4).toFixed(a >= 1e5 ? 0 : 1).replace(/\.0$/, '') + '만';
+    return Math.round(n).toLocaleString('ko-KR');
+  };
+  const pct = v => (v == null || isNaN(v)) ? '–' : (v * 100).toFixed(1) + '%';
+  const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  const ymd = d => d.toISOString().slice(0, 10);
+  const addDays = (s, n) => { const d = new Date(s + 'T00:00:00Z'); d.setUTCDate(d.getUTCDate() + n); return ymd(d); };
+  const chColor = name => { const i = D.channels.findIndex(c => c.name === name); return css('--ch' + ((i % 6) + 1)); };
+  const save = () => { try { localStorage.setItem(STORE, JSON.stringify(S)); } catch (e) {} };
+  const load = () => { try { return JSON.parse(localStorage.getItem(STORE) || 'null'); } catch (e) { return null; } };
+
+  // 콘텐츠 한 개의 값: 최신 누적값 / 최근 주간 증가
+  const last = it => { for (let i = it.h.length - 1; i >= 0; i--) if (it.h[i]) return it.h[i]; return null; };
+  const incAt = (it, i, m) => {
+    if (i <= 0 || !it.h[i]) return null;
+    const cur = it.h[i][m]; if (cur == null) return null;
+    const prev = it.h[i - 1];
+    if (!prev) return it.d > D.dates[i - 1] ? cur : null; // 직전 기록 이후 새로 올라온 콘텐츠
+    return prev[m] == null ? null : cur - prev[m];
+  };
+  const lastInc = (it, m) => incAt(it, D.dates.length - 1, m);
+  const engagement = it => { const v = last(it); if (!v || !(it.r > 0)) return null; return ((v[1] || 0) + (v[2] || 0) + (v[3] || 0) + (v[4] || 0)) / it.r; };
+  const completion = it => (it.a > 0 && it.l > 0) ? Math.min(it.a / it.l, 1.5) : null;
+
+  // ───────── 필터 ─────────
+  function dateBounds() {
+    const today = D.updated || ymd(new Date());
+    const y = today.slice(0, 4);
+    switch (S.range) {
+      case 'all': return ['', ''];
+      case 'thisYear': return [y + '-01-01', ''];
+      case 'lastYear': return [(+y - 1) + '-01-01', (+y - 1) + '-12-31'];
+      case 'custom': return [S.from, S.to];
+      default: return [addDays(today, -Number(S.range)), ''];
+    }
+  }
+  function filtered() {
+    const [f, t] = dateBounds();
+    const q = S.q.trim().toLowerCase();
+    return D.items.filter(it =>
+      S.ch.includes(it.c) &&
+      (!S.types || S.types.includes(it.t)) &&
+      (!f || it.d >= f) && (!t || it.d <= t) &&
+      (!q || it.n.toLowerCase().includes(q)));
+  }
+
+  function buildFilters() {
+    const g = $('chGroup');
+    D.channels.forEach(c => {
+      const b = document.createElement('button');
+      b.type = 'button'; b.className = 'chip' + (c.bench ? ' bench' : ''); b.dataset.ch = c.name;
+      b.innerHTML = '<span class="dot"></span>' + esc(c.bench ? c.name + ' (타 대학)' : c.name);
+      b.addEventListener('click', () => {
+        const on = S.ch.includes(c.name);
+        if (on && S.ch.length === 1) return; // 최소 1개 유지
+        S.ch = on ? S.ch.filter(x => x !== c.name) : S.ch.concat(c.name);
+        S.types = null; render();
+      });
+      g.appendChild(b);
+    });
+    const seg = (el, opts, key, isNum) => opts.forEach(([v, label]) => {
+      const b = document.createElement('button'); b.type = 'button'; b.textContent = label; b.dataset.v = v;
+      b.addEventListener('click', () => { S[key] = isNum ? Number(v) : v; render(); });
+      $(el).appendChild(b);
+    });
+    seg('metricSeg', METRICS.map((m, i) => [i, m]), 'metric', true);
+    seg('modeSeg', MODES, 'mode');
+    seg('unitSeg', UNITS, 'unit');
+    $('range').addEventListener('change', e => { S.range = e.target.value; render(); });
+    $('from').addEventListener('change', e => { S.from = e.target.value; render(); });
+    $('to').addEventListener('change', e => { S.to = e.target.value; render(); });
+    let t; $('q').addEventListener('input', e => { clearTimeout(t); t = setTimeout(() => { S.q = e.target.value; shown = 40; render(); }, 200); });
+    $('reset').addEventListener('click', () => { Object.assign(S, defaults()); $('q').value = ''; render(); });
+    $('more').addEventListener('click', () => { shown += 60; renderTable(filtered()); });
+    $('acctMetric').addEventListener('change', () => renderAcct());
+  }
+  function defaults() {
+    return { ch: D.channels.filter(c => !c.bench).map(c => c.name), types: null, range: '365', from: '', to: '', metric: 0, mode: 'total', unit: 'month', q: '', sort: { key: 'metric', dir: 'desc' } };
+  }
+
+  function syncControls() {
+    document.querySelectorAll('#chGroup .chip').forEach(b => {
+      b.setAttribute('aria-pressed', S.ch.includes(b.dataset.ch));
+      b.querySelector('.dot').style.background = chColor(b.dataset.ch);
+    });
+    // 유형 칩: 선택 채널에 있는 유형만
+    const g = $('typeGroup');
+    g.querySelectorAll('.chip').forEach(x => x.remove());
+    const types = [...new Set(D.items.filter(it => S.ch.includes(it.c)).map(it => it.t))].sort();
+    const all = document.createElement('button');
+    all.type = 'button'; all.className = 'chip'; all.textContent = '전체';
+    all.setAttribute('aria-pressed', !S.types);
+    all.addEventListener('click', () => { S.types = null; render(); });
+    g.appendChild(all);
+    types.forEach(t => {
+      const b = document.createElement('button'); b.type = 'button'; b.className = 'chip'; b.textContent = t;
+      b.setAttribute('aria-pressed', !!(S.types && S.types.includes(t)));
+      b.addEventListener('click', () => {
+        let cur = S.types ? S.types.slice() : [];
+        cur = cur.includes(t) ? cur.filter(x => x !== t) : cur.concat(t);
+        S.types = cur.length ? cur : null; render();
+      });
+      g.appendChild(b);
+    });
+    document.querySelectorAll('#metricSeg button').forEach(b => b.setAttribute('aria-pressed', Number(b.dataset.v) === S.metric));
+    document.querySelectorAll('#modeSeg button').forEach(b => b.setAttribute('aria-pressed', b.dataset.v === S.mode));
+    document.querySelectorAll('#unitSeg button').forEach(b => b.setAttribute('aria-pressed', b.dataset.v === S.unit));
+    $('range').value = S.range;
+    $('from').hidden = $('to').hidden = S.range !== 'custom';
+    $('from').value = S.from; $('to').value = S.to;
+    if ($('q').value !== S.q) $('q').value = S.q;
+  }
+
+  // ───────── 차트 공통 ─────────
+  function baseOpts(extra) {
+    const fg = css('--muted'), grid = css('--line');
+    Chart.defaults.font.family = css('--font');
+    Chart.defaults.color = fg;
+    return Object.assign({
+      responsive: true, maintainAspectRatio: false, animation: { duration: 250 },
+      interaction: { mode: 'index', intersect: false },
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          backgroundColor: css('--surface'), titleColor: css('--fg'), bodyColor: css('--fg'),
+          borderColor: css('--line'), borderWidth: 1, padding: 10, boxPadding: 4, usePointStyle: true,
+        },
+      },
+      scales: {
+        x: { grid: { display: false }, border: { color: css('--axis') }, ticks: { color: fg, maxRotation: 0, autoSkip: true, autoSkipPadding: 12 } },
+        y: { beginAtZero: true, grid: { color: grid }, border: { display: false }, ticks: { color: fg, callback: v => fmtK(v) } },
+      },
+    }, extra || {});
+  }
+  function draw(id, cfg) {
+    if (charts[id]) charts[id].destroy();
+    charts[id] = new Chart($(id), cfg);
+  }
+  function show(chartId, emptyId, ok, msg) {
+    $(chartId).parentElement.hidden = !ok;
+    $(emptyId).hidden = ok;
+    if (!ok && msg) $(emptyId).textContent = msg;
+    if (!ok && charts[chartId]) { charts[chartId].destroy(); delete charts[chartId]; }
+  }
+
+  // ───────── 요약 ─────────
+  function renderTiles(list) {
+    const m = S.metric, mName = METRICS[m];
+    const total = list.reduce((a, it) => a + ((last(it) || [])[m] || 0), 0);
+    const has = list.filter(it => last(it) && last(it)[m] != null);
+    const nInc = D.dates.length > 1;
+    const inc = nInc ? list.reduce((a, it) => a + (lastInc(it, m) || 0), 0) : null;
+    const newCnt = nInc ? list.filter(it => !it.h[D.dates.length - 2] && it.h[D.dates.length - 1]).length : 0;
+    const prevDate = nInc ? D.dates[D.dates.length - 2] : '';
+    const tiles = [
+      ['콘텐츠 수', fmt(list.length) + '개', S.ch.length + '개 채널 선택'],
+      [mName + ' 합계 (누적)', fmtK(total), '최신 기록일 기준'],
+      ['최근 주간 ' + mName + ' 증가', nInc ? (inc >= 0 ? '+' : '') + fmtK(inc) : '대기 중',
+        nInc ? prevDate.slice(5) + ' → ' + D.updated.slice(5) + (newCnt ? ' · 신규 ' + newCnt + '개' : '') : '두 번째 기록부터 계산돼요'],
+      ['콘텐츠당 평균 ' + mName, fmtK(has.length ? total / has.length : null), has.length ? '값이 있는 ' + fmt(has.length) + '개 기준' : '해당 지표 없음'],
+    ];
+    $('tiles').innerHTML = tiles.map(([a, b, c]) => '<div class="tile"><small>' + esc(a) + '</small><b>' + esc(b) + '</b><em>' + esc(c) + '</em></div>').join('');
+  }
+
+  // ───────── 추이 ─────────
+  const bucketOf = (d, unit) => unit === 'year' ? d.slice(0, 4) : unit === 'month' ? d.slice(0, 7) : d.slice(0, 10);
+  function bucketRange(lo, hi, unit) {
+    const out = [];
+    if (unit === 'year') { for (let y = +lo.slice(0, 4); y <= +hi.slice(0, 4); y++) out.push(String(y)); return out; }
+    if (unit === 'month') {
+      let y = +lo.slice(0, 4), m = +lo.slice(5, 7);
+      const ey = +hi.slice(0, 4), em = +hi.slice(5, 7);
+      while (y < ey || (y === ey && m <= em)) { out.push(y + '-' + String(m).padStart(2, '0')); if (++m > 12) { m = 1; y++; } }
+      return out;
+    }
+    let d = lo.slice(0, 10);
+    while (d <= hi && out.length < 2000) { out.push(d); d = addDays(d, 1); }
+    return out;
+  }
+  const bucketLabel = (b, unit) => unit === 'year' ? b + '년' : unit === 'month' ? b.slice(2, 4) + '.' + b.slice(5) : b.slice(5).replace('-', '.');
+
+  function renderTrend(list) {
+    const m = S.metric, mName = METRICS[m];
+    let unit = S.unit, note = '';
+    const series = {}; // ch -> bucket -> value
+    const counts = {};
+    let buckets = [];
+
+    if (S.mode === 'total') {
+      $('trendTitle').textContent = '게시일별 ' + mName + ' (누적)';
+      $('trendSub').textContent = '콘텐츠가 올라온 날짜로 묶은 현재까지의 ' + mName;
+      const ds = list.map(it => it.d).filter(Boolean).sort();
+      if (!ds.length) { show('trendChart', 'trendEmpty', false, '조건에 맞는 콘텐츠가 없어요.'); $('trendLegend').innerHTML = ''; $('trendNote').textContent = ''; return; }
+      if (unit === 'day' && bucketRange(ds[0], ds[ds.length - 1], 'day').length > 400) {
+        unit = 'month'; note = '일 단위는 400일 이하 기간에서 보여요. 게시일 범위를 줄이면 일별로 바뀝니다.';
+      }
+      buckets = bucketRange(ds[0], ds[ds.length - 1], unit);
+      list.forEach(it => {
+        const v = (last(it) || [])[m]; if (v == null) return;
+        const b = bucketOf(it.d, unit);
+        (series[it.c] = series[it.c] || {})[b] = (series[it.c][b] || 0) + v;
+        counts[b] = (counts[b] || 0) + 1;
+      });
+    } else {
+      $('trendTitle').textContent = '기록 주차별 ' + mName + ' 증가';
+      $('trendSub').textContent = '매주 월요일 기록 사이에 늘어난 ' + mName + ' (선택한 콘텐츠 합계)';
+      if (D.dates.length < 2) {
+        show('trendChart', 'trendEmpty', false, '주간 증가는 두 번째 기록(' + nextMonday(D.updated) + ')부터 쌓여요. 지금은 「누적 성과」로 볼 수 있습니다.');
+        $('trendLegend').innerHTML = ''; $('trendNote').textContent = ''; return;
+      }
+      if (unit === 'day') note = '스냅샷은 매주 한 번 기록돼서, 「일」 단위는 기록일마다 한 칸으로 보여요.';
+      const recBuckets = [];
+      for (let i = 1; i < D.dates.length; i++) {
+        const b = unit === 'day' ? D.dates[i] : bucketOf(D.dates[i], unit);
+        if (!recBuckets.includes(b)) recBuckets.push(b);
+        list.forEach(it => {
+          const v = incAt(it, i, m); if (v == null) return;
+          (series[it.c] = series[it.c] || {})[b] = (series[it.c][b] || 0) + v;
+          counts[b] = (counts[b] || 0) + 1;
+        });
+      }
+      buckets = recBuckets;
+    }
+
+    const chs = D.channels.map(c => c.name).filter(c => series[c]);
+    if (!chs.length) { show('trendChart', 'trendEmpty', false, mName + ' 값이 있는 콘텐츠가 없어요. 다른 지표를 골라 보세요.'); $('trendLegend').innerHTML = ''; $('trendNote').textContent = note; return; }
+    show('trendChart', 'trendEmpty', true);
+    const surface = css('--surface');
+    draw('trendChart', {
+      type: 'bar',
+      data: {
+        labels: buckets.map(b => bucketLabel(b, unit)),
+        datasets: chs.map(c => ({
+          label: c, data: buckets.map(b => series[c][b] || 0), backgroundColor: chColor(c),
+          borderColor: surface, borderWidth: { top: 0, bottom: 0, left: 0, right: 0 }, borderRadius: 3, borderSkipped: 'bottom',
+          maxBarThickness: 46, stack: 's',
+        })),
+      },
+      options: baseOpts({
+        plugins: Object.assign(baseOpts().plugins, {
+          tooltip: Object.assign(baseOpts().plugins.tooltip, {
+            filter: c => c.raw !== 0,
+            callbacks: {
+              title: items => { const b = buckets[items[0].dataIndex]; return (unit === 'year' ? b + '년' : b) + ' · 콘텐츠 ' + fmt(counts[b] || 0) + '개'; },
+              label: c => ' ' + c.dataset.label + '  ' + fmt(c.raw),
+              footer: items => '합계  ' + fmt(items.reduce((a, c) => a + c.raw, 0)),
+            },
+          }),
+        }),
+        scales: Object.assign(baseOpts().scales, { x: Object.assign(baseOpts().scales.x, { stacked: true }), y: Object.assign(baseOpts().scales.y, { stacked: true }) }),
+      }),
+    });
+    $('trendLegend').innerHTML = chs.map(c => '<span><i style="background:' + chColor(c) + '"></i>' + esc(c) + '</span>').join('');
+    $('trendNote').textContent = note;
+  }
+  function nextMonday(s) { let d = s; for (let i = 1; i <= 7; i++) { d = addDays(s, i); if (new Date(d + 'T00:00:00Z').getUTCDay() === 1) return d.slice(5).replace('-', '/') + ' 월'; } return '다음 주'; }
+
+  // ───────── 유형별 평균 ─────────
+  function renderType(list) {
+    const m = S.metric, mName = METRICS[m];
+    $('typeTitle').textContent = '유형별 콘텐츠당 평균 ' + mName;
+    const g = {};
+    list.forEach(it => {
+      const v = (last(it) || [])[m]; if (v == null) return;
+      const k = it.c + ' · ' + it.t;
+      const s = g[k] = g[k] || { c: it.c, sum: 0, n: 0 };
+      s.sum += v; s.n++;
+    });
+    const rows = Object.entries(g).map(([k, s]) => ({ k, c: s.c, v: s.sum / s.n, n: s.n })).sort((a, b) => b.v - a.v).slice(0, 12);
+    if (!rows.length) { show('typeChart', 'typeEmpty', false, mName + ' 값이 있는 콘텐츠가 없어요.'); return; }
+    show('typeChart', 'typeEmpty', true);
+    $('typeChart').parentElement.style.height = Math.max(200, rows.length * 30 + 40) + 'px';
+    draw('typeChart', {
+      type: 'bar',
+      data: { labels: rows.map(r => r.k), datasets: [{ data: rows.map(r => r.v), backgroundColor: rows.map(r => chColor(r.c)), borderRadius: 4, borderSkipped: 'start', maxBarThickness: 18 }] },
+      options: baseOpts({
+        indexAxis: 'y', interaction: { mode: 'nearest', intersect: true, axis: 'y' },
+        plugins: Object.assign(baseOpts().plugins, {
+          tooltip: Object.assign(baseOpts().plugins.tooltip, { callbacks: { label: c => ' 평균 ' + fmt(c.raw) + ' · 콘텐츠 ' + rows[c.dataIndex].n + '개' } }),
+        }),
+        scales: {
+          x: { beginAtZero: true, grid: { color: css('--line') }, border: { display: false }, ticks: { color: css('--muted'), callback: v => fmtK(v) } },
+          y: { grid: { display: false }, border: { color: css('--axis') }, ticks: { color: css('--fg'), autoSkip: false } },
+        },
+      }),
+    });
+  }
+
+  // ───────── 반응 품질 ─────────
+  function renderQuality(list) {
+    const rows = [];
+    const avgBy = (ch, fn, label) => {
+      const g = {};
+      list.filter(it => it.c === ch).forEach(it => { const v = fn(it); if (v == null) return; (g[it.t] = g[it.t] || []).push(v); });
+      Object.entries(g).forEach(([t, arr]) => rows.push({ k: ch + ' · ' + t, c: ch, v: arr.reduce((a, b) => a + b, 0) / arr.length, n: arr.length, label }));
+    };
+    if (S.ch.includes('인스타그램')) avgBy('인스타그램', engagement, '참여율');
+    if (S.ch.includes('유튜브')) avgBy('유튜브', completion, '시청 완료율');
+    if (!rows.length) { show('qualChart', 'qualEmpty', false); return; }
+    show('qualChart', 'qualEmpty', true);
+    rows.sort((a, b) => (a.c === b.c ? b.v - a.v : a.c.localeCompare(b.c)));
+    $('qualChart').parentElement.style.height = Math.max(200, rows.length * 30 + 40) + 'px';
+    draw('qualChart', {
+      type: 'bar',
+      data: { labels: rows.map(r => r.k), datasets: [{ data: rows.map(r => r.v), backgroundColor: rows.map(r => chColor(r.c)), borderRadius: 4, borderSkipped: 'start', maxBarThickness: 18 }] },
+      options: baseOpts({
+        indexAxis: 'y', interaction: { mode: 'nearest', intersect: true, axis: 'y' },
+        plugins: Object.assign(baseOpts().plugins, {
+          tooltip: Object.assign(baseOpts().plugins.tooltip, { callbacks: { label: c => ' 평균 ' + rows[c.dataIndex].label + ' ' + pct(c.raw) + ' · 콘텐츠 ' + rows[c.dataIndex].n + '개' } }),
+        }),
+        scales: {
+          x: { beginAtZero: true, grid: { color: css('--line') }, border: { display: false }, ticks: { color: css('--muted'), callback: v => Math.round(v * 100) + '%' } },
+          y: { grid: { display: false }, border: { color: css('--axis') }, ticks: { color: css('--fg'), autoSkip: false } },
+        },
+      }),
+    });
+  }
+
+  // ───────── 계정 지표 ─────────
+  const ACCT_LABEL = {
+    'Profile followers': '인스타 팔로워', 'New followers': '인스타 신규 팔로워', 'Profile views': '인스타 콘텐츠 조회', 'Profile reach': '인스타 계정 리치',
+    'Channel total subscribers': '유튜브 총 구독자', 'Gained subscribers': '유튜브 구독 +', 'Lost subscribers': '유튜브 구독 −',
+    'Video views': '유튜브 주간 조회', 'Estimated minutes watched': '유튜브 시청 시간(분)', 'Average view duration percentage': '유튜브 평균 시청 비율(%)',
+  };
+  function acctSeries() {
+    const keys = [];
+    D.acct.forEach(r => Object.keys(r.m).forEach(k => { if (!keys.includes(k)) keys.push(k); }));
+    return keys;
+  }
+  function renderAcct() {
+    if (!D.acct.length) { $('acctTiles').innerHTML = ''; show('acctChart', 'acctEmpty', false, '계정 지표가 아직 없어요.'); return; }
+    const dates = [...new Set(D.acct.map(r => r.d))].sort();
+    const lastD = dates[dates.length - 1], prevD = dates[dates.length - 2];
+    $('acctSub').textContent = '최근 기록 ' + lastD + (prevD ? ' · 직전 ' + prevD + ' 대비' : '');
+    const val = (d, k) => { const r = D.acct.find(x => x.d === d && k in x.m); return r ? r.m[k] : null; };
+    const keys = acctSeries();
+    $('acctTiles').innerHTML = keys.map(k => {
+      const v = val(lastD, k), p = prevD ? val(prevD, k) : null;
+      let delta = '<em class="flat">비교 대기</em>';
+      if (p != null && v != null) {
+        const d = v - p; const cls = d > 0 ? 'up' : d < 0 ? 'down' : 'flat';
+        delta = '<em class="' + cls + '">' + (d > 0 ? '▲ ' : d < 0 ? '▼ ' : '– ') + fmt(Math.abs(d)) + '</em>';
+      }
+      return '<div><small>' + esc(ACCT_LABEL[k] || k) + '</small><b>' + (v == null ? '–' : fmt(v)) + '</b>' + delta + '</div>';
+    }).join('');
+    const sel = $('acctMetric');
+    if (!sel.options.length) keys.forEach(k => { const o = document.createElement('option'); o.value = k; o.textContent = ACCT_LABEL[k] || k; sel.appendChild(o); });
+    const k = sel.value || keys[0];
+    if (dates.length < 2) { show('acctChart', 'acctEmpty', false, '추이는 두 번째 기록부터 선으로 그려져요.'); return; }
+    show('acctChart', 'acctEmpty', true);
+    const line = css('--accent');
+    draw('acctChart', {
+      type: 'line',
+      data: { labels: dates.map(d => d.slice(5).replace('-', '.')), datasets: [{ label: ACCT_LABEL[k] || k, data: dates.map(d => val(d, k)), borderColor: line, backgroundColor: line, borderWidth: 2, pointRadius: 4, pointHoverRadius: 6, tension: 0.25, spanGaps: true }] },
+      options: baseOpts({ scales: Object.assign(baseOpts().scales, { y: Object.assign(baseOpts().scales.y, { beginAtZero: false }) }) }),
+    });
+  }
+
+  // ───────── 타 대학 비교 ─────────
+  function renderBench() {
+    const m = S.metric, mName = METRICS[m];
+    const [f, t] = dateBounds();
+    const benchM = m === 0 ? 0 : m; // 조회수 = 릴스 조회
+    $('benchTitle').textContent = '타 대학 비교 · 게시물당 평균 ' + (m === 0 ? '조회수(릴스)' : mName);
+    if (m >= 3) { show('benchChart', 'benchEmpty', false, '퍼블릭 데이터에는 공유·저장 값이 없어요. 조회수·좋아요·댓글 중에서 골라 주세요.'); return; }
+    const accounts = D.channels.filter(c => c.bench || c.name === 'hong._.video' || c.name === '인스타그램').map(c => c.name);
+    const rows = accounts.map(c => {
+      const its = D.items.filter(it => it.c === c && (!f || it.d >= f) && (!t || it.d <= t) && it.d >= addDays(D.updated, -180));
+      const vals = its.map(it => (last(it) || [])[benchM]).filter(v => v != null && (benchM !== 0 || v > 0));
+      return { c, n: its.length, v: vals.length ? vals.reduce((a, b) => a + b, 0) / vals.length : 0 };
+    }).filter(r => r.n);
+    if (!rows.length) { show('benchChart', 'benchEmpty', false, '선택한 기간(최근 180일 이내)에 비교할 게시물이 없어요.'); return; }
+    show('benchChart', 'benchEmpty', true);
+    rows.sort((a, b) => b.v - a.v);
+    draw('benchChart', {
+      type: 'bar',
+      data: { labels: rows.map(r => r.c + (r.c === 'hong._.video' || r.c === '인스타그램' ? ' (우리)' : '')), datasets: [{ data: rows.map(r => r.v), backgroundColor: rows.map(r => chColor(r.c)), borderRadius: 4, borderSkipped: 'bottom', maxBarThickness: 46 }] },
+      options: baseOpts({
+        interaction: { mode: 'nearest', intersect: true },
+        plugins: Object.assign(baseOpts().plugins, {
+          tooltip: Object.assign(baseOpts().plugins.tooltip, { callbacks: { label: c => ' 평균 ' + fmt(c.raw) + ' · 게시물 ' + rows[c.dataIndex].n + '개 (최근 180일)' } }),
+        }),
+      }),
+    });
+  }
+
+  // ───────── 표 ─────────
+  const COLS = [
+    { key: 'd', label: '게시일' }, { key: 'c', label: '채널' }, { key: 't', label: '유형' }, { key: 'n', label: '제목·캡션' },
+    { key: 'm0', label: '조회수', n: 1 }, { key: 'm1', label: '좋아요', n: 1 }, { key: 'm2', label: '댓글', n: 1 },
+    { key: 'm3', label: '공유', n: 1 }, { key: 'm4', label: '저장', n: 1 },
+    { key: 'inc', label: '주간 증가', n: 1 }, { key: 'q', label: '참여율·완료율', n: 1 },
+  ];
+  function sortVal(it, key) {
+    if (key === 'metric') key = 'm' + S.metric;
+    if (key[0] === 'm' && key.length === 2) { const v = last(it); return v ? v[+key[1]] : null; }
+    if (key === 'inc') return lastInc(it, S.metric);
+    if (key === 'q') return it.c === '유튜브' ? completion(it) : engagement(it);
+    return it[key];
+  }
+  function renderTable(list) {
+    const key = S.sort.key === 'metric' ? 'm' + S.metric : S.sort.key;
+    $('thead').innerHTML = COLS.map(c => '<th class="' + (c.n ? 'n' : '') + '"><button type="button" data-k="' + c.key + '"' + (c.key === key ? ' data-dir="' + S.sort.dir + '"' : '') + '>' +
+      esc(c.key === 'inc' ? '주간 ' + METRICS[S.metric] + ' 증가' : c.label) + '</button></th>').join('');
+    $('thead').querySelectorAll('button').forEach(b => b.addEventListener('click', () => {
+      const k = b.dataset.k;
+      S.sort = { key: k, dir: (key === k && S.sort.dir === 'desc') ? 'asc' : 'desc' };
+      save(); renderTable(filtered());
+    }));
+    const dir = S.sort.dir === 'asc' ? 1 : -1;
+    const sorted = list.slice().sort((a, b) => {
+      const x = sortVal(a, key), y = sortVal(b, key);
+      if (x == null && y == null) return 0; if (x == null) return 1; if (y == null) return -1;
+      return (x > y ? 1 : x < y ? -1 : 0) * dir;
+    });
+    const rows = sorted.slice(0, shown).map(it => {
+      const v = last(it) || [];
+      const inc = lastInc(it, S.metric);
+      const q = it.c === '유튜브' ? completion(it) : engagement(it);
+      const title = it.u ? '<a href="' + esc(it.u) + '" target="_blank" rel="noopener">' + esc(it.n || '(제목 없음)') + '</a>' : esc(it.n || '(캡션 없음)');
+      return '<tr><td class="n">' + esc(it.d) + '</td><td><span class="tag"><i style="background:' + chColor(it.c) + '"></i>' + esc(it.c) + '</span></td><td>' + esc(it.t) +
+        '</td><td class="title">' + title + '</td>' + [0, 1, 2, 3, 4].map(i => '<td class="n">' + (v[i] == null ? '–' : fmt(v[i])) + '</td>').join('') +
+        '<td class="n">' + (inc == null ? '–' : (inc > 0 ? '+' : '') + fmt(inc)) + '</td><td class="n">' + pct(q) + '</td></tr>';
+    }).join('');
+    $('tbody').innerHTML = rows || '<tr><td colspan="11" class="empty">조건에 맞는 콘텐츠가 없어요.</td></tr>';
+    $('tableCount').textContent = fmt(Math.min(shown, sorted.length)) + ' / ' + fmt(sorted.length) + '개 표시';
+    $('more').hidden = shown >= sorted.length;
+    $('tableSub').textContent = '열 제목을 누르면 정렬돼요 · 유튜브 제목은 영상으로 연결';
+  }
+
+  // ───────── 전체 렌더 ─────────
+  function render() {
+    syncControls(); save();
+    const list = filtered();
+    renderTiles(list); renderTrend(list); renderType(list); renderQuality(list); renderAcct(); renderBench(); renderTable(list);
+  }
+
+  function boot(data) {
+    D = data;
+    $('stamp').textContent = '데이터 기준 ' + D.updated;
+    $('stampNote').textContent = '기록 ' + D.dates.length + '회 · 매주 월요일 07시 기록';
+    Object.assign(S, defaults());
+    const saved = load();
+    if (saved) {
+      Object.assign(S, saved);
+      S.ch = (saved.ch || []).filter(c => D.channels.some(x => x.name === c));
+      if (!S.ch.length) S.ch = defaults().ch;
+    }
+    buildFilters(); render();
+    const rerender = () => { Object.keys(charts).forEach(k => { charts[k].destroy(); delete charts[k]; }); render(); };
+    try { matchMedia('(prefers-color-scheme: dark)').addEventListener('change', rerender); } catch (e) {}
+    new MutationObserver(rerender).observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
+  }
+
+  // 데이터: Apps Script 웹 앱(JSONP) — 항상 시트의 최신 기록을 읽음
+  const API_URL = 'https://script.google.com/macros/s/AKfycbyGL0h1nmGMIMiG0KsZksAyOUaxcdwKiXLysmB2ExGLEhVX3eUiwmRbv7uTPhsWf6Q6/exec';
+  const fail = () => { $('stamp').textContent = '데이터를 불러오지 못했어요'; $('stampNote').textContent = '잠시 후 새로고침해 주세요.'; };
+  window.__sbData = d => { try { boot(d); } catch (e) { console.error(e); fail(); } };
+  const sc = document.createElement('script');
+  sc.src = API_URL + '?callback=__sbData&t=' + Date.now();
+  sc.onerror = fail;
+  document.body.appendChild(sc);
+})();
+</script>
+
+</body>
+</html>
