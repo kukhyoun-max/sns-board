@@ -389,14 +389,13 @@ td.tt2 { max-width: 420px; }
 .pbar { height: 8px; width: 110px; background: var(--plane); border-radius: 4px; overflow: hidden; display: inline-block; vertical-align: middle; margin-right: 6px; }
 .pbar i { display: block; height: 100%; background: var(--jj); }
 @media (max-width: 420px) { .bnav button { font-size: 11px; } .bnav button svg { width: 23px; height: 23px; } }
+.cs-ser { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; margin-top: 10px; }
+.tg2.ser { display: inline-flex; align-items: center; gap: 6px; }
+.tg2.ser i { width: 10px; height: 10px; border-radius: 50%; background: var(--c); flex: none; }
+.tg2.ser[aria-pressed="true"] { background: var(--plane); border-color: var(--c); color: var(--fg); }
+.tg2.ser[aria-pressed="false"] i { background: transparent; box-shadow: inset 0 0 0 2px var(--c); opacity: .6; }
+.tg2.ser[aria-pressed="false"] { color: var(--muted); }
 sup.pt{font-size:10px;color:var(--muted,#8b95a1);margin-left:3px;font-weight:600}
-.chips.cs-c{align-items:center;margin-bottom:8px}
-.chips.cs-c .hint{font-size:12px;color:var(--muted);margin-right:2px}
-.chips.cs-c .chip{display:inline-flex;align-items:center;gap:6px}
-.chips.cs-c .chip[aria-pressed="false"]{opacity:.55}
-.cdot{width:8px;height:8px;border-radius:50%;display:inline-block;flex:none}
-.chips.cs-c{flex-wrap:wrap;overflow:visible}
-.chips.cs-c .hint{white-space:nowrap}
 </style>
 
 <div class="app" id="app">
@@ -730,12 +729,23 @@ sup.pt{font-size:10px;color:var(--muted,#8b95a1);margin-left:3px;font-weight:600
   }
 
   // ═════════ 채널 현황 차트 (토스형) ═════════
-  const CS = { metric: 'views', period: '1y', unit: 'auto', type: 'line', split: false, mode: 'post', sel: null, only: null };
+  const CS = { metric: 'views', period: '1y', unit: 'auto', type: 'line', split: false, mode: 'post', sel: null, series: ['sum', '인스타그램', '유튜브', 'hong._.video', 'bench'] };
+  // 전체 탭 그래프 계열: 합계(우리 채널) · 채널별 · 타 대학 묶음
+  const serDefs = () => [
+    { id: 'sum', label: '합계', chs: OWN, color: css('--fg') },
+    { id: '인스타그램', label: '인스타그램', chs: ['인스타그램'], color: css('--ch-ig') },
+    { id: '유튜브', label: '유튜브', chs: ['유튜브'], color: css('--ch-yt') },
+    { id: 'hong._.video', label: '홍비디오', chs: ['hong._.video'], color: css('--ch-hong') },
+    { id: 'bench', label: '타 대학', chs: benchNames(), color: css('--ch-b1') },
+  ];
+  const multiMode = () => S.ch === '전체' && !benchMode();
+  const selSer = () => { const s = serDefs().filter(d => CS.series.includes(d.id)); return s.length ? s : serDefs().slice(0, 1); };
+  const uniq = a => [...new Set(a)];
   const PERIODS = [['1m', '1달', 30], ['3m', '3달', 91], ['6m', '6달', 182], ['1y', '1년', 365], ['3y', '3년', 1095], ['all', '전체', null]];
   const AUTO_UNIT = { '1m': 'day', '3m': 'week', '6m': 'week', '1y': 'week', '3y': 'month', all: 'month' };
   const UNITS = [['day', '일'], ['week', '주'], ['month', '월']];
   const benchMode = () => S.ch === '타 대학';
-  const chartScope = () => { if (benchMode()) return ['인스타그램'].concat(benchNames()); const v = viewChannels(); if (S.ch !== '전체' || !CS.only) return v; const o = v.filter(c => CS.only.includes(c)); return o.length ? o : v; };
+  const chartScope = () => benchMode() ? ['인스타그램'].concat(benchNames()) : viewChannels();
   function metricDefs() {
     const chs = chartScope(), b = benchMode();
     const L = [];
@@ -750,7 +760,7 @@ sup.pt{font-size:10px;color:var(--muted,#8b95a1);margin-left:3px;font-weight:600
     const b = benchMode(), t = def[2];
     if (t === 'sum') return sum(arr.map(it => val(it, def[3])));
     if (t === 'count') return arr.length;
-    if (t === 'med') return median(arr.map(it => b ? val(it, 1) : mainVal(it)));
+    if (t === 'med') return median(arr.map(it => b ? val(it, 1) : val(it, 0)));
     const rs = arr.map(b ? likeRatio : ratio).filter(x => x != null);
     if (t === 'ratio') return median(rs);
     return rs.length ? rs.filter(x => x >= HIT).length / rs.length : null;
@@ -767,17 +777,21 @@ sup.pt{font-size:10px;color:var(--muted,#8b95a1);margin-left:3px;font-weight:600
     const defs = metricDefs();
     if (!defs.find(d => d[0] === CS.metric)) CS.metric = defs[0][0];
     const def = defs.find(d => d[0] === CS.metric);
-    const chs = chartScope();
+    const multi = multiMode(), SD = multi ? selSer() : null;
+    const chs = multi ? uniq(SD.flatMap(s => s.chs)) : chartScope();
+    const hasSum = multi && SD.some(s => s.id === 'sum');
+    const bigChs = multi ? (hasSum ? OWN : chs) : chs;
     const growth = CS.mode === 'growth' && weekly() && def[2] === 'sum';
-    const split = benchMode() || (S.ch === '전체' && CS.split);
+    const split = benchMode() || (multi && SD.length > 1);
+    const tag = s => ({ ch: null, id: s.id, label: s.label, color: s.color });
     if (growth) {
       const idx = D.dates.map((d, i) => i).slice(1);
       const bk = idx.map(i => ({ k: D.dates[i], from: D.dates[i - 1], to: D.dates[i], label: mdLabel(D.dates[i]), i }));
       const its = D.items.filter(it => chs.includes(it.c) && (S.ads || !it.ad));
       const ser = (cs) => bk.map(b => sum(its.filter(it => cs.includes(it.c)).map(it => Math.max(0, incAt(it, b.i, def[3]) || 0))));
-      const series = split ? chs.map(c => ({ ch: c, data: ser([c]) })) : [{ ch: null, data: ser(chs) }];
-      const tot = sum(series.flatMap(s => s.data));
-      return { def, defs, chs, growth, split, bk, series, big: tot, prev: null, from: D.dates[0], to: D.updated, items: [] };
+      const series = multi ? SD.map(s => Object.assign(tag(s), { data: ser(s.chs) })) : split ? chs.map(c => ({ ch: c, data: ser([c]) })) : [{ ch: null, data: ser(chs) }];
+      const tot = multi ? sum(ser(bigChs)) : sum(series.flatMap(s => s.data));
+      return { def, defs, chs, growth, split, hasSum, bk, series, big: tot, prev: null, from: D.dates[0], to: D.updated, items: [] };
     }
     const per = PERIODS.find(p => p[0] === CS.period) || PERIODS[3];
     const to = D.updated;
@@ -789,36 +803,38 @@ sup.pt{font-size:10px;color:var(--muted,#8b95a1);margin-left:3px;font-weight:600
     const pos = {}; bk.forEach((b, i) => { pos[b.k] = i; });
     const keyOf = it => unit === 'day' ? it.d : unit === 'week' ? isoWeek(it.d) : it.d.slice(0, 7);
     const ser = cs => { const arrs = bk.map(() => []); items.forEach(it => { if (!cs.includes(it.c)) return; const i = pos[keyOf(it)]; if (i != null) arrs[i].push(it); }); return arrs; };
-    const series = split ? chs.map(c => { const a = ser([c]); return { ch: c, arrs: a, data: a.map(x => x.length || ['sum', 'count'].includes(def[2]) ? mval(def, x) : null) }; })
-      : [(() => { const a = ser(chs); return { ch: null, arrs: a, data: a.map(x => x.length || ['sum', 'count'].includes(def[2]) ? mval(def, x) : null) }; })()];
-    const big = split && benchMode() ? mval(def, items.filter(it => it.c === '인스타그램')) : mval(def, items);
+    const fill = a => a.map(x => x.length || ['sum', 'count'].includes(def[2]) ? mval(def, x) : null);
+    const series = multi ? SD.map(s => { const a = ser(s.chs); return Object.assign(tag(s), { arrs: a, data: fill(a) }); })
+      : split ? chs.map(c => { const a = ser([c]); return { ch: c, arrs: a, data: fill(a) }; })
+      : [(() => { const a = ser(chs); return { ch: null, arrs: a, data: fill(a) }; })()];
+    const big = split && benchMode() ? mval(def, items.filter(it => it.c === '인스타그램')) : mval(def, items.filter(it => bigChs.includes(it.c)));
     let prev = null;
-    if (per[2]) { const pf = addDays(from, -per[2]), pt = addDays(from, -1); const pi = pool({ channels: split && benchMode() ? ['인스타그램'] : chs, since: pf, until: pt }); if (pi.length) prev = mval(def, pi); }
-    return { def, defs, chs, growth, split, bk, series, big, prev, from, to, unit, per, items, keyOf };
+    if (per[2]) { const pf = addDays(from, -per[2]), pt = addDays(from, -1); const pi = pool({ channels: split && benchMode() ? ['인스타그램'] : bigChs, since: pf, until: pt }); if (pi.length) prev = mval(def, pi); }
+    return { def, defs, chs, growth, split, hasSum, bk, series, big, prev, from, to, unit, per, items, keyOf };
   }
   function chartHtml() {
     const M = chartModel(); window.__cm = M;
     const d = M.prev ? (M.big - M.prev) / Math.abs(M.prev) : null;
     const cls = d == null ? 'flat' : d >= 0 ? 'up' : 'down';
-    const subset = S.ch === '전체' && M.chs.length < viewChannels().length;
-    const ttl = (S.ch === '전체' ? (subset ? M.chs.map(chName).join(' + ') : '우리 채널 전체') : S.ch === '타 대학' ? '타 대학 비교' : chName(S.ch)) + ' 현황';
+    const SD = multiMode() ? selSer() : null;
+    const ttl = SD ? (M.hasSum ? '우리 채널 전체 현황' : SD.map(x => x.label).join(' · ') + (SD.length > 1 ? ' 합산' : ' 현황')) : (S.ch === '타 대학' ? '타 대학 비교' : chName(S.ch)) + ' 현황';
+    const benchNote = SD && SD.some(x => x.id === 'bench') && !M.hasSum && ['views', 'per'].includes(M.def[0]) ? ' · 타 대학 조회는 릴스만 공개돼 릴스 기준' : SD && SD.some(x => x.id === 'bench') && ['views', 'per'].includes(M.def[0]) ? ' · 큰 숫자는 우리 채널 합계 · 타 대학 조회는 릴스 기준' : SD && M.hasSum && SD.length > 1 ? ' · 큰 숫자는 우리 채널 합계' : '';
     const pl = (PERIODS.find(p => p[0] === CS.period) || PERIODS[3]);
-    const sub = M.growth ? '매주 기록 사이에 늘어난 ' + M.def[1] + ' · ' + adWord() : (pl[0] === 'all' ? '전체' : '최근 ' + pl[1]) + ' 게시물의 ' + (M.def[2] === 'sum' ? '현재 누적 ' : '') + M.def[1] + ' · ' + adWord() + (benchMode() ? ' · 큰 숫자는 우리 인스타 기준' : '');
+    const sub = M.growth ? '매주 기록 사이에 늘어난 ' + M.def[1] + ' · ' + adWord() : (pl[0] === 'all' ? '전체' : '최근 ' + pl[1]) + ' 게시물의 ' + (M.def[2] === 'sum' ? '현재 누적 ' : '') + M.def[1] + ' · ' + adWord() + (benchMode() ? ' · 큰 숫자는 우리 인스타 기준' : '') + (benchNote || '');
     const canGrowth = weekly() && M.def[2] === 'sum';
     let h = '<section class="sec" id="chartSec"><div class="cs-head"><div><div class="cs-t">' + esc(ttl) + '</div>' +
       '<div class="cs-big num">' + mfmt(M.def, M.big) + '</div>' +
       '<div class="cs-chg num ' + cls + '">' + (d == null ? '<span style="color:var(--muted);font-weight:600">' + (M.growth ? mdLabel(D.dates[0]) + ' 이후 합계' : '비교할 이전 기간 없음') + '</span>' : (d >= 0 ? '▲ ' : '▼ ') + Math.abs(Math.round(d * 1000) / 10) + '% <span style="color:var(--muted);font-weight:600">이전 같은 기간 대비</span>') + '</div>' +
       '<div class="cs-sub">' + esc(sub) + (M.growth ? '' : ' · 점선은 아직 끝나지 않은 구간') + (M.growth ? '' : (n => n ? '<br><span style="color:var(--coral)">⚠ ' + esc(n) + '</span>' : '')(covNote(M.chs, M.from))) + '</div></div>' +
       '<button type="button" class="btn sm" id="csXls">엑셀로 받기</button></div>' +
-      (S.ch === '전체' ? '<div class="chips cs-c"><span class="hint">채널</span>' + viewChannels().map(c => '<button class="chip" type="button" data-cc="' + esc(c) + '" aria-pressed="' + M.chs.includes(c) + '"><i class="cdot" style="background:' + chColor(c) + '"></i>' + esc(chName(c)) + '</button>').join('') + '' + '</div>' : '') +
       '<div class="chips cs-m">' + M.defs.map(df => '<button class="chip" type="button" data-m="' + df[0] + '" aria-pressed="' + (CS.metric === df[0]) + '">' + df[1] + '</button>').join('') + '</div>' +
+      (SD ? '<div class="cs-ser" role="group" aria-label="그래프에 표시할 계열">' + serDefs().map(x => '<button type="button" class="tg2 ser" data-ser="' + esc(x.id) + '" aria-pressed="' + CS.series.includes(x.id) + '" style="--c:' + x.color + '"><i></i>' + esc(x.label) + '</button>').join('') + '<span class="hint">눌러서 켜고 끄기</span></div>' : '') +
       '<div class="cs-chart"><canvas id="csCanvas"></canvas></div>' +
       '<div class="cs-per">' +
         (M.growth ? '<div class="pp"><span class="hint">주간 기록 ' + D.dates.length + '회</span></div>' : '<div class="pp">' + PERIODS.map(p => '<button type="button" data-p="' + p[0] + '" aria-pressed="' + (CS.period === p[0]) + '">' + p[1] + '</button>').join('') + '</div>') +
         '<div class="pp">' +
           (M.growth ? '' : UNITS.map(u => '<button type="button" data-u="' + u[0] + '" aria-pressed="' + (M.unit === u[0]) + '">' + u[1] + '</button>').join('') + '<span class="sep"></span>') +
           '<button type="button" data-ty="line" aria-pressed="' + (CS.type === 'line') + '">선</button><button type="button" data-ty="bar" aria-pressed="' + (CS.type === 'bar') + '">막대</button>' +
-          (S.ch === '전체' ? '<span class="sep"></span><button type="button" data-sp="1" aria-pressed="' + CS.split + '">채널별</button>' : '') +
         '</div></div>' +
       '<div class="cs-mode"><button type="button" class="tg2" data-mo="post" aria-pressed="' + !M.growth + '">게시일 기준</button>' +
         '<button type="button" class="tg2" data-mo="growth" aria-pressed="' + M.growth + '"' + (canGrowth ? '' : ' disabled') + '>주간 증가</button>' +
@@ -831,7 +847,7 @@ sup.pt{font-size:10px;color:var(--muted,#8b95a1);margin-left:3px;font-weight:600
     const i = CS.sel == null ? -1 : M.bk.findIndex(b => b.k === CS.sel);
     if (i < 0) return '<p class="hint" style="margin:10px 2px 0">그래프를 누르면 그 기간에 올린 게시물이 아래에 나와요.</p>';
     const b = M.bk[i];
-    const arr = M.series.flatMap(s => s.arrs[i]).sort((x, y) => (mainVal(y) || 0) - (mainVal(x) || 0));
+    const arr = uniq(M.series.flatMap(s => s.arrs[i])).sort((x, y) => (mainVal(y) || 0) - (mainVal(x) || 0));
     const rng = b.from === b.to ? dot(b.from) : dot(b.from) + ' ~ ' + dot(b.to > M.to ? M.to : b.to);
     return '<div class="cpick"><div><b>' + rng + '</b> · 게시 ' + arr.length + '개 · ' + M.def[1] + ' ' + mfmt(M.def, mval(M.def, arr)) + '</div><button type="button" class="btn" id="csPickX">이 구간 엑셀로</button></div>' +
       '<ol class="rank" id="csList">' + rankRows(arr.slice(0, 5)) + '</ol>' + (arr.length > 5 ? '<p class="note">상위 5개만 보여요 · 전체는 「이 구간 엑셀로」</p>' : '');
@@ -850,29 +866,21 @@ sup.pt{font-size:10px;color:var(--muted,#8b95a1);margin-left:3px;font-weight:600
     }));
     sec.querySelectorAll('[data-u]').forEach(b => b.addEventListener('click', () => { CS.unit = b.dataset.u; CS.sel = null; rerenderChart(); }));
     sec.querySelectorAll('[data-ty]').forEach(b => b.addEventListener('click', () => { CS.type = b.dataset.ty; rerenderChart(); }));
-    sec.querySelectorAll('[data-cc]').forEach(b => b.addEventListener('click', () => {
-      const all = viewChannels(), c = b.dataset.cc;
-      let cur = (CS.only || all).filter(x => all.includes(x));
-      if (c === '*') cur = all.slice();
-      else if (cur.includes(c)) { if (cur.length === 1) { toast('채널은 하나 이상 골라야 해요'); return; } cur = cur.filter(x => x !== c); }
-      else cur = all.filter(x => x === c || cur.includes(x));
-      CS.only = cur.length === all.length ? null : cur; CS.sel = null; rerenderChart();
-    }));
-    sec.querySelectorAll('[data-sp]').forEach(b => b.addEventListener('click', () => { CS.split = !CS.split; rerenderChart(); }));
+    sec.querySelectorAll('[data-ser]').forEach(b => b.addEventListener('click', () => { const id = b.dataset.ser; const n = CS.series.includes(id) ? CS.series.filter(x => x !== id) : CS.series.concat([id]); if (!n.length) { toast('하나 이상은 켜 두어야 해요'); return; } CS.series = serDefs().map(x => x.id).filter(x => n.includes(x)); CS.sel = null; rerenderChart(); }));
     sec.querySelectorAll('[data-mo]').forEach(b => b.addEventListener('click', () => { if (b.disabled) return; CS.mode = b.dataset.mo; CS.sel = null; rerenderChart(); }));
     $('csXls').addEventListener('click', () => toExport(M.from, M.to, M.growth ? 'channel' : M.unit === 'day' ? 'day' : M.unit, M.chs));
     if ($('csPickX')) { const b = M.bk.find(x => x.k === CS.sel); $('csPickX').addEventListener('click', () => toExport(b.from, b.to > M.to ? M.to : b.to, 'content', M.chs)); }
-    if ($('csList')) { const i = M.bk.findIndex(b => b.k === CS.sel); wireRank($('csList'), M.series.flatMap(s => s.arrs[i]).sort((x, y) => (mainVal(y) || 0) - (mainVal(x) || 0)).slice(0, 5)); }
+    if ($('csList')) { const i = M.bk.findIndex(b => b.k === CS.sel); wireRank($('csList'), uniq(M.series.flatMap(s => s.arrs[i])).sort((x, y) => (mainVal(y) || 0) - (mainVal(x) || 0)).slice(0, 5)); }
     // 그리기
     const d = M.prev ? (M.big - M.prev) / Math.abs(M.prev) : 0;
     const main = d >= 0 ? css('--up') : css('--down');
     const labels = M.bk.map(b => b.label);
     const selI = CS.sel == null ? -1 : M.bk.findIndex(b => b.k === CS.sel);
     const ds = M.series.map(s => {
-      const col = s.ch ? chColor(s.ch) : main;
-      const o = { label: s.ch ? chName(s.ch) + (benchMode() && s.ch === '인스타그램' ? '(우리)' : '') : M.def[1], data: s.data, borderColor: col, spanGaps: true };
-      if (CS.type === 'bar') Object.assign(o, { backgroundColor: M.split ? col : s.data.map((v, i) => i === selI ? css('--fg') : col), borderRadius: 3, maxBarThickness: 28, stack: M.split && M.def[2] !== 'ratio' && M.def[2] !== 'hit' && M.def[2] !== 'med' ? 's' : undefined });
-      else Object.assign(o, { segment: { borderDash: c => !M.growth && c.p1DataIndex === labels.length - 1 ? [4, 4] : undefined }, borderWidth: M.split ? 2 : 2.5, tension: 0.3, pointRadius: labels.length <= 14 ? 3 : 0, pointHoverRadius: 5, pointBackgroundColor: col,
+      const col = s.color || (s.ch ? chColor(s.ch) : main);
+      const o = { label: s.label || (s.ch ? chName(s.ch) + (benchMode() && s.ch === '인스타그램' ? '(우리)' : '') : M.def[1]), data: s.data, borderColor: col, spanGaps: true, order: s.id === 'sum' ? 0 : 1 };
+      if (CS.type === 'bar') Object.assign(o, { backgroundColor: M.split ? col : s.data.map((v, i) => i === selI ? css('--fg') : col), borderRadius: 3, maxBarThickness: 28, stack: M.split && !M.hasSum && M.def[2] !== 'ratio' && M.def[2] !== 'hit' && M.def[2] !== 'med' ? 's' : undefined });
+      else Object.assign(o, { segment: { borderDash: c => !M.growth && c.p1DataIndex === labels.length - 1 ? [4, 4] : undefined }, borderWidth: s.id === 'sum' ? 3 : M.split ? 2 : 2.5, tension: 0.3, pointRadius: labels.length <= 14 ? 3 : 0, pointHoverRadius: 5, pointBackgroundColor: col,
         fill: !M.split, backgroundColor: ctx => { const ch = ctx.chart; if (!ch.chartArea) return 'transparent'; const g = ch.ctx.createLinearGradient(0, ch.chartArea.top, 0, ch.chartArea.bottom); g.addColorStop(0, col + '40'); g.addColorStop(1, col + '00'); return g; } });
       return o;
     });
@@ -880,8 +888,8 @@ sup.pt{font-size:10px;color:var(--muted,#8b95a1);margin-left:3px;font-weight:600
     const avg = allV.length ? mean(allV) : null;
     draw('csCanvas', { type: CS.type === 'bar' ? 'bar' : 'line', data: { labels, datasets: ds },
       options: chartOpts({ layout: { padding: { top: 12, right: 4 } }, interaction: { mode: 'index', intersect: false },
-        onClick: (e, els, ch) => { const pts = ch.getElementsAtEventForMode(e, 'index', { intersect: false }, false); if (!pts.length || M.growth) return; const k = M.bk[pts[0].index].k; CS.sel = CS.sel === k ? null : k; $('csPick').innerHTML = pickHtml(M); if ($('csPickX')) { const b = M.bk.find(x => x.k === CS.sel); $('csPickX').addEventListener('click', () => toExport(b.from, b.to > M.to ? M.to : b.to, 'content', M.chs)); } if ($('csList')) wireRank($('csList'), M.series.flatMap(s => s.arrs[pts[0].index]).sort((x, y) => (mainVal(y) || 0) - (mainVal(x) || 0)).slice(0, 5)); if (CS.type === 'bar') rerenderChart(); },
-        plugins: { legend: { display: M.split, position: 'bottom' }, tooltip: { displayColors: M.split, callbacks: { title: it => { const b = M.bk[it[0].dataIndex]; return b.from === b.to ? b.from : b.from + ' ~ ' + b.to; }, label: c => (M.split ? c.dataset.label + ' ' : '') + mfmt(M.def, c.raw) + (!M.growth && M.series[c.datasetIndex].arrs ? ' · 게시 ' + M.series[c.datasetIndex].arrs[c.dataIndex].length + '개' : '') } } },
+        onClick: (e, els, ch) => { const pts = ch.getElementsAtEventForMode(e, 'index', { intersect: false }, false); if (!pts.length || M.growth) return; const k = M.bk[pts[0].index].k; CS.sel = CS.sel === k ? null : k; $('csPick').innerHTML = pickHtml(M); if ($('csPickX')) { const b = M.bk.find(x => x.k === CS.sel); $('csPickX').addEventListener('click', () => toExport(b.from, b.to > M.to ? M.to : b.to, 'content', M.chs)); } if ($('csList')) wireRank($('csList'), uniq(M.series.flatMap(s => s.arrs[pts[0].index])).sort((x, y) => (mainVal(y) || 0) - (mainVal(x) || 0)).slice(0, 5)); if (CS.type === 'bar') rerenderChart(); },
+        plugins: { legend: { display: M.split && !multiMode(), position: 'bottom' }, tooltip: { displayColors: M.split, callbacks: { title: it => { const b = M.bk[it[0].dataIndex]; return b.from === b.to ? b.from : b.from + ' ~ ' + b.to; }, label: c => (M.split ? c.dataset.label + ' ' : '') + mfmt(M.def, c.raw) + (!M.growth && M.series[c.datasetIndex].arrs ? ' · 게시 ' + M.series[c.datasetIndex].arrs[c.dataIndex].length + '개' : '') } } },
         scales: { x: { stacked: CS.type === 'bar' && !!ds[0].stack, ticks: { maxTicksLimit: 7, maxRotation: 0, autoSkip: true, font: { size: 12, weight: '500' }, color: css('--muted') } },
           y: { stacked: CS.type === 'bar' && !!ds[0].stack, display: true, position: 'right', grid: { color: css('--line') }, border: { display: false }, ticks: { maxTicksLimit: 4, font: { size: 11 }, color: css('--muted'), callback: v => M.def[2] === 'ratio' ? v + '배' : M.def[2] === 'hit' ? Math.round(v * 100) + '%' : fmtK(v) }, beginAtZero: true } } }),
       plugins: avg == null ? [] : [{ id: 'avg', afterDatasetsDraw(c) { const y = c.scales.y.getPixelForValue(avg), a = c.chartArea; if (y < a.top || y > a.bottom) return; const x = c.ctx; x.save(); x.setLineDash([4, 4]); x.strokeStyle = css('--muted'); x.lineWidth = 1; x.beginPath(); x.moveTo(a.left, y); x.lineTo(a.right, y); x.stroke(); x.setLineDash([]); x.font = '600 11px ' + css('--font'); x.fillStyle = css('--muted'); x.textAlign = 'left'; x.fillText('평균 ' + mfmt(M.def, avg), a.left + 4, y - 5); x.restore(); } }] });
