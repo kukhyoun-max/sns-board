@@ -473,7 +473,9 @@ sup.pt{font-size:10px;color:var(--muted,#8b95a1);margin-left:3px;font-weight:600
   const toast = msg => { const t = document.createElement('div'); t.className = 'toast'; t.textContent = msg; document.body.appendChild(t); setTimeout(() => t.remove(), 2200); };
 
   // ───────── 값 ─────────
-  const last = it => { for (let i = it.h.length - 1; i >= 0; i--) if (it.h[i]) return it.h[i]; return null; };
+  const last0 = it => { for (let i = it.h.length - 1; i >= 0; i--) if (it.h[i]) return it.h[i]; return null; };
+  // 유튜브는 전체 기간 값(it.L: 조회·좋아요·댓글·공유)이 있으면 그걸 누적 수치로 사용
+  const last = it => { const b = last0(it); if (!it.L) return b; return [it.L[0], it.L[1] != null ? it.L[1] : b && b[1], it.L[2] != null ? it.L[2] : b && b[2], it.L[3] != null ? it.L[3] : b && b[3], b ? b[4] : null]; };
   const val = (it, m) => { const v = last(it); return v ? v[m] : null; };
   const weekly = () => D.dates.length > 1;
   const incAt = (it, i, m) => {
@@ -1104,7 +1106,7 @@ sup.pt{font-size:10px;color:var(--muted,#8b95a1);margin-left:3px;font-weight:600
     html += secOpen('시즌별 비교', '최근 시즌은 조회가 쌓인 기간이 짧아 적게 보일 수 있어요') +
       '<div class="tw"><table class="tbl"><thead><tr><th>시즌</th><th class="n">게시</th><th class="n">입시 콘텐츠</th><th class="n">자연 조회</th><th class="n">광고 조회</th><th class="n">광고비</th><th class="n">게시물당 평소 대비</th><th class="n">히트율</th></tr></thead><tbody>' +
       ss.map(x => { const t = seasonStats(x); const cn = covNote(viewChannels(), x.from); return '<tr class="click' + (x.id === s.id ? ' on' : '') + '" data-s="' + x.id + '"><td>' + esc(x.label) + (cn ? ' <span class="tag p-ad" title="' + esc(cn) + '">일부</span>' : '') + '</td><td class="n">' + t.org.length + '</td><td class="n">' + t.adm.length + '</td><td class="n">' + fmtK(t.orgV) + '</td><td class="n">' + fmtK(t.adV) + '</td><td class="n">' + (t.covered ? fmtK(t.cost) : '–') + '</td><td class="n">' + xf(t.idx) + '</td><td class="n">' + pct0(t.hit) + '</td></tr>'; }).join('') +
-      '</tbody></table></div><p class="note">「일부」는 원본 수집 범위 밖 기간이 섞인 시즌이에요(유튜브는 24.01.01 이후 조회만, 인스타는 24.12.27 이후 게시물만) · 광고비 = 구글애즈 리포트의 그 기간 집행 비용(동영상·디스플레이 전체, ' + dot(D.ads ? D.ads.end : '') + '까지) · 광고 조회 = 캠페인에 연결된 유튜브 영상의 조회수</p>' + secClose;
+      '</tbody></table></div><p class="note">「일부」는 원본 수집 범위 밖 기간이 섞인 시즌이에요(유튜브는 ' + dot(covFrom('유튜브') || '') + ' 이후 조회만, 인스타는 ' + dot(covFrom('인스타그램') || '') + ' 이후 게시물만) · 광고비 = 구글애즈 리포트의 그 기간 집행 비용(동영상·디스플레이 전체, ' + dot(D.ads ? D.ads.end : '') + '까지) · 광고 조회 = 캠페인에 연결된 유튜브 영상의 조회수</p>' + secClose;
     $('view').innerHTML = html;
     $('seasonSel').addEventListener('change', e => { S.season = e.target.value; viewSeason(); });
     $('view').querySelectorAll('tr[data-s]').forEach(tr => tr.addEventListener('click', () => { S.season = tr.dataset.s; viewSeason(); window.scrollTo({ top: 0 }); }));
@@ -1216,7 +1218,7 @@ sup.pt{font-size:10px;color:var(--muted,#8b95a1);margin-left:3px;font-weight:600
     const tot = adStats(camps, from, to);
     const vids = D.items.filter(it => it.ad && it.ad.k && it.ad.k.length && camps.some(c => it.ad.k.includes(c.n)));
     const vv = sum(vids.map(it => val(it, 0)));
-    const YTc = covFrom('유튜브') || '2024-01-01';
+    const YTc = covFrom('유튜브') || '2000-01-01';
     const lcamps = camps.filter(c => c.videos && c.videos.length && c.from >= YTc);
     const linkedCost = adStats(lcamps, from, to).cost;
     const lv = sum(D.items.filter(it => it.ad && it.ad.k && lcamps.some(c => it.ad.k.includes(c.n))).map(it => val(it, 0)));
@@ -1251,7 +1253,7 @@ sup.pt{font-size:10px;color:var(--muted,#8b95a1);margin-left:3px;font-weight:600
     }
     // 캠페인 표
     const sk = S.adSort || 'cost';
-    const YT0 = covFrom('유튜브') || '2024-01-01';
+    const YT0 = covFrom('유튜브') || '2000-01-01';
     const rows = camps.map(c => {
       const st = adStats([c], from, to);
       const vs = adVideosOf(c), views = sum(vs.map(it => val(it, 0)));
@@ -1882,6 +1884,9 @@ sup.pt{font-size:10px;color:var(--muted,#8b95a1);margin-left:3px;font-weight:600
   const nz = x => String(x || '').replace(/\s+/g, '').replace(/(\.\.\.|…)$/, '');
   const metaLabel = n => { const m = /^Instagram 게시물:\s*([\s\S]*)$/.exec(n || ''); return (m ? m[1] : n || '').split('\n')[0].replace(/(\.\.\.|…)$/, '').trim() || n; };
   function prep() {
+    if (D.items.some(it => it.L)) { D.coverage = D.coverage || {}; D.coverage['유튜브'] = '2012-01-01'; }
+    const igMin = D.items.filter(it => it.c === '인스타그램').map(it => it.d).sort()[0];
+    if (igMin && D.coverage && D.coverage['인스타그램'] && igMin < D.coverage['인스타그램']) D.coverage['인스타그램'] = igMin.slice(0, 7) + '-01';
     D.rec = {};
     D.items.forEach(it => { const r = D.rec[it.c] = D.rec[it.c] || D.dates.map(() => false); it.h.forEach((x, i) => { if (x) r[i] = true; }); });
     const M = (D.ads && D.ads.meta) || [];
