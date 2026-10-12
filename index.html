@@ -396,6 +396,9 @@ td.tt2 { max-width: 420px; }
 .tg2.ser[aria-pressed="false"] i { background: transparent; box-shadow: inset 0 0 0 2px var(--c); opacity: .6; }
 .tg2.ser[aria-pressed="false"] { color: var(--muted); }
 sup.pt{font-size:10px;color:var(--muted,#8b95a1);margin-left:3px;font-weight:600}
+.pfseg { display: flex; gap: 4px; padding: 4px; margin: 4px 0 6px; background: var(--plane); border-radius: 12px; }
+.pfseg button { flex: 1; border: 0; background: transparent; padding: 10px 8px; border-radius: 9px; font: inherit; font-weight: 700; font-size: 14px; color: var(--muted); cursor: pointer; }
+.pfseg button[aria-selected="true"] { background: var(--bg); color: var(--fg); box-shadow: 0 1px 3px rgba(0,0,0,.08); }
 </style>
 
 <div class="app" id="app">
@@ -524,7 +527,7 @@ sup.pt{font-size:10px;color:var(--muted,#8b95a1);margin-left:3px;font-weight:600
   const typeShort = t => TYPE_SHORT[t] || t || '';
   function line(it) { const ty = typeShort(it.t); return '<span class="ln">' + badge(it.c) + (ty ? '<span class="ty">' + esc(ty) + '</span>' : '') + '<span class="tx">' + esc(title(it.n)) + '</span></span>'; }
   const ptag = p => '<span class="tag ' + (PROD_CLASS[p] || '') + '">' + esc(p) + '</span>';
-  const adtag = it => it.ad ? '<span class="tag p-ad" title="' + esc(it.ad.s === '패턴' ? '광고 리포트 이후 영상 · 조회 패턴으로 추정' : '구글애즈 캠페인 연결(' + it.ad.s + '): ' + it.ad.k.join(', ')) + '">광고' + (it.ad.s === '확인' ? '' : '?') + '</span>' : '';
+  const adtag = it => it.ad ? '<span class="tag p-ad" title="' + esc(it.ad.s === '패턴' ? '광고 리포트 이후 영상 · 조회 패턴으로 추정' : it.ad.mk && !it.ad.k.length ? '메타 광고(게시물 홍보): ' + it.ad.mk.map(metaLabel).join(', ') : '구글애즈 캠페인 연결(' + it.ad.s + '): ' + it.ad.k.join(', ')) + '">광고' + (it.ad.s === '확인' ? '' : '?') + '</span>' : '';
 
   // ───────── 필터 ─────────
   const since = () => S.range === 'all' ? '' : addDays(D.updated, -Number(S.range));
@@ -596,7 +599,7 @@ sup.pt{font-size:10px;color:var(--muted,#8b95a1);margin-left:3px;font-weight:600
     $('st2').textContent = weekly() ? '주간 비교 ' + mdLabel(D.dates[D.dates.length - 2]) + ' → ' + mdLabel(D.updated) : '다음 기록: 매주 월요일 7시';
     if (!TABS.includes(S.ch)) S.ch = '전체';
     $('rangeSeg').hidden = !rangeOn();
-    const adOn = !['season', 'export', 'ads'].includes(S.view) && S.ch !== '타 대학' && S.ch !== '인스타그램' && S.ch !== 'hong._.video';
+    const adOn = !['season', 'export', 'ads'].includes(S.view) && S.ch !== '타 대학' && S.ch !== 'hong._.video' && (S.ch !== '인스타그램' || D.items.some(it => it.c === '인스타그램' && it.ad));
     $('adTg').hidden = !adOn;
     $('adTg').setAttribute('aria-pressed', S.ads);
     $('adTg').textContent = S.ads ? '광고 포함' : '광고 제외';
@@ -788,7 +791,7 @@ sup.pt{font-size:10px;color:var(--muted,#8b95a1);margin-left:3px;font-weight:600
       const idx = D.dates.map((d, i) => i).slice(1);
       const bk = idx.map(i => ({ k: D.dates[i], from: D.dates[i - 1], to: D.dates[i], label: mdLabel(D.dates[i]), i }));
       const its = D.items.filter(it => chs.includes(it.c) && (S.ads || !it.ad));
-      const ser = (cs) => bk.map(b => sum(its.filter(it => cs.includes(it.c)).map(it => Math.max(0, incAt(it, b.i, def[3]) || 0))));
+      const ser = (cs) => bk.map(b => { const ok = cs.filter(c => hasRec(c, b.i) && hasRec(c, b.i - 1)); return ok.length ? sum(its.filter(it => ok.includes(it.c)).map(it => Math.max(0, incAt(it, b.i, def[3]) || 0))) : null; });
       const series = multi ? SD.map(s => Object.assign(tag(s), { data: ser(s.chs) })) : split ? chs.map(c => ({ ch: c, data: ser([c]) })) : [{ ch: null, data: ser(chs) }];
       const tot = multi ? sum(ser(bigChs)) : sum(series.flatMap(s => s.data));
       return { def, defs, chs, growth, split, hasSum, bk, series, big: tot, prev: null, from: D.dates[0], to: D.updated, items: [] };
@@ -820,7 +823,7 @@ sup.pt{font-size:10px;color:var(--muted,#8b95a1);margin-left:3px;font-weight:600
     const ttl = SD ? (M.hasSum ? '우리 채널 전체 현황' : SD.map(x => x.label).join(' · ') + (SD.length > 1 ? ' 합산' : ' 현황')) : (S.ch === '타 대학' ? '타 대학 비교' : chName(S.ch)) + ' 현황';
     const benchNote = SD && SD.some(x => x.id === 'bench') && !M.hasSum && ['views', 'per'].includes(M.def[0]) ? ' · 타 대학 조회는 릴스만 공개돼 릴스 기준' : SD && SD.some(x => x.id === 'bench') && ['views', 'per'].includes(M.def[0]) ? ' · 큰 숫자는 우리 채널 합계 · 타 대학 조회는 릴스 기준' : SD && M.hasSum && SD.length > 1 ? ' · 큰 숫자는 우리 채널 합계' : '';
     const pl = (PERIODS.find(p => p[0] === CS.period) || PERIODS[3]);
-    const sub = M.growth ? '매주 기록 사이에 늘어난 ' + M.def[1] + ' · ' + adWord() : (pl[0] === 'all' ? '전체' : '최근 ' + pl[1]) + ' 게시물의 ' + (M.def[2] === 'sum' ? '현재 누적 ' : '') + M.def[1] + ' · ' + adWord() + (benchMode() ? ' · 큰 숫자는 우리 인스타 기준' : '') + (benchNote || '');
+    const sub = M.growth ? '기록 사이에 늘어난 ' + M.def[1] + ' · ' + adWord() : (pl[0] === 'all' ? '전체' : '최근 ' + pl[1]) + ' 게시물의 ' + (M.def[2] === 'sum' ? '현재 누적 ' : '') + M.def[1] + ' · ' + adWord() + (benchMode() ? ' · 큰 숫자는 우리 인스타 기준' : '') + (benchNote || '');
     const canGrowth = weekly() && M.def[2] === 'sum';
     let h = '<section class="sec" id="chartSec"><div class="cs-head"><div><div class="cs-t">' + esc(ttl) + '</div>' +
       '<div class="cs-big num">' + mfmt(M.def, M.big) + '</div>' +
@@ -831,14 +834,14 @@ sup.pt{font-size:10px;color:var(--muted,#8b95a1);margin-left:3px;font-weight:600
       (SD ? '<div class="cs-ser" role="group" aria-label="그래프에 표시할 계열">' + serDefs().map(x => '<button type="button" class="tg2 ser" data-ser="' + esc(x.id) + '" aria-pressed="' + CS.series.includes(x.id) + '" style="--c:' + x.color + '"><i></i>' + esc(x.label) + '</button>').join('') + '<span class="hint">눌러서 켜고 끄기</span></div>' : '') +
       '<div class="cs-chart"><canvas id="csCanvas"></canvas></div>' +
       '<div class="cs-per">' +
-        (M.growth ? '<div class="pp"><span class="hint">주간 기록 ' + D.dates.length + '회</span></div>' : '<div class="pp">' + PERIODS.map(p => '<button type="button" data-p="' + p[0] + '" aria-pressed="' + (CS.period === p[0]) + '">' + p[1] + '</button>').join('') + '</div>') +
+        (M.growth ? '<div class="pp"><span class="hint">기록 ' + D.dates.length + '회 · 과거 기록은 월 단위라 간격이 달라요</span></div>' : '<div class="pp">' + PERIODS.map(p => '<button type="button" data-p="' + p[0] + '" aria-pressed="' + (CS.period === p[0]) + '">' + p[1] + '</button>').join('') + '</div>') +
         '<div class="pp">' +
           (M.growth ? '' : UNITS.map(u => '<button type="button" data-u="' + u[0] + '" aria-pressed="' + (M.unit === u[0]) + '">' + u[1] + '</button>').join('') + '<span class="sep"></span>') +
           '<button type="button" data-ty="line" aria-pressed="' + (CS.type === 'line') + '">선</button><button type="button" data-ty="bar" aria-pressed="' + (CS.type === 'bar') + '">막대</button>' +
         '</div></div>' +
       '<div class="cs-mode"><button type="button" class="tg2" data-mo="post" aria-pressed="' + !M.growth + '">게시일 기준</button>' +
-        '<button type="button" class="tg2" data-mo="growth" aria-pressed="' + M.growth + '"' + (canGrowth ? '' : ' disabled') + '>주간 증가</button>' +
-        '<span class="hint">' + (weekly() ? (M.def[2] === 'sum' ? '주간 증가는 기록 사이에 실제로 늘어난 수치예요' : '주간 증가는 합계 지표(조회수·좋아요 등)에서만 볼 수 있어요') : '주간 증가는 10월 12일 기록부터 열려요') + '</span></div>' +
+        '<button type="button" class="tg2" data-mo="growth" aria-pressed="' + M.growth + '"' + (canGrowth ? '' : ' disabled') + '>기록 사이 증가</button>' +
+        '<span class="hint">' + (weekly() ? (M.def[2] === 'sum' ? '기록과 기록 사이에 실제로 늘어난 수치예요 · 막대에 마우스를 올리면 기간이 보여요' : '기록 사이 증가는 합계 지표(조회수·좋아요 등)에서만 볼 수 있어요') : '기록 사이 증가는 기록이 2회 이상 쌓이면 열려요') + '</span></div>' +
       '<div id="csPick">' + pickHtml(M) + '</div></section>';
     return h;
   }
@@ -1143,8 +1146,69 @@ sup.pt{font-size:10px;color:var(--muted,#8b95a1);margin-left:3px;font-weight:600
   const wonF = v => v == null || isNaN(v) ? '–' : fmt(v) + '원';
   const wonL = v => { if (v == null || isNaN(v)) return '–'; const e = Math.floor(v / 1e8), m = Math.round((v % 1e8) / 1e4); return e ? e + '억' + (m ? ' ' + fmt(m) + '만' : '') + '원' : fmt(m) + '만원'; };
   function viewAds() {
+    const A = D.ads || {};
+    const hasG = !!(A.camps && A.camps.length), hasM = !!(A.meta && A.meta.length);
+    if (!hasG && !hasM) return msgView('광고 데이터가 아직 없어요.', '구글애즈 리포트 시트나 「메타 광고」 탭이 연결되면 여기서 광고비·노출·클릭과 광고 콘텐츠 성과를 볼 수 있어요.');
+    if (!S.adPf || (S.adPf === 'meta' && !hasM) || (S.adPf === 'google' && !hasG)) S.adPf = hasG ? 'google' : 'meta';
+    const seg = hasG && hasM ? '<div class="pfseg" role="tablist" aria-label="광고 매체">' + [['google', '구글애즈 (유튜브)'], ['meta', '메타 (인스타)']].map(p => '<button type="button" role="tab" data-pf="' + p[0] + '" aria-selected="' + (S.adPf === p[0]) + '">' + p[1] + '</button>').join('') + '</div>' : '';
+    if (S.adPf === 'meta') viewMeta(seg); else viewGoogle(seg);
+    $('view').querySelectorAll('[data-pf]').forEach(b => b.addEventListener('click', () => { if (S.adPf === b.dataset.pf) return; S.adPf = b.dataset.pf; S.adYear = 'all'; S.adOpen = null; viewAds(); window.scrollTo({ top: 0 }); }));
+  }
+  const usd = v => v == null || isNaN(v) ? '–' : '$' + (Math.abs(v) >= 100 ? fmt(Math.round(v)) : (+v).toFixed(2));
+  const META_RT = { link_click: '링크 클릭', visit_instagram_profile: '프로필 방문', video_view: '영상 조회', landing_page_view: '랜딩 페이지 조회', reach: '도달' };
+  function viewMeta(seg) {
+    const M = D.ads.meta;
+    const yr = c => /^\d{4}/.test(c.end) ? c.end.slice(0, 4) : D.updated.slice(0, 4);
+    const years = [...new Set(M.map(yr))].sort().reverse();
+    if (!S.adYear || (S.adYear !== 'all' && !years.includes(S.adYear))) S.adYear = 'all';
+    const camps = M.filter(c => S.adYear === 'all' || yr(c) === S.adYear);
+    const T = { spend: sum(camps.map(c => c.spend)), imp: sum(camps.map(c => c.imp)), reach: sum(camps.map(c => c.reach)), clk: sum(camps.map(c => c.clk)) };
+    const paid = camps.filter(c => c.spend > 0);
+    const posts = [...new Set(camps.flatMap(c => c.posts || []))];
+    const ends = M.map(c => c.end).filter(e => /^\d{4}/.test(e)).sort();
+    const yChips = '<div class="chips">' + ['all'].concat(years).map(y => '<button class="chip" type="button" data-y="' + y + '" aria-pressed="' + (S.adYear === y) + '">' + (y === 'all' ? '전체' : y + '년') + '</button>').join('') + '</div>';
+    let html = seg + '<section class="sec"><div class="sh"><div><h2>광고 성과</h2><p>메타 광고 관리자 캠페인 보고서 · 캠페인 종료일 ' + dot(ends[0]) + ' ~ ' + dot(ends[ends.length - 1]) + (M.some(c => !/^\d{4}/.test(c.end)) ? ' · 진행 중 포함' : '') + ' · 금액은 달러(USD) 기준이에요</p></div></div>' +
+      '<div class="callout">보고서는 캠페인별 <b>전체 기간 합계</b>라서 월별 추이는 <b>종료월</b> 기준으로 묶었어요.<small>새 보고서는 광고 관리자에서 같은 형식으로 내보내 스냅샷 시트 「메타 광고」 탭에 붙여넣으면 다음 갱신 때 반영돼요.</small></div>' +
+      yChips +
+      '<div class="kpis k6">' +
+        '<div class="kpi"><div class="l">광고비</div><div class="v">' + usd(T.spend) + '</div><div class="s">집행 캠페인 ' + paid.length + '개</div></div>' +
+        '<div class="kpi"><div class="l">노출</div><div class="v">' + fmtK(T.imp) + '</div><div class="s">1천 회 노출당 <b>' + usd(T.imp ? T.spend / T.imp * 1000 : null) + '</b></div></div>' +
+        '<div class="kpi"><div class="l">도달 (캠페인 합)</div><div class="v">' + fmtK(T.reach) + '</div><div class="s">캠페인끼리 겹치는 사람도 따로 셌어요</div></div>' +
+        '<div class="kpi"><div class="l">링크 클릭</div><div class="v">' + fmtK(T.clk) + '</div><div class="s">클릭률 <b>' + pct(T.imp ? T.clk / T.imp : null) + '</b> · 클릭당 <b>' + usd(T.clk ? T.spend / T.clk : null) + '</b></div></div>' +
+      '</div></section>';
+    html += secOpen('월별 집행', '종료월 기준 · 막대는 광고비, 선은 노출이에요') + '<div class="chart tall"><canvas id="mChart"></canvas></div>' + secClose;
+    const sk = S.mSort || 'spend';
+    const rows = camps.map(c => ({ c, ctr: c.imp ? (c.clk || 0) / c.imp : null, cpc: c.clk ? c.spend / c.clk : null, views: sum((c.posts || []).map(it => val(it, 0))) }));
+    const key = { spend: r => r.c.spend || 0, imp: r => r.c.imp || 0, reach: r => r.c.reach || 0, clk: r => r.c.clk || 0, ctr: r => r.ctr || 0, cpc: r => -(r.cpc || 1e12), end: r => r.c.end }[sk];
+    rows.sort((a, b) => { const x = key(a), y = key(b); return x < y ? 1 : x > y ? -1 : 0; });
+    const th = (k, l) => '<th class="n"><button type="button" data-ms="' + k + '"' + (sk === k ? ' data-dir="desc"' : '') + '>' + l + '</button></th>';
+    const st = c => ({ completed: '완료', inactive: '중지', archived: '보관', active: '진행 중' })[c.st] || c.st || '';
+    html += secOpen('캠페인별 성과', '이름을 누르면 홍보한 인스타 게시물이 펼쳐져요') +
+      '<div class="tw"><table class="tbl" id="mTbl"><thead><tr><th>캠페인</th><th>종료</th>' + th('spend', '광고비') + th('imp', '노출') + th('reach', '도달') + th('clk', '링크 클릭') + th('ctr', '클릭률') + th('cpc', '클릭당') + '<th>목표 결과</th></tr></thead><tbody>' +
+      rows.map((r, i) => { const n = (r.c.posts || []).length; return '<tr class="click' + (S.adOpen === r.c.n ? ' on' : '') + '" data-mi="' + i + '"><td><div class="ellip" style="max-width:300px"><b>' + esc(metaLabel(r.c.n)) + '</b></div>' + (n ? '<span class="tag p-own">게시물 ' + n + '개 연결</span>' : /^Instagram 게시물/.test(r.c.n) ? '<span class="tag">게시물 데이터 없음</span>' : '<span class="tag">별도 광고</span>') + ' <span class="tag">' + esc(st(r.c)) + '</span></td><td>' + (/^\d{4}/.test(r.c.end) ? dot(r.c.end) : esc(r.c.end)) + '</td><td class="n">' + usd(r.c.spend) + '</td><td class="n">' + fmtK(r.c.imp) + '</td><td class="n">' + fmtK(r.c.reach) + '</td><td class="n">' + fmtK(r.c.clk) + '</td><td class="n">' + pct(r.ctr) + '</td><td class="n">' + usd(r.cpc) + '</td><td>' + (r.c.res != null ? fmt(r.c.res) + ' ' + esc(META_RT[r.c.rt] || r.c.rt || '') : '–') + '</td></tr>' +
+        (S.adOpen === r.c.n ? '<tr><td colspan="9" style="padding:0 0 10px;white-space:normal">' + (n ? '<ol class="rank" id="mPosts">' + rankRows(r.c.posts, { right: it => '조회 <span class="num">' + fmtK(val(it, 0)) + '</span>' }) + '</ol>' : '<p class="note">' + (/^Instagram 게시물/.test(r.c.n) ? '이 게시물은 대시보드 수집 기간(2024년~) 밖이거나 캡션이 바뀌어 찾지 못했어요.' : '게시물 홍보가 아닌 별도 광고예요.') + '</p>') + '</td></tr>' : ''); }).join('') +
+      '</tbody></table></div><p class="note">캠페인 이름(게시물 캡션 앞부분)으로 인스타 게시물을 찾아 연결했어요. 연결된 게시물은 「광고」 표시가 붙고, 상단 「광고 제외」를 켜면 평소 성과 계산에서 빠져요.</p>' + secClose;
+    if (posts.length) {
+      const top = posts.slice().sort((a, b) => (val(b, 0) || 0) - (val(a, 0) || 0)).slice(0, 15);
+      html += secOpen('광고한 인스타 게시물', '메타 광고로 홍보한 게시물 · 조회 많은 순') + '<ol class="rank" id="mTop">' + rankRows(top, { right: it => '조회 <span class="num">' + fmtK(val(it, 0)) + '</span> · 좋아요 ' + fmt(val(it, 1)) }) + '</ol>' + secClose;
+      $('view').innerHTML = html; wireRank($('mTop'), top);
+    } else $('view').innerHTML = html;
+    $('view').querySelectorAll('[data-y]').forEach(b => b.addEventListener('click', () => { S.adYear = b.dataset.y; S.adOpen = null; viewAds(); }));
+    $('view').querySelectorAll('[data-ms]').forEach(b => b.addEventListener('click', () => { S.mSort = b.dataset.ms; viewAds(); }));
+    $('view').querySelectorAll('#mTbl tr[data-mi]').forEach(tr => tr.addEventListener('click', () => { const n = rows[+tr.dataset.mi].c.n; S.adOpen = S.adOpen === n ? null : n; viewAds(); }));
+    if (S.adOpen && $('mPosts')) { const r = rows.find(x => x.c.n === S.adOpen); if (r) wireRank($('mPosts'), r.c.posts); }
+    const mk = c => /^\d{4}-\d{2}/.test(c.end) ? c.end.slice(0, 7) : D.updated.slice(0, 7);
+    const ks = camps.map(mk).sort();
+    const months = []; if (ks.length) { let m = ks[0] + '-01'; while (m.slice(0, 7) <= ks[ks.length - 1]) { months.push(m.slice(0, 7)); m = monthStart(m, 1); } }
+    const ms = {}, mi = {}; camps.forEach(c => { const k = mk(c); ms[k] = (ms[k] || 0) + (c.spend || 0); mi[k] = (mi[k] || 0) + (c.imp || 0); });
+    draw('mChart', { type: 'bar', data: { labels: months.map(k => k.slice(2, 4) + '.' + k.slice(5, 7)), datasets: [
+      { type: 'bar', label: '광고비', data: months.map(k => ms[k] || 0), backgroundColor: css('--coral'), borderRadius: 3, yAxisID: 'y', order: 2 },
+      { type: 'line', label: '노출', data: months.map(k => mi[k] || 0), borderColor: css('--jj'), backgroundColor: css('--jj'), borderWidth: 2, pointRadius: 2, tension: 0.3, yAxisID: 'y2', order: 1 }] },
+      options: chartOpts({ interaction: { mode: 'index', intersect: false }, plugins: { legend: { display: true, position: 'bottom' }, tooltip: { displayColors: true, callbacks: { label: c => c.dataset.label + ' ' + (c.datasetIndex === 0 ? usd(c.raw) : fmt(c.raw)) } } },
+        scales: { x: { ticks: { maxTicksLimit: 12, maxRotation: 0, autoSkip: true, font: { size: 11 } } }, y: { display: true, position: 'left', grid: { color: css('--line') }, ticks: { callback: v => '$' + fmtK(v), font: { size: 11 } } }, y2: { display: true, position: 'right', grid: { display: false }, beginAtZero: true, ticks: { callback: v => fmtK(v), font: { size: 11 } } } } }) });
+  }
+  function viewGoogle(seg) {
     const A = D.ads;
-    if (!A || !A.camps || !A.camps.length) return msgView('광고 데이터가 아직 없어요.', '구글애즈 리포트 시트가 연결되면 여기서 광고비·노출·클릭과 광고 영상 성과를 볼 수 있어요.');
     const years = [...new Set(A.camps.flatMap(c => [c.from.slice(0, 4), c.to.slice(0, 4)]))].sort().reverse();
     if (!S.adYear || (S.adYear !== 'all' && !years.includes(S.adYear))) S.adYear = 'all';
     const from = S.adYear === 'all' ? '2000-01-01' : S.adYear + '-01-01', to = S.adYear === 'all' ? '2999-12-31' : S.adYear + '-12-31';
@@ -1158,7 +1222,7 @@ sup.pt{font-size:10px;color:var(--muted,#8b95a1);margin-left:3px;font-weight:600
     const lv = sum(D.items.filter(it => it.ad && it.ad.k && lcamps.some(c => it.ad.k.includes(c.n))).map(it => val(it, 0)));
     const stale = A.end && daysBetween(A.end, D.updated) > 14;
     const yChips = '<div class="chips">' + ['all'].concat(years).map(y => '<button class="chip" type="button" data-y="' + y + '" aria-pressed="' + (S.adYear === y) + '">' + (y === 'all' ? '전체' : y + '년') + '</button>').join('') + '</div>';
-    let html = '<section class="sec"><div class="sh"><div><h2>광고 성과</h2><p>구글애즈 계정 전체(동영상·디스플레이) · 리포트 기간 ' + dot(A.camps[0].from) + ' ~ ' + dot(A.end) + ' · 상단 채널 탭과 관계없이 계정 전체 기준이에요</p></div></div>' +
+    let html = seg + '<section class="sec"><div class="sh"><div><h2>광고 성과</h2><p>구글애즈 계정 전체(동영상·디스플레이) · 리포트 기간 ' + dot(A.camps[0].from) + ' ~ ' + dot(A.end) + ' · 상단 채널 탭과 관계없이 계정 전체 기준이에요</p></div></div>' +
       (stale ? '<div class="callout warn">광고 리포트가 <b>' + dot(A.end) + '</b>에서 멈춰 있어요. 이후 집행한 광고는 아직 반영되지 않았어요.<small>구글애즈 리포트 시트(전주대_구글애즈_캠페인리포트)를 최신으로 다시 받으면 다음 갱신 때 자동으로 반영돼요.</small></div>' : '') +
       yChips +
       '<div class="kpis k6">' +
@@ -1412,7 +1476,7 @@ sup.pt{font-size:10px;color:var(--muted,#8b95a1);margin-left:3px;font-weight:600
     ['w', '참여자', it => (it.w || []).join(', '), 's'],
     ['views', '조회수', it => xv(it, 0), 'n'], ['likes', '좋아요', it => xv(it, 1), 'n'], ['comments', '댓글', it => xv(it, 2), 'n'], ['shares', '공유', it => xv(it, 3), 'n'], ['saves', '저장', it => xv(it, 4), 'n'],
     ['reach', '리치', it => it.r, 'n'], ['eng', '참여율', engagement, 'p'], ['comp', '시청 완료율', completion, 'p'], ['ratio', '평소 대비(배)', it => !!it.ad ? null : ratio(it), 'x'],
-    ['hit', '히트', it => isHit(it) && !it.ad ? 'O' : '', 's'], ['ad', '광고', it => it.ad ? (it.ad.s === '패턴' ? '추정(조회 패턴)' : it.ad.s) : '', 's'], ['camp', '광고 캠페인', it => it.ad ? it.ad.k.join(' / ') : '', 's'], ['url', '링크', it => it.u || '', 's'],
+    ['hit', '히트', it => isHit(it) && !it.ad ? 'O' : '', 's'], ['ad', '광고', it => it.ad ? (it.ad.s === '패턴' ? '추정(조회 패턴)' : it.ad.s) : '', 's'], ['camp', '광고 캠페인', it => it.ad ? it.ad.k.concat((it.ad.mk || []).map(n => '메타: ' + metaLabel(n))).join(' / ') : '', 's'], ['url', '링크', it => it.u || '', 's'],
   ];
   const GCOLS = [
     ['n', '게시물 수', a => a.length, 'n'], ['vSum', '조회 합', a => sum(a.map(it => xv(it, 0))), 'n'], ['vAvg', '조회 평균', a => mean(a.map(it => xv(it, 0))), 'n'], ['vMed', '조회 중앙값', a => median(a.map(it => xv(it, 0))), 'n'],
@@ -1616,7 +1680,7 @@ sup.pt{font-size:10px;color:var(--muted,#8b95a1);margin-left:3px;font-weight:600
       const body = R.rows.map(r => r.cells.map((v, j) => rawCell(v, R.cols[j][3], true)));
       if (R.total) body.push(R.total.map((v, j) => rawCell(v, R.cols[j][3], true)));
       const fmts = R.cols.map(c => c[3]);
-      const inc = R.items.map(it => { const v = [0, 1, 2, 3, 4].map(m => xv(it, m)); return [it.d, chName(it.c), fmtType(it.t), it.g, it.p, (it.w || []).join(', '), title(it.n), v[0], v[1], v[2], v[3], v[4], it.r == null ? null : it.r, ratio(it) == null || !!it.ad ? null : +ratio(it).toFixed(2), it.ad ? (it.ad.s === '패턴' ? '추정(조회 패턴)' : it.ad.s) : '', it.ad ? it.ad.k.join(' / ') : '', it.u || '']; });
+      const inc = R.items.map(it => { const v = [0, 1, 2, 3, 4].map(m => xv(it, m)); return [it.d, chName(it.c), fmtType(it.t), it.g, it.p, (it.w || []).join(', '), title(it.n), v[0], v[1], v[2], v[3], v[4], it.r == null ? null : it.r, ratio(it) == null || !!it.ad ? null : +ratio(it).toFixed(2), it.ad ? (it.ad.s === '패턴' ? '추정(조회 패턴)' : it.ad.s) : '', it.ad ? it.ad.k.concat((it.ad.mk || []).map(n => '메타: ' + metaLabel(n))).join(' / ') : '', it.u || '']; });
       const cond = [['항목', '값'], ['기간', E.from + ' ~ ' + E.to + (E.q ? ' (' + E.q + ')' : '')], ['채널', E.chs.map(chName).join(', ')]].concat(xcondText().map(t => { const i = t.indexOf(': '); return i > 0 ? [t.slice(0, i), t.slice(i + 2)] : ['옵션', t]; })).concat([
         ['기준 데이터', D.updated + ' 기록'], ['만든 날', new Date().toISOString().slice(0, 10)], [],
         ['정의', ''], ['평소 대비', '채널 최근 1년 게시물 중앙값 대비 배수 (광고·스토리 제외). 1.0 = 평소'], ['히트', '평소 대비 1.5배 이상'], ['참여율', '(좋아요+댓글+공유+저장) ÷ 리치'], ['시청 완료율', '평균 시청 시간 ÷ 영상 길이'],
@@ -1705,7 +1769,7 @@ sup.pt{font-size:10px;color:var(--muted,#8b95a1);margin-left:3px;font-weight:600
     if (it.c === '유튜브') {
       const c = completion(it);
       if (c != null) out.push(c >= 0.6 ? ['good', '강점', '시청자의 ' + Math.round(c * 100) + '%가 끝까지 봤어요.', '평균 시청 ' + fmt(it.a) + '초 / 영상 ' + fmt(it.l) + '초'] : c < 0.2 ? ['bad', '보완', '평균적으로 영상의 ' + Math.round(c * 100) + '%만 보고 나갔어요.', '평균 시청 ' + fmt(it.a) + '초 / 영상 ' + fmt(it.l) + '초'] : ['info', '참고', '시청 완료율 ' + Math.round(c * 100) + '%예요.', '평균 시청 ' + fmt(it.a) + '초 / 영상 ' + fmt(it.l) + '초']);
-      if (it.ad) out.push(['info', '광고', it.ad.s === '패턴' ? '광고로 늘어난 조회수로 보여요 (추정).' : '구글애즈 광고를 집행한 영상이에요' + (it.ad.s === '추정' ? ' (추정 연결).' : '.'), it.ad.k.length ? it.ad.k.join(' · ') : '조회 1만당 좋아요 ' + ((v[1] || 0) / Math.max(1, v[0]) * 1e4).toFixed(1) + '개']);
+      if (it.ad) out.push(['info', '광고', it.ad.s === '패턴' ? '광고로 늘어난 조회수로 보여요 (추정).' : it.ad.mk && !it.ad.k.length ? '메타 광고로 홍보한 게시물이에요. 조회·도달에 광고분이 섞여 있어요.' : '구글애즈 광고를 집행한 영상이에요' + (it.ad.s === '추정' ? ' (추정 연결).' : '.'), it.ad.k.length ? it.ad.k.join(' · ') : it.ad.mk ? it.ad.mk.map(metaLabel).join(' · ') : '조회 1만당 좋아요 ' + ((v[1] || 0) / Math.max(1, v[0]) * 1e4).toFixed(1) + '개']);
       if (it.e != null && v[0]) { const er = it.e / v[0]; if (er < 0.3) out.push(['bad', '보완', '조회 중 참여로 이어진 비율이 ' + Math.round(er * 100) + '%뿐이에요.', '광고 노출이 많았을 수 있어요']); }
     }
     if (weekly()) { const w = inc(it, mainM(it.c)); if (w != null) out.push([w > 0 ? 'good' : 'info', w > 0 ? '강점' : '참고', '이번 주 ' + MN[mainM(it.c)] + ' ' + sgn(w) + fmt(w), mdLabel(D.dates[D.dates.length - 2]) + ' → ' + mdLabel(D.updated)]); }
@@ -1740,7 +1804,8 @@ sup.pt{font-size:10px;color:var(--muted,#8b95a1);margin-left:3px;font-weight:600
     if (isBench(it.c) || it.c === 'hong._.video') metrics.push(['좋아요율', pct(likeRate(it))]);
     metrics.push(['게시일', it.d], ['형식', fmtType(it.t)]);
     if (it.w && it.w.length) metrics.push(['참여자', it.w.join(', ')]);
-    if (it.ad && it.ad.k.length && D.ads) { const cs = D.ads.camps.filter(c => it.ad.k.includes(c.n)); metrics.push(['광고 캠페인', cs.length + '개 · ' + dot(cs.map(c => c.from).sort()[0]) + '~' + dot(cs.map(c => c.to).sort().pop())], ['캠페인 광고비', fmt(sum(cs.map(c => c.cost))) + '원' + (cs.some(c => c.videos.length > 1) ? ' (여러 영상 공동)' : '')], ['캠페인 노출', fmt(sum(cs.map(c => c.imp)))]); }
+    if (it.ad && it.ad.mk && D.ads && D.ads.meta) { const ms = D.ads.meta.filter(c => it.ad.mk.includes(c.n)); if (ms.length) metrics.push(['메타 광고비', usd(sum(ms.map(c => c.spend)))], ['메타 광고 노출', fmt(sum(ms.map(c => c.imp)))], ['메타 링크 클릭', fmt(sum(ms.map(c => c.clk)))]); }
+    if (it.ad && it.ad.k.length && D.ads) { const cs = D.ads.camps.filter(c => it.ad.k.includes(c.n)); if (cs.length) metrics.push(['광고 캠페인', cs.length + '개 · ' + dot(cs.map(c => c.from).sort()[0]) + '~' + dot(cs.map(c => c.to).sort().pop())], ['캠페인 광고비', fmt(sum(cs.map(c => c.cost))) + '원' + (cs.some(c => c.videos.length > 1) ? ' (여러 영상 공동)' : '')], ['캠페인 노출', fmt(sum(cs.map(c => c.imp)))]); }
     const sim = D.items.filter(x => x !== it && x.c === it.c && x.g === it.g && x.t !== '스토리').sort((a, b) => (mainVal(b) || 0) - (mainVal(a) || 0)).slice(0, 5);
     const el = $('detail');
     el.innerHTML = '<div class="dwrap">' +
@@ -1812,8 +1877,33 @@ sup.pt{font-size:10px;color:var(--muted,#8b95a1);margin-left:3px;font-weight:600
   }
   let rt; window.addEventListener('resize', () => { clearTimeout(rt); rt = setTimeout(() => { if (S.view === 'explore') renderTrend(); }, 150); });
 
+  // 채널별 기록 여부 · 메타 광고(인스타 게시물 홍보) 연결
+  const hasRec = (c, i) => !!(D.rec && D.rec[c] && D.rec[c][i]);
+  const nz = x => String(x || '').replace(/\s+/g, '').replace(/(\.\.\.|…)$/, '');
+  const metaLabel = n => { const m = /^Instagram 게시물:\s*([\s\S]*)$/.exec(n || ''); return (m ? m[1] : n || '').split('\n')[0].replace(/(\.\.\.|…)$/, '').trim() || n; };
+  function prep() {
+    D.rec = {};
+    D.items.forEach(it => { const r = D.rec[it.c] = D.rec[it.c] || D.dates.map(() => false); it.h.forEach((x, i) => { if (x) r[i] = true; }); });
+    const M = (D.ads && D.ads.meta) || [];
+    const ig = D.items.filter(it => it.c === '인스타그램').map(it => [it, nz(it.n)]);
+    M.forEach(c => {
+      c.posts = [];
+      const m = /^Instagram 게시물:\s*([\s\S]*)$/.exec(c.n || ''); if (!m) return;
+      const key = nz(m[1]).slice(0, 30); if (key.length < 8) return;
+      const end = /^\d{4}-\d{2}-\d{2}$/.test(c.end) ? c.end : '9999-12-31';
+      const hits = ig.filter(([it, n]) => n.length >= 8 && it.d <= end && n.startsWith(key.slice(0, Math.min(key.length, n.length)))).map(x => x[0]);
+      // 캡션 앞부분이 같은 시리즈 게시물이면 캠페인 종료일 직전에 올린 게시물 하나만
+      const pick = hits.length > 1 ? [hits.sort((a, b) => a.d < b.d ? 1 : -1)[0]] : hits;
+      pick.forEach(it => {
+        c.posts.push(it);
+        it.ad = it.ad || { s: '확인', k: [] };
+        (it.ad.mk = it.ad.mk || []).push(c.n);
+      });
+    });
+  }
   function boot(data) {
     D = data;
+    prep();
     const sv = load(); if (sv) Object.assign(S, sv);
     if (!VIEWS.some(v => v[0] === S.view)) S.view = 'brief';
     buildChrome(); render();
