@@ -432,6 +432,7 @@ sup.pt{font-size:10px;color:var(--muted,#8b95a1);margin-left:3px;font-weight:600
 .pbar.wide { width: 100%; height: 10px; position: relative; overflow: visible; margin: 0; }
 .pbar.wide i { border-radius: 5px; }
 .pbar.wide em { position: absolute; top: -3px; bottom: -3px; width: 2px; background: var(--fg); opacity: .5; }
+.rl li em { font-style: normal; font-size: 12px; font-weight: 800; margin-left: 4px; }
 </style>
 
 <div class="app" id="app">
@@ -988,7 +989,7 @@ sup.pt{font-size:10px;color:var(--muted,#8b95a1);margin-left:3px;font-weight:600
     const out = [];
     const test = (label, f, kind) => {
       const a = L.filter(f), b = L.filter(it => !f(it));
-      if (a.length < 6 || b.length < 6) return;
+      if (Math.min(a.length, b.length) < Math.max(8, L.length * 0.08)) return;
       const ma = median(a.map(ratio)), mb = median(b.map(ratio));
       if (!ma || !mb) return;
       const eff = ma / mb;
@@ -1008,7 +1009,7 @@ sup.pt{font-size:10px;color:var(--muted,#8b95a1);margin-left:3px;font-weight:600
       if (!R.length) return '<div class="rl"><div class="rl-h">' + badge(ch) + '</div><p class="note">게시물이 적거나 뚜렷한 차이가 없어요.</p></div>';
       return '<div class="rl"><div class="rl-h">' + badge(ch) + '<small>최근 2년 · 평소 대비(중앙값)</small></div><ul>' + R.map(r => {
         const up = r.eff >= 1;
-        return '<li class="' + (up ? 'up' : 'down') + '"><span class="ic2">' + (up ? '▲' : '▼') + '</span><span><b>' + esc(r.label) + '</b>' + (up ? '일 때 잘 돼요' : '은 약해요') + '<small>평소의 ' + xf(r.ma) + ' (' + r.na + '개) vs 그 외 ' + xf(r.mb) + ' (' + r.nb + '개) · 히트율 ' + pct0(r.ha) + ' vs ' + pct0(r.hb) + '</small></span></li>';
+        return '<li class="' + (up ? 'up' : 'down') + '"><span class="ic2">' + (up ? '▲' : '▼') + '</span><span><b>' + esc(r.label) + '</b> <em class="' + (up ? 'up' : 'down') + '">' + (up ? '잘 됨' : '약함') + '</em><small>평소의 ' + xf(r.ma) + ' (' + r.na + '개) vs 그 외 ' + xf(r.mb) + ' (' + r.nb + '개) · 히트율 ' + pct0(r.ha) + ' vs ' + pct0(r.hb) + '</small></span></li>';
       }).join('') + '</ul></div>';
     });
     return '<div class="rls">' + blocks.join('') + '</div><p class="note">함께 나타난 경향이라 원인이라고 단정할 수는 없어요. 다음 달 기획에서 시험해 보고 「전략 기록」으로 확인해 보세요.</p>';
@@ -1033,7 +1034,7 @@ sup.pt{font-size:10px;color:var(--muted,#8b95a1);margin-left:3px;font-weight:600
         return { t, per, rec, why, idx };
       }).filter(r => r.per >= 0.3 || r.rec > 0).sort((a, b) => b.rec - a.rec);
       const past = D.items.filter(it => it.c === ch && it.t !== '스토리' && !it.ad && it.d.slice(5, 7) === mm && it.d.slice(0, 4) < ny && ratio(it) != null);
-      const topics = groupBy(past, 'g').filter(r => r.n >= 2).sort((a, b) => b.idx - a.idx).slice(0, 4);
+      const topics = groupBy(past, 'g').filter(r => r.n >= 2 && r.idx >= 1.1).sort((a, b) => b.idx - a.idx).slice(0, 4);
       const yrs = [...new Set(past.map(it => it.d.slice(0, 4)))].sort();
       const best = past.slice().sort((a, b) => ratio(b) - ratio(a)).slice(0, 3);
       return { ch, nm, rows, topics, yrs, best };
@@ -1045,7 +1046,7 @@ sup.pt{font-size:10px;color:var(--muted,#8b95a1);margin-left:3px;font-weight:600
     return '<div class="pls">' + P.map(p => '<div class="pl"><div class="rl-h">' + badge(p.ch) + '<small>' + m + '월 권장 · 합계 ' + sum(p.rows.map(r => r.rec)) + '개</small></div>' +
       '<table class="tbl compact"><thead><tr><th>형식</th><th class="n">최근 월평균</th><th class="n">권장</th><th>근거</th></tr></thead><tbody>' +
       p.rows.map(r => '<tr><td>' + esc(fmtType(r.t)) + '</td><td class="n">' + r.per.toFixed(1) + '</td><td class="n"><b>' + r.rec + '</b></td><td class="' + (r.idx == null ? '' : r.idx >= 1.2 ? 'hi' : r.idx <= 0.8 ? 'lo' : '') + '">' + esc(r.why) + '</td></tr>').join('') + '</tbody></table>' +
-      (p.topics.length ? '<div class="pl-t"><b>지난 ' + m + '월에 잘 된 주제</b> <small>(' + p.yrs.join('·') + '년)</small><div class="chips">' + p.topics.map(t => '<span class="chip" aria-pressed="true">' + esc(t.k) + ' ' + xf(t.idx) + '</span>').join('') + '</div></div>' : '<p class="note">지난 ' + m + '월 데이터가 없어요.</p>') +
+      (p.topics.length ? '<div class="pl-t"><b>지난 ' + m + '월에 잘 된 주제</b> <small>(' + p.yrs.join('·') + '년)</small><div class="chips">' + p.topics.map(t => '<span class="chip" aria-pressed="true">' + esc(t.k) + ' ' + xf(t.idx) + '</span>').join('') + '</div></div>' : '<p class="note">' + (p.yrs.length ? '지난 ' + m + '월(' + p.yrs.join('·') + '년)에는 평소보다 뚜렷하게 잘 된 주제가 없었어요.' : '지난 ' + m + '월 데이터가 없어요.') + '</p>') +
       (p.best.length ? '<p class="note">참고: ' + p.best.map(it => esc(title(it.n)) + ' (' + dot(it.d) + ', ' + xf(ratio(it)) + ')').join(' · ') + '</p>' : '') + '</div>').join('') + '</div>' +
       '<div style="margin-top:12px"><button type="button" class="btn" id="planCopy">회의용으로 복사</button> <span class="hint">권장 수량·주제를 글로 복사해요</span></div>';
   }
@@ -1250,7 +1251,7 @@ sup.pt{font-size:10px;color:var(--muted,#8b95a1);margin-left:3px;font-weight:600
     draw('lifeChart2', { type: 'line', data: { labels: LIFE_AGES.map(a => '게시 후 ' + a[1]), datasets: LC.map((r, i) => ({ label: r.k, data: r.med.map(v => v == null ? null : Math.round(v * 100)), borderColor: pal[i % pal.length], backgroundColor: pal[i % pal.length], borderWidth: 2.5, pointRadius: 4, tension: 0.25, spanGaps: true })) },
       options: chartOpts({ plugins: { legend: { display: true, position: 'bottom' }, tooltip: { displayColors: true, callbacks: { label: c => c.dataset.label + ' ' + c.raw + '% (' + LC[c.datasetIndex].n[c.dataIndex] + '개)' } } }, scales: { y: { display: true, min: 0, max: 100, grid: { color: css('--line') }, ticks: { callback: v => v + '%' } } } }) });
     const at30 = LC.filter(r => r.med[0] != null).sort((a, b) => b.med[0] - a.med[0]);
-    $('lifeNote2').textContent = at30.length >= 2 ? at30[0].k + '은(는) 1달 만에 현재 조회의 ' + pct0(at30[0].med[0]) + '가 나와 초반에 승부가 나고, ' + at30[at30.length - 1].k + '은(는) ' + pct0(at30[at30.length - 1].med[0]) + '로 오래 꾸준히 커요. 빨리 끝나는 형식은 게시 첫 주 홍보(스토리·공유)에, 오래 가는 형식은 검색되는 제목·설명에 힘을 주세요.' : '';
+    $('lifeNote2').textContent = at30.length >= 2 ? at30[0].k + ' — 게시 1달 만에 현재 조회의 ' + pct0(at30[0].med[0]) + '가 나와 초반에 승부가 나요. ' + at30[at30.length - 1].k + ' — 1달 시점에 ' + pct0(at30[at30.length - 1].med[0]) + '로 오래 꾸준히 커요. 빨리 끝나는 형식은 게시 첫 주 홍보(스토리·공유)에, 오래 가는 형식은 검색되는 제목·설명에 힘을 주세요.' : '';
   }
   function reactNote(ch) {
     if (ch === '인스타그램') return '분류마다 어떤 반응이 많이 나오는지 · 도달한 사람 대비 비율이고, 평소보다 높으면 파란색이에요 · 역할은 평소보다 가장 크게 앞선 반응이에요';
