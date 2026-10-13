@@ -399,6 +399,39 @@ sup.pt{font-size:10px;color:var(--muted,#8b95a1);margin-left:3px;font-weight:600
 .pfseg { display: flex; gap: 4px; padding: 4px; margin: 4px 0 6px; background: var(--plane); border-radius: 12px; }
 .pfseg button { flex: 1; border: 0; background: transparent; padding: 10px 8px; border-radius: 9px; font: inherit; font-weight: 700; font-size: 14px; color: var(--muted); cursor: pointer; }
 .pfseg button[aria-selected="true"] { background: var(--bg); color: var(--fg); box-shadow: 0 1px 3px rgba(0,0,0,.08); }
+/* 전략: 처방 카드 */
+.rxs { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 12px; }
+.rx { background: var(--tile); border-radius: 16px; padding: 16px; display: flex; flex-direction: column; gap: 6px; border-left: 4px solid var(--muted); }
+.rx.more { border-left-color: var(--jj); } .rx.less { border-left-color: var(--coral); } .rx.again { border-left-color: var(--ok); }
+.rx-k { font-size: 12px; font-weight: 800; letter-spacing: .02em; color: var(--muted); }
+.rx.more .rx-k { color: var(--jj); } .rx.less .rx-k { color: var(--coral); } .rx.again .rx-k { color: var(--ok); }
+.rx-h { font-size: 16px; font-weight: 800; display: flex; align-items: center; flex-wrap: wrap; gap: 2px; }
+.rx p { margin: 0; font-size: 14px; color: var(--sub); line-height: 1.55; }
+.rx p small { color: var(--muted); }
+.rx-b { align-self: flex-start; margin-top: 4px; border: 0; background: var(--bg); border-radius: 10px; padding: 7px 12px; font: inherit; font-size: 13px; font-weight: 700; cursor: pointer; color: var(--fg); }
+/* 잘 되는 조건 */
+.rls, .pls { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 16px; }
+.rl, .pl, .lt { min-width: 0; }
+.rl-h { display: flex; align-items: center; gap: 6px; margin-bottom: 8px; font-weight: 700; }
+.rl-h small { color: var(--muted); font-weight: 500; font-size: 13px; }
+.rl ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
+.rl li { display: grid; grid-template-columns: 22px minmax(0, 1fr); gap: 6px; font-size: 15px; }
+.rl li .ic2 { font-size: 13px; padding-top: 3px; }
+.rl li.up .ic2 { color: var(--up); } .rl li.down .ic2 { color: var(--down); }
+.rl li small { display: block; color: var(--muted); font-size: 12.5px; margin-top: 1px; }
+.pl-t { margin-top: 10px; font-size: 14px; } .pl-t small { color: var(--muted); } .pl-t .chips { margin: 6px 0 0; flex-wrap: wrap; }
+.pl-t .chip { font-size: 13px; padding: 6px 10px; cursor: default; }
+.lt + .lt { margin-top: 22px; }
+.lt-s { margin: 0 0 6px; font-size: 15px; }
+/* 목표 */
+.gls { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 12px; }
+.gl { background: var(--tile); border-radius: 16px; padding: 14px 16px; display: flex; flex-direction: column; gap: 6px; }
+.gl-h { font-size: 14px; font-weight: 700; color: var(--sub); display: flex; align-items: center; }
+.gl-v { font-size: 15px; color: var(--muted); } .gl-v b { font-size: 24px; color: var(--fg); font-weight: 800; }
+.gl small { font-size: 12.5px; }
+.pbar.wide { width: 100%; height: 10px; position: relative; overflow: visible; margin: 0; }
+.pbar.wide i { border-radius: 5px; }
+.pbar.wide em { position: absolute; top: -3px; bottom: -3px; width: 2px; background: var(--fg); opacity: .5; }
 </style>
 
 <div class="app" id="app">
@@ -901,6 +934,235 @@ sup.pt{font-size:10px;color:var(--muted,#8b95a1);margin-left:3px;font-weight:600
   }
 
   // ═════════ 2. 콘텐츠 전략 ═════════
+  // ═════════ 전략: 처방 · 조건 · 편성 · 실행 기록 · 목표 · 롱테일 · 수명 ═════════
+  const CH_ALIAS = { '인스타': '인스타그램', '인스타그램': '인스타그램', 'instagram': '인스타그램', '유튜브': '유튜브', 'youtube': '유튜브', 'hong': 'hong._.video', '홍비디오': 'hong._.video', 'hong._.video': 'hong._.video' };
+  const chKey = s => CH_ALIAS[String(s || '').trim().toLowerCase()] || CH_ALIAS[String(s || '').trim()] || null;
+  const ownIn = chs => chs.filter(c => OWN.includes(c));
+  const dow = d => new Date(d + 'T00:00:00Z').getUTCDay();
+
+  // 1) 처방 카드
+  function prescribe(chs) {
+    const s365 = addDays(D.updated, -365), s60 = addDays(D.updated, -60);
+    const L = pool({ channels: chs, since: s365 }).filter(it => ratio(it) != null);
+    const hbCh = {}; chs.forEach(c => { hbCh[c] = hitRate(L.filter(it => it.c === c)) || 0; });
+    const combos = groupBy(L, it => it.c + '|' + it.g + '|' + it.t).filter(r => r.n >= 4);
+    combos.forEach(r => { const p = r.k.split('|'); r.c = p[0]; r.g = p[1]; r.t = p[2]; r.recent = r.arr.filter(it => it.d >= s60).length; r.exp = r.n * 60 / 365; r.hb = hbCh[r.c]; });
+    const more = combos.filter(r => r.idx >= 1.25 && (r.hit || 0) >= r.hb && r.recent <= Math.max(1, Math.floor(r.exp))).sort((a, b) => b.idx * (0.5 + (b.hit || 0)) - a.idx * (0.5 + (a.hit || 0))).slice(0, 3);
+    const less = combos.filter(r => r.idx <= 0.8 && r.recent >= Math.max(3, Math.ceil(r.exp * 1.2))).sort((a, b) => a.idx - b.idx).slice(0, 2);
+    less.forEach(r => { r.alt = combos.filter(x => x.c === r.c && x.g === r.g && x.t !== r.t && x.n >= 3 && x.idx > Math.max(1, r.idx * 1.3)).sort((a, b) => b.idx - a.idx)[0] || null; });
+    const a0 = addDays(D.updated, -365 - 7), a1 = addDays(D.updated, -365 + 45);
+    const again = D.items.filter(it => chs.includes(it.c) && it.t !== '스토리' && it.d >= a0 && it.d <= a1 && !it.ad && isHit(it)).sort((a, b) => ratio(b) - ratio(a)).slice(0, 3);
+    return { more, less, again };
+  }
+  function rxHtml(P) {
+    const card = (kind, lab, head, body, key) => '<div class="rx ' + kind + '"><div class="rx-k">' + lab + '</div><div class="rx-h">' + head + '</div><p>' + body + '</p>' + (key ? '<button type="button" class="rx-b" data-rx="' + esc(key) + '">콘텐츠 보기</button>' : '') + '</div>';
+    const combo = r => badge(r.c) + '<span>' + esc(r.g) + ' × ' + esc(fmtType(r.t)) + '</span>';
+    const cards = [];
+    P.more.forEach(r => cards.push(card('more', '더 만들기', combo(r), '평소의 <b>' + xf(r.idx) + '</b> · 히트율 <b>' + pct0(r.hit) + '</b>(채널 평균 ' + pct0(r.hb) + ') · 최근 1년 ' + r.n + '개 중 <b>최근 2달 ' + r.recent + '개</b>뿐이에요', 'c:' + r.k)));
+    P.less.forEach(r => cards.push(card('less', '줄이거나 바꾸기', combo(r), '최근 2달 ' + r.recent + '개 올렸는데 평소의 <b>' + xf(r.idx) + '</b>에 그쳤어요' + (r.alt ? ' · 같은 주제는 <b>' + esc(fmtType(r.alt.t)) + '</b>일 때 평소의 ' + xf(r.alt.idx) + '(' + r.alt.n + '개)' : ''), 'c:' + r.k)));
+    if (P.again.length) cards.push(card('again', '작년 이맘때 잘 된 것', '<span>올해 버전 만들기 후보</span>', P.again.map(it => badge(it.c) + esc(title(it.n)) + ' <b>' + xf(ratio(it)) + '</b> <small>' + dot(it.d) + '</small>').join('<br>'), 'a:again'));
+    if (!cards.length) return '<div class="wait">아직 뚜렷한 처방이 없어요. 분류·형식별 게시물이 4개 이상 쌓이면 나와요.</div>';
+    return '<div class="rxs">' + cards.join('') + '</div><div id="rxList"></div>';
+  }
+  function rxItems(key, P, chs) {
+    if (key === 'a:again') return P.again;
+    const [c, g, t] = key.slice(2).split('|');
+    return pool({ channels: chs, since: addDays(D.updated, -365) }).filter(it => it.c === c && it.g === g && it.t === t).sort((a, b) => (ratio(b) || 0) - (ratio(a) || 0)).slice(0, 15);
+  }
+
+  // 2) 잘 되는 조건
+  const FEATS = [
+    ['질문형 제목(?)', it => /[?？]/.test(title(it.n))],
+    ['제목에 숫자', it => /\d/.test(title(it.n))],
+    ['캡션에 이모지', it => /\p{Extended_Pictographic}/u.test(it.n || '')],
+    ['이벤트 게시물', it => /이벤트|EVENT|𝗘𝗩𝗘𝗡𝗧|경품|추첨/i.test(it.n || '')],
+    ['학생이 만든 콘텐츠(홍보대사·근로·학생)', it => ['홍보대사', '근로장학생', '학생 크리에이터'].includes(it.p)],
+    ['홍보대사 제작', it => it.p === '홍보대사'],
+    ['학과·기관 협업', it => it.p === '학과·기관 협업'],
+    ['주말(토·일) 게시', it => [0, 6].includes(dow(it.d))],
+    ['짧은 제목(15자 이하)', it => title(it.n).length <= 15],
+  ];
+  function rulesFor(ch) {
+    const L = pool({ channels: [ch], since: addDays(D.updated, -730) }).filter(it => ratio(it) != null);
+    if (L.length < 30) return [];
+    const out = [];
+    const test = (label, f, kind) => {
+      const a = L.filter(f), b = L.filter(it => !f(it));
+      if (a.length < 6 || b.length < 6) return;
+      const ma = median(a.map(ratio)), mb = median(b.map(ratio));
+      if (!ma || !mb) return;
+      const eff = ma / mb;
+      if (eff >= 1.25 || eff <= 0.8) out.push({ label, kind, ma, mb, na: a.length, nb: b.length, eff, ha: hitRate(a), hb: hitRate(b), f });
+    };
+    const types = groupBy(L, 't').filter(r => r.n >= 6);
+    types.forEach(r => test(fmtType(r.k), it => it.t === r.k, '형식'));
+    FEATS.forEach(([l, f]) => test(l, f, '조건'));
+    const wd = [1, 2, 3, 4, 5, 6, 0].map(k => ({ k, arr: L.filter(it => dow(it.d) === k) })).filter(x => x.arr.length >= 6).map(x => ({ k: x.k, m: median(x.arr.map(ratio)) }));
+    const bw = wd.sort((a, b) => b.m - a.m)[0];
+    if (bw) test(WD[bw.k] + '요일 게시', it => dow(it.d) === bw.k, '요일');
+    return out.sort((a, b) => Math.abs(Math.log(b.eff)) - Math.abs(Math.log(a.eff))).slice(0, 6);
+  }
+  function rulesHtml(chs) {
+    const blocks = ownIn(chs).map(ch => {
+      const R = rulesFor(ch);
+      if (!R.length) return '<div class="rl"><div class="rl-h">' + badge(ch) + '</div><p class="note">게시물이 적거나 뚜렷한 차이가 없어요.</p></div>';
+      return '<div class="rl"><div class="rl-h">' + badge(ch) + '<small>최근 2년 · 평소 대비(중앙값)</small></div><ul>' + R.map(r => {
+        const up = r.eff >= 1;
+        return '<li class="' + (up ? 'up' : 'down') + '"><span class="ic2">' + (up ? '▲' : '▼') + '</span><span><b>' + esc(r.label) + '</b>' + (up ? '일 때 잘 돼요' : '은 약해요') + '<small>평소의 ' + xf(r.ma) + ' (' + r.na + '개) vs 그 외 ' + xf(r.mb) + ' (' + r.nb + '개) · 히트율 ' + pct0(r.ha) + ' vs ' + pct0(r.hb) + '</small></span></li>';
+      }).join('') + '</ul></div>';
+    });
+    return '<div class="rls">' + blocks.join('') + '</div><p class="note">함께 나타난 경향이라 원인이라고 단정할 수는 없어요. 다음 달 기획에서 시험해 보고 「전략 기록」으로 확인해 보세요.</p>';
+  }
+
+  // 3) 다음 달 편성 제안
+  function nextPlan(chs) {
+    const nm = monthStart(D.updated, 1), mm = nm.slice(5, 7), ny = nm.slice(0, 4);
+    return ownIn(chs).map(ch => {
+      const L6 = pool({ channels: [ch], since: addDays(D.updated, -182), ads: true });
+      const L1 = pool({ channels: [ch], since: addDays(D.updated, -365) });
+      const byT = groupBy(L1, 't');
+      const types = [...new Set(L6.map(it => it.t))];
+      const rows = types.map(t => {
+        const per = L6.filter(it => it.t === t).length / 6;
+        const r = byT.find(x => x.k === t);
+        const idx = r && r.n >= 4 ? r.idx : null;
+        let rec = Math.round(per);
+        let why = '최근 6달 월평균 유지';
+        if (idx != null && idx >= 1.2) { rec = Math.max(rec + 1, Math.round(per * 1.3)); why = '평소의 ' + xf(idx) + ' · 늘리기'; }
+        else if (idx != null && idx <= 0.8 && rec > 0) { rec = Math.max(0, Math.min(rec - 1, Math.round(per * 0.7))); why = '평소의 ' + xf(idx) + ' · 줄이기'; }
+        return { t, per, rec, why, idx };
+      }).filter(r => r.per >= 0.3 || r.rec > 0).sort((a, b) => b.rec - a.rec);
+      const past = D.items.filter(it => it.c === ch && it.t !== '스토리' && !it.ad && it.d.slice(5, 7) === mm && it.d.slice(0, 4) < ny && ratio(it) != null);
+      const topics = groupBy(past, 'g').filter(r => r.n >= 2).sort((a, b) => b.idx - a.idx).slice(0, 4);
+      const yrs = [...new Set(past.map(it => it.d.slice(0, 4)))].sort();
+      const best = past.slice().sort((a, b) => ratio(b) - ratio(a)).slice(0, 3);
+      return { ch, nm, rows, topics, yrs, best };
+    });
+  }
+  function planHtml(P) {
+    if (!P.length) return '';
+    const m = +P[0].nm.slice(5, 7);
+    return '<div class="pls">' + P.map(p => '<div class="pl"><div class="rl-h">' + badge(p.ch) + '<small>' + m + '월 권장 · 합계 ' + sum(p.rows.map(r => r.rec)) + '개</small></div>' +
+      '<table class="tbl compact"><thead><tr><th>형식</th><th class="n">최근 월평균</th><th class="n">권장</th><th>근거</th></tr></thead><tbody>' +
+      p.rows.map(r => '<tr><td>' + esc(fmtType(r.t)) + '</td><td class="n">' + r.per.toFixed(1) + '</td><td class="n"><b>' + r.rec + '</b></td><td class="' + (r.idx == null ? '' : r.idx >= 1.2 ? 'hi' : r.idx <= 0.8 ? 'lo' : '') + '">' + esc(r.why) + '</td></tr>').join('') + '</tbody></table>' +
+      (p.topics.length ? '<div class="pl-t"><b>지난 ' + m + '월에 잘 된 주제</b> <small>(' + p.yrs.join('·') + '년)</small><div class="chips">' + p.topics.map(t => '<span class="chip" aria-pressed="true">' + esc(t.k) + ' ' + xf(t.idx) + '</span>').join('') + '</div></div>' : '<p class="note">지난 ' + m + '월 데이터가 없어요.</p>') +
+      (p.best.length ? '<p class="note">참고: ' + p.best.map(it => esc(title(it.n)) + ' (' + dot(it.d) + ', ' + xf(ratio(it)) + ')').join(' · ') + '</p>' : '') + '</div>').join('') + '</div>' +
+      '<div style="margin-top:12px"><button type="button" class="btn" id="planCopy">회의용으로 복사</button> <span class="hint">권장 수량·주제를 글로 복사해요</span></div>';
+  }
+  function planText(P) {
+    const m = +P[0].nm.slice(5, 7);
+    return P.map(p => '[' + chName(p.ch) + '] ' + m + '월 권장 ' + sum(p.rows.map(r => r.rec)) + '개\n' + p.rows.map(r => '- ' + fmtType(r.t) + ' ' + r.rec + '개 (' + r.why + ')').join('\n') +
+      (p.topics.length ? '\n- 지난 ' + m + '월 잘 된 주제: ' + p.topics.map(t => t.k + '(' + xf(t.idx) + ')').join(', ') : '')).join('\n\n');
+  }
+
+  // 4) 실행 기록 (스냅샷 시트 「전략 기록」)
+  function scoreStrat(s) {
+    const c = chKey(s.ch);
+    const chs = c ? [c] : OWN;
+    const to = s.to && s.to >= s.from ? s.to : D.updated;
+    const match = it => chs.includes(it.c) && it.t !== '스토리' && !it.ad && (!s.g || String(it.g).includes(s.g)) && (!s.t || typeShort(it.t) === s.t || it.t === s.t || fmtType(it.t) === s.t) && (!s.kw || String(it.n || '').toLowerCase().includes(String(s.kw).toLowerCase()));
+    const L = D.items.filter(it => match(it) && it.d >= s.from && it.d <= to);
+    const len = Math.max(14, daysBetween(s.from, to));
+    const B = D.items.filter(it => match(it) && it.d >= addDays(s.from, -len) && it.d < s.from);
+    const m = median(L.map(ratio)), mb = median(B.map(ratio));
+    const running = to >= D.updated && (!s.to || s.to >= D.updated);
+    let v = ['info', '데이터 대기'];
+    if (L.length >= 3 && m != null) v = m >= 1.2 && (mb == null || m >= mb * 1.1) ? ['good', '효과 있음'] : m <= 0.9 ? ['bad', '효과 약함'] : ['info', '보통'];
+    else if (L.length) v = ['info', '게시 ' + L.length + '개 · 판단 보류'];
+    return { L, B, m, mb, hit: hitRate(L), v, running, chs };
+  }
+  function stratHtml() {
+    const ST = (D.strat || []).filter(s => s.from && s.what);
+    if (!ST.length) return '<div class="wait"><b>시도한 전략의 효과를 자동으로 채점해요.</b><br>스냅샷 시트 <b>「전략 기록」</b> 탭에 시작일 · 종료일 · 채널 · 분류 · 형식 · 제목 키워드 · 시도 내용을 한 줄씩 적으면, 해당 기간 게시물이 평소보다 얼마나 나왔는지와 직전 같은 기간 대비를 여기서 보여줘요.<br><small class="hint">예) 2026-10-14 · 2026-11-30 · 인스타 · 학과 소개 · 릴스 · (비움) · 학과 소개를 릴스로 주 1회</small></div>';
+    const rows = ST.slice().sort((a, b) => a.from < b.from ? 1 : -1).map((s, i) => {
+      const r = scoreStrat(s);
+      return '<tr class="click" data-si="' + i + '"><td class="w"><b>' + esc(s.what) + '</b><br><small class="hint">' + [s.ch ? chName(chKey(s.ch) || s.ch) : '전체', s.g, s.t, s.kw ? '“' + s.kw + '”' : ''].filter(Boolean).map(esc).join(' · ') + '</small></td><td>' + dot(s.from) + ' ~ ' + (s.to ? dot(s.to) : '') + (r.running ? ' <span class="tag p-own">진행 중</span>' : '') + '</td><td class="n">' + r.L.length + '</td><td class="n"><b>' + xf(r.m) + '</b></td><td class="n">' + xf(r.mb) + '</td><td class="n">' + pct0(r.hit) + '</td><td><span class="tag ' + (r.v[0] === 'good' ? 'p-own' : r.v[0] === 'bad' ? 'p-ad' : '') + '">' + esc(r.v[1]) + '</span></td></tr>';
+    });
+    return '<div class="tw"><table class="tbl" id="stTbl"><thead><tr><th>시도</th><th>기간</th><th class="n">게시</th><th class="n">평소 대비</th><th class="n">직전 같은 기간</th><th class="n">히트율</th><th>판정</th></tr></thead><tbody>' + rows.join('') + '</tbody></table></div><p class="note">조건(채널·분류·형식·키워드)에 맞는 게시물만 모아 평소 대비(중앙값)를 봐요 · 3개 이상 쌓이면 판정해요 · 줄을 누르면 해당 게시물이 나와요</p><div id="stList"></div>';
+  }
+
+  // 5) 이번 달 목표 (스냅샷 시트 「채널 목표」)
+  const GOAL_M = { '게시 수': 'n', '게시물': 'n', '조회수': 'views', '조회': 'views', '히트율': 'hit', '평균 조회': 'avg', '팔로워 순증': 'fol', '구독 순증': 'fol', '팔로워': 'fol' };
+  function goalActual(ch, metric, ym) {
+    const L = D.items.filter(it => it.c === ch && it.t !== '스토리' && it.d.slice(0, 7) === ym && (S.ads || !it.ad));
+    if (metric === 'n') return L.length;
+    if (metric === 'views') return sum(L.map(it => val(it, 0)));
+    if (metric === 'avg') return L.length ? sum(L.map(it => val(it, 0))) / L.length : null;
+    if (metric === 'hit') { const h = hitRate(L); return h == null ? null : h * 100; }
+    if (metric === 'fol') {
+      const a = (D.acct || []).filter(x => x.ch === ch).sort((x, y) => x.d < y.d ? -1 : 1);
+      if (ch === '유튜브') return sum(a.filter(x => x.d.slice(0, 7) === ym).map(x => (x.m['Gained subscribers'] || 0) - (x.m['Lost subscribers'] || 0)));
+      const inM = a.filter(x => x.d.slice(0, 7) === ym && x.m['Profile followers'] != null), before = a.filter(x => x.d.slice(0, 7) < ym && x.m['Profile followers'] != null).pop();
+      const first = before || inM[0], lastA = inM[inM.length - 1];
+      return first && lastA && first !== lastA ? lastA.m['Profile followers'] - first.m['Profile followers'] : null;
+    }
+    return null;
+  }
+  function goalsHtml() {
+    const ym = D.updated.slice(0, 7);
+    const G = (D.goals || []).filter(g => g.target != null && chKey(g.ch) && GOAL_M[g.metric] && (!g.ym || g.ym === ym));
+    if (!G.length) return '';
+    const dim = new Date(Date.UTC(+ym.slice(0, 4), +ym.slice(5, 7), 0)).getUTCDate(), day = +D.updated.slice(8, 10);
+    const pace = day / dim;
+    return '<div class="gls">' + G.map(g => {
+      const c = chKey(g.ch), mk = GOAL_M[g.metric], a = goalActual(c, mk, ym);
+      const r = a == null ? null : a / g.target;
+      const paced = ['n', 'views', 'fol'].includes(mk);
+      const ok = r == null ? null : paced ? r >= pace * 0.95 : r >= 0.95;
+      const f = mk === 'hit' ? (v => v == null ? '–' : Math.round(v) + '%') : mk === 'views' || mk === 'avg' ? fmtK : fmt;
+      return '<div class="gl"><div class="gl-h">' + badge(c) + esc(g.metric) + '</div><div class="gl-v"><b>' + f(a) + '</b> / ' + f(g.target) + '</div><div class="pbar wide"><i style="width:' + Math.min(100, (r || 0) * 100) + '%;background:' + (ok == null ? 'var(--muted)' : ok ? 'var(--jj)' : 'var(--coral)') + '"></i>' + (paced ? '<em style="left:' + (pace * 100) + '%"></em>' : '') + '</div><small class="' + (ok ? 'up' : 'down') + '">' + (r == null ? '데이터 없음' : pct0(r) + (paced ? ' · 오늘까지 기대 ' + pct0(pace) : '') + (ok ? ' · 순조로워요' : ' · 속도를 올려야 해요')) + '</small>' + (g.memo ? '<small class="hint">' + esc(g.memo) + '</small>' : '') + '</div>';
+    }).join('') + '</div><p class="note">' + (+ym.slice(5, 7)) + '월 · ' + day + '일 기록 기준 · 목표는 스냅샷 시트 「채널 목표」 탭에서 바꿀 수 있어요 · 조회수는 이번 달 올린 게시물의 현재 누적이에요</p>';
+  }
+
+  // 6) 롱테일 — 오래된 게시물이 최근에 얼마나 컸나
+  function longtail(ch) {
+    const ri = D.dates.map((d, i) => i).filter(i => hasRec(ch, i));
+    if (ri.length < 2) return null;
+    const iL = ri[ri.length - 1];
+    const i0 = ri.find(i => D.dates[i] >= addDays(D.updated, -200));
+    if (i0 == null || i0 === iL) return null;
+    const its = D.items.filter(it => it.c === ch && it.t !== '스토리' && (S.ads || !it.ad) && it.h[iL] && it.h[i0] && it.h[iL][0] != null && it.h[i0][0] != null);
+    const g = new Map(its.map(it => [it, Math.max(0, it.h[iL][0] - it.h[i0][0])]));
+    const tot = sum([...g.values()]);
+    const old = its.filter(it => daysBetween(it.d, D.dates[i0]) > 365);
+    const oldSum = sum(old.map(it => g.get(it)));
+    const top = old.filter(it => g.get(it) > 0).sort((a, b) => g.get(b) - g.get(a)).slice(0, 10);
+    return { ch, from: D.dates[i0], to: D.dates[iL], days: daysBetween(D.dates[i0], D.dates[iL]), tot, oldSum, n: old.length, top, g };
+  }
+  function longtailHtml(chs) {
+    const R = ownIn(chs).map(longtail).filter(r => r && r.top.length);
+    if (!R.length) return '<div class="wait">기록이 2회 이상 쌓인 채널이 없어요.</div>';
+    return R.map(r => '<div class="lt"><div class="rl-h">' + badge(r.ch) + '<small>' + dot(r.from) + ' → ' + dot(r.to) + ' (' + r.days + '일)</small></div>' +
+      '<p class="lt-s">이 기간 늘어난 조회 <b>' + fmtK(r.tot) + '</b> 중 <b>' + pct0(r.tot ? r.oldSum / r.tot : null) + '</b>가 게시 1년이 넘은 콘텐츠에서 나왔어요.</p>' +
+      '<ol class="rank" id="lt_' + esc(r.ch).replace(/\W/g, '') + '">' + rankRows(r.top, { right: it => '<span class="num">+' + fmtK(r.g.get(it)) + '</span> 늘어남 · ' + it.d.slice(0, 4) + '년 게시' }) + '</ol></div>').join('') +
+      '<p class="note">오래돼도 계속 보이는 콘텐츠는 검색·추천으로 소비되는 중이에요. 설명란·고정 댓글에 최신 링크(입학처·최근 영상)를 달고, 같은 주제의 새 버전을 만들 후보예요.</p>';
+  }
+
+  // 7) 수명 곡선 — 게시 후 1달·3달·6달에 현재 누적의 몇 %까지 왔나
+  const LIFE_AGES = [[30, '1달'], [90, '3달'], [180, '6달']];
+  const lifeGroup = it => it.c === '유튜브' ? (it.t === '1분 이하' ? '쇼츠' : '긴 영상') : typeShort(it.t) === '릴스' ? '릴스' : typeShort(it.t) || '기타';
+  function lifeCurve(chs) {
+    const G = {};
+    D.items.filter(it => chs.includes(it.c) && it.t !== '스토리' && !it.ad).forEach(it => {
+      const pts = [[0, 0]];
+      it.h.forEach((x, i) => { if (x && x[0] != null) { const a = daysBetween(it.d, D.dates[i]); if (a >= 0) pts.push([a, x[0]]); } });
+      if (pts.length < 3) return;
+      const fin = pts[pts.length - 1];
+      if (!(fin[1] > 0)) return;
+      const key = (chs.length > 1 ? chName(it.c) + ' ' : '') + lifeGroup(it);
+      LIFE_AGES.forEach(([A], j) => {
+        if (fin[0] < A * 1.3) return;
+        const near = pts.some(p => p[0] > 0 && p[0] >= A * 0.5 && p[0] <= A * 1.6);
+        if (!near) return;
+        let k = pts.findIndex(p => p[0] >= A); if (k < 1) return;
+        const [a0, v0] = pts[k - 1], [a1, v1] = pts[k];
+        const v = a1 === a0 ? v1 : v0 + (v1 - v0) * (A - a0) / (a1 - a0);
+        ((G[key] = G[key] || [[], [], []])[j]).push(Math.min(1, Math.max(0, v / fin[1])));
+      });
+    });
+    return Object.entries(G).map(([k, arr]) => ({ k, med: arr.map(a => a.length >= 4 ? median(a) : null), n: arr.map(a => a.length) })).filter(r => r.med.some(x => x != null));
+  }
+
   function viewStrategy() {
     const chs = viewChannels(), ch = chs.length === 1 ? chs[0] : null, L = pool({ channels: chs });
     const types = Object.entries(L.reduce((o, it) => { o[it.t] = (o[it.t] || 0) + 1; return o; }, {})).sort((a, b) => b[1] - a[1]).map(x => x[0]);
@@ -929,7 +1191,18 @@ sup.pt{font-size:10px;color:var(--muted,#8b95a1);margin-left:3px;font-weight:600
       const arr = L.filter(it => it.g === g && it.t === t).sort((a, b) => (ratio(b) || 0) - (ratio(a) || 0));
       sel = '<div style="margin-top:16px"><h3 class="sub">' + esc(g) + ' × ' + esc(fmtType(t)) + ' — ' + arr.length + '개</h3><ol class="rank" id="mxList">' + rankRows(arr.slice(0, 20)) + '</ol></div>';
     }
-    let html = secOpen('무엇을 만들면 잘 되나', (ch ? badge(ch) : esc(scopeLabel())) + ' ' + periodPhrase() + ' 게시물 · 칸의 숫자는 <b>히트율</b>, 평소의 1.5배 이상 나온 게시물 비율이에요') + mx + sel + secClose;
+    const own = ownIn(chs).length > 0;
+    const RX = own ? prescribe(ownIn(chs)) : null, PLAN = own ? nextPlan(chs) : null;
+    let top = '';
+    if (own) {
+      const gh = goalsHtml();
+      top += secOpen('이번 달 목표', gh ? '목표 대비 진행률 · 막대의 세로선은 오늘까지 기대 진행률이에요' : '') + (gh || '<div class="wait"><b>채널별 월 목표를 정하면 진행률을 보여줘요.</b><br>스냅샷 시트 <b>「채널 목표」</b> 탭에 채널 · 지표(게시 수 / 조회수 / 히트율 / 평균 조회 / 팔로워 순증) · 목표값을 적어 주세요. 월을 비우면 매달 같은 목표로 봐요.</div>') + secClose;
+      top += secOpen('이번 주 처방', (ch ? badge(ch) : esc(scopeLabel())) + ' 최근 1년 성과와 최근 2달 제작량을 비교해 뽑았어요') + rxHtml(RX) + secClose;
+      top += secOpen('시도한 전략 채점', '「전략 기록」에 적은 시도가 실제로 효과가 있었는지') + stratHtml() + secClose;
+      top += secOpen('잘 되는 조건', '데이터에서 차이가 뚜렷한 것만 골랐어요 (평소 대비 1.25배 이상 차이)') + rulesHtml(chs) + secClose;
+      top += secOpen((+monthStart(D.updated, 1).slice(5, 7)) + '월 편성 제안', '최근 6달 제작량 + 형식별 성과 + 지난해 같은 달에 잘 된 주제') + planHtml(PLAN) + secClose;
+    }
+    let html = top + secOpen('무엇을 만들면 잘 되나', (ch ? badge(ch) : esc(scopeLabel())) + ' ' + periodPhrase() + ' 게시물 · 칸의 숫자는 <b>히트율</b>, 평소의 1.5배 이상 나온 게시물 비율이에요') + mx + sel + secClose;
 
     // 반응의 종류
     if (ch && OWN.includes(ch)) html += secOpen('콘텐츠 역할 — 반응의 종류', reactNote(ch)) + reactTable(ch, cats) + secClose;
@@ -940,7 +1213,10 @@ sup.pt{font-size:10px;color:var(--muted,#8b95a1);margin-left:3px;font-weight:600
       '<div class="two"><div><h3>분류별</h3><div class="bars" id="byCat"></div></div><div><h3>게시 요일별</h3><div class="chart" id="wdBox"><canvas id="wdChart"></canvas></div><p class="note" id="wdNote"></p></div></div>' + secClose;
 
     // 수명
-    if (S.ch !== '타 대학') html += secOpen('콘텐츠 수명 — 오래된 게시물도 계속 크나', '이번 주 늘어난 조회가 새 게시물과 오래된 게시물 중 어디서 나왔는지') + lifeBlock() + secClose;
+    if (own) {
+      html += secOpen('롱테일 — 오래돼도 계속 크는 콘텐츠', '과거 기록 사이에 늘어난 조회 기준 · 게시 1년이 넘은 콘텐츠') + longtailHtml(chs) + secClose;
+      html += secOpen('콘텐츠 수명 — 언제까지 조회가 붙나', '게시 후 1달·3달·6달에 현재 누적의 몇 %까지 왔는지(중앙값) · 낮을수록 오래 꾸준히 커요') + '<div class="chart tall"><canvas id="lifeChart2"></canvas></div><p class="note" id="lifeNote2"></p>' + secClose;
+    }
     $('view').innerHTML = html.replace(/^<div class="gap"><\/div>/, '');
     $('view').querySelectorAll('.mx td[data-k]').forEach(td => { if (td.classList.contains('none')) return; td.addEventListener('click', () => { S.mx = S.mx === td.dataset.k ? null : td.dataset.k; viewStrategy(); if (S.mx) setTimeout(() => { const el = $('mxList'); if (el) el.scrollIntoView({ behavior: 'smooth', block: 'nearest' }); }, 30); }); });
     if (S.mx) { const [g, t] = S.mx.split('|'); wireRank($('mxList'), L.filter(it => it.g === g && it.t === t).sort((a, b) => (ratio(b) || 0) - (ratio(a) || 0)).slice(0, 20)); }
@@ -952,7 +1228,29 @@ sup.pt{font-size:10px;color:var(--muted,#8b95a1);margin-left:3px;font-weight:600
     draw('wdChart', { type: 'bar', data: { labels: wd.map(x => x.k), datasets: [{ data: wd.map(x => x.idx), backgroundColor: wd.map(x => x.idx == null ? css('--line') : x.idx >= 1 ? css('--up') : css('--down')), borderRadius: 6, maxBarThickness: 36 }] },
       options: chartOpts({ scales: { y: { display: false, beginAtZero: true } }, plugins: { tooltip: { callbacks: { label: c => xf(c.raw) + ' · ' + wd[c.dataIndex].n + '개' } } } }),
       plugins: [{ id: 'lb', afterDatasetsDraw(c) { const x = c.ctx; x.save(); x.font = '600 12px ' + css('--font'); x.fillStyle = css('--muted'); x.textAlign = 'center'; c.getDatasetMeta(0).data.forEach((b, i) => x.fillText(wd[i].n + '개', b.x, b.y - 6)); x.restore(); } }] });
-    if (weekly() && S.ch !== '타 대학') drawLife(chs);
+    if (own) wireStrat(chs, RX, PLAN);
+  }
+  function wireStrat(chs, RX, PLAN) {
+    $('view').querySelectorAll('[data-rx]').forEach(b => b.addEventListener('click', () => {
+      const L = rxItems(b.dataset.rx, RX, ownIn(chs));
+      $('rxList').innerHTML = '<h3 class="sub" style="margin-top:16px">' + esc(b.closest('.rx').querySelector('.rx-h').innerText) + ' — ' + L.length + '개</h3><ol class="rank" id="rxRank">' + rankRows(L) + '</ol>';
+      wireRank($('rxRank'), L); $('rxList').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }));
+    const ST = (D.strat || []).filter(s => s.from && s.what).sort((a, b) => a.from < b.from ? 1 : -1);
+    $('view').querySelectorAll('#stTbl tr[data-si]').forEach(tr => tr.addEventListener('click', () => {
+      const r = scoreStrat(ST[+tr.dataset.si]); const L = r.L.slice().sort((a, b) => (ratio(b) || 0) - (ratio(a) || 0));
+      $('stList').innerHTML = L.length ? '<ol class="rank" id="stRank">' + rankRows(L.slice(0, 20)) + '</ol>' : '<p class="note">조건에 맞는 게시물이 아직 없어요.</p>';
+      wireRank($('stRank'), L.slice(0, 20));
+    }));
+    if ($('planCopy')) $('planCopy').addEventListener('click', () => { const t = planText(PLAN); try { navigator.clipboard.writeText(t).then(() => toast('편성 제안을 복사했어요'), () => toast('복사하지 못했어요')); } catch (e) { toast('복사하지 못했어요'); } });
+    ownIn(chs).forEach(ch => { const el = $('lt_' + ch.replace(/\W/g, '')); const r = longtail(ch); if (el && r) wireRank(el, r.top); });
+    const LC = lifeCurve(ownIn(chs));
+    if (!LC.length) { $('lifeNote2').textContent = '아직 기록 간격이 짧아 수명 곡선을 그리기 어려워요.'; return; }
+    const pal = [css('--ch-ig'), css('--ch-yt'), css('--ch-hong'), css('--ch-b1'), css('--ch-b2'), css('--ch-b3'), css('--jj')];
+    draw('lifeChart2', { type: 'line', data: { labels: LIFE_AGES.map(a => '게시 후 ' + a[1]), datasets: LC.map((r, i) => ({ label: r.k, data: r.med.map(v => v == null ? null : Math.round(v * 100)), borderColor: pal[i % pal.length], backgroundColor: pal[i % pal.length], borderWidth: 2.5, pointRadius: 4, tension: 0.25, spanGaps: true })) },
+      options: chartOpts({ plugins: { legend: { display: true, position: 'bottom' }, tooltip: { displayColors: true, callbacks: { label: c => c.dataset.label + ' ' + c.raw + '% (' + LC[c.datasetIndex].n[c.dataIndex] + '개)' } } }, scales: { y: { display: true, min: 0, max: 100, grid: { color: css('--line') }, ticks: { callback: v => v + '%' } } } }) });
+    const at30 = LC.filter(r => r.med[0] != null).sort((a, b) => b.med[0] - a.med[0]);
+    $('lifeNote2').textContent = at30.length >= 2 ? at30[0].k + '은(는) 1달 만에 현재 조회의 ' + pct0(at30[0].med[0]) + '가 나와 초반에 승부가 나고, ' + at30[at30.length - 1].k + '은(는) ' + pct0(at30[at30.length - 1].med[0]) + '로 오래 꾸준히 커요. 빨리 끝나는 형식은 게시 첫 주 홍보(스토리·공유)에, 오래 가는 형식은 검색되는 제목·설명에 힘을 주세요.' : '';
   }
   function reactNote(ch) {
     if (ch === '인스타그램') return '분류마다 어떤 반응이 많이 나오는지 · 도달한 사람 대비 비율이고, 평소보다 높으면 파란색이에요 · 역할은 평소보다 가장 크게 앞선 반응이에요';
