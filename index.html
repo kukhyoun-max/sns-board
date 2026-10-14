@@ -433,6 +433,22 @@ sup.pt{font-size:10px;color:var(--muted,#8b95a1);margin-left:3px;font-weight:600
 .pbar.wide i { border-radius: 5px; }
 .pbar.wide em { position: absolute; top: -3px; bottom: -3px; width: 2px; background: var(--fg); opacity: .5; }
 .rl li em { font-style: normal; font-size: 12px; font-weight: 800; margin-left: 4px; }
+/* 그래프 아래 데이터 표 */
+.cs-tw { overflow-x: auto; margin-top: 12px; border-top: 1px solid var(--line); }
+.cs-tbl { border-collapse: collapse; font-size: 12.5px; white-space: nowrap; min-width: 100%; }
+.cs-tbl th, .cs-tbl td { padding: 7px 10px; border-bottom: 1px solid var(--line); text-align: right; }
+.cs-tbl th:first-child, .cs-tbl td:first-child { text-align: left; font-weight: 600; }
+.cs-tbl th { font-size: 11.5px; font-weight: 600; color: var(--muted); }
+.cs-tbl th.ck { cursor: pointer; }
+.cs-tbl th.ck:hover { color: var(--fg); text-decoration: underline; }
+.cs-tbl .on { background: var(--tile); color: var(--fg); }
+.cs-tbl .tot { font-weight: 700; border-left: 1px solid var(--line); }
+.cs-tbl tr.sumr td { font-weight: 700; }
+.cs-tbl td small { display: block; font-size: 10.5px; color: var(--muted); font-weight: 500; }
+.cs-tbl .mu { color: var(--muted); }
+.cs-tbl .dotc { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 6px; vertical-align: 1px; }
+.cs-tbl sup.pt { font-size: 9px; color: var(--coral); margin-left: 2px; }
+.cs-tn { margin: 6px 2px 0; }
 </style>
 
 <div class="app" id="app">
@@ -878,13 +894,39 @@ sup.pt{font-size:10px;color:var(--muted,#8b95a1);margin-left:3px;font-weight:600
       '<div class="cs-mode"><button type="button" class="tg2" data-mo="post" aria-pressed="' + !M.growth + '">게시일 기준</button>' +
         '<button type="button" class="tg2" data-mo="growth" aria-pressed="' + M.growth + '"' + (canGrowth ? '' : ' disabled') + '>기록 사이 증가</button>' +
         '<span class="hint">' + (weekly() ? (M.def[2] === 'sum' ? '기록과 기록 사이에 실제로 늘어난 수치예요 · 막대에 마우스를 올리면 기간이 보여요' : '기록 사이 증가는 합계 지표(조회수·좋아요 등)에서만 볼 수 있어요') : '기록 사이 증가는 기록이 2회 이상 쌓이면 열려요') + '</span></div>' +
+      tblHtml(M) +
       '<div id="csPick">' + pickHtml(M) + '</div></section>';
     return h;
+  }
+  const TBL_MAX = 24;
+  function tblHtml(M) {
+    if (!M.bk.length || !M.series.length) return '';
+    const st = Math.max(0, M.bk.length - TBL_MAX), idx = M.bk.map((b, i) => i).slice(st);
+    const tot = M.def[2] === 'sum' || M.def[2] === 'count';
+    const selI = CS.sel == null ? -1 : M.bk.findIndex(b => b.k === CS.sel);
+    const rows = M.series.slice().sort((a, b) => (b.id === 'sum') - (a.id === 'sum'));
+    const nm = s => s.id === 'sum' && M.series.some(x => x.id === 'bench') ? '우리 채널 합계' : s.label || (s.ch ? chName(s.ch) + (benchMode() && s.ch === '인스타그램' ? '(우리)' : '') : M.def[1]);
+    const col = s => s.color || (s.ch ? chColor(s.ch) : css('--up'));
+    const rng = b => b.from === b.to ? dot(b.from) : dot(b.from) + ' ~ ' + dot(b.to > M.to ? M.to : b.to);
+    const cnt = M.growth ? null : (s, i) => s.arrs && s.arrs[i] ? s.arrs[i].length : null;
+    let h = '<div class="cs-tw tw" id="csTw"><table class="cs-tbl"><thead><tr><th>' + esc(M.def[1]) + '</th>' +
+      idx.map(i => '<th class="num' + (i === selI ? ' on' : '') + (M.growth ? '' : ' ck') + '" data-bi="' + i + '" title="' + esc(rng(M.bk[i])) + '">' + esc(M.bk[i].label) + (!M.growth && i === M.bk.length - 1 ? '<sup class="pt">진행 중</sup>' : '') + '</th>').join('') +
+      (tot ? '<th class="num tot">' + (st ? '전체 합계' : '합계') + '</th>' : '') + '</tr></thead><tbody>';
+    rows.forEach(s => {
+      h += '<tr' + (s.id === 'sum' ? ' class="sumr"' : '') + '><td><i class="dotc" style="background:' + col(s) + '"></i>' + esc(nm(s)) + '</td>' +
+        idx.map(i => { const v = s.data[i], c = cnt && rows.length === 1 ? cnt(s, i) : null; return '<td class="num' + (i === selI ? ' on' : '') + '">' + (v == null ? '<span class="mu">–</span>' : mfmt(M.def, v)) + (c != null && M.def[2] !== 'count' ? '<small>' + c + '개</small>' : '') + '</td>'; }).join('') +
+        (tot ? '<td class="num tot">' + mfmt(M.def, sum(s.data.filter(v => v != null))) + '</td>' : '') + '</tr>';
+    });
+    h += '</tbody></table></div>';
+    const notes = [];
+    if (st) notes.push('최근 ' + TBL_MAX + '개 구간만 보여요 · 전체는 「엑셀로 받기」');
+    if (M.def[2] === 'sum' && !M.growth) notes.push('각 칸은 그 기간에 올린 게시물의 현재 누적값');
+    return h + (notes.length ? '<p class="note cs-tn">' + esc(notes.join(' · ')) + '</p>' : '');
   }
   function pickHtml(M) {
     if (M.growth) return '';
     const i = CS.sel == null ? -1 : M.bk.findIndex(b => b.k === CS.sel);
-    if (i < 0) return '<p class="hint" style="margin:10px 2px 0">그래프를 누르면 그 기간에 올린 게시물이 아래에 나와요.</p>';
+    if (i < 0) return '<p class="hint" style="margin:10px 2px 0">그래프나 표의 기간 이름을 누르면 그 기간에 올린 게시물이 아래에 나와요.</p>';
     const b = M.bk[i];
     const arr = uniq(M.series.flatMap(s => s.arrs[i])).sort((x, y) => (mainVal(y) || 0) - (mainVal(x) || 0));
     const rng = b.from === b.to ? dot(b.from) : dot(b.from) + ' ~ ' + dot(b.to > M.to ? M.to : b.to);
@@ -910,6 +952,12 @@ sup.pt{font-size:10px;color:var(--muted,#8b95a1);margin-left:3px;font-weight:600
     $('csXls').addEventListener('click', () => toExport(M.from, M.to, M.growth ? 'channel' : M.unit === 'day' ? 'day' : M.unit, M.chs));
     if ($('csPickX')) { const b = M.bk.find(x => x.k === CS.sel); $('csPickX').addEventListener('click', () => toExport(b.from, b.to > M.to ? M.to : b.to, 'content', M.chs)); }
     if ($('csList')) { const i = M.bk.findIndex(b => b.k === CS.sel); wireRank($('csList'), uniq(M.series.flatMap(s => s.arrs[i])).sort((x, y) => (mainVal(y) || 0) - (mainVal(x) || 0)).slice(0, 5)); }
+    const tw = $('csTw');
+    if (tw) {
+      tw.scrollLeft = tw.scrollWidth;
+      const sc = () => tw.classList.toggle('scrolled', tw.scrollLeft > 2); sc(); tw.addEventListener('scroll', sc, { passive: true });
+      if (!M.growth) tw.querySelectorAll('th[data-bi]').forEach(th => th.addEventListener('click', () => { const k = M.bk[+th.dataset.bi].k; CS.sel = CS.sel === k ? null : k; rerenderChart(); }));
+    }
     // 그리기
     const d = M.prev ? (M.big - M.prev) / Math.abs(M.prev) : 0;
     const main = d >= 0 ? css('--up') : css('--down');
