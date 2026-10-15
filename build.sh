@@ -9,7 +9,7 @@ cd "$(dirname "$0")"
 
 # Apps Script 웹앱 주소 (배포 ID가 같으면 새 버전을 배포해도 이 주소는 그대로)
 API_URL="https://script.google.com/macros/s/AKfycbyGL0h1nmGMIMiG0KsZksAyOUaxcdwKiXLysmB2ExGLEhVX3eUiwmRbv7uTPhsWf6Q6/exec"
-CHART_TAG='<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.js"></script>'
+CHART_TAG='<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.js" integrity="sha384-dug+JxfBvklEQdJ4AYuBBAIScUz0bVN73xpy273gcAwHjb3qI0fXmuYNaNfdyYJG" crossorigin="anonymous"></script>'
 
 MODE="${1:-prod}" API_URL="$API_URL" CHART_TAG="$CHART_TAG" perl - <<'PL'
 use strict; use warnings;
