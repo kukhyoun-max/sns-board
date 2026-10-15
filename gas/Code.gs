@@ -179,6 +179,7 @@ function onOpen() {
     .addItem('분석 탭만 다시 계산', 'buildAll')
     .addItem('태그 다시 계산(분류·제작·참여자)', 'recalcTags')
     .addItem('과거 기록 가져오기(_hist_ 탭)', 'importHistory')
+    .addItem('게시 후 조회 다시 채우기(스냅샷 기록으로)', 'backfillAgeViews')
     .addSeparator()
     .addItem('최초 설정(탭·트리거)', 'setup')
     .addToUi();
@@ -278,6 +279,9 @@ function weeklySnapshot() {
 
   try { saveTags_(ss, bySrc, today); logs.push([new Date(), '태그', bySrc.length, '정상']); }
   catch (e) { logs.push([new Date(), '태그', 0, '오류: ' + e.message]); }
+
+  try { const n = saveAgeViews_(ss, bySrc, today); logs.push([new Date(), '게시 후 조회', n, '정상']); }
+  catch (e) { logs.push([new Date(), '게시 후 조회', 0, '오류: ' + e.message]); }
 
   const log = ss.getSheetByName(LOG);
   log.getRange(log.getLastRow() + 1, 1, logs.length, 4).setValues(logs);
@@ -709,6 +713,77 @@ function fmtDate_(v) {
   return String(v || '').trim().slice(0, 10);
 }
 
+// ───────── 게시 후 1·3·7일 시점 조회 (「게시 후 조회」 탭) ─────────
+// 같은 나이에서 비교하려고, 게시물이 1·3·7일째가 됐을 때의 조회를 한 번만 적어 둔다.
+// 원본(Supermetrics)은 평일 06:00에만 갱신돼서 주말 실행분은 건너뛴다 → 「경과일」에 실제 나이를 같이 기록.
+const AGE_SHEET = '게시 후 조회';
+const AGE_HEADER = ['채널', '콘텐츠키', '게시일', '1일 조회', '1일 경과', '3일 조회', '3일 경과', '7일 조회', '7일 경과', '갱신일'];
+const AGE_WIN = [[1, 2], [3, 6], [7, 10]]; // [최소, 최대] 경과일
+function ageSheet_(ss) {
+  let sh = ss.getSheetByName(AGE_SHEET);
+  if (!sh) {
+    sh = ss.insertSheet(AGE_SHEET);
+    sh.getRange(1, 1, 1, AGE_HEADER.length).setValues([AGE_HEADER]).setFontWeight('bold');
+    sh.setFrozenRows(1);
+  }
+  return sh;
+}
+// obs: [[채널, 키, 게시일, 조회, 기록일], ...] → 탭에 반영. 반환: 새로 채운 칸 수
+function mergeAgeViews_(ss, obs) {
+  const sh = ageSheet_(ss);
+  const map = {}, order = [];
+  if (sh.getLastRow() > 1) sh.getRange(2, 1, sh.getLastRow() - 1, AGE_HEADER.length).getValues().forEach(r => {
+    const k = r[0] + '§' + r[1]; if (!map[k]) order.push(k); map[k] = r.map((x, j) => j === 2 ? fmtDate_(x) : j === 9 ? fmtDate_(x) : x);
+  });
+  let n = 0;
+  obs.forEach(o => {
+    const ch = o[0], key = o[1], posted = fmtDate_(o[2]), views = o[3] === '' || o[3] == null ? null : num_(o[3]), day = fmtDate_(o[4]);
+    if (OWN_CHANNELS.indexOf(ch) < 0 || !/^\d{4}-\d{2}-\d{2}$/.test(posted) || views == null) return;
+    const age = Math.round((new Date(day + 'T00:00:00Z') - new Date(posted + 'T00:00:00Z')) / 864e5);
+    const k = ch + '§' + key;
+    let r = map[k];
+    AGE_WIN.forEach((w, j) => {
+      if (age < w[0] || age > w[1]) return;
+      if (!r) { r = map[k] = [ch, key, posted, '', '', '', '', '', '', day]; order.push(k); }
+      const c = 3 + j * 2;
+      // 같은 구간에서는 목표 나이(최소값)에 가장 가까운 관측을 남김
+      if (r[c] === '' || r[c] === null || Math.abs(age - w[0]) < Math.abs(Number(r[c + 1]) - w[0])) { r[c] = views; r[c + 1] = age; r[9] = day; n++; }
+    });
+  });
+  const rows = order.map(k => map[k]);
+  if (rows.length) {
+    sh.getRange(2, 1, Math.max(sh.getLastRow() - 1, 1), AGE_HEADER.length).clearContent();
+    sh.getRange(2, 1, rows.length, AGE_HEADER.length).setValues(rows);
+  }
+  return n;
+}
+function saveAgeViews_(ss, bySrc, today) {
+  if (!ss.getSheetByName(AGE_SHEET)) backfillAgeViews(); // 처음 한 번: 기존 스냅샷 기록으로 채움
+  const wd = new Date(today + 'T12:00:00+09:00').getDay();
+  if (wd === 0 || wd === 6) return 0; // 주말: 원본이 금요일 값 그대로라 건너뜀
+  const obs = [];
+  bySrc.forEach(byCh => Object.keys(byCh).forEach(ch => Object.keys(byCh[ch]).forEach(k => {
+    const it = byCh[ch][k]; obs.push([ch, k, it.date, it.views, today]);
+  })));
+  return mergeAgeViews_(ss, obs);
+}
+// 한 번만: 「스냅샷」 탭에 이미 있는 기록으로 채우기 (메뉴·편집기에서 실행)
+function backfillAgeViews() {
+  const ss = SpreadsheetApp.getActive() || SpreadsheetApp.openById(SS_ID);
+  const v = ss.getSheetByName(SNAP).getDataRange().getValues().slice(1);
+  const obs = v.filter(r => r[0] && r[1]).map(r => [String(r[1]), String(r[2]), r[C.date], r[C.views], r[0]]);
+  return mergeAgeViews_(ss, obs);
+}
+function loadAgeViews_(ss) {
+  const sh = ss.getSheetByName(AGE_SHEET), out = {};
+  if (!sh || sh.getLastRow() < 2) return out;
+  sh.getRange(2, 1, sh.getLastRow() - 1, AGE_HEADER.length).getValues().forEach(r => {
+    const g = j => r[3 + j * 2] === '' || r[3 + j * 2] === null ? null : [Number(r[3 + j * 2]), Number(r[4 + j * 2])];
+    out[r[0] + '§' + r[1]] = [g(0), g(1), g(2)];
+  });
+  return out;
+}
+
 // ───────── 대시보드용 데이터 API (GitHub Pages에서 JSONP로 읽음) ─────────
 const SS_ID = '1WshbvV-foluKpVu79vdZ75BBfH-ycME_nPe0RcJuwr4';
 const OWN_CHANNELS = ['인스타그램', '유튜브', 'hong._.video'];
@@ -777,6 +852,9 @@ function buildDashboardData_() {
 
   let hist = null;
   try { hist = loadIgHistory_(ss, items, rawKey, dates); } catch (e) { hist = { error: e.message }; }
+
+  // 게시 후 1·3·7일 조회: it.ag = [[조회, 경과일] | null × 3]
+  try { const AG = loadAgeViews_(ss); Object.keys(items).forEach(k => { const g = AG[rawKey[k]]; if (g) items[k].ag = g; }); } catch (e) {}
 
   const keys = Object.keys(items);
   const list = keys.map(k => items[k]);
