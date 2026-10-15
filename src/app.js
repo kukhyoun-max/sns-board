@@ -252,8 +252,7 @@
     const chs = viewChannels();
     const cur = pool({ channels: chs, since: addDays(D.updated, -30) });
     const low = cur.filter(it => judged(it) && ratio(it) < 0.5).sort((a, b) => ratio(a) - ratio(b)).slice(0, 3);
-    const stl = staleHtml(S.ch === '전체' ? OWN.concat(benchNames()) : chs);
-    let html = (stl ? '<section class="sec">' + stl.replace('class="callout warn"', 'class="callout warn" style="margin-top:0"') + '</section><div class="gap"></div>' : '') + weekHtml(chs) + '<div class="gap"></div>' + trendHtml(chs);
+    let html = topHtml(chs) + '<div class="gap"></div>' + weekHtml(chs) + '<div class="gap"></div>' + trendHtml(chs);
     html += '<div class="gap"></div><section class="sec"><div class="sh"><div><h2>점검할 것</h2><p>최근 3달 요약과 평소보다 처진 콘텐츠</p></div></div>' +
       '<p class="note" style="margin:0 0 14px">용어 · <b>평소</b> = 같은 채널·같은 형식의 최근 1년 게시물 중앙값(형식 게시물이 ' + BASE_T_MIN + '개 미만이면 채널 중앙값, 광고·스토리 제외) · <b>1.5배</b> 이상이면 <b>히트</b> · 게시 ' + AGE_MIN + '일 전은 <b>집계 중</b> · 그룹이 ' + MIN_N + '개 미만이면 <b>표본 적음</b></p>' + briefText(chs).replace('style="padding:18px 0 0"', 'style="padding:0 0 18px"') +
       '<h3 class="sub">평소보다 처진 콘텐츠</h3><p class="d">최근 30일 게시물 중 게시 ' + AGE_MIN + '일이 지났는데도 평소(같은 형식 중앙값)의 절반에 못 미친 콘텐츠</p><ol class="rank" id="bLow">' + (low.length ? rankRows(low) : '<li class="empty">처진 콘텐츠가 없어요 👍</li>') + '</ol>' + secClose;
@@ -377,8 +376,63 @@
     }
     return s;
   }
+  // ═════════ 홈 맨 위 — 핵심 숫자 한 줄 + 자동 요약 ═════════
+  function kpiTile(label, value, sub, cls) {
+    return '<div class="kpi-t"><div class="kpi-l">' + label + '</div><div class="kpi-v num' + (cls ? ' ' + cls : '') + '">' + value + '</div>' + (sub ? '<div class="kpi-s">' + sub + '</div>' : '') + '</div>';
+  }
+  function acctTile(ch) {
+    const a = acctLatest(ch), stale = D.acctStale && D.acctStale[ch];
+    if (ch === '인스타그램') {
+      const f = a.cur && a.cur.m['Profile followers']; if (f == null) return '';
+      const p = a.prev && a.prev.m['Profile followers'];
+      return kpiTile('인스타 팔로워', fmt(f), stale ? '<span class="warn">계정 지표 미갱신</span>' : p != null && p !== f ? '<span class="' + (f > p ? 'up' : 'down') + '">' + sgn(f - p) + fmt(f - p) + '</span> 지난 기록 대비' : '');
+    }
+    if (ch === '유튜브') {
+      const g = a.cur && a.cur.m['Gained subscribers']; if (g == null) return '';
+      const n = g - (a.cur.m['Lost subscribers'] || 0);
+      return kpiTile('유튜브 구독 순증', sgn(n) + fmt(n), stale ? '<span class="warn">계정 지표 미갱신</span>' : '지난주 · 늘어난 ' + fmt(g) + ' − 줄어든 ' + fmt(g - n), n >= 0 ? 'up' : 'down');
+    }
+    return '';
+  }
+  function kpiHtml(chs) {
+    const w = weekModel(chs), p = w && w.cur;
+    const c30all = pool({ channels: chs, since: addDays(D.updated, -30) }), c30 = c30all.filter(judged), hits = c30.filter(isHit);
+    const md = d => (+d.slice(5, 7)) + '/' + (+d.slice(8, 10));
+    const t = [];
+    if (p) {
+      let chg = '';
+      if (w.prev) { const a = p.v / p.days, b = w.prev.v / w.prev.days; if (b) { const d = (a - b) / b; chg = ' · <span class="' + (d >= 0 ? 'up' : 'down') + '">' + (d >= 0 ? '▲' : '▼') + Math.abs(Math.round(d * 100)) + '%</span>'; } }
+      t.push(kpiTile('이번 구간 조회 증가', '+' + fmtK(p.v), md(p.d0) + ' → ' + md(p.d1) + ' · ' + p.days + '일' + chg));
+    }
+    t.push(kpiTile('최근 30일 히트율', c30.length ? pct0(hitRate(c30)) : '–', c30.length ? '<span title="게시 ' + AGE_MIN + '일이 지나 판정할 수 있는 게시물 기준">히트 ' + hits.length + ' / ' + c30.length + '개</span>' : '판정할 게시물이 아직 없어요'));
+    chs.filter(c => c === '인스타그램' || c === '유튜브').forEach(c => { const x = acctTile(c); if (x) t.push(x); });
+    const by = chs.length > 1 ? chs.map(c => chName(c) + ' ' + c30all.filter(it => it.c === c).length).join(' · ') : '';
+    t.push(kpiTile('최근 30일 게시', c30all.length + '개', by));
+    return '<div class="kpi-row">' + t.join('') + '</div>';
+  }
+  function homeSummary(chs) {
+    const w = weekModel(chs), p = w && w.cur, out = [];
+    if (p) {
+      const old = p.old.filter(it => p.inc0(it) > 0).sort((a, b) => p.inc0(b) - p.inc0(a));
+      let s = mdLabel(p.d0) + '부터 ' + p.days + '일 동안 조회가 <b>' + fmtK(p.v) + '</b> 늘었어요';
+      s += p.nw.length ? ' (새로 올린 ' + p.nw.length + '개에서 ' + fmtK(p.vn) + ').' : '. 새 게시물 없이 기존 콘텐츠에서 늘었어요.';
+      if (old[0]) s += ' 가장 많이 큰 건 「' + esc(title(old[0].n)) + '」(+' + fmtK(p.inc0(old[0])) + ')예요.';
+      out.push(s);
+    }
+    const c30 = pool({ channels: chs, since: addDays(D.updated, -30) }).filter(judged).sort((a, b) => ratio(b) - ratio(a));
+    if (c30.length) {
+      const top = c30[0], low = c30[c30.length - 1];
+      out.push('최근 30일 가장 잘 된 콘텐츠는 ' + chName(top.c) + ' 「' + esc(title(top.n)) + '」(평소의 <b>' + xf(ratio(top)) + '</b>)' + (c30.length > 1 ? ', 가장 처진 건 ' + chName(low.c) + ' 「' + esc(title(low.n)) + '」(' + xf(ratio(low)) + ')' : '') + '예요.');
+    }
+    return out.length ? '<ul class="sumry">' + out.map(s => '<li>' + s + '</li>').join('') + '</ul>' : '';
+  }
+  function topHtml(chs) {
+    const stl = staleHtml(S.ch === '전체' ? OWN.concat(benchNames()) : chs);
+    return '<section class="sec top-sec"><div class="sh"><div><h2>' + (S.ch === '전체' ? '이번 주 한눈에' : chName(S.ch) + ' 이번 주') + '</h2><p>' + mdLabel(D.updated) + ' 기록 기준 · ' + adWord() + '</p></div></div>' +
+      kpiHtml(chs) + homeSummary(chs) + stl + '</section>';
+  }
   function dayChg(w) {
-    if (!w.prev || !w.cur) return '<span class="mu">비교할 지난 구간 없음</span>';
+    if (!w.prev || !w.cur) return '';
     const a = w.cur.v / w.cur.days, b = w.prev.v / w.prev.days;
     if (!b) return '<span class="mu">지난 구간 0</span>';
     const d = (a - b) / b;
@@ -393,8 +447,8 @@
     if (!w || !w.cur) return '<div class="wk-card' + (wide ? ' wide' : '') + '"><div class="wk-h">' + label + '</div><div class="wk-v mu">–</div><div class="wk-s mu">' + (chs.every(c => staleAt(c, D.dates.length - 1)) ? '원본이 갱신되지 않아 이번 구간 증가를 셀 수 없어요' : '두 기록 모두 있는 데이터가 아직 없어요') + '</div>' + (foot ? '<div class="wk-f">' + foot + '</div>' : '') + '</div>';
     const p = w.cur;
     return '<div class="wk-card' + (wide ? ' wide' : '') + '" style="--c:' + col + '"><div class="wk-h">' + label + '</div>' +
-      '<div class="wk-v num">+' + fmtK(p.v) + '<small>조회</small></div><div class="wk-s">' + dayChg(w) + '</div>' + wkBar(p, col) +
-      '<div class="wk-l"><span><i style="background:' + col + '"></i>새 게시물 ' + p.nw.length + '개 <b class="num">' + fmtK(p.vn) + '</b></span><span><i style="background:' + col + '55"></i>기존 게시물 <b class="num">' + fmtK(p.vo) + '</b></span></div>' +
+      '<div class="wk-v num">+' + fmtK(p.v) + '<small>조회</small></div>' + (w.prev ? '<div class="wk-s">' + dayChg(w) + '</div>' : '') +
+      (p.nw.length ? wkBar(p, col) + '<div class="wk-l"><span><i style="background:' + col + '"></i>새 게시물 ' + p.nw.length + '개 <b class="num">' + fmtK(p.vn) + '</b></span><span><i style="background:' + col + '55"></i>기존 게시물 <b class="num">' + fmtK(p.vo) + '</b></span></div>' : '<div class="wk-s mu">새 게시물 없음 · 모두 기존 콘텐츠에서 늘었어요</div>') +
       (foot ? '<div class="wk-f">' + foot + '</div>' : '') + '</div>';
   }
   function chFoot(ch) {
@@ -408,20 +462,21 @@
     if (!w || !w.cur) return '<section class="sec"><div class="sh"><div><h2>이번 주 현황</h2><p>기록이 2번 이상 쌓이면 기록 사이에 늘어난 조회가 나와요.</p></div></div></section>';
     const p = w.cur;
     const c30 = pool({ channels: chs, since: addDays(D.updated, -30) }).filter(judged), hits = c30.filter(isHit);
-    let h = '<section class="sec" id="wkSec"><div class="sh"><div><h2>이번 주 현황</h2><p>' + mdLabel(p.d0) + ' → ' + mdLabel(p.d1) + ' 기록 사이에 실제로 늘어난 조회 · ' + adWord() + (chs.some(c => staleAt(c, D.dates.length - 1)) ? ' · 원본 미갱신 채널(' + chs.filter(c => staleAt(c, D.dates.length - 1)).map(chName).join('·') + ') 제외' : '') + (w.prev ? ' · 지난 구간 ' + mdLabel(w.prev.d0) + ' → ' + mdLabel(w.prev.d1) : '') + '</p></div></div>';
+    let h = '<section class="sec" id="wkSec"><div class="sh"><div><h2>' + (chs.length > 1 ? '채널별 증가' : '이번 주 증가') + '</h2><p>' + mdLabel(p.d0) + ' → ' + mdLabel(p.d1) + ' 기록 사이에 실제로 늘어난 조회 · ' + adWord() + (chs.some(c => staleAt(c, D.dates.length - 1)) ? ' · 원본 미갱신 채널(' + chs.filter(c => staleAt(c, D.dates.length - 1)).map(chName).join('·') + ') 제외' : '') + (w.prev ? ' · 지난 구간 ' + mdLabel(w.prev.d0) + ' → ' + mdLabel(w.prev.d1) : '') + '</p></div></div>';
     if (chs.length > 1) {
-      h += '<div class="wk-grid">' + wkCard('<b>우리 채널 합계</b>', chs, css('--fg'), '최근 30일 히트 <b>' + hits.length + '</b> / ' + c30.length + '개(게시 ' + AGE_MIN + '일 지난 것) · 히트율 <b>' + pct0(hitRate(c30)) + '</b>', true) +
-        '<div class="wk-row">' + chs.map(ch => wkCard(badge(ch), [ch], chColor(ch), chFoot(ch))).join('') + '</div></div>';
+      // 우리 채널 합계는 맨 위 핵심 숫자에 있으니 채널 카드만
+      h += '<div class="wk-grid"><div class="wk-row">' + chs.map(ch => wkCard(badge(ch), [ch], chColor(ch), chFoot(ch))).join('') + '</div></div>';
     } else {
       h += '<div class="wk-grid one">' + wkCard(badge(chs[0]), chs, chColor(chs[0]), chFoot(chs[0]) + ' · 최근 30일 히트 <b>' + hits.length + '</b> / ' + c30.length + '개(게시 ' + AGE_MIN + '일 지난 것)', true) + '</div>';
     }
     h += dailyHtml(chs);
     const nw = p.nw.slice().sort((a, b) => (mainVal(b) || 0) - (mainVal(a) || 0));
     const old = p.old.filter(it => p.inc0(it) > 0).sort((a, b) => p.inc0(b) - p.inc0(a)).slice(0, 5);
-    h += '<div class="two wk-lists"><div><h3>이번 주 올린 콘텐츠 <small>' + nw.length + '개</small></h3><p class="d">게시 후 1·3·7일 시점 조회를 같은 나이의 평소 값과 비교해요</p><ol class="rank" id="wkNew">' +
-      (nw.length ? rankRows(nw.slice(0, 8), { right: it => '<span class="num">' + fmtK(mainVal(it)) + '</span> · ' + ageLine(it) }) : '<li class="empty">이번 구간에 올린 콘텐츠가 없어요</li>') + '</ol></div>' +
-      '<div><h3>기존 콘텐츠 중 많이 큰 것</h3><p class="d">예전에 올렸는데 이번 주에도 조회가 늘어난 콘텐츠</p><ol class="rank" id="wkOld">' +
-      (old.length ? rankRows(old, { right: it => '<em class="up">+' + fmtK(p.inc0(it)) + '</em> 이번 주' }) : '<li class="empty">없어요</li>') + '</ol></div></div>';
+    // 새로 올린 콘텐츠가 없으면 빈 칸을 두지 않고 '많이 큰 것' 하나만 넓게
+    const oldBox = '<div><h3>' + (nw.length ? '기존 콘텐츠 중 많이 큰 것' : '이번 주 많이 큰 콘텐츠') + '</h3><p class="d">' + (nw.length ? '예전에 올렸는데 이번 주에도 조회가 늘어난 콘텐츠' : '이번 구간에 새로 올린 콘텐츠는 없어요 · 예전 콘텐츠 중 조회가 많이 늘어난 순') + '</p><ol class="rank' + (nw.length ? '' : ' wide') + '" id="wkOld">' +
+      (old.length ? rankRows(old, { right: it => '<em class="up">+' + fmtK(p.inc0(it)) + '</em> 이번 주' }) : '<li class="empty">이번 구간에 늘어난 콘텐츠가 없어요</li>') + '</ol></div>';
+    h += nw.length ? '<div class="two wk-lists"><div><h3>이번 주 올린 콘텐츠 <small>' + nw.length + '개</small></h3><p class="d">게시 후 1·3·7일 시점 조회를 같은 나이의 평소 값과 비교해요</p><ol class="rank" id="wkNew">' +
+      rankRows(nw.slice(0, 8), { right: it => '<span class="num">' + fmtK(mainVal(it)) + '</span> · ' + ageLine(it) }) + '</ol></div>' + oldBox + '</div>' : '<div class="wk-lists">' + oldBox + '</div>';
     w.lists = { nw: nw.slice(0, 8), old };
     window.__wk = w;
     return h + '</section>';
@@ -446,7 +501,7 @@
   function dailyHtml(chs) {
     const pts = dailyModel(chs);
     const head = '<div class="dy"><div class="dy-h"><h3>일별 증가</h3><div class="chips">' + DY_M.map(m => '<button class="chip" type="button" data-dym="' + m[0] + '" aria-pressed="' + (DY.m === m[0]) + '">' + m[1] + '</button>').join('') + '</div></div>';
-    if (!pts.length) return head + '<p class="note">' + ((D.daily || []).length ? '일별 합계 기록이 ' + uniq((D.daily || []).map(r => r[0])).length + '일치 있어요. ' : '일별 합계 기록이 아직 없어요(매일 기록 트리거가 실행되면 쌓여요). ') + '이틀치가 쌓이면 하루 사이 늘어난 값이 여기 막대로 보여요.</p></div>';
+    if (!pts.length) return ''; // 일별 기록이 이틀치 쌓이기 전에는 칸을 숨긴다
     window.__dy = { pts, chs };
     return head + '<div class="dy-chart"><canvas id="dyC"></canvas></div><p class="note">게시물 전체(새 글 + 기존 글)의 하루 증가 합계 · 주말은 원본이 갱신되지 않아 월요일 막대에 금~월이 함께 들어가요</p></div>';
   }

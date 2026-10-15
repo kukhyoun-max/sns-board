@@ -315,3 +315,19 @@ details.adv[open] > summary { border-bottom: 1px solid var(--line); }
 .dy-h .chips { margin: 0; }
 .dy-chart { position: relative; height: 200px; margin-top: 8px; }
 .tr-empty { display: flex; align-items: center; justify-content: center; color: var(--muted); font-size: var(--fs-sm); background: var(--tile); border-radius: 12px; }
+
+/* 홈 맨 위: 핵심 숫자 한 줄 + 자동 요약 */
+.kpi-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 12px; }
+.kpi-t { background: var(--tile); border-radius: 16px; padding: 16px 18px; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.kpi-l { font-size: var(--fs-xs); font-weight: 600; color: var(--sub); }
+.kpi-v { font-size: var(--fs-2xl); font-weight: 700; letter-spacing: -0.02em; line-height: 1.2; white-space: nowrap; }
+.kpi-s { font-size: var(--fs-xs); color: var(--muted); }
+.kpi-s .up, .kpi-s .down, .kpi-s .warn { font-weight: 600; }
+.sumry { margin: 16px 0 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 8px; }
+.sumry li { position: relative; padding-left: 16px; font-size: var(--fs-md); color: var(--fg); line-height: 1.6; }
+.sumry li::before { content: ""; position: absolute; left: 2px; top: 11px; width: 6px; height: 6px; border-radius: 50%; background: var(--jj); }
+.sumry b { font-weight: 700; }
+.top-sec .callout { margin-top: 16px; }
+@media (max-width: 560px) { .kpi-row { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; } .kpi-t { padding: 14px; } .kpi-v { font-size: var(--fs-xl); } }
+/* 한 칸을 넓게 쓰는 순위 목록은 PC에서 태그를 오른쪽에 */
+@media (min-width: 861px) { .rank.wide .rk { grid-template-columns: 28px minmax(0, 1fr) auto; } .rank.wide .rk .tg { grid-column: auto; justify-content: flex-end; flex-wrap: nowrap; } }
