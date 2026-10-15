@@ -456,7 +456,7 @@
     const M = window.__dy; if (!M || !$('dyC')) return;
     draw('dyC', { type: 'bar', data: { labels: M.pts.map(p => (+p.d.slice(5, 7)) + '/' + (+p.d.slice(8, 10))), datasets: M.chs.map(c => ({ label: chName(c), data: M.pts.map(p => p.v[c]), backgroundColor: chColor(c), stack: 's', borderRadius: 2, maxBarThickness: 30 })) },
       options: chartOpts({ layout: { padding: { top: 8 } }, plugins: { legend: { display: M.chs.length > 1, position: 'bottom' }, tooltip: { displayColors: true, callbacks: { title: c => { const p = M.pts[c[0].dataIndex]; return dot(p.from) + ' → ' + dot(p.d) + (p.gap > 1 ? ' (' + p.gap + '일)' : ''); }, label: c => c.dataset.label + ' +' + fmtK(c.raw) } } },
-        scales: { x: { stacked: true, ticks: { maxRotation: 0, autoSkip: true, maxTicksLimit: 10, font: { size: 11 }, color: css('--muted') } }, y: { stacked: true, display: true, position: 'right', grid: { color: css('--line') }, border: { display: false }, ticks: { maxTicksLimit: 4, font: { size: 11 }, color: css('--muted'), callback: v => fmtK(v) } } } }) });
+        scales: { x: { stacked: true, ticks: { maxRotation: 0, autoSkip: true, maxTicksLimit: 10, font: { size: 13 }, color: css('--muted') } }, y: { stacked: true, display: true, position: 'right', grid: { color: css('--line') }, border: { display: false }, ticks: { maxTicksLimit: 4, font: { size: 13 }, color: css('--muted'), callback: v => fmtK(v) } } } }) });
   }
   function wireWeek() { wireDaily(); const w = window.__wk; if (!w || !w.lists) return; wireRank($('wkNew'), w.lists.nw); wireRank($('wkOld'), w.lists.old); }
 
@@ -582,8 +582,8 @@
       });
       draw('trC' + i, { type: 'bar', data: { labels: s.keys.map(k => trLabel(k, u)), datasets: ds },
         options: chartOpts({ layout: { padding: { top: 8 } }, plugins: { tooltip: { displayColors: multi, callbacks: { title: c => trLabel(s.keys[c[0].dataIndex], u) + (s.keys[c[0].dataIndex] === s.curK ? ' (진행 중)' : ''), label: c => (multi ? c.dataset.label + ' ' : '') + trFmtP(s, c.raw) + ' · 게시 ' + ((s.series[c.datasetIndex].g[s.keys[c.dataIndex]] || []).length) + '개' } } },
-          scales: { x: { ticks: { maxTicksLimit: 7, maxRotation: 0, autoSkip: true, font: { size: 11, weight: '500' }, color: css('--muted') } },
-            y: { display: true, position: 'right', grid: { color: css('--line') }, border: { display: false }, ticks: { maxTicksLimit: 4, font: { size: 11 }, color: css('--muted'), callback: v => { const m = trMetricP(s); return m === 'ratio' ? v + '배' : m === 'hit' ? Math.round(v * 100) + '%' : fmtK(v); } } } } }) });
+          scales: { x: { ticks: { maxTicksLimit: 7, maxRotation: 0, autoSkip: true, font: { size: 13, weight: '500' }, color: css('--muted') } },
+            y: { display: true, position: 'right', grid: { color: css('--line') }, border: { display: false }, ticks: { maxTicksLimit: 4, font: { size: 13 }, color: css('--muted'), callback: v => { const m = trMetricP(s); return m === 'ratio' ? v + '배' : m === 'hit' ? Math.round(v * 100) + '%' : fmtK(v); } } } } }) });
     });
   }
 
@@ -824,9 +824,9 @@
       options: chartOpts({ layout: { padding: { top: 12, right: 4 } }, interaction: { mode: 'index', intersect: false },
         onClick: (e, els, ch) => { const pts = ch.getElementsAtEventForMode(e, 'index', { intersect: false }, false); if (!pts.length || M.growth) return; const k = M.bk[pts[0].index].k; CS.sel = CS.sel === k ? null : k; $('csPick').innerHTML = pickHtml(M); if ($('csPickX')) { const b = M.bk.find(x => x.k === CS.sel); $('csPickX').addEventListener('click', () => toExport(b.from, b.to > M.to ? M.to : b.to, 'content', M.chs)); } if ($('csList')) wireRank($('csList'), uniq(M.series.flatMap(s => s.arrs[pts[0].index])).sort((x, y) => (mainVal(y) || 0) - (mainVal(x) || 0)).slice(0, 5)); if (CS.type === 'bar') rerenderChart(); },
         plugins: { legend: { display: M.split && !multiMode(), position: 'bottom' }, tooltip: { displayColors: M.split, callbacks: { title: it => { const b = M.bk[it[0].dataIndex]; return b.from === b.to ? b.from : b.from + ' ~ ' + b.to; }, label: c => (M.split ? c.dataset.label + ' ' : '') + mfmt(M.def, c.raw) + (M.growth ? '/일 · 구간 합계 ' + mfmt(M.def, (M.series[c.datasetIndex].raw || [])[c.dataIndex]) : '') + (!M.growth && M.series[c.datasetIndex].arrs ? ' · 게시 ' + M.series[c.datasetIndex].arrs[c.dataIndex].length + '개' : '') } } },
-        scales: { x: { stacked: CS.type === 'bar' && !!ds[0].stack, ticks: { maxTicksLimit: 7, maxRotation: 0, autoSkip: true, font: { size: 12, weight: '500' }, color: css('--muted') } },
-          y: { stacked: CS.type === 'bar' && !!ds[0].stack, display: true, position: 'right', grid: { color: css('--line') }, border: { display: false }, ticks: { maxTicksLimit: 4, font: { size: 11 }, color: css('--muted'), callback: v => M.def[2] === 'ratio' ? v + '배' : M.def[2] === 'hit' ? Math.round(v * 100) + '%' : fmtK(v) }, beginAtZero: true } } }),
-      plugins: avg == null ? [] : [{ id: 'avg', afterDatasetsDraw(c) { const y = c.scales.y.getPixelForValue(avg), a = c.chartArea; if (y < a.top || y > a.bottom) return; const x = c.ctx; x.save(); x.setLineDash([4, 4]); x.strokeStyle = css('--muted'); x.lineWidth = 1; x.beginPath(); x.moveTo(a.left, y); x.lineTo(a.right, y); x.stroke(); x.setLineDash([]); x.font = '600 11px ' + css('--font'); x.fillStyle = css('--muted'); x.textAlign = 'left'; x.fillText('평균 ' + mfmt(M.def, avg), a.left + 4, y - 5); x.restore(); } }] });
+        scales: { x: { stacked: CS.type === 'bar' && !!ds[0].stack, ticks: { maxTicksLimit: 7, maxRotation: 0, autoSkip: true, font: { size: 13, weight: '500' }, color: css('--muted') } },
+          y: { stacked: CS.type === 'bar' && !!ds[0].stack, display: true, position: 'right', grid: { color: css('--line') }, border: { display: false }, ticks: { maxTicksLimit: 4, font: { size: 13 }, color: css('--muted'), callback: v => M.def[2] === 'ratio' ? v + '배' : M.def[2] === 'hit' ? Math.round(v * 100) + '%' : fmtK(v) }, beginAtZero: true } } }),
+      plugins: avg == null ? [] : [{ id: 'avg', afterDatasetsDraw(c) { const y = c.scales.y.getPixelForValue(avg), a = c.chartArea; if (y < a.top || y > a.bottom) return; const x = c.ctx; x.save(); x.setLineDash([4, 4]); x.strokeStyle = css('--muted'); x.lineWidth = 1; x.beginPath(); x.moveTo(a.left, y); x.lineTo(a.right, y); x.stroke(); x.setLineDash([]); x.font = '600 13px ' + css('--font'); x.fillStyle = css('--muted'); x.textAlign = 'left'; x.fillText('평균 ' + mfmt(M.def, avg), a.left + 4, y - 5); x.restore(); } }] });
   }
 
   // ═════════ 2. 콘텐츠 전략 ═════════
@@ -1127,7 +1127,7 @@
     $('wdNote').textContent = best ? best.k + '요일 게시물이 평소의 ' + best.idx.toFixed(1) + '배로 가장 좋았어요 (' + best.n + '개). 막대 위 숫자는 게시 수예요.' : '게시물이 적어 요일 비교가 어려워요.';
     draw('wdChart', { type: 'bar', data: { labels: wd.map(x => x.k), datasets: [{ data: wd.map(x => x.idx), backgroundColor: wd.map(x => x.idx == null ? css('--line') : x.idx >= 1 ? css('--up') : css('--down')), borderRadius: 6, maxBarThickness: 36 }] },
       options: chartOpts({ scales: { y: { display: false, beginAtZero: true } }, plugins: { tooltip: { callbacks: { label: c => xf(c.raw) + ' · ' + wd[c.dataIndex].n + '개' } } } }),
-      plugins: [{ id: 'lb', afterDatasetsDraw(c) { const x = c.ctx; x.save(); x.font = '600 12px ' + css('--font'); x.fillStyle = css('--muted'); x.textAlign = 'center'; c.getDatasetMeta(0).data.forEach((b, i) => x.fillText(wd[i].n + '개', b.x, b.y - 6)); x.restore(); } }] });
+      plugins: [{ id: 'lb', afterDatasetsDraw(c) { const x = c.ctx; x.save(); x.font = '600 13px ' + css('--font'); x.fillStyle = css('--muted'); x.textAlign = 'center'; c.getDatasetMeta(0).data.forEach((b, i) => x.fillText(wd[i].n + '개', b.x, b.y - 6)); x.restore(); } }] });
     if (own) wireStrat(chs, RX, PLAN);
   }
   function wireStrat(chs, RX, PLAN) {
@@ -1277,9 +1277,9 @@
     const selHtml = '<select class="selbox" id="seasonSel">' + ss.map(x => '<option value="' + x.id + '"' + (x.id === s.id ? ' selected' : '') + '>' + esc(x.label) + '</option>').join('') + '</select>';
     let html = '<section class="sec"><div class="sh"><div><h2>입시 시즌 리포트</h2><p>수시 8~9월 · 정시 12~1월 · ' + esc(scopeLabel()) + ' · 수치는 ' + mdLabel(D.updated) + ' 기준 누적</p></div>' + selHtml + '</div>' +
       '<div class="kpis">' +
-      '<div class="kpi"><div class="l">시즌 게시물</div><div class="v">' + st.org.length + '<small style="font-size:17px;color:var(--muted);font-weight:700">개</small></div><div class="s">입시·모집 콘텐츠 <b>' + st.adm.length + '개</b> · 평소의 ' + xf(st.admIdx) + '</div></div>' +
+      '<div class="kpi"><div class="l">시즌 게시물</div><div class="v">' + st.org.length + '<small style="font-size:var(--fs-lg);color:var(--muted);font-weight:700">개</small></div><div class="s">입시·모집 콘텐츠 <b>' + st.adm.length + '개</b> · 평소의 ' + xf(st.admIdx) + '</div></div>' +
       '<div class="kpi"><div class="l">자연 조회 (광고 제외)</div><div class="v">' + fmtK(st.orgV) + '</div><div class="s">게시물당 평소의 <b>' + xf(st.idx) + '</b> · 히트율 ' + pct0(st.hit) + '</div></div>' +
-      '<div class="kpi"><div class="l">광고 (구글애즈)</div><div class="v">' + (st.covered ? fmtK(st.cost) + '<small style="font-size:17px;color:var(--muted);font-weight:700">원</small>' : '–') + '</div><div class="s">' + (st.covered ? '캠페인 ' + st.camps.length + '개 · 광고 영상 <b>' + st.ad.length + '개</b> 조회 ' + fmtK(st.adV) + (st.adV ? ' · 조회 1회당 <b>' + fmt(st.cost / st.adV) + '원</b>' : '') : '광고 리포트가 ' + dot(D.ads ? D.ads.end : '') + '까지라 이 시즌 광고비는 아직 없어요 · 광고 영상 ' + st.ad.length + '개(조회 패턴 추정) 조회 ' + fmtK(st.adV)) + '</div></div>' +
+      '<div class="kpi"><div class="l">광고 (구글애즈)</div><div class="v">' + (st.covered ? fmtK(st.cost) + '<small style="font-size:var(--fs-lg);color:var(--muted);font-weight:700">원</small>' : '–') + '</div><div class="s">' + (st.covered ? '캠페인 ' + st.camps.length + '개 · 광고 영상 <b>' + st.ad.length + '개</b> 조회 ' + fmtK(st.adV) + (st.adV ? ' · 조회 1회당 <b>' + fmt(st.cost / st.adV) + '원</b>' : '') : '광고 리포트가 ' + dot(D.ads ? D.ads.end : '') + '까지라 이 시즌 광고비는 아직 없어요 · 광고 영상 ' + st.ad.length + '개(조회 패턴 추정) 조회 ' + fmtK(st.adV)) + '</div></div>' +
       '</div></section>';
     html += secOpen('주별 게시 콘텐츠 조회', '주마다 올린 콘텐츠의 현재 누적 조회 · 광고 영상과 나머지를 나눠 보여줘요') + '<div class="chart tall"><canvas id="seaChart"></canvas></div>' + secClose;
     const admSorted = st.adm.slice().sort((a, b) => (ratio(b) || 0) - (ratio(a) || 0));
@@ -1304,7 +1304,7 @@
     draw('seaChart', { type: 'bar', data: { labels: weeks.map(x => (+x.slice(5, 7)) + '/' + (+x.slice(8, 10))), datasets: [
       { label: '자연 조회', data: org, backgroundColor: css('--jj'), borderRadius: 4, stack: 's' },
       { label: '광고 조회', data: ad, backgroundColor: css('--coral'), borderRadius: 4, stack: 's' }] },
-      options: chartOpts({ plugins: { legend: { display: true, position: 'bottom' }, tooltip: { displayColors: true, callbacks: { label: c => c.dataset.label + ' ' + fmt(c.raw), afterBody: it => '게시 ' + cnt[it[0].dataIndex] + '개' } } }, scales: { x: { stacked: true, ticks: { font: { size: 12 } } }, y: { stacked: true, display: true, grid: { color: css('--line') }, ticks: { callback: v => fmtK(v) } } } }) });
+      options: chartOpts({ plugins: { legend: { display: true, position: 'bottom' }, tooltip: { displayColors: true, callbacks: { label: c => c.dataset.label + ' ' + fmt(c.raw), afterBody: it => '게시 ' + cnt[it[0].dataIndex] + '개' } } }, scales: { x: { stacked: true, ticks: { font: { size: 13 } } }, y: { stacked: true, display: true, grid: { color: css('--line') }, ticks: { callback: v => fmtK(v) } } } }) });
   }
 
   // ═════════ 광고 (구글애즈) ═════════
@@ -1391,7 +1391,7 @@
       { type: 'bar', label: '광고비', data: months.map(k => ms[k] || 0), backgroundColor: css('--coral'), borderRadius: 3, yAxisID: 'y', order: 2 },
       { type: 'line', label: '노출', data: months.map(k => mi[k] || 0), borderColor: css('--jj'), backgroundColor: css('--jj'), borderWidth: 2, pointRadius: 2, tension: 0.3, yAxisID: 'y2', order: 1 }] },
       options: chartOpts({ interaction: { mode: 'index', intersect: false }, plugins: { legend: { display: true, position: 'bottom' }, tooltip: { displayColors: true, callbacks: { label: c => c.dataset.label + ' ' + (c.datasetIndex === 0 ? usd(c.raw) : fmt(c.raw)) } } },
-        scales: { x: { ticks: { maxTicksLimit: 12, maxRotation: 0, autoSkip: true, font: { size: 11 } } }, y: { display: true, position: 'left', grid: { color: css('--line') }, ticks: { callback: v => '$' + fmtK(v), font: { size: 11 } } }, y2: { display: true, position: 'right', grid: { display: false }, beginAtZero: true, ticks: { callback: v => fmtK(v), font: { size: 11 } } } } }) });
+        scales: { x: { ticks: { maxTicksLimit: 12, maxRotation: 0, autoSkip: true, font: { size: 13 } } }, y: { display: true, position: 'left', grid: { color: css('--line') }, ticks: { callback: v => '$' + fmtK(v), font: { size: 13 } } }, y2: { display: true, position: 'right', grid: { display: false }, beginAtZero: true, ticks: { callback: v => fmtK(v), font: { size: 13 } } } } }) });
   }
   function viewGoogle(seg) {
     const A = D.ads;
@@ -1475,7 +1475,7 @@
       { type: 'bar', label: '광고비', data: months.map(k => mc[k] || 0), backgroundColor: css('--coral'), borderRadius: 3, yAxisID: 'y', order: 2 },
       { type: 'line', label: '노출', data: months.map(k => mi[k] || 0), borderColor: css('--jj'), backgroundColor: css('--jj'), borderWidth: 2, pointRadius: 0, tension: 0.3, yAxisID: 'y2', order: 1 }] },
       options: chartOpts({ interaction: { mode: 'index', intersect: false }, plugins: { legend: { display: true, position: 'bottom' }, tooltip: { displayColors: true, callbacks: { label: c => c.dataset.label + ' ' + (c.datasetIndex === 0 ? wonF(c.raw) : fmt(c.raw)) } } },
-        scales: { x: { ticks: { maxTicksLimit: 12, maxRotation: 0, autoSkip: true, font: { size: 11 } } }, y: { display: true, position: 'left', grid: { color: css('--line') }, ticks: { callback: v => fmtK(v), font: { size: 11 } } }, y2: { display: true, position: 'right', grid: { display: false }, beginAtZero: true, ticks: { callback: v => fmtK(v), font: { size: 11 } } } } }) });
+        scales: { x: { ticks: { maxTicksLimit: 12, maxRotation: 0, autoSkip: true, font: { size: 13 } } }, y: { display: true, position: 'left', grid: { color: css('--line') }, ticks: { callback: v => fmtK(v), font: { size: 13 } } }, y2: { display: true, position: 'right', grid: { display: false }, beginAtZero: true, ticks: { callback: v => fmtK(v), font: { size: 13 } } } } }) });
   }
 
   // ═════════ 5. 타 대학 ═════════
@@ -1499,7 +1499,7 @@
     });
     let html = secOpen('한눈에 비교', periodPhrase() + ' 게시물 · 타 대학은 릴스만 조회수가 공개돼 <b>좋아요</b>로 비교해요 · 규모보다 운영 방식을 보는 용도예요') +
       '<div class="tw"><table class="tbl"><thead><tr><th>계정</th><th>최근 게시</th><th class="n">게시</th><th class="n">주당 게시</th><th class="n">게시물당 좋아요</th><th class="n">릴스 조회(중앙)</th><th class="n">댓글/좋아요</th><th class="n">릴스 비중</th></tr></thead><tbody>' +
-      data.map(d => '<tr><td>' + badge(d.ch) + ' <span style="color:var(--muted);font-size:13px">' + esc(d.ch === '인스타그램' ? '우리' : d.ch) + '</span></td><td>' + (d.latest ? dot(d.latest) + (daysBetween(d.latest, D.updated) > 14 ? ' <span class="tag p-ad">수집 지연</span>' : '') + (D.stale && D.stale[d.ch] ? ' <span class="tag p-ad" title="최근 두 기록의 값이 모두 같아요">원본 미갱신</span>' : '') : '–') + '</td><td class="n">' + d.n + '</td><td class="n">' + (d.perWeek ? d.perWeek.toFixed(1) : '–') + '</td><td class="n">' + (d.hidden ? '<span style="color:var(--muted)">비공개</span>' : fmtK(d.like)) + '</td><td class="n">' + fmtK(d.reelV) + '</td><td class="n">' + (d.hidden ? '–' : pct(d.cr)) + '</td><td class="n">' + pct0(d.reels) + '</td></tr>').join('') +
+      data.map(d => '<tr><td>' + badge(d.ch) + ' <span style="color:var(--muted);font-size:var(--fs-xs)">' + esc(d.ch === '인스타그램' ? '우리' : d.ch) + '</span></td><td>' + (d.latest ? dot(d.latest) + (daysBetween(d.latest, D.updated) > 14 ? ' <span class="tag p-ad">수집 지연</span>' : '') + (D.stale && D.stale[d.ch] ? ' <span class="tag p-ad" title="최근 두 기록의 값이 모두 같아요">원본 미갱신</span>' : '') : '–') + '</td><td class="n">' + d.n + '</td><td class="n">' + (d.perWeek ? d.perWeek.toFixed(1) : '–') + '</td><td class="n">' + (d.hidden ? '<span style="color:var(--muted)">비공개</span>' : fmtK(d.like)) + '</td><td class="n">' + fmtK(d.reelV) + '</td><td class="n">' + (d.hidden ? '–' : pct(d.cr)) + '</td><td class="n">' + pct0(d.reels) + '</td></tr>').join('') +
       '</tbody></table></div>' + secClose;
     // 분류 구성
     const catsAll = [...new Set(data.flatMap(d => d.cats.map(c => c.k)))];
@@ -2031,9 +2031,9 @@
       '<div class="gap"></div><section class="dsec why"><div class="lb">✦ ' + (it.ad ? '광고 집행 정보' : d == null || d >= 0 ? '왜 잘 됐을까?' : '왜 아쉬웠을까?') + '<small>' + mdLabel(D.updated) + ' 기준</small></div><p>' + esc(whyText(it)) + '</p></section>' +
       '<div class="gap"></div><section class="dsec sig" id="dSig"><h3>성과 진단</h3><div class="h">같은 채널 게시물과 비교한 강점 · 보완할 점</div>' +
         signals(it).map(s => '<div class="sg"><span class="k ' + s[0] + '">' + s[1] + '</span><span><b>' + esc(s[2]) + '</b><span>' + esc(s[3]) + '</span></span></div>').join('') + '</section>' +
-      '<div class="gap"></div><section class="dsec" id="dMet"><h3 style="margin:0 0 6px;font-size:22px;font-weight:800">지표</h3><div class="mgrid">' + metrics.map(m2 => '<div><span>' + esc(m2[0]) + '</span><b>' + esc(m2[1]) + '</b></div>').join('') + '</div>' +
-        '<h3 style="margin:22px 0 10px;font-size:17px;font-weight:700">캡션</h3><p class="caption">' + esc(String(it.n || '').trim()) + '</p></section>' +
-      '<div class="gap"></div><section class="dsec" id="dSim"><h3 style="margin:0 0 6px;font-size:22px;font-weight:800">같은 분류의 다른 콘텐츠</h3><ol class="rank" id="dSimList">' + rankRows(sim) + '</ol></section>' +
+      '<div class="gap"></div><section class="dsec" id="dMet"><h3 style="margin:0 0 6px;font-size:var(--fs-xl);font-weight:700">지표</h3><div class="mgrid">' + metrics.map(m2 => '<div><span>' + esc(m2[0]) + '</span><b>' + esc(m2[1]) + '</b></div>').join('') + '</div>' +
+        '<h3 style="margin:22px 0 10px;font-size:var(--fs-lg);font-weight:700">캡션</h3><p class="caption">' + esc(String(it.n || '').trim()) + '</p></section>' +
+      '<div class="gap"></div><section class="dsec" id="dSim"><h3 style="margin:0 0 6px;font-size:var(--fs-xl);font-weight:700">같은 분류의 다른 콘텐츠</h3><ol class="rank" id="dSimList">' + rankRows(sim) + '</ol></section>' +
       '</div><div class="cta">' + (it.u ? '<a href="' + esc(it.u) + '" target="_blank" rel="noopener">원본 보기</a>' : '<span>원본 링크는 인스타그램 앱에서 확인해 주세요</span>') + '</div>';
     el.hidden = false; el.scrollTop = 0; document.body.style.overflow = 'hidden';
     $('dClose').focus();
@@ -2069,7 +2069,7 @@
 
   // ───────── 차트 공통 ─────────
   function chartOpts(extra) {
-    Chart.defaults.font.family = css('--font'); Chart.defaults.color = css('--muted'); Chart.defaults.font.size = 13;
+    Chart.defaults.font.family = css('--font'); Chart.defaults.color = css('--muted'); Chart.defaults.font.size = 14;
     const o = { responsive: true, maintainAspectRatio: false, animation: false, layout: { padding: { top: 24 } },
       plugins: { legend: { display: false, labels: { boxWidth: 12, boxHeight: 12, color: css('--sub') } }, tooltip: { backgroundColor: css('--fg'), titleColor: css('--bg'), bodyColor: css('--bg'), padding: 10, displayColors: false } },
       scales: { x: { grid: { display: false }, border: { display: false }, ticks: { color: css('--sub'), font: { size: 13, weight: '600' } } }, y: { display: false, beginAtZero: true, border: { display: false } } } };
