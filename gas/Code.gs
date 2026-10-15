@@ -2,7 +2,8 @@
  * 주간 성과 스냅샷 — 전주대 SNS 콘텐츠별 1주 증가량 기록
  *
  * - 원본 시트 3개는 "읽기만" 합니다 (수정·서식 변경 없음).
- * - 매주 월 07:00(KST) 스냅샷을 쌓고 분석 탭을 다시 계산합니다.
+ * - 매일 08:00(KST) 스냅샷을 갱신하고 분석 탭을 다시 계산합니다 (dailySnapshot).
+ *   · 월요일 기록 = 그 주의 확정 기록 / 화~일 기록 = 「이번 주 진행 중」 임시 기록(다음 날 최신값으로 교체)
  *   · 주간 증가_인스타 / _유튜브 / _hong : 콘텐츠별 증가량 + 참여율·시청 완료율
  *   · 유형별 요약 : 릴스·캐러셀·영상 길이 등 유형별 성과
  *   · 벤치마크   : 퍼블릭 데이터의 타 대학 계정 비교 (최근 180일 게시물)
@@ -186,17 +187,54 @@ function onOpen() {
 function setup() {
   const ss = SpreadsheetApp.getActive();
   ensureSheets_(ss);
+  setupDaily();
+  weeklySnapshot();
+}
+
+// 트리거: 매일 08:00(KST) dailySnapshot (기존 주간 트리거는 지움)
+function setupDaily() {
   ScriptApp.getProjectTriggers()
-    .filter(t => t.getHandlerFunction() === 'weeklySnapshot')
+    .filter(t => ['weeklySnapshot', 'dailySnapshot'].indexOf(t.getHandlerFunction()) >= 0)
     .forEach(t => ScriptApp.deleteTrigger(t));
-  ScriptApp.newTrigger('weeklySnapshot')
+  ScriptApp.newTrigger('dailySnapshot')
     .timeBased()
-    .onWeekDay(ScriptApp.WeekDay.MONDAY)
-    .atHour(7)
+    .everyDays(1)
+    .atHour(8)
     .nearMinute(0)
     .inTimezone(TZ)
     .create();
+}
+
+// ───────── 매일 갱신 (트리거 실행 함수) ─────────
+// 월요일 기록은 확정으로 남기고, 화~일 기록은 최신 1개만 남긴다 (스냅샷 탭 용량 유지)
+function dailySnapshot() {
+  const ss = SpreadsheetApp.getActive();
+  const today = Utilities.formatDate(new Date(), TZ, 'yyyy-MM-dd');
+  try { dropProvisional_(ss, today); }
+  catch (e) {
+    const log = ss.getSheetByName(LOG);
+    if (log) log.getRange(log.getLastRow() + 1, 1, 1, 4).setValues([[new Date(), '임시 기록 교체', 0, '오류: ' + e.message]]);
+  }
   weeklySnapshot();
+}
+
+function isMonday_(ymd) { return new Date(ymd + 'T12:00:00+09:00').getDay() === 1; }
+
+// 마지막 기록이 이번 주 임시 기록(월요일 아님 · 최근 7일 안 · 오늘 아님)이면 지운다
+function dropProvisional_(ss, today) {
+  const snap = ss.getSheetByName(SNAP);
+  const last = snap.getLastRow();
+  if (last < 2) return;
+  const latest = snap.getRange(last, 1).getDisplayValue();
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(latest) || latest === today || isMonday_(latest) || latest <= shiftDate_(today, -7)) return;
+  clearDate_(snap, latest);
+  const acc = ss.getSheetByName(ACCOUNT);
+  if (acc && acc.getLastRow() >= 2) {
+    const d = acc.getRange(2, 1, acc.getLastRow() - 1, 1).getDisplayValues();
+    for (let i = d.length - 1; i >= 0; i--) if (d[i][0] === latest) acc.deleteRow(i + 2);
+  }
+  const log = ss.getSheetByName(LOG);
+  if (log) log.getRange(log.getLastRow() + 1, 1, 1, 4).setValues([[new Date(), '임시 기록 교체', 0, latest + ' → ' + today]]);
 }
 
 // ───────── 주간 기록 (트리거 실행 함수) ─────────
