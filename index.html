@@ -449,6 +449,10 @@ sup.pt{font-size:10px;color:var(--muted,#8b95a1);margin-left:3px;font-weight:600
 .cs-tbl .dotc { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 6px; vertical-align: 1px; }
 .cs-tbl sup.pt { font-size: 9px; color: var(--coral); margin-left: 2px; }
 .cs-tn { margin: 6px 2px 0; }
+/* 분류 칩: 세부 분류 줄 */
+#gchips .gsep { flex: 0 0 1px; align-self: stretch; background: var(--line); margin: 4px 4px; }
+#gchips .chip.sub { font-size: 12.5px; padding: 5px 10px; background: var(--tile); }
+#gchips .chip.sub small { color: var(--muted); font-weight: 600; margin-left: 2px; }
 </style>
 
 <div class="app" id="app">
@@ -582,6 +586,7 @@ sup.pt{font-size:10px;color:var(--muted,#8b95a1);margin-left:3px;font-weight:600
   function line(it) { const ty = typeShort(it.t); return '<span class="ln">' + badge(it.c) + (ty ? '<span class="ty">' + esc(ty) + '</span>' : '') + '<span class="tx">' + esc(title(it.n)) + '</span></span>'; }
   const ptag = p => '<span class="tag ' + (PROD_CLASS[p] || '') + '">' + esc(p) + '</span>';
   const histTag = it => it.x ? '<span class="tag" title="엑셀로 기록하던 시기의 값(기록 당시 수치)">과거 기록</span>' : '';
+  const glab = it => it.g + (it.s ? ' · ' + it.s : '');
   const adtag = it => it.ad ? '<span class="tag p-ad" title="' + esc(it.ad.s === '패턴' ? '광고 리포트 이후 영상 · 조회 패턴으로 추정' : it.ad.x && !it.ad.k.length && !it.ad.mk ? it.ad.x + ' (캠페인 정보 없음)' : it.ad.mk && !it.ad.k.length ? '메타 광고(게시물 홍보): ' + it.ad.mk.map(metaLabel).join(', ') : '구글애즈 캠페인 연결(' + it.ad.s + '): ' + it.ad.k.join(', ')) + '">광고' + (it.ad.s === '확인' ? '' : '?') + '</span>' : '';
 
   // ───────── 필터 ─────────
@@ -591,7 +596,7 @@ sup.pt{font-size:10px;color:var(--muted,#8b95a1);margin-left:3px;font-weight:600
     const f = o.since !== undefined ? o.since : since();
     const u = o.until || '9999';
     const chs = o.channels || OWN;
-    return D.items.filter(it => chs.includes(it.c) && it.t !== '스토리' && (!f || it.d >= f) && it.d <= u && (o.ads || S.ads || !it.ad) && (!o.g || it.g === o.g));
+    return D.items.filter(it => chs.includes(it.c) && it.t !== '스토리' && (!f || it.d >= f) && it.d <= u && (o.ads || S.ads || !it.ad) && (!o.g || it.g === o.g) && (!o.gs || it.s === o.gs));
   }
   function groupBy(L, key) {
     const g = {};
@@ -609,7 +614,7 @@ sup.pt{font-size:10px;color:var(--muted,#8b95a1);margin-left:3px;font-weight:600
       const right = opt.right ? opt.right(it) : '<span class="num">' + fmtK(mainVal(it)) + '</span> <em class="' + (it.ad ? 'flat' : d >= 0 ? 'up' : 'down') + '">' + (it.ad ? '광고' : d == null ? '' : sgn(d) + Math.round(d * 100) + '%') + '</em>';
       return '<li class="rk" tabindex="0" data-i="' + i + '"><span class="no">' + (i + 1) + '</span>' +
         '<span class="t"><b>' + line(it) + '</b><span>' + right + ' · ' + esc(dot(it.d)) + '</span></span>' +
-        '<span class="tg"><span class="tag">' + esc(it.g) + '</span>' + ptag(it.p) + adtag(it) + histTag(it) + '</span></li>';
+        '<span class="tg"><span class="tag">' + esc(glab(it)) + '</span>' + ptag(it.p) + adtag(it) + histTag(it) + '</span></li>';
     }).join('') || '<li class="empty">조건에 맞는 콘텐츠가 없어요.</li>';
   }
   function wireRank(el, L) {
@@ -1752,11 +1757,17 @@ sup.pt{font-size:10px;color:var(--muted,#8b95a1);margin-left:3px;font-weight:600
     const chs = isAll ? [S.trendCh] : viewChannels();
     const L = pool({ channels: chs });
     const groups = groupBy(L, 'g').sort((a, b) => b.n - a.n);
+    const subs = S.g ? groupBy(L.filter(it => it.g === S.g && it.s), 's').sort((a, b) => b.n - a.n) : [];
+    if (!subs.length) S.gs = null;
+    const subHtml = subs.length ? '<span class="gsep"></span><button class="chip sub" type="button" data-gs="" aria-pressed="' + (!S.gs) + '">전체</button>' +
+      subs.map(r => '<button class="chip sub" type="button" data-gs="' + esc(r.k) + '" aria-pressed="' + (S.gs === r.k) + '">' + esc(r.k) + ' <small>' + r.n + '</small></button>').join('') + '<span class="gsep"></span>' : '';
     $('gchips').innerHTML = '<button class="chip" type="button" data-g="" aria-pressed="' + (!S.g) + '">전체</button>' +
-      groups.map(r => { const d = r.idx - 1; return '<button class="chip" type="button" data-g="' + esc(r.k) + '" aria-pressed="' + (S.g === r.k) + '">' + esc(r.k) + '<b class="' + (d >= 0 ? 'up' : 'down') + '">' + sgn(d) + Math.round(d * 100) + '%</b></button>'; }).join('');
-    $('gchips').querySelectorAll('.chip').forEach(b => b.addEventListener('click', () => { S.g = b.dataset.g || null; renderTrend(); renderRank(); }));
-    $('trendSub').textContent = (S.g ? S.g + ' · ' : '') + periodPhrase() + ' 게시물 · 분류 옆 %는 평소보다 얼마나 더(덜) 나왔는지예요';
-    const items = (S.g ? L.filter(it => it.g === S.g) : L).filter(it => mainVal(it) > 0).sort((a, b) => mainVal(b) - mainVal(a)).slice(0, 18);
+      groups.map(r => { const d = r.idx - 1; return '<button class="chip" type="button" data-g="' + esc(r.k) + '" aria-pressed="' + (S.g === r.k) + '">' + esc(r.k) + '<b class="' + (d >= 0 ? 'up' : 'down') + '">' + sgn(d) + Math.round(d * 100) + '%</b></button>' + (S.g === r.k ? subHtml : ''); }).join('');
+    const selC = $('gchips').querySelector('.chip[data-g][aria-pressed="true"]'); if (selC && S.g) $('gchips').scrollLeft = Math.max(0, selC.offsetLeft - 16);
+    $('gchips').querySelectorAll('.chip[data-g]').forEach(b => b.addEventListener('click', () => { S.g = b.dataset.g || null; S.gs = null; renderTrend(); renderRank(); }));
+    $('gchips').querySelectorAll('.chip[data-gs]').forEach(b => b.addEventListener('click', () => { S.gs = b.dataset.gs || null; renderTrend(); renderRank(); }));
+    $('trendSub').textContent = (S.g ? S.g + (S.gs ? '(' + S.gs + ')' : '') + ' · ' : '') + periodPhrase() + ' 게시물 · 분류 옆 %는 평소보다 얼마나 더(덜) 나왔는지예요';
+    const items = (S.g ? L.filter(it => it.g === S.g && (!S.gs || it.s === S.gs)) : L).filter(it => mainVal(it) > 0).sort((a, b) => mainVal(b) - mainVal(a)).slice(0, 18);
     const box = $('tree');
     if (!items.length) { box.innerHTML = '<div class="empty">조건에 맞는 콘텐츠가 없어요.</div>'; return; }
     const W = box.clientWidth, H = box.clientHeight;
@@ -1795,7 +1806,7 @@ sup.pt{font-size:10px;color:var(--muted,#8b95a1);margin-left:3px;font-weight:600
     if (weekly()) tabs.splice(1, 0, ['week', '이번 주 급상승']);
     $('rankTabs').innerHTML = tabs.map(([k, l]) => '<button class="chip" type="button" data-k="' + k + '" aria-pressed="' + (S.rankBy === k) + '">' + l + '</button>').join('');
     $('rankTabs').querySelectorAll('.chip').forEach(b => b.addEventListener('click', () => { S.rankBy = b.dataset.k; S.rankShown = 10; renderRank(); }));
-    const L = exploreList({ g: S.g || undefined });
+    const L = exploreList({ g: S.g || undefined, gs: S.gs || undefined });
     const score = { views: mainVal, hot: ratio, quality, week: it => inc(it, mainM(it.c)) }[S.rankBy] || mainVal;
     $('rankSub').textContent = { views: (S.ch === '타 대학' ? '좋아요' : '조회수') + ' 많은 순', hot: '평소 대비 성과가 높은 순 · 채널 규모와 상관없이 비교해요', quality: '반응률 높은 순 (인스타 참여율 · 유튜브 시청 완료율 · hong 좋아요율)', week: '지난 기록보다 많이 늘어난 순' }[S.rankBy] + (S.g ? ' · ' + S.g : '');
     const sorted = L.filter(it => score(it) != null).sort((a, b) => score(b) - score(a));
@@ -1810,7 +1821,7 @@ sup.pt{font-size:10px;color:var(--muted,#8b95a1);margin-left:3px;font-weight:600
       { k: 'n', l: '콘텐츠', v: it => title(it.n) },
       { k: 'd', l: '게시일', v: it => it.d },
       { k: 't', l: '형식', v: it => fmtType(it.t) },
-      { k: 'g', l: '분류', v: it => it.g },
+      { k: 'g', l: '분류', v: glab },
       { k: 'p', l: '제작', v: it => it.p },
       { k: 'm', l: own ? '조회수' : '좋아요', v: mainVal, n: 1 },
       { k: 'r', l: '평소 대비', v: it => !!it.ad ? null : ratio(it), n: 1, f: xf },
@@ -1857,10 +1868,10 @@ sup.pt{font-size:10px;color:var(--muted,#8b95a1);margin-left:3px;font-weight:600
       ['전체', '2000-01-01', t],
     ].map(r => [r[0], r[1], r[2] > t ? t : r[2]]);
   }
-  const GROUPS = [['content', '콘텐츠별'], ['day', '일별'], ['week', '주별'], ['month', '월별'], ['channel', '채널별'], ['category', '분류별'], ['producer', '제작별'], ['person', '사람별'], ['format', '형식별'], ['weekday', '요일별']];
+  const GROUPS = [['content', '콘텐츠별'], ['day', '일별'], ['week', '주별'], ['month', '월별'], ['channel', '채널별'], ['category', '분류별'], ['subcat', '세부 분류별'], ['producer', '제작별'], ['person', '사람별'], ['format', '형식별'], ['weekday', '요일별']];
   // 콘텐츠별 열
   const CCOLS = [
-    ['title', '제목', it => title(it.n), 's'], ['d', '게시일', it => it.d, 's'], ['c', '채널', it => chName(it.c), 's'], ['t', '형식', it => fmtType(it.t), 's'], ['g', '분류', it => it.g, 's'], ['p', '제작', it => it.p, 's'],
+    ['title', '제목', it => title(it.n), 's'], ['d', '게시일', it => it.d, 's'], ['c', '채널', it => chName(it.c), 's'], ['t', '형식', it => fmtType(it.t), 's'], ['g', '분류', it => it.g, 's'], ['gs', '세부 분류', it => it.s || '', 's'], ['p', '제작', it => it.p, 's'],
     ['w', '참여자', it => (it.w || []).join(', '), 's'],
     ['views', '조회수', it => xv(it, 0), 'n'], ['likes', '좋아요', it => xv(it, 1), 'n'], ['comments', '댓글', it => xv(it, 2), 'n'], ['shares', '공유', it => xv(it, 3), 'n'], ['saves', '저장', it => xv(it, 4), 'n'],
     ['reach', '리치', it => it.r, 'n'], ['eng', '참여율', engagement, 'p'], ['comp', '시청 완료율', completion, 'p'], ['ratio', '평소 대비(배)', it => !!it.ad ? null : ratio(it), 'x'],
@@ -1942,11 +1953,11 @@ sup.pt{font-size:10px;color:var(--muted,#8b95a1);margin-left:3px;font-weight:600
       if (E.limit) rows = rows.slice(0, E.limit);
       return { L, cols, rows, items: rows.map(r => r.it) };
     }
-    const keyFn = { day: it => it.d, month: it => it.d.slice(0, 7), week: it => isoWeek(it.d), channel: it => chName(it.c), category: it => it.g, producer: it => it.p, format: it => fmtType(it.t), weekday: it => WD[new Date(it.d + 'T00:00:00Z').getUTCDay()] }[E.group];
+    const keyFn = { day: it => it.d, month: it => it.d.slice(0, 7), week: it => isoWeek(it.d), channel: it => chName(it.c), category: it => it.g, subcat: glab, producer: it => it.p, format: it => fmtType(it.t), weekday: it => WD[new Date(it.d + 'T00:00:00Z').getUTCDay()] }[E.group];
     const g = {};
     if (E.group === 'person') L.forEach(it => (it.w || []).forEach(n => { if (E.roleF !== '전체' && ((D.roles || {})[n] || '근로장학생') !== E.roleF) return; (g[n] = g[n] || []).push(it); }));
     else L.forEach(it => { const k = keyFn(it); (g[k] = g[k] || []).push(it); });
-    const label = { day: '날짜', month: '월', week: '주(월요일 시작)', channel: '채널', category: '분류', producer: '제작', format: '형식', weekday: '요일', person: '이름' }[E.group];
+    const label = { day: '날짜', month: '월', week: '주(월요일 시작)', channel: '채널', category: '분류', subcat: '분류(세부)', producer: '제작', format: '형식', weekday: '요일', person: '이름' }[E.group];
     const cols = [['key', label, null, 's']].concat(E.group === 'person' ? [['role', '역할', null, 's']] : []).concat(GCOLS.filter(c => E.gcols.includes(c[0])));
     let rows = Object.entries(g).map(([k, arr]) => ({ k, arr, cells: cols.map(c => c[0] === 'key' ? k : c[0] === 'role' ? ((D.roles || {})[k] || '근로장학생') : c[2](arr)) }));
     const si = cols.findIndex(c => c[0] === E.sortK);
@@ -2209,12 +2220,12 @@ sup.pt{font-size:10px;color:var(--muted,#8b95a1);margin-left:3px;font-weight:600
     const sim = D.items.filter(x => x !== it && x.c === it.c && x.g === it.g && x.t !== '스토리').sort((a, b) => (mainVal(b) || 0) - (mainVal(a) || 0)).slice(0, 5);
     const el = $('detail');
     el.innerHTML = '<div class="dwrap">' +
-      '<div class="dh"><button type="button" id="dClose" aria-label="뒤로">‹</button><div class="ctr"><small>' + esc(it.c) + ' · ' + esc(it.g) + '</small><b class="num ' + cls + '">' + fmtK(mainVal(it)) + ' ' + (d == null ? '' : sgn(d) + Math.round(d * 100) + '%') + '</b></div><span></span></div>' +
+      '<div class="dh"><button type="button" id="dClose" aria-label="뒤로">‹</button><div class="ctr"><small>' + esc(it.c) + ' · ' + esc(glab(it)) + '</small><b class="num ' + cls + '">' + fmtK(mainVal(it)) + ' ' + (d == null ? '' : sgn(d) + Math.round(d * 100) + '%') + '</b></div><span></span></div>' +
       '<div class="dtabs" role="tablist"><button type="button" role="tab" aria-selected="true" data-s="dChart">성과</button><button type="button" role="tab" aria-selected="false" data-s="dSig">성과 진단</button><button type="button" role="tab" aria-selected="false" data-s="dMet">지표</button><button type="button" role="tab" aria-selected="false" data-s="dSim">비슷한 콘텐츠</button></div>' +
       '<section class="dsec" id="dChart"><h1 class="dtitle">' + line(it) + '</h1>' +
         '<div class="dbig num">' + fmt(mainVal(it)) + '<small class="' + cls + '">' + (it.ad ? '광고 영상이라 평소 대비는 계산하지 않아요' : d == null ? '' : '평소 대비 ' + sgn(d) + Math.round(d * 100) + '%') + '</small></div>' +
         (wk != null ? '<div class="num ' + (wk >= 0 ? 'up' : 'down') + '" style="font-weight:700;margin-top:2px">이번 주 ' + sgn(wk) + fmt(wk) + '</div>' : '') +
-        '<div class="dtags"><span class="tag">' + esc(it.g) + '</span>' + ptag(it.p) + adtag(it) + histTag(it) + '<span class="tag">' + esc(fmtType(it.t)) + '</span>' + (it.w || []).map(n => '<span class="tag">' + esc(n) + '</span>').join('') + '</div>' +
+        '<div class="dtags"><span class="tag">' + esc(glab(it)) + '</span>' + ptag(it.p) + adtag(it) + histTag(it) + '<span class="tag">' + esc(fmtType(it.t)) + '</span>' + (it.w || []).map(n => '<span class="tag">' + esc(n) + '</span>').join('') + '</div>' +
         '<div class="cmp"><canvas id="dCanvas"></canvas></div>' +
         '<div class="dper"><span class="' + (D.dates.length > 1 ? '' : 'on') + '">비교</span><span class="' + (D.dates.length > 1 ? 'on' : '') + '">주간 추이</span></div></section>' +
       '<div class="gap"></div><section class="dsec why"><div class="lb">✦ ' + (it.ad ? '광고 집행 정보' : d == null || d >= 0 ? '왜 잘 됐을까?' : '왜 아쉬웠을까?') + '<small>' + mdLabel(D.updated) + ' 기준</small></div><p>' + esc(whyText(it)) + '</p></section>' +
