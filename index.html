@@ -780,7 +780,7 @@ details.adv[open] > summary { border-bottom: 1px solid var(--line); }
     const chs = viewChannels();
     const cur = pool({ channels: chs, since: addDays(D.updated, -30) });
     const low = cur.filter(it => ratio(it) != null && daysBetween(it.d, D.updated) >= 7 && ratio(it) < 0.5).sort((a, b) => ratio(a) - ratio(b)).slice(0, 3);
-    let html = weekHtml(chs) + '<div class="gap"></div>' + trendHtml(chs);
+    let html = trendHtml(chs) + '<div class="gap"></div>' + weekHtml(chs);
     html += '<div class="gap"></div><section class="sec"><div class="sh"><div><h2>점검할 것</h2><p>최근 3달 요약과 평소보다 처진 콘텐츠</p></div></div>' + briefText(chs).replace('style="padding:18px 0 0"', 'style="padding:0 0 18px"') +
       '<h3 class="sub">평소보다 처진 콘텐츠</h3><p class="d">최근 30일 게시물 중 게시 7일이 지났는데도 평소의 절반에 못 미친 콘텐츠</p><ol class="rank" id="bLow">' + (low.length ? rankRows(low) : '<li class="empty">처진 콘텐츠가 없어요 👍</li>') + '</ol>' + secClose;
     if (S.ch !== '전체') html += secOpen('최근 3달 분류별 성과', '게시물 1개가 평소의 몇 배였는지(중앙값) · 누르면 그 분류 콘텐츠를 볼 수 있어요') + '<div class="bars" id="bCat"></div>' + secClose;
@@ -849,7 +849,7 @@ details.adv[open] > summary { border-bottom: 1px solid var(--line); }
   }
   function briefText(chs) {
     const ins = insights(chs);
-    return '<div class="brief" style="padding:18px 0 0"><div class="lb">✦ 성과 요약<small>최근 3달 · ' + mdLabel(D.updated) + ' 기준</small></div>' +
+    return '<div class="brief" style="padding:18px 0 0"><div class="lb">✦ 최근 3달 분류별 요약<small>게시일 기준 · 이번 주 성과가 아니에요</small></div>' +
       '<button type="button" id="briefBtn" aria-expanded="false"><span>' + esc(ins[0]) + '</span><span class="chev">›</span></button><ul id="briefList" hidden>' +
       ins.slice(1).map(s => '<li>' + esc(s) + '</li>').join('') + '</ul></div>';
   }
@@ -995,7 +995,7 @@ details.adv[open] > summary { border-bottom: 1px solid var(--line); }
     const per = TR_P.find(p => p[0] === TR.p);
     const cn = covNote(chs, per[2] ? addDays(D.updated, -per[2] + 1) : '0000');
     if (chs.includes('유튜브') && (TR.p === '3y' || TR.p === 'all') && ['per', 'like'].includes(TR.m)) notes.push('유튜브 긴 영상은 몇 년에 걸쳐 조회가 쌓여 예전 연도가 유리하게 보여요');
-    let h = '<section class="sec" id="trSec"><div class="sh"><div><h2>콘텐츠 성적 추이</h2><p>' + esc(notes.join(' · ')) + (cn ? '<br><span class="warn">⚠ ' + esc(cn) + '</span>' : '') + '</p></div></div>' +
+    let h = '<section class="sec" id="trSec"><div class="sh"><div><h2>채널 현황</h2><p>' + esc(notes.join(' · ')) + (cn ? '<br><span class="warn">⚠ ' + esc(cn) + '</span>' : '') + '</p></div></div>' +
       '<div class="tr-ctl"><div class="chips">' + TR_M.map(m => '<button class="chip" type="button" data-trm="' + m[0] + '" aria-pressed="' + (TR.m === m[0]) + '">' + m[1] + '</button>').join('') + '</div>' +
       '<div class="tr-pu"><div class="seg">' + TR_P.map(p => '<button type="button" data-trp="' + p[0] + '" aria-pressed="' + (TR.p === p[0]) + '">' + p[1] + '</button>').join('') + '</div>' +
       '<div class="seg">' + TR_U.map(x => '<button type="button" data-tru="' + x[0] + '" aria-pressed="' + (u === x[0]) + '">' + x[1] + '</button>').join('') + '</div></div></div>' +
