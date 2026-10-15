@@ -1139,7 +1139,7 @@ function clearDashboardCache() {
 function onEdit(e) {
   try {
     const name = e && e.range && e.range.getSheet().getName();
-    if ([ROSTER_SHEET, ADMAP_SHEET, ADPLAN_SHEET, TAGFIX_SHEET, STRAT_SHEET, GOAL_SHEET, META_SHEET, IG_HIST_SHEET].indexOf(name) >= 0) dropCache_();
+    if ([ROSTER_SHEET, ADMAP_SHEET, ADPLAN_SHEET, TAGFIX_SHEET, STRAT_SHEET, GOAL_SHEET, META_SHEET, IG_HIST_SHEET, AD_EXTRA_SHEET, GADS_SHEET].indexOf(name) >= 0) dropCache_();
   } catch (err) {}
 }
 
@@ -1548,27 +1548,90 @@ function loadTagData_(ss) {
 }
 
 // 구글애즈 리포트 + 「광고 매핑」
+// ───────── 광고 원본 ─────────
+// 구글애즈 일별 리포트는 두 곳에서 읽어 합친다(같은 날짜·캠페인은 스냅샷 시트 탭이 우선):
+//  ① ADS_ID 시트(개인 계정, 2026-07-17에 한 번 내보낸 정적 파일 — 2026-01-30까지)
+//  ② 스냅샷 시트 「구글애즈 리포트」 탭 — 구글애즈 → 보고서 → 일별 캠페인 보고서를 내보내 그대로 붙여 넣는 곳
+// 일별 리포트가 없는 기간은 「광고 추가 입력」 탭의 캠페인 합계(브리핑·결과 보고 수치)로 채운다.
+const GADS_SHEET = '구글애즈 리포트';
+const AD_EXTRA_SHEET = '광고 추가 입력';
+const AD_EXTRA_HEAD = ['매체(구글/메타)', '캠페인 이름', '시작일', '종료일', '노출', '클릭', '비용(원)', '지출(USD)', '도달', '결과(전환·랜딩 조회)', '출처·메모'];
+// 2027 수시 광고(2026-08-01~09-11) — 02_광고/2026-08 수시 광고/ad_report.html(9/11 18시 마감 브리핑) 캠페인별 합계
+const AD_EXTRA_SEED = [
+  ['구글', '2027-수시모집-디스플레이 광고', '2026-08-01', '2026-09-11', 8300744, 42810, 10336935, '', '', 952.76, '수시 마감 브리핑(9/11) 캠페인 합계'],
+  ['구글', '2027-수시모집-동영상 광고-18~24세', '2026-08-01', '2026-09-11', 1223476, 3051, 5663291, '', '', 81, '수시 마감 브리핑(9/11) 캠페인 합계'],
+  ['구글', '2027-수시모집-동영상 광고', '2026-08-01', '2026-09-11', 1035412, 1664, 4348301, '', '', 11, '수시 마감 브리핑(9/11) 캠페인 합계'],
+  ['구글', '2027-수시모집-디스플레이 광고-18~24세', '2026-08-01', '2026-09-11', 2861725, 23749, 3714378, '', '', 261.24, '수시 마감 브리핑(9/11) 캠페인 합계'],
+  ['구글', '2027-수시모집-범퍼 광고', '2026-08-01', '2026-09-11', 904771, 888, 1452745, '', '', 3, '수시 마감 브리핑(9/11) 캠페인 합계'],
+  ['구글', '2027-수시모집-체험콘텐츠 인피드-18~24세', '2026-08-01', '2026-09-11', 639758, 201, 786062, '', '', 9, '수시 마감 브리핑(9/11) 캠페인 합계'],
+  ['구글', '2027-수시모집-검색 광고', '2026-08-01', '2026-09-11', 23, 5, 20461, '', '', 6, '수시 마감 브리핑(9/11) 캠페인 합계'],
+  ['메타', '2027-수시모집-트래픽 광고-체험콘텐츠4종', '2026-08-01', '2026-09-11', '', '', '', 1627.91, 264517, 12594, '수시 마감 브리핑(9/11) · 결과=랜딩 페이지 조회'],
+  ['메타', '2027-수시모집-트래픽 광고-고등학생', '2026-08-01', '2026-09-11', '', '', '', 1737.76, 184285, 2409, '수시 마감 브리핑(9/11) · 결과=랜딩 페이지 조회'],
+  ['메타', '2027-수시모집-트래픽 광고-AI콘텐츠', '2026-09-11', '2026-09-11', '', '', '', 9.98, 6384, 133, '수시 마감 브리핑(9/11) · 9/11 신규 게시']
+];
+function ensureAdSheets_(ss) {
+  if (!ss.getSheetByName(AD_EXTRA_SHEET)) {
+    const sh = ss.insertSheet(AD_EXTRA_SHEET);
+    sh.getRange(1, 1, 1, AD_EXTRA_HEAD.length).setValues([AD_EXTRA_HEAD]).setFontWeight('bold');
+    sh.getRange(2, 1, AD_EXTRA_SEED.length, AD_EXTRA_HEAD.length).setValues(AD_EXTRA_SEED);
+    sh.getRange(AD_EXTRA_SEED.length + 3, 1).setValue('※ 일별 리포트(「' + GADS_SHEET + '」 탭·「' + META_SHEET + '」 탭)가 없는 광고를 캠페인 합계로 적는 곳. 같은 캠페인이 일별 리포트에 들어오면 이 줄은 자동으로 빠져요. 구글 금액은 원, 메타는 USD.');
+    sh.setFrozenRows(1);
+  }
+  if (!ss.getSheetByName(GADS_SHEET)) {
+    const sh = ss.insertSheet(GADS_SHEET);
+    sh.getRange(1, 1).setValue('※ 구글애즈 → 보고서 → 「캠페인」 보고서(열: 일·캠페인·노출수·클릭수·비용, 기간: 2026-02-01 ~ 어제)를 내보내 A1부터 그대로 붙여 넣으세요. 영어(Day·Campaign·Impr.·Clicks·Cost)도 돼요. 이 안내 줄은 지워도 돼요.');
+  }
+}
+// 머리글 행을 찾아(안내 줄·보고서 제목 줄 건너뜀) 일·캠페인·노출·비용·클릭 열 위치를 돌려준다
+function gadsCols_(v) {
+  const pick = (head, names) => { for (const n of names) { const i = head.indexOf(n); if (i >= 0) return i; } return -1; };
+  for (let r = 0; r < Math.min(v.length, 6); r++) {
+    const head = v[r].map(h => String(h).trim());
+    const c = { d: pick(head, ['Day', '일', '날짜']), c: pick(head, ['Campaign', '캠페인']), i: pick(head, ['Impr.', 'Impressions', '노출수']), co: pick(head, ['Cost', '비용']), k: pick(head, ['Clicks', '클릭수']) };
+    if (c.d >= 0 && c.c >= 0) return Object.assign(c, { r: r });
+  }
+  return null;
+}
 function loadAds_(ss) {
-  const out = { end: '', daily: [], camps: [], rows: [], plans: [], v2c: {} };
-  let v;
-  try { v = SpreadsheetApp.openById(ADS_ID).getSheets()[0].getDataRange().getValues(); } catch (e) { out.error = e.message; return out; }
-  const head = v[0].map(String);
-  const ix = k => head.indexOf(k);
-  const iD = ix('Day'), iC = ix('Campaign'), iI = ix('Impr.'), iCo = ix('Cost'), iK = ix('Clicks');
-  if (iD < 0 || iC < 0) { out.error = '광고 리포트 헤더를 못 찾음'; return out; }
+  const out = { end: '', daily: [], camps: [], rows: [], plans: [], v2c: {}, src: [] };
   const s_ = x => (x instanceof Date) ? Utilities.formatDate(x, TZ, 'yyyy-MM-dd') : String(x).trim();
-  const n_ = x => Number(String(x).replace(/,/g, '')) || 0;
+  const n_ = x => Number(String(x).replace(/[,₩\s]/g, '')) || 0;
+  // 일별 행 모으기: key 날짜§캠페인 → [날짜, 캠페인, 노출, 비용, 클릭] (뒤에 읽은 원본이 덮어씀)
+  const day = {};
+  const take = (v, label) => {
+    const c = v && v.length ? gadsCols_(v) : null;
+    if (!c) return 0;
+    let n = 0;
+    v.slice(c.r + 1).forEach(r => {
+      const d = s_(r[c.d]).slice(0, 10), cn = String(r[c.c]).trim();
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(d) || !cn || /^(합계|Total)/i.test(cn)) return;
+      day[d + '§' + cn] = [d, cn, c.i >= 0 ? n_(r[c.i]) : 0, c.co >= 0 ? n_(r[c.co]) : 0, c.k >= 0 ? n_(r[c.k]) : 0]; n++;
+    });
+    out.src.push(label + ' ' + n + '행');
+    return n;
+  };
+  try { take(SpreadsheetApp.openById(ADS_ID).getSheets()[0].getDataRange().getValues(), '구글애즈 리포트 시트'); } catch (e) { out.error = '구글애즈 리포트 시트: ' + e.message; }
+  try { ensureAdSheets_(ss); const gs = ss.getSheetByName(GADS_SHEET); if (gs && gs.getLastRow() > 1) take(gs.getDataRange().getValues(), '「' + GADS_SHEET + '」 탭'); } catch (e) { out.error = (out.error ? out.error + ' / ' : '') + GADS_SHEET + ': ' + e.message; }
   const camps = {}, daily = {}, cd = {};
-  v.slice(1).forEach(r => {
-    const d = s_(r[iD]).slice(0, 10), c = String(r[iC]).trim();
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(d) || !c) return;
-    const imp = n_(r[iI]), cost = n_(r[iCo]), clk = n_(r[iK]);
+  Object.keys(day).forEach(k => {
+    const [d, c, imp, cost, clk] = day[k];
     const o = camps[c] = camps[c] || { n: c, from: d, to: d, imp: 0, cost: 0, clk: 0, videos: [], conf: '' };
     if (d < o.from) o.from = d; if (d > o.to) o.to = d;
     o.imp += imp; o.cost += cost; o.clk += clk;
     const x = daily[d] = daily[d] || [0, 0]; x[0] += cost; x[1] += imp;
     const y = cd[c + '§' + d] = cd[c + '§' + d] || [c, d, 0, 0, 0]; y[2] += cost; y[3] += imp; y[4] += clk;
     if (d > out.end) out.end = d;
+  });
+  // 「광고 추가 입력」의 구글 캠페인 합계 — 같은 캠페인이 일별 리포트에 그 기간 데이터로 있으면 건너뜀
+  loadAdExtra_(ss).filter(x => x.pf === '구글').forEach(x => {
+    const o = camps[x.n];
+    if (o && o.to >= x.from && o.from <= x.to) return;
+    camps[x.n] = { n: x.n, from: x.from, to: x.to, imp: x.imp || 0, cost: x.cost || 0, clk: x.clk || 0, videos: [], conf: '', manual: x.memo || '합계 입력' };
+    // 일별 값이 없으니 월별 그래프에는 종료일에 합계를 둔다(화면에 '종료월 기준' 표시)
+    const y = cd[x.n + '§' + x.to] = cd[x.n + '§' + x.to] || [x.n, x.to, 0, 0, 0]; y[2] += x.cost || 0; y[3] += x.imp || 0; y[4] += x.clk || 0;
+    const z = daily[x.to] = daily[x.to] || [0, 0]; z[0] += x.cost || 0; z[1] += x.imp || 0;
+    if (x.to > out.end) out.end = x.to;
+    out.manualEnd = out.manualEnd && out.manualEnd > x.to ? out.manualEnd : x.to;
   });
   const ms = ss.getSheetByName(ADMAP_SHEET);
   const map = ms && ms.getLastRow() > 1 ? ms.getRange(2, 1, ms.getLastRow() - 1, 3).getValues() : ADMAP_SEED;
@@ -1579,7 +1642,7 @@ function loadAds_(ss) {
   });
   out.daily = Object.keys(daily).sort().map(d => [d, Math.round(daily[d][0]), Math.round(daily[d][1])]);
   out.camps = Object.keys(camps).map(k => camps[k]).sort((a, b) => a.from < b.from ? -1 : 1)
-    .map(c => ({ n: c.n, from: c.from, to: c.to, imp: Math.round(c.imp), cost: Math.round(c.cost), clk: Math.round(c.clk), videos: c.videos, conf: c.conf }));
+    .map(c => Object.assign({ n: c.n, from: c.from, to: c.to, imp: Math.round(c.imp), cost: Math.round(c.cost), clk: Math.round(c.clk), videos: c.videos, conf: c.conf }, c.manual ? { manual: c.manual } : {}));
   const ci = {}; out.camps.forEach((c, i) => { ci[c.n] = i; });
   out.rows = Object.keys(cd).map(k => cd[k]).filter(y => y[2] || y[3] || y[4])
     .map(y => [ci[y[0]], y[1], Math.round(y[2]), Math.round(y[3]), Math.round(y[4])])
@@ -1638,7 +1701,7 @@ function attachTags_(ss, items, keys) {
       items.forEach(it => { if (it.c === '유튜브') { const x = L[vid(it.u)]; if (x) it.L = x; } });
     }
   } catch (e) {}
-  return { roles: T.roles, ads: { end: A.end, daily: A.daily, camps: A.camps, rows: A.rows, plans: A.plans, meta: loadMeta_(ss), error: A.error || '' } };
+  return { roles: T.roles, ads: { end: A.end, daily: A.daily, camps: A.camps, rows: A.rows, plans: A.plans, meta: loadMeta_(ss), error: A.error || '', src: A.src || [], manualEnd: A.manualEnd || '' } };
 }
 
 // ───────── 인스타그램 과거 기록 (엑셀로 기록하던 시기) ─────────
@@ -1766,7 +1829,31 @@ function saveTagsMissing_(ss, bySrc) {
 
 // ───────── 메타(인스타·페북) 광고: 「메타 광고」 탭 (광고 관리자 캠페인 보고서 내보내기) ─────────
 const META_SHEET = '메타 광고';
+// 「광고 추가 입력」 탭 읽기(매체·캠페인·기간·노출·클릭·비용(원)·지출(USD)·도달·결과·메모)
+function loadAdExtra_(ss) {
+  try {
+    ensureAdSheets_(ss);
+    const sh = ss.getSheetByName(AD_EXTRA_SHEET);
+    if (!sh || sh.getLastRow() < 2) return [];
+    const s_ = x => (x instanceof Date) ? Utilities.formatDate(x, TZ, 'yyyy-MM-dd') : String(x == null ? '' : x).trim();
+    const n_ = x => { const n = Number(String(x).replace(/[,₩$\s]/g, '')); return x === '' || x === null || isNaN(n) ? null : n; };
+    return sh.getRange(2, 1, sh.getLastRow() - 1, AD_EXTRA_HEAD.length).getValues().map(r => {
+      const pf = /메타|meta|인스타|페이스북/i.test(s_(r[0])) ? '메타' : /구글|google|유튜브/i.test(s_(r[0])) ? '구글' : '';
+      return { pf: pf, n: s_(r[1]), from: s_(r[2]).slice(0, 10), to: s_(r[3]).slice(0, 10), imp: n_(r[4]), clk: n_(r[5]), cost: n_(r[6]), spend: n_(r[7]), reach: n_(r[8]), res: n_(r[9]), memo: s_(r[10]) };
+    }).filter(x => x.pf && x.n && /^\d{4}-\d{2}-\d{2}$/.test(x.to) && x.n.charAt(0) !== '※');
+  } catch (e) { return []; }
+}
 function loadMeta_(ss) {
+  // 메타 탭은 내보내기 전체를 통째로 바꿔 붙이는 방식(같은 이름의 서로 다른 캠페인이 있어 중복 제거는 하지 않음)
+  const out = loadMetaTab_(ss);
+  // 「광고 추가 입력」의 메타 캠페인 합계 — 같은 이름의 캠페인이 그 기간에 메타 탭에 있으면 건너뜀
+  loadAdExtra_(ss).filter(x => x.pf === '메타').forEach(x => {
+    if (out.some(c => c.n === x.n && (!c.end || c.end >= x.from))) return;
+    out.push({ n: x.n, st: 'completed', res: x.res, rt: 'landing_page_view', reach: x.reach, budget: null, spend: x.spend, cur: 'USD', end: x.to, from: x.from, imp: x.imp, clk: x.clk, lpv: x.res, manual: x.memo || '합계 입력' });
+  });
+  return out;
+}
+function loadMetaTab_(ss) {
   const sh = ss.getSheetByName(META_SHEET);
   if (!sh || sh.getLastRow() < 2) return [];
   const v = sh.getDataRange().getValues();
