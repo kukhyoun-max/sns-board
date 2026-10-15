@@ -261,7 +261,7 @@
     if (S.ch === '전체' && benchNames().length) html += '<div class="gap"></div>' + benchCmpHtml();
     html += advHtml();
     $('view').innerHTML = html;
-    wireWeek(); wireTrend(); wireBenchCmp(); wireAdv();
+    wireWeek(); wireTrend(); wireBenchCmp(); wireAdv(); wireTop(chs);
     wireRank($('bLow'), low);
     if (S.ch !== '전체') bars('bCat', groupBy(pool({ channels: chs, since: addDays(D.updated, -90) }), 'g').filter(r => r.n >= 2).sort(byIdx), r => r.n + '개 · 히트율 ' + pct0(r.hit), k => { S.view = 'explore'; S.g = k; render(); window.scrollTo({ top: 0 }); });
     wireBrief();
@@ -428,8 +428,46 @@
   }
   function topHtml(chs) {
     const stl = staleHtml(S.ch === '전체' ? OWN.concat(benchNames()) : chs);
-    return '<section class="sec top-sec"><div class="sh"><div><h2>' + (S.ch === '전체' ? '이번 주 한눈에' : chName(S.ch) + ' 이번 주') + '</h2><p>' + mdLabel(D.updated) + ' 기록 기준 · ' + adWord() + '</p></div></div>' +
+    return '<section class="sec top-sec"><div class="sh"><div><h2>' + (S.ch === '전체' ? '이번 주 한눈에' : chName(S.ch) + ' 이번 주') + '</h2><p>' + mdLabel(D.updated) + ' 기록 기준 · ' + adWord() + '</p></div>' +
+      '<div class="top-act"><button type="button" class="btn sm" id="repCopy">주간 보고 복사</button><button type="button" class="btn sm" id="repPrint">인쇄·PDF</button></div></div>' +
       kpiHtml(chs) + homeSummary(chs) + stl + '</section>';
+  }
+  // 주간 보고: 카톡·메일에 붙일 글(맨 위 숫자 + 요약 + 많이 큰 콘텐츠 + 데이터 주의)
+  function reportText(chs) {
+    const w = weekModel(chs), p = w && w.cur, L = [];
+    const plain = s => s.replace(/<[^>]+>/g, '').replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"');
+    L.push('[전주대 SNS 주간 현황] ' + D.updated + ' 기록 기준 · ' + adWord());
+    L.push('');
+    if (p) L.push('■ 조회 증가 +' + fmtK(p.v) + ' (' + dot(p.d0) + ' → ' + dot(p.d1) + ', ' + p.days + '일' + (p.nw.length ? ', 새 게시물 ' + p.nw.length + '개' : '') + ')');
+    const c30 = pool({ channels: chs, since: addDays(D.updated, -30) }), cj = c30.filter(judged);
+    if (cj.length) L.push('■ 최근 30일 히트율 ' + pct0(hitRate(cj)) + ' (히트 ' + cj.filter(isHit).length + ' / ' + cj.length + '개)');
+    L.push('■ 최근 30일 게시 ' + c30.length + '개' + (chs.length > 1 ? ' (' + chs.map(c => chName(c) + ' ' + c30.filter(it => it.c === c).length).join(', ') + ')' : ''));
+    chs.forEach(c => {
+      if (D.acctStale && D.acctStale[c]) return;
+      const a = acctLatest(c);
+      if (c === '인스타그램' && a.cur && a.cur.m['Profile followers'] != null) L.push('■ 인스타 팔로워 ' + fmt(a.cur.m['Profile followers']));
+      if (c === '유튜브' && a.cur && a.cur.m['Gained subscribers'] != null) { const n = a.cur.m['Gained subscribers'] - (a.cur.m['Lost subscribers'] || 0); L.push('■ 유튜브 구독 순증 ' + sgn(n) + fmt(n) + ' (지난주)'); }
+    });
+    const sm = homeSummary(chs).match(/<li>([\s\S]*?)<\/li>/g) || [];
+    if (sm.length) { L.push(''); sm.forEach(s => L.push('- ' + plain(s.replace(/<\/?li>/g, '')))); }
+    if (p) {
+      const old = p.old.filter(it => p.inc0(it) > 0).sort((a, b) => p.inc0(b) - p.inc0(a)).slice(0, 5);
+      if (old.length) { L.push(''); L.push('이번 주 많이 큰 콘텐츠'); old.forEach((it, i) => L.push((i + 1) + '. [' + chName(it.c) + '] ' + title(it.n) + ' +' + fmtK(p.inc0(it)))); }
+    }
+    const st = chs.concat(S.ch === '전체' ? benchNames() : []).filter(c => D.stale && D.stale[c]);
+    const as = chs.filter(c => D.acctStale && D.acctStale[c]);
+    if (st.length || as.length) { L.push(''); L.push('※ 원본 미갱신: ' + st.concat(as.map(c => chName(c) + ' 계정 지표')).map(c => c.indexOf(' ') > 0 ? c : chName(c)).join(', ') + ' — 이번 집계에서 제외'); }
+    L.push('※ 평소 = 같은 채널·같은 형식 최근 1년 중앙값, 히트 = 평소의 1.5배 이상');
+    return L.join('\n');
+  }
+  function copyText(s) {
+    const ok = () => toast('주간 보고를 복사했어요'), bad = () => { const t = document.createElement('textarea'); t.value = s; document.body.appendChild(t); t.select(); try { document.execCommand('copy'); ok(); } catch (e) { toast('복사하지 못했어요'); } t.remove(); };
+    if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(s).then(ok, bad); else bad();
+  }
+  function wireTop(chs) {
+    const c = $('repCopy'), p = $('repPrint');
+    if (c) c.addEventListener('click', () => copyText(reportText(chs)));
+    if (p) p.addEventListener('click', () => window.print());
   }
   function dayChg(w) {
     if (!w.prev || !w.cur) return '';
@@ -516,7 +554,8 @@
   function wireWeek() { wireDaily(); const w = window.__wk; if (!w || !w.lists) return; wireRank($('wkNew'), w.lists.nw); wireRank($('wkOld'), w.lists.old); }
 
   // ═════════ 홈 ② 콘텐츠 성적 추이 — 채널별로 따로, 중앙값 ═════════
-  const TR = { m: 'per', p: '1y', u: 'auto' };
+  const TR = { m: 'per', p: '1y', u: 'auto', more: false };
+  const TR_CORE = 4; // 지표 버튼은 앞의 4개만 보이고 나머지는 '더보기'
   const TR_M = [['per', '게시물당 조회'], ['ratio', '평소 대비'], ['hit', '히트율'], ['posts', '게시 수'], ['like', '게시물당 좋아요'], ['cmt', '게시물당 댓글'], ['share', '게시물당 공유'], ['save', '게시물당 저장'], ['reach', '게시물당 도달']];
   // 게시물 값 꺼내기: 조회·좋아요·댓글·공유·저장(누적 기록) · 도달(it.r, 인스타)
   const TR_GET = { per: it => mainVal(it), like: it => val(it, 1), cmt: it => val(it, 2), share: it => val(it, 3), save: it => val(it, 4), reach: it => it.r };
@@ -587,7 +626,7 @@
       const main = p.kind === 'bench' ? series[0] : series[0]; // 큰 숫자: 타 대학 칸은 우리 인스타 값
       const done = keys.map((k, i) => main.data[i]).filter((v, i) => keys[i] !== curK && v != null);
       const rf = p.kind === 'bench' ? likeRatio : ratio;
-      const top = (p.kind === 'bench' ? L.filter(it => it.c !== '인스타그램' && !likeHidden(it.c)) : L).filter(it => rf(it) != null).sort((a, b) => rf(b) - rf(a)).slice(0, 3);
+      const top = (p.kind === 'bench' ? L.filter(it => it.c !== '인스타그램' && !likeHidden(it.c)) : L).filter(it => rf(it) != null).sort((a, b) => rf(b) - rf(a)).slice(0, 2);
       return Object.assign({}, p, { keys, series, last: done[done.length - 1], prev: done[done.length - 2], top, rf, curK, n: L.length });
     });
   }
@@ -600,7 +639,8 @@
     const cn = covNote(ownChs, per[2] ? addDays(D.updated, -per[2] + 1) : '0000');
     if (ownChs.includes('유튜브') && (TR.p === '3y' || TR.p === 'all') && ['per', 'like'].includes(TR.m)) notes.push('유튜브 긴 영상은 몇 년에 걸쳐 조회가 쌓여 예전 연도가 유리하게 보여요');
     let h = '<section class="sec" id="trSec"><div class="sh"><div><h2>채널 현황</h2><p>' + esc(notes.join(' · ')) + (cn ? '<br><span class="warn">⚠ ' + esc(cn) + '</span>' : '') + '</p></div></div>' +
-      '<div class="tr-ctl"><div class="chips">' + TR_M.map(m => '<button class="chip" type="button" data-trm="' + m[0] + '" aria-pressed="' + (TR.m === m[0]) + '">' + m[1] + '</button>').join('') + '</div>' +
+      '<div class="tr-ctl"><div class="chips">' + TR_M.filter((m, i) => i < TR_CORE || TR.more || m[0] === TR.m).map(m => '<button class="chip" type="button" data-trm="' + m[0] + '" aria-pressed="' + (TR.m === m[0]) + '">' + m[1] + '</button>').join('') +
+        '<button class="chip more-chip" type="button" data-trmore="1" aria-expanded="' + TR.more + '">' + (TR.more ? '접기' : '지표 더보기 ' + (TR_M.length - TR_CORE)) + '</button></div>' +
       '<div class="tr-pu"><div class="seg">' + TR_P.map(p => '<button type="button" data-trp="' + p[0] + '" aria-pressed="' + (TR.p === p[0]) + '">' + p[1] + '</button>').join('') + '</div>' +
       '<div class="seg">' + TR_U.map(x => '<button type="button" data-tru="' + x[0] + '" aria-pressed="' + (u === x[0]) + '">' + x[1] + '</button>').join('') + '</div></div></div>' +
       '<div class="tr-grid' + (M.length === 1 ? ' one' : M.length === 4 ? ' two' : '') + '">';
@@ -625,6 +665,7 @@
     const sec = $('trSec'), M = window.__tr; if (!sec || !M) return;
     const re = () => { sec.outerHTML = trendHtml(window.__trChs); wireTrend(); };
     sec.querySelectorAll('[data-trm]').forEach(b => b.addEventListener('click', () => { TR.m = b.dataset.trm; re(); }));
+    sec.querySelectorAll('[data-trmore]').forEach(b => b.addEventListener('click', () => { TR.more = !TR.more; re(); }));
     sec.querySelectorAll('[data-trp]').forEach(b => b.addEventListener('click', () => { TR.p = b.dataset.trp; TR.u = 'auto'; re(); }));
     sec.querySelectorAll('[data-tru]').forEach(b => b.addEventListener('click', () => { TR.u = b.dataset.tru; re(); }));
     sec.querySelectorAll('[data-trt]').forEach(b => b.addEventListener('click', () => { const [i, j] = b.dataset.trt.split(':').map(Number); openDetail(M[i].top[j]); }));
