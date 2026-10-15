@@ -3,6 +3,7 @@
 #   ./build.sh          → index.html (실데이터 API 연결)
 #   ./build.sh preview  → .preview/index.html (sample/data.json 사용, API 호출 없음)
 #                         확인: cd .preview && python3 -m http.server 8767 → http://localhost:8767
+# 조립은 perl로 한다(Git Bash·macOS·Linux 기본 포함 — Python이 없는 PC에서도 빌드되게)
 set -e
 cd "$(dirname "$0")"
 
@@ -10,25 +11,27 @@ cd "$(dirname "$0")"
 API_URL="https://script.google.com/macros/s/AKfycbyGL0h1nmGMIMiG0KsZksAyOUaxcdwKiXLysmB2ExGLEhVX3eUiwmRbv7uTPhsWf6Q6/exec"
 CHART_TAG='<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.js"></script>'
 
-MODE="${1:-prod}" API_URL="$API_URL" CHART_TAG="$CHART_TAG" python3 - <<'PY'
-import os
-mode = os.environ['MODE']
-head = open('src/head.html', encoding='utf-8').read()
-css  = open('src/extra.css', encoding='utf-8').read()
-body = open('src/body.html', encoding='utf-8').read()
-app  = open('src/app.js', encoding='utf-8').read()
-html = head + css + body + app + '</script>\n'
-tag = os.environ['CHART_TAG']
-assert html.count(tag) == 1, 'chart.js 태그를 찾을 수 없음'
-if mode == 'preview':
-    os.makedirs('.preview', exist_ok=True)
-    html = '<!doctype html><html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head><body>' + html + '</body></html>'
-    open('.preview/index.html', 'w', encoding='utf-8').write(html)
-    import shutil; shutil.copy('sample/data.json', '.preview/data.json')
-    print('.preview/index.html (샘플 데이터)')
-else:
-    inj = '<script>window.SNS_API_URL = "' + os.environ['API_URL'] + '";</script>\n'
-    html = html.replace(tag, inj + tag)
-    open('index.html', 'w', encoding='utf-8').write(html)
-    print('index.html', len(html.encode('utf-8')), 'bytes')
-PY
+MODE="${1:-prod}" API_URL="$API_URL" CHART_TAG="$CHART_TAG" perl - <<'PL'
+use strict; use warnings;
+my ($mode, $api, $tag) = @ENV{qw(MODE API_URL CHART_TAG)};
+sub rd { my $f = shift; open my $F, '<:raw', $f or die "$f: $!\n"; local $/; my $s = <$F>; $s =~ s/\r\n/\n/g; $s }
+sub wr { my ($f, $s) = @_; open my $F, '>:raw', $f or die "$f: $!\n"; print $F $s; close $F }
+my $html = rd('src/head.html') . rd('src/extra.css') . rd('src/body.html') . rd('src/app.js') . "</script>\n";
+my $n = () = $html =~ /\Q$tag\E/g;
+die "chart.js 태그를 찾을 수 없음\n" unless $n == 1;
+# 배포본에도 doctype·viewport·lang을 붙인다(없으면 휴대폰에서 PC 폭으로 그려 축소됨)
+my $pre = '<!doctype html><html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head><body>';
+my $post = '</body></html>';
+if ($mode eq 'preview') {
+    mkdir '.preview' unless -d '.preview';
+    wr('.preview/index.html', $pre . $html . $post);
+    wr('.preview/data.json', rd('sample/data.json'));
+    print ".preview/index.html (샘플 데이터)\n";
+} else {
+    my $inj = '<script>window.SNS_API_URL = "' . $api . '";</script>' . "\n";
+    $html =~ s/\Q$tag\E/$inj$tag/;
+    $html = $pre . $html . $post;
+    wr('index.html', $html);
+    print 'index.html ', length($html), " bytes\n";
+}
+PL
