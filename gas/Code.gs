@@ -737,6 +737,9 @@ function buildDashboardData_() {
     });
   }
 
+  let hist = null;
+  try { hist = loadIgHistory_(ss, items, rawKey, dates); } catch (e) { hist = { error: e.message }; }
+
   const keys = Object.keys(items);
   const list = keys.map(k => items[k]);
   let extra = { roles: {}, ads: null };
@@ -752,6 +755,7 @@ function buildDashboardData_() {
     roles: extra.roles,
     ads: extra.ads,
     coverage: COVERAGE,
+    hist: hist,
     strat: loadStrat_(ss),
     goals: loadGoals_(ss),
     tagError: extra.tagError || '',
@@ -1068,8 +1072,9 @@ function attachTags_(ss, items, keys) {
   items.forEach((it, i) => {
     const t = T.tags[keys[i]] || {};
     const f = T.fix[keys[i].split('§')[1]] || (it.u && T.fix[it.u]) || (t.u && T.fix[t.u]) || {};
-    it.g = f.g || t.g || (it.c === 'hong._.video' ? '숏폼·예능' : '기타');
-    it.p = f.p || t.p || (OWN_CHANNELS.indexOf(it.c) >= 0 ? '자체 제작' : '타 대학');
+    // it.g·it.p가 미리 있으면(「인스타_과거기록」 탭) 「태그」 탭 자동값보다 우선, 「태그 수정」이 최우선
+    it.g = f.g || t.g || it.g || (it.c === 'hong._.video' ? '숏폼·예능' : '기타');
+    it.p = f.p || t.p || it.p || (OWN_CHANNELS.indexOf(it.c) >= 0 ? '자체 제작' : '타 대학');
     if (t.w && t.w.length) it.w = t.w;
     if (it.c === '유튜브') {
       const cs = v2c[vid(it.u)];
@@ -1090,6 +1095,43 @@ function attachTags_(ss, items, keys) {
     }
   } catch (e) {}
   return { roles: T.roles, ads: { end: A.end, daily: A.daily, camps: A.camps, rows: A.rows, plans: A.plans, meta: loadMeta_(ss), error: A.error || '' } };
+}
+
+// ───────── 인스타그램 과거 기록 (엑셀로 기록하던 시기) ─────────
+// 「인스타_과거기록」 탭: Supermetrics로 다시 받을 수 없는 2024-12-26 이전 인스타그램 게시물 (사람이 정리해 넣는 탭)
+// 기록일 없이 한 번 적은 값이라 h는 비우고 P = [조회, 좋아요, 댓글, 공유, 저장] 에 둔다. x = 1 은 과거 기록 표시
+// 스냅샷에 같은 콘텐츠키가 있으면 스냅샷(Supermetrics) 값을 쓴다
+const IG_HIST_SHEET = '인스타_과거기록';
+function loadIgHistory_(ss, items, rawKey, dates) {
+  const sh = ss.getSheetByName(IG_HIST_SHEET);
+  if (!sh || sh.getLastRow() < 2) return null;
+  const v = sh.getDataRange().getValues();
+  const head = v[0].map(h => String(h).trim());
+  const col = n => head.indexOf(n);
+  const ix = { key: col('콘텐츠키'), date: col('게시일'), title: col('제목/캡션'), url: col('URL'), type: col('유형'), reach: col('리치'),
+    g: col('분류'), p: col('제작'), imp: col('노출'), m: ['조회수', '좋아요', '댓글', '공유', '저장'].map(col) };
+  if (ix.key < 0 || ix.date < 0) throw new Error(IG_HIST_SHEET + ' 탭에 콘텐츠키·게시일 열이 없어요');
+  const s_ = x => (x instanceof Date) ? Utilities.formatDate(x, TZ, 'yyyy-MM-dd') : String(x == null ? '' : x).trim();
+  const n_ = x => (x === '' || x === null || isNaN(Number(x))) ? null : Number(x);
+  const at = (r, i) => i >= 0 ? r[i] : '';
+  let n = 0, skip = 0, from = '', to = '';
+  v.slice(1).forEach(r => {
+    const k = s_(at(r, ix.key)), d = s_(at(r, ix.date)).slice(0, 10);
+    if (!k || !/^\d{4}-\d{2}-\d{2}$/.test(d)) return;
+    const key = '인스타그램§' + k;
+    if (items[key]) { skip++; return; }
+    const url = s_(at(r, ix.url));
+    items[key] = {
+      c: '인스타그램', t: s_(at(r, ix.type)) || '미분류', d: d, n: s_(at(r, ix.title)).slice(0, 70),
+      u: /instagram\.com\/(p|reel)\//.test(url) ? url : '',
+      h: dates.map(() => null), P: ix.m.map(i => n_(at(r, i))),
+      r: n_(at(r, ix.reach)), im: n_(at(r, ix.imp)), x: 1,
+      g: s_(at(r, ix.g)), p: s_(at(r, ix.p)),
+    };
+    rawKey[key] = key;
+    n++; if (!from || d < from) from = d; if (d > to) to = d;
+  });
+  return { '인스타그램': { n: n, from: from, to: to, skip: skip } };
 }
 
 // ───────── 과거 기록 가져오기 ─────────
