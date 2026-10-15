@@ -180,6 +180,7 @@ function onOpen() {
     .addItem('태그 다시 계산(분류·제작·참여자)', 'recalcTags')
     .addItem('과거 기록 가져오기(_hist_ 탭)', 'importHistory')
     .addItem('게시 후 조회 다시 채우기(스냅샷 기록으로)', 'backfillAgeViews')
+    .addItem('일별 합계 다시 채우기(스냅샷 기록으로)', 'backfillDailyTotals')
     .addSeparator()
     .addItem('최초 설정(탭·트리거)', 'setup')
     .addToUi();
@@ -280,6 +281,8 @@ function weeklySnapshot() {
   try { saveTags_(ss, bySrc, today); logs.push([new Date(), '태그', bySrc.length, '정상']); }
   catch (e) { logs.push([new Date(), '태그', 0, '오류: ' + e.message]); }
 
+  try { const n = saveDailyTotals_(ss, bySrc, today); logs.push([new Date(), '일별 합계', n, '정상']); }
+  catch (e) { logs.push([new Date(), '일별 합계', 0, '오류: ' + e.message]); }
   try { const n = saveAgeViews_(ss, bySrc, today); logs.push([new Date(), '게시 후 조회', n, '정상']); }
   catch (e) { logs.push([new Date(), '게시 후 조회', 0, '오류: ' + e.message]); }
 
@@ -784,6 +787,59 @@ function loadAgeViews_(ss) {
   return out;
 }
 
+// ───────── 일별 합계 (「일별 합계」 탭) ─────────
+// 「스냅샷」 탭은 용량 때문에 화~일 기록을 최신 1개만 남긴다 → 채널별 합계만 매일 따로 남겨 일별 증가를 볼 수 있게 함
+// 원본이 평일에만 갱신돼서 주말은 건너뜀 (월요일 값 - 금요일 값 = 주말 포함 3일치)
+const DAILY_SHEET = '일별 합계';
+const DAILY_HEADER = ['기록일', '채널', '게시물 수', '조회수', '좋아요', '댓글', '공유', '저장'];
+function dailySheet_(ss) {
+  let sh = ss.getSheetByName(DAILY_SHEET);
+  if (!sh) { sh = ss.insertSheet(DAILY_SHEET); sh.getRange(1, 1, 1, DAILY_HEADER.length).setValues([DAILY_HEADER]).setFontWeight('bold'); sh.setFrozenRows(1); }
+  return sh;
+}
+// rows: [[기록일, 채널, 콘텐츠키, 조회, 좋아요, 댓글, 공유, 저장], ...] → 날짜·채널별 합계로 탭에 반영(같은 날짜는 덮어씀)
+function mergeDailyTotals_(ss, rows) {
+  const sh = dailySheet_(ss);
+  const agg = {};
+  rows.forEach(r => {
+    const d = fmtDate_(r[0]), ch = String(r[1]);
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(d) || !ch) return;
+    const k = d + '§' + ch, a = agg[k] || (agg[k] = [d, ch, 0, 0, 0, 0, 0, 0]);
+    a[2]++;
+    for (let j = 0; j < 5; j++) { const v = r[3 + j]; if (v !== '' && v != null && !isNaN(Number(v))) a[3 + j] += Number(v); }
+  });
+  const keep = [];
+  if (sh.getLastRow() > 1) sh.getRange(2, 1, sh.getLastRow() - 1, DAILY_HEADER.length).getValues().forEach(r => { const k = fmtDate_(r[0]) + '§' + r[1]; if (!agg[k]) keep.push([fmtDate_(r[0])].concat(r.slice(1))); });
+  const out = keep.concat(Object.keys(agg).map(k => agg[k])).sort((x, y) => x[0] < y[0] ? -1 : x[0] > y[0] ? 1 : String(x[1]).localeCompare(String(y[1])));
+  if (sh.getLastRow() > 1) sh.getRange(2, 1, sh.getLastRow() - 1, DAILY_HEADER.length).clearContent();
+  if (out.length) sh.getRange(2, 1, out.length, DAILY_HEADER.length).setValues(out);
+  return Object.keys(agg).length;
+}
+function saveDailyTotals_(ss, bySrc, today) {
+  if (!ss.getSheetByName(DAILY_SHEET)) backfillDailyTotals();
+  const wd = new Date(today + 'T12:00:00+09:00').getDay();
+  if (wd === 0 || wd === 6) return 0;
+  const rows = [];
+  bySrc.forEach(byCh => Object.keys(byCh).forEach(ch => Object.keys(byCh[ch]).forEach(k => {
+    const it = byCh[ch][k]; rows.push([today, ch, k].concat(METRICS.map(m => it[m])));
+  })));
+  return mergeDailyTotals_(ss, rows);
+}
+// 한 번만: 「스냅샷」 탭의 기록일별로 합계 채우기
+function backfillDailyTotals() {
+  const ss = SpreadsheetApp.getActive() || SpreadsheetApp.openById(SS_ID);
+  const v = ss.getSheetByName(SNAP).getDataRange().getValues().slice(1).filter(r => r[0] && r[1]);
+  return mergeDailyTotals_(ss, v.map(r => [r[0], r[1], r[2]].concat([0, 1, 2, 3, 4].map(j => r[M0 + j]))));
+}
+function loadDailyTotals_(ss) {
+  const sh = ss.getSheetByName(DAILY_SHEET);
+  if (!sh || sh.getLastRow() < 2) return [];
+  return sh.getRange(2, 1, sh.getLastRow() - 1, DAILY_HEADER.length).getValues().map(r => {
+    const raw = String(r[1]); const ch = raw.indexOf(BENCH_PREFIX) === 0 ? raw.slice(BENCH_PREFIX.length) : raw;
+    return [fmtDate_(r[0]), ch].concat(r.slice(2).map(x => x === '' ? null : Number(x)));
+  });
+}
+
 // ───────── 대시보드용 데이터 API (GitHub Pages에서 JSONP로 읽음) ─────────
 const SS_ID = '1WshbvV-foluKpVu79vdZ75BBfH-ycME_nPe0RcJuwr4';
 const OWN_CHANNELS = ['인스타그램', '유튜브', 'hong._.video'];
@@ -874,6 +930,7 @@ function buildDashboardData_() {
     hist: hist,
     strat: loadStrat_(ss),
     goals: loadGoals_(ss),
+    daily: (function () { try { return loadDailyTotals_(ss); } catch (e) { return []; } })(),
     tagError: extra.tagError || '',
   };
 }
