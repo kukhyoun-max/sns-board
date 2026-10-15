@@ -39,7 +39,7 @@ Apps Script (gas/Code.gs, 스냅샷 시트에 연결)  ──월 07:00 트리거
 2. `gas/Code.gs` 수정 → `clasp push`
 3. **같은 배포 ID로** 새 버전 배포 — 웹앱 주소가 바뀌면 대시보드가 끊겨요:
    `clasp deploy -i AKfycbyGL0h1nmGMIMiG0KsZksAyOUaxcdwKiXLysmB2ExGLEhVX3eUiwmRbv7uTPhsWf6Q6 -d "설명"`
-4. 웹앱 주소에 `?callback=x` 를 붙여 열어 보고 JSON이 나오는지 확인
+4. 웹앱 주소에 `?callback=__sbData` 를 붙여 열어 보고 JSONP가 나오는지 확인 (2026-10-16부터 callback은 `__sbData`만 허용, 그 밖에는 일반 JSON)
 5. 고친 `gas/` 도 커밋
 
 ## 지켜야 할 것 (중요)
@@ -78,4 +78,5 @@ Apps Script (gas/Code.gs, 스냅샷 시트에 연결)  ──월 07:00 트리거
 - 나머지는 스크립트·Supermetrics가 채우는 탭이에요. 손으로 고치지 않아요.
 
 ## 알려진 이슈
+- 이 PC(Windows)에는 node·clasp가 없어 Apps Script는 편집기에 `gas/Code.gs`를 붙여 넣고 **기존 배포를 새 버전으로** 배포해요. 저장소의 `gas/Code.gs`가 배포본보다 앞설 수 있어요(커밋 메시지에 '배포 전' 표시).
 - 구글애즈 보고서가 26.01.30에서 멈춰 있어요 (kukhyoun5 계정).
