@@ -276,26 +276,30 @@
     }
     return out;
   }
+  // 최근 3달 분류별 요약 — 채널마다 따로(유튜브처럼 기준값이 작은 채널이 합계를 끌고 가지 않게)
   function insights(chs) {
     const out = [];
-    const L = pool({ channels: chs || OWN, since: addDays(D.updated, -90) });
-    if (!L.length) return ['최근 3달 게시물이 없어요.'];
-    const g = groupBy(L, 'g').filter(r => r.n >= 3).sort((a, b) => b.idx - a.idx);
-    if (g.length) out.push('최근 3달 「' + g[0].k + '」 게시물이 채널 평소의 ' + g[0].idx.toFixed(1) + '배로 가장 잘 됐어요 (' + g[0].n + '개, 히트율 ' + pct0(g[0].hit) + ').');
-    if (g.length > 1) { const w = g[g.length - 1]; out.push('반대로 「' + w.k + '」는 평소의 ' + w.idx.toFixed(1) + '배에 그쳤어요 (' + w.n + '개).'); }
-    const p = groupBy(L, 'p').filter(r => r.n >= 3).sort((a, b) => b.idx - a.idx);
-    if (p.length >= 2) out.push(p[0].k + ' 콘텐츠가 ' + p[p.length - 1].k + '보다 게시물당 ' + (p[0].idx / Math.max(0.01, p[p.length - 1].idx)).toFixed(1) + '배 잘 됐어요.');
-    const ig = L.filter(it => it.c === '인스타그램');
-    const ft = groupBy(ig, 't').filter(r => r.n >= 3).sort((a, b) => b.idx - a.idx);
-    if (ft.length >= 2) out.push('인스타그램은 ' + ft[0].k + '가 ' + ft[ft.length - 1].k + '보다 게시물당 ' + (ft[0].idx / Math.max(0.01, ft[ft.length - 1].idx)).toFixed(1) + '배 잘 됐어요.');
-    if (!weekly()) out.push('주간 증가 분석은 10월 12일(월) 기록부터 시작돼요.');
+    const own = (chs || OWN).filter(c => OWN.includes(c));
+    own.forEach(ch => {
+      const L = pool({ channels: [ch], since: addDays(D.updated, -90) }).filter(it => ratio(it) != null);
+      if (!L.length) return;
+      const g = groupBy(L, 'g').filter(r => r.n >= 4).sort((a, b) => b.idx - a.idx);
+      if (!g.length) { out.push(chName(ch) + ': 최근 3달 게시물 ' + L.length + '개 · 분류별로 비교할 만큼(4개 이상) 쌓인 분류가 없어요.'); return; }
+      const t = g[0], cnt = ' (' + t.n + '개, 히트율 ' + pct0(t.hit) + ')';
+      let s = chName(ch) + ': ' + (t.idx >= 1 ? '「' + t.k + '」 분류가 평소의 ' + t.idx.toFixed(1) + '배로 가장 잘 됐어요' + cnt : '평소보다 잘 된 분류는 없어요. 그나마 「' + t.k + '」 ' + t.idx.toFixed(1) + '배' + cnt);
+      if (g.length > 1) { const w = g[g.length - 1]; s += ' · 가장 약한 건 「' + w.k + '」 ' + w.idx.toFixed(1) + '배 (' + w.n + '개)'; }
+      out.push(s + '.');
+    });
+    const ig = pool({ channels: ['인스타그램'], since: addDays(D.updated, -90) }).filter(it => ratio(it) != null);
+    const ft = own.includes('인스타그램') ? groupBy(ig, 't').filter(r => r.n >= 4).sort((a, b) => b.idx - a.idx) : [];
+    if (ft.length >= 2) out.push('인스타 형식: ' + ft[0].k + ' 형식이 ' + ft[ft.length - 1].k + ' 형식보다 게시물당 ' + (ft[0].idx / Math.max(0.01, ft[ft.length - 1].idx)).toFixed(1) + '배 잘 됐어요.');
+    if (!out.length) out.push('최근 3달 게시물이 없어요.');
     return out;
   }
   function briefText(chs) {
     const ins = insights(chs);
     return '<div class="brief" style="padding:18px 0 0"><div class="lb">✦ 최근 3달 분류별 요약<small>게시일 기준 · 이번 주 성과가 아니에요</small></div>' +
-      '<button type="button" id="briefBtn" aria-expanded="false"><span>' + esc(ins[0]) + '</span><span class="chev">›</span></button><ul id="briefList" hidden>' +
-      ins.slice(1).map(s => '<li>' + esc(s) + '</li>').join('') + '</ul></div>';
+      '<ul>' + ins.map(s => '<li>' + esc(s) + '</li>').join('') + '</ul></div>';
   }
   function wireBrief() {
     const b = $('briefBtn'); if (!b) return;
@@ -378,6 +382,7 @@
     } else {
       h += '<div class="wk-grid one">' + wkCard(badge(chs[0]), chs, chColor(chs[0]), chFoot(chs[0]) + ' · 최근 30일 히트 <b>' + hits.length + '</b> / ' + c30.length + '개', true) + '</div>';
     }
+    h += dailyHtml(chs);
     const nw = p.nw.slice().sort((a, b) => (mainVal(b) || 0) - (mainVal(a) || 0));
     const old = p.old.filter(it => p.inc0(it) > 0).sort((a, b) => p.inc0(b) - p.inc0(a)).slice(0, 5);
     h += '<div class="two wk-lists"><div><h3>이번 주 올린 콘텐츠 <small>' + nw.length + '개</small></h3><p class="d">게시 후 1·3·7일 시점 조회를 같은 나이의 평소 값과 비교해요</p><ol class="rank" id="wkNew">' +
@@ -388,19 +393,55 @@
     window.__wk = w;
     return h + '</section>';
   }
-  function wireWeek() { const w = window.__wk; if (!w || !w.lists) return; wireRank($('wkNew'), w.lists.nw); wireRank($('wkOld'), w.lists.old); }
+  // 일별 증가 — 「일별 합계」 탭(채널별 합계를 평일마다 기록)에서 하루 사이 늘어난 값
+  const DY = { m: 3 };
+  const DY_M = [[3, '조회'], [4, '좋아요'], [5, '댓글'], [6, '공유'], [7, '저장']];
+  function dailyModel(chs) {
+    const rows = (D.daily || []).filter(r => chs.includes(r[1]));
+    const by = {}; rows.forEach(r => { (by[r[1]] = by[r[1]] || {})[r[0]] = r; });
+    const dates = uniq(rows.map(r => r[0])).sort();
+    const pts = [];
+    for (let i = 1; i < dates.length; i++) {
+      const a = dates[i - 1], b = dates[i], gap = daysBetween(a, b);
+      if (gap > 4) continue; // 예전 월 단위 기록 사이는 제외
+      const v = {}; let any = false;
+      chs.forEach(c => { const x = by[c] && by[c][a], y = by[c] && by[c][b]; if (x && y && x[DY.m] != null && y[DY.m] != null) { v[c] = Math.max(0, y[DY.m] - x[DY.m]); any = true; } else v[c] = null; });
+      if (any) pts.push({ d: b, from: a, gap, v });
+    }
+    return pts.slice(-30);
+  }
+  function dailyHtml(chs) {
+    const pts = dailyModel(chs);
+    const head = '<div class="dy"><div class="dy-h"><h3>일별 증가</h3><div class="chips">' + DY_M.map(m => '<button class="chip" type="button" data-dym="' + m[0] + '" aria-pressed="' + (DY.m === m[0]) + '">' + m[1] + '</button>').join('') + '</div></div>';
+    if (!pts.length) return head + '<p class="note">10월 16일부터 평일마다 채널별 합계를 기록해요. 이틀치가 쌓이면(평일 기준 다음 날부터) 하루 사이 늘어난 값이 여기 막대로 보여요.</p></div>';
+    window.__dy = { pts, chs };
+    return head + '<div class="dy-chart"><canvas id="dyC"></canvas></div><p class="note">게시물 전체(새 글 + 기존 글)의 하루 증가 합계 · 주말은 원본이 갱신되지 않아 월요일 막대에 금~월이 함께 들어가요</p></div>';
+  }
+  function wireDaily() {
+    const box = document.querySelector('.dy'); if (!box) return;
+    box.querySelectorAll('[data-dym]').forEach(b => b.addEventListener('click', () => { DY.m = +b.dataset.dym; box.outerHTML = dailyHtml(window.__dy ? window.__dy.chs : viewChannels()); wireDaily(); }));
+    const M = window.__dy; if (!M || !$('dyC')) return;
+    draw('dyC', { type: 'bar', data: { labels: M.pts.map(p => (+p.d.slice(5, 7)) + '/' + (+p.d.slice(8, 10))), datasets: M.chs.map(c => ({ label: chName(c), data: M.pts.map(p => p.v[c]), backgroundColor: chColor(c), stack: 's', borderRadius: 2, maxBarThickness: 30 })) },
+      options: chartOpts({ layout: { padding: { top: 8 } }, plugins: { legend: { display: M.chs.length > 1, position: 'bottom' }, tooltip: { displayColors: true, callbacks: { title: c => { const p = M.pts[c[0].dataIndex]; return dot(p.from) + ' → ' + dot(p.d) + (p.gap > 1 ? ' (' + p.gap + '일)' : ''); }, label: c => c.dataset.label + ' +' + fmtK(c.raw) } } },
+        scales: { x: { stacked: true, ticks: { maxRotation: 0, autoSkip: true, maxTicksLimit: 10, font: { size: 11 }, color: css('--muted') } }, y: { stacked: true, display: true, position: 'right', grid: { color: css('--line') }, border: { display: false }, ticks: { maxTicksLimit: 4, font: { size: 11 }, color: css('--muted'), callback: v => fmtK(v) } } } }) });
+  }
+  function wireWeek() { wireDaily(); const w = window.__wk; if (!w || !w.lists) return; wireRank($('wkNew'), w.lists.nw); wireRank($('wkOld'), w.lists.old); }
 
   // ═════════ 홈 ② 콘텐츠 성적 추이 — 채널별로 따로, 중앙값 ═════════
   const TR = { m: 'per', p: '1y', u: 'auto' };
-  const TR_M = [['per', '게시물당 조회'], ['ratio', '평소 대비'], ['hit', '히트율'], ['posts', '게시 수'], ['like', '게시물당 좋아요']];
-  const TR_P = [['6m', '6달', 182], ['1y', '1년', 365], ['3y', '3년', 1095], ['all', '전체', null]];
-  const TR_U = [['month', '월'], ['quarter', '분기'], ['year', '연']];
-  const TR_AUTO = { '6m': 'month', '1y': 'month', '3y': 'quarter', all: 'year' };
+  const TR_M = [['per', '게시물당 조회'], ['ratio', '평소 대비'], ['hit', '히트율'], ['posts', '게시 수'], ['like', '게시물당 좋아요'], ['cmt', '게시물당 댓글'], ['share', '게시물당 공유'], ['save', '게시물당 저장'], ['reach', '게시물당 도달']];
+  // 게시물 값 꺼내기: 조회·좋아요·댓글·공유·저장(누적 기록) · 도달(it.r, 인스타)
+  const TR_GET = { per: it => mainVal(it), like: it => val(it, 1), cmt: it => val(it, 2), share: it => val(it, 3), save: it => val(it, 4), reach: it => it.r };
+  const TR_SUM = ['like', 'cmt', 'share', 'save', 'reach']; // 「우리 채널 전체」 칸에서는 이 지표를 합계로
+  const TR_P = [['1m', '1달', 30], ['3m', '3달', 91], ['6m', '6달', 182], ['1y', '1년', 365], ['3y', '3년', 1095], ['all', '전체', null]];
+  const TR_U = [['day', '일'], ['week', '주'], ['month', '월'], ['quarter', '분기'], ['year', '연']];
+  const TR_AUTO = { '1m': 'day', '3m': 'week', '6m': 'month', '1y': 'month', '3y': 'quarter', all: 'year' };
   const trUnit = () => TR.u === 'auto' ? TR_AUTO[TR.p] : TR.u;
-  function trKey(d, u) { return u === 'year' ? d.slice(0, 4) : u === 'quarter' ? d.slice(0, 4) + '-Q' + (((+d.slice(5, 7)) + 2) / 3 | 0) : d.slice(0, 7); }
-  function trLabel(k, u) { return u === 'year' ? k : u === 'quarter' ? k.slice(2, 4) + '년 ' + k.slice(6) + '분기' : k.slice(2, 4) + '.' + k.slice(5, 7); }
-  const trStart = (k, u) => u === 'year' ? k + '-01-01' : u === 'quarter' ? k.slice(0, 4) + '-' + String((+k.slice(6) - 1) * 3 + 1).padStart(2, '0') + '-01' : k + '-01';
+  function trKey(d, u) { return u === 'day' ? d : u === 'week' ? isoWeek(d) : u === 'year' ? d.slice(0, 4) : u === 'quarter' ? d.slice(0, 4) + '-Q' + (((+d.slice(5, 7)) + 2) / 3 | 0) : d.slice(0, 7); }
+  function trLabel(k, u) { return u === 'day' || u === 'week' ? (+k.slice(5, 7)) + '/' + (+k.slice(8, 10)) + (u === 'week' ? '주' : '') : u === 'year' ? k : u === 'quarter' ? k.slice(2, 4) + '년 ' + k.slice(6) + '분기' : k.slice(2, 4) + '.' + k.slice(5, 7); }
+  const trStart = (k, u) => u === 'day' || u === 'week' ? k : u === 'year' ? k + '-01-01' : u === 'quarter' ? k.slice(0, 4) + '-' + String((+k.slice(6) - 1) * 3 + 1).padStart(2, '0') + '-01' : k + '-01';
   function trBuckets(from, to, u) {
+    if (u === 'day' || u === 'week') { const out = []; let d = u === 'week' ? isoWeek(from) : from; while (d <= to) { out.push(d); d = addDays(d, u === 'week' ? 7 : 1); } return out; }
     const out = []; let d = from.slice(0, 7) + '-01';
     while (d <= to) { const k = trKey(d, u); if (!out.length || out[out.length - 1] !== k) out.push(k); d = monthStart(d, 1); }
     return out;
@@ -408,67 +449,108 @@
   function trVal(arr) {
     if (TR.m === 'posts') return arr.length;
     if (!arr.length) return null;
-    if (TR.m === 'per') return median(arr.map(mainVal));
-    if (TR.m === 'like') return median(arr.map(it => val(it, 1)));
+    if (TR_GET[TR.m]) return median(arr.map(TR_GET[TR.m]));
     if (TR.m === 'ratio') return median(arr.map(ratio));
     return hitRate(arr);
   }
   const trFmt = v => v == null ? '–' : TR.m === 'ratio' ? xf(v) : TR.m === 'hit' ? pct0(v) : TR.m === 'posts' ? fmt(v) + '개' : fmtK(v);
+  // 그래프 칸: 전체 탭 = 우리 채널 전체 · 인스타 · 홍비디오 · 타 대학 (2×2), 채널 탭 = 그 채널 하나
+  function trPanels(chs) {
+    if (S.ch !== '전체') return chs.map(ch => ({ kind: 'own', ch, chs: [ch] }));
+    const P = [{ kind: 'all', chs: OWN, label: '우리 채널 전체' }, { kind: 'own', ch: '인스타그램', chs: ['인스타그램'] }, { kind: 'own', ch: 'hong._.video', chs: ['hong._.video'] }];
+    if (benchNames().length) P.push({ kind: 'bench', chs: ['인스타그램'].concat(benchNames()), label: '타 대학' });
+    return P;
+  }
+  // 타 대학은 조회가 릴스만 공개돼 좋아요 기준 (우리 인스타도 같은 기준으로 같이 그림)
+  const likeHidden = ch => { const a = D.items.filter(it => it.c === ch && it.t !== '스토리').map(it => val(it, 1)); return a.length >= 3 && median(a) === 0; };
+  function trValP(p, arr, ch) {
+    if (p.kind === 'own') return trVal(arr);
+    if (p.kind === 'all') { if (TR.m === 'per') return arr.length ? median(arr.map(ratio)) : null; if (TR_SUM.includes(TR.m)) { const xs = arr.map(TR_GET[TR.m]).filter(v => v != null); return xs.length ? sum(xs) : null; } return trVal(arr); }
+    if (TR.m === 'posts') return arr.length;
+    if (['share', 'save', 'reach'].includes(TR.m)) return ch === '인스타그램' ? trVal(arr) : null; // 타 대학은 공유·저장·도달 비공개
+    if (TR.m === 'cmt') return arr.length ? median(arr.map(it => val(it, 2))) : null;
+    if (!arr.length || likeHidden(ch)) return null;
+    if (TR.m === 'ratio') return median(arr.map(likeRatio));
+    if (TR.m === 'hit') { const r = arr.map(likeRatio).filter(x => x != null); return r.length ? r.filter(x => x >= HIT).length / r.length : null; }
+    return median(arr.map(it => val(it, 1)));
+  }
+  const trMetricP = p => p.kind === 'all' && TR.m === 'per' ? 'ratio' : p.kind === 'bench' && TR.m === 'per' ? 'like' : TR.m;
+  const trFmtP = (p, v) => { const m = trMetricP(p); return v == null ? '–' : m === 'ratio' ? xf(v) : m === 'hit' ? pct0(v) : m === 'posts' ? fmt(v) + '개' : fmtK(v); };
   function trModel(chs) {
     const per = TR_P.find(p => p[0] === TR.p), u = trUnit();
-    const first = D.items.filter(it => chs.includes(it.c)).map(it => it.d).sort()[0] || D.updated;
+    const P = trPanels(chs);
+    const allChs = uniq(P.flatMap(p => p.kind === 'bench' ? [] : p.chs));
+    const first = D.items.filter(it => allChs.includes(it.c)).map(it => it.d).sort()[0] || D.updated;
     const from = per[2] ? addDays(D.updated, -per[2] + 1) : first;
     let keys = trBuckets(from < first ? first : from, D.updated, u);
     // 기간 시작이 구간 중간이면 그 구간은 빼서(잘린 구간) 끝까지 다 찬 구간만 그림
     if (per[2] && keys.length > 1 && trStart(keys[0], u) < from) keys = keys.slice(1);
     const since0 = trStart(keys[0], u);
     const curK = trKey(D.updated, u);
-    return chs.map(ch => {
-      const L = pool({ channels: [ch], since: since0, until: D.updated });
-      const g = {}; L.forEach(it => { const k = trKey(it.d, u); (g[k] = g[k] || []).push(it); });
-      const data = keys.map(k => trVal(g[k] || []));
-      const done = keys.map((k, i) => data[i]).filter((v, i) => keys[i] !== curK && v != null);
-      const top = L.filter(it => ratio(it) != null).sort((a, b) => ratio(b) - ratio(a)).slice(0, 3);
-      return { ch, keys, data, g, last: done[done.length - 1], prev: done[done.length - 2], top, curK, n: L.length };
+    return P.map(p => {
+      const L = pool({ channels: p.chs, since: since0, until: D.updated });
+      const grp = arr => { const g = {}; arr.forEach(it => { const k = trKey(it.d, u); (g[k] = g[k] || []).push(it); }); return g; };
+      const series = (p.kind === 'bench' ? p.chs : [null]).map(ch => {
+        const arr = ch ? L.filter(it => it.c === ch) : L, g = grp(arr);
+        const f0 = D.items.filter(it => ch ? it.c === ch : p.chs.includes(it.c)).map(it => it.d).sort()[0];
+        const k0 = f0 ? trKey(f0, u) : '9999'; // 데이터 시작 전 구간은 0이 아니라 빈칸
+        return { ch, g, data: keys.map(k => k < k0 ? null : trValP(p, g[k] || [], ch)) };
+      });
+      const main = p.kind === 'bench' ? series[0] : series[0]; // 큰 숫자: 타 대학 칸은 우리 인스타 값
+      const done = keys.map((k, i) => main.data[i]).filter((v, i) => keys[i] !== curK && v != null);
+      const rf = p.kind === 'bench' ? likeRatio : ratio;
+      const top = (p.kind === 'bench' ? L.filter(it => it.c !== '인스타그램' && !likeHidden(it.c)) : L).filter(it => rf(it) != null).sort((a, b) => rf(b) - rf(a)).slice(0, 3);
+      return Object.assign({}, p, { keys, series, last: done[done.length - 1], prev: done[done.length - 2], top, rf, curK, n: L.length });
     });
   }
   function trendHtml(chs) {
-    const M = trModel(chs); window.__tr = M;
+    const M = trModel(chs); window.__tr = M; window.__trChs = chs;
     const u = trUnit(), mName = TR_M.find(m => m[0] === TR.m)[1];
-    const notes = [mName + (['per', 'like', 'ratio'].includes(TR.m) ? '은 중앙값이라 대박 하나에 흔들리지 않아요' : ''), adWord(), '흐린 막대는 아직 끝나지 않은 구간'];
+    const notes = [mName + (TR_GET[TR.m] || TR.m === 'ratio' ? '은 중앙값이라 대박 하나에 흔들리지 않아요' : ''), adWord(), '흐린 막대는 아직 끝나지 않은 구간'];
     const per = TR_P.find(p => p[0] === TR.p);
-    const cn = covNote(chs, per[2] ? addDays(D.updated, -per[2] + 1) : '0000');
-    if (chs.includes('유튜브') && (TR.p === '3y' || TR.p === 'all') && ['per', 'like'].includes(TR.m)) notes.push('유튜브 긴 영상은 몇 년에 걸쳐 조회가 쌓여 예전 연도가 유리하게 보여요');
+    const ownChs = uniq(M.filter(p => p.kind !== 'bench').flatMap(p => p.chs));
+    const cn = covNote(ownChs, per[2] ? addDays(D.updated, -per[2] + 1) : '0000');
+    if (ownChs.includes('유튜브') && (TR.p === '3y' || TR.p === 'all') && ['per', 'like'].includes(TR.m)) notes.push('유튜브 긴 영상은 몇 년에 걸쳐 조회가 쌓여 예전 연도가 유리하게 보여요');
     let h = '<section class="sec" id="trSec"><div class="sh"><div><h2>채널 현황</h2><p>' + esc(notes.join(' · ')) + (cn ? '<br><span class="warn">⚠ ' + esc(cn) + '</span>' : '') + '</p></div></div>' +
       '<div class="tr-ctl"><div class="chips">' + TR_M.map(m => '<button class="chip" type="button" data-trm="' + m[0] + '" aria-pressed="' + (TR.m === m[0]) + '">' + m[1] + '</button>').join('') + '</div>' +
       '<div class="tr-pu"><div class="seg">' + TR_P.map(p => '<button type="button" data-trp="' + p[0] + '" aria-pressed="' + (TR.p === p[0]) + '">' + p[1] + '</button>').join('') + '</div>' +
       '<div class="seg">' + TR_U.map(x => '<button type="button" data-tru="' + x[0] + '" aria-pressed="' + (u === x[0]) + '">' + x[1] + '</button>').join('') + '</div></div></div>' +
-      '<div class="tr-grid' + (M.length === 1 ? ' one' : '') + '">';
+      '<div class="tr-grid' + (M.length === 1 ? ' one' : M.length === 4 ? ' two' : '') + '">';
+    const unitW = ({ day: '날', week: '주', month: '달', quarter: '분기', year: '해' })[u];
     M.forEach((s, i) => {
       const d = s.last != null && s.prev ? (s.last - s.prev) / Math.abs(s.prev) : null;
-      h += '<div class="tr-card"><div class="tr-h">' + badge(s.ch) + '<span class="tr-v num">' + trFmt(s.last) + '</span>' +
+      const head = s.kind === 'own' ? badge(s.ch) : '<b class="tr-l">' + esc(s.label) + '</b>';
+      const empty = s.series.every(x => x.data.every(v => v == null));
+      const cap = empty ? '이 채널은 ' + mName.replace('게시물당 ', '') + ' 데이터가 없어요' : s.kind === 'all' ? (trMetricP(s) === 'ratio' && TR.m !== 'ratio' ? '채널마다 조회 규모가 달라 평소 대비로 합쳐요' : TR_SUM.includes(TR.m) ? '세 채널 게시물 값의 합계' : '인스타 · 유튜브 · hong 합쳐서') + ' · 최근 끝난 ' + unitW + ' 기준'
+        : s.kind === 'bench' ? (['share', 'save', 'reach'].includes(TR.m) ? '공유·저장·도달은 타 대학이 비공개라 우리 인스타만 보여요' : TR.m === 'cmt' || TR.m === 'posts' ? '큰 숫자는 우리 인스타' : '좋아요 기준(타 대학은 조회 비공개) · 큰 숫자는 우리 인스타') : '최근 끝난 ' + unitW + ' 기준 · 그 전 대비';
+      h += '<div class="tr-card"><div class="tr-h">' + head + '<span class="tr-v num">' + trFmtP(s, s.last) + '</span>' +
         (d == null ? '' : '<span class="tr-d ' + (d >= 0 ? 'up' : 'down') + '">' + (d >= 0 ? '▲' : '▼') + Math.abs(Math.round(d * 100)) + '%</span>') + '</div>' +
-        '<div class="tr-cap">최근 끝난 ' + ({ month: '달', quarter: '분기', year: '해' })[u] + ' 기준 · 그 전 대비</div>' +
-        '<div class="tr-chart"><canvas id="trC' + i + '"></canvas></div>' +
-        (s.top.length ? '<div class="tr-top"><span>이 기간 히트</span>' + s.top.map((it, j) => '<button type="button" data-trt="' + i + ':' + j + '">' + esc(title(it.n)) + ' <b>' + xf(ratio(it)) + '</b></button>').join('') + '</div>' : '') +
+        '<div class="tr-cap">' + cap + '</div>' +
+        (s.kind === 'bench' ? '<div class="tr-lg">' + s.series.map(x => '<span><i style="background:' + chColor(x.ch) + '"></i>' + esc(chName(x.ch)) + (x.ch === '인스타그램' ? '(우리)' : '') + (likeHidden(x.ch) && TR.m !== 'posts' ? ' <small>비공개</small>' : '') + '</span>').join('') + '</div>' : '') +
+        (empty ? '<div class="tr-chart tr-empty">데이터 없음</div>' : '<div class="tr-chart"><canvas id="trC' + i + '"></canvas></div>') +
+        (s.top.length ? '<div class="tr-top"><span>이 기간 히트</span>' + s.top.map((it, j) => '<button type="button" data-trt="' + i + ':' + j + '">' + (s.kind === 'own' ? '' : esc(chName(it.c)) + ' · ') + esc(title(it.n)) + ' <b>' + xf(s.rf(it)) + '</b></button>').join('') + '</div>' : '') +
         '</div>';
     });
     return h + '</div></section>';
   }
   function wireTrend() {
     const sec = $('trSec'), M = window.__tr; if (!sec || !M) return;
-    const re = () => { sec.outerHTML = trendHtml(M.map(s => s.ch)); wireTrend(); };
+    const re = () => { sec.outerHTML = trendHtml(window.__trChs); wireTrend(); };
     sec.querySelectorAll('[data-trm]').forEach(b => b.addEventListener('click', () => { TR.m = b.dataset.trm; re(); }));
     sec.querySelectorAll('[data-trp]').forEach(b => b.addEventListener('click', () => { TR.p = b.dataset.trp; TR.u = 'auto'; re(); }));
     sec.querySelectorAll('[data-tru]').forEach(b => b.addEventListener('click', () => { TR.u = b.dataset.tru; re(); }));
     sec.querySelectorAll('[data-trt]').forEach(b => b.addEventListener('click', () => { const [i, j] = b.dataset.trt.split(':').map(Number); openDetail(M[i].top[j]); }));
     const u = trUnit();
     M.forEach((s, i) => {
-      const col = chColor(s.ch);
-      draw('trC' + i, { type: 'bar', data: { labels: s.keys.map(k => trLabel(k, u)), datasets: [{ data: s.data, backgroundColor: s.keys.map(k => k === s.curK ? col + '55' : col), borderRadius: 4, maxBarThickness: 34, minBarLength: 2 }] },
-        options: chartOpts({ layout: { padding: { top: 8 } }, plugins: { tooltip: { callbacks: { title: c => trLabel(s.keys[c[0].dataIndex], u) + (s.keys[c[0].dataIndex] === s.curK ? ' (진행 중)' : ''), label: c => trFmt(c.raw) + ' · 게시 ' + ((s.g[s.keys[c.dataIndex]] || []).length) + '개' } } },
+      const multi = s.series.length > 1;
+      const ds = s.series.map(x => {
+        const col = s.kind === 'all' ? css('--fg') : chColor(x.ch || s.ch);
+        return { label: x.ch ? chName(x.ch) : s.label || chName(s.ch), data: x.data, backgroundColor: s.keys.map(k => k === s.curK ? col + '55' : col), borderRadius: multi ? 2 : 4, maxBarThickness: multi ? 12 : 34, minBarLength: 2, categoryPercentage: multi ? 0.8 : 0.8, barPercentage: multi ? 0.9 : 0.9 };
+      });
+      draw('trC' + i, { type: 'bar', data: { labels: s.keys.map(k => trLabel(k, u)), datasets: ds },
+        options: chartOpts({ layout: { padding: { top: 8 } }, plugins: { tooltip: { displayColors: multi, callbacks: { title: c => trLabel(s.keys[c[0].dataIndex], u) + (s.keys[c[0].dataIndex] === s.curK ? ' (진행 중)' : ''), label: c => (multi ? c.dataset.label + ' ' : '') + trFmtP(s, c.raw) + ' · 게시 ' + ((s.series[c.datasetIndex].g[s.keys[c.dataIndex]] || []).length) + '개' } } },
           scales: { x: { ticks: { maxTicksLimit: 7, maxRotation: 0, autoSkip: true, font: { size: 11, weight: '500' }, color: css('--muted') } },
-            y: { display: true, position: 'right', grid: { color: css('--line') }, border: { display: false }, ticks: { maxTicksLimit: 4, font: { size: 11 }, color: css('--muted'), callback: v => TR.m === 'ratio' ? v + '배' : TR.m === 'hit' ? Math.round(v * 100) + '%' : fmtK(v) } } } }) });
+            y: { display: true, position: 'right', grid: { color: css('--line') }, border: { display: false }, ticks: { maxTicksLimit: 4, font: { size: 11 }, color: css('--muted'), callback: v => { const m = trMetricP(s); return m === 'ratio' ? v + '배' : m === 'hit' ? Math.round(v * 100) + '%' : fmtK(v); } } } } }) });
     });
   }
 
