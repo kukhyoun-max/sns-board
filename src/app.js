@@ -253,7 +253,7 @@
     const cur = pool({ channels: chs, since: addDays(D.updated, -30) });
     const low = cur.filter(it => judged(it) && ratio(it) < 0.5).sort((a, b) => ratio(a) - ratio(b)).slice(0, 3);
     const stl = staleHtml(S.ch === '전체' ? OWN.concat(benchNames()) : chs);
-    let html = (stl ? '<section class="sec">' + stl.replace('class="callout warn"', 'class="callout warn" style="margin-top:0"') + '</section><div class="gap"></div>' : '') + trendHtml(chs) + '<div class="gap"></div>' + weekHtml(chs);
+    let html = (stl ? '<section class="sec">' + stl.replace('class="callout warn"', 'class="callout warn" style="margin-top:0"') + '</section><div class="gap"></div>' : '') + weekHtml(chs) + '<div class="gap"></div>' + trendHtml(chs);
     html += '<div class="gap"></div><section class="sec"><div class="sh"><div><h2>점검할 것</h2><p>최근 3달 요약과 평소보다 처진 콘텐츠</p></div></div>' +
       '<p class="note" style="margin:0 0 14px">용어 · <b>평소</b> = 같은 채널·같은 형식의 최근 1년 게시물 중앙값(형식 게시물이 ' + BASE_T_MIN + '개 미만이면 채널 중앙값, 광고·스토리 제외) · <b>1.5배</b> 이상이면 <b>히트</b> · 게시 ' + AGE_MIN + '일 전은 <b>집계 중</b> · 그룹이 ' + MIN_N + '개 미만이면 <b>표본 적음</b></p>' + briefText(chs).replace('style="padding:18px 0 0"', 'style="padding:0 0 18px"') +
       '<h3 class="sub">평소보다 처진 콘텐츠</h3><p class="d">최근 30일 게시물 중 게시 ' + AGE_MIN + '일이 지났는데도 평소(같은 형식 중앙값)의 절반에 못 미친 콘텐츠</p><ol class="rank" id="bLow">' + (low.length ? rankRows(low) : '<li class="empty">처진 콘텐츠가 없어요 👍</li>') + '</ol>' + secClose;
@@ -2129,6 +2129,12 @@
       const both = D.items.filter(it => it.c === c && it.h[ni] && it.h[ni - 1]);
       const changed = both.filter(it => it.h[ni][0] !== it.h[ni - 1][0] || it.h[ni][1] !== it.h[ni - 1][1]).length;
       if (both.length >= 5 && !changed) D.stale[c] = { n: both.length, d0: D.dates[ni - 1], d1: D.dates[ni] };
+    });
+    // 서버가 기록 때 계산한 원본 갱신 정보(fresh: {채널: {changed, total, latest, prev, d}})가 있으면 그것을 우선
+    if (D.fresh && typeof D.fresh === 'object') Object.entries(D.fresh).forEach(([c, f]) => {
+      if (!f || f.total == null) return;
+      if (f.total >= 5 && !f.changed) D.stale[c] = { n: f.total, d0: f.prev || D.dates[ni - 1], d1: f.d || D.dates[ni] };
+      else delete D.stale[c];
     });
     D.acctStale = {};
     const byCh = {};

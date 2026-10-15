@@ -18,6 +18,18 @@ const LOG = '실행 로그';
 const TYPE_SUMMARY = '유형별 요약';
 const BENCH = '벤치마크';
 const ACCOUNT = '계정 지표';
+const ACCT_ERR = '수집 오류';                 // 계정 지표 칸에 Supermetrics 오류 문구가 들어왔을 때 남기는 값
+
+// 실행 안정성 · 응답 캐시
+const TIME_LIMIT_MS = 5 * 60 * 1000;          // 실행 시간이 이만큼 넘으면 남은 단계를 멈추고 1분 뒤 이어서 실행
+const RESUME_MAX = 3;                         // 이어서 실행은 최대 N번까지
+const JSONP_CB = '__sbData';                  // 대시보드(src/app.js)가 쓰는 JSONP 함수 이름 — 이것만 허용
+const CACHE_PREFIX = 'resp';                  // 응답 캐시 키 (CacheService, gzip+base64 조각)
+const CACHE_TTL = 21600;                      // 6시간(최대값)
+const CACHE_CHUNK = 90000;                    // 키당 100KB 제한 → 9만 자씩 (base64라 1자 = 1바이트)
+const PROP_FRESH = 'FRESH';                   // 원본 갱신 여부(채널별) — 기록 때 저장, 응답 fresh 키로 냄
+const PROP_PENDING = 'PENDING';               // 시간 초과로 남은 단계
+const PROP_RUNNING = 'SNAP_RUNNING';          // 기록 중 표시(이때 doGet은 캐시에 넣지 않음)
 
 const BENCH_PREFIX = '벤치·';
 const BENCH_DAYS = 180;                       // 벤치마크는 최근 N일 게시물만 기록
@@ -175,12 +187,13 @@ const WEEKLY_TABS = [
 // ───────── 메뉴 / 최초 설정 ─────────
 function onOpen() {
   SpreadsheetApp.getUi().createMenu('📊 스냅샷')
-    .addItem('지금 스냅샷 기록', 'weeklySnapshot')
+    .addItem('지금 스냅샷 기록', 'dailySnapshot') // 월요일 = 확정, 그 밖 = 임시 기록(다음 실행 때 교체)
     .addItem('분석 탭만 다시 계산', 'buildAll')
     .addItem('태그 다시 계산(분류·제작·참여자)', 'recalcTags')
     .addItem('과거 기록 가져오기(_hist_ 탭)', 'importHistory')
     .addItem('게시 후 조회 다시 채우기(스냅샷 기록으로)', 'backfillAgeViews')
     .addItem('일별 합계 다시 채우기(스냅샷 기록으로)', 'backfillDailyTotals')
+    .addItem('대시보드 데이터 새로 고침(캐시 비우기)', 'clearDashboardCache')
     .addSeparator()
     .addItem('최초 설정(탭·트리거)', 'setup')
     .addToUi();
@@ -209,97 +222,300 @@ function setupDaily() {
 
 // ───────── 매일 갱신 (트리거 실행 함수) ─────────
 // 월요일 기록은 확정으로 남기고, 화~일 기록은 최신 1개만 남긴다 (스냅샷 탭 용량 유지)
+// 순서: 원본을 모두 읽음 → 원본 갱신 여부(fresh) 계산 → 모두 성공했을 때만 지난 임시 기록을 지움 → 오늘 기록 추가 → 분석·캐시
 function dailySnapshot() {
-  const ss = SpreadsheetApp.getActive();
-  const today = Utilities.formatDate(new Date(), TZ, 'yyyy-MM-dd');
-  try { dropProvisional_(ss, today); }
-  catch (e) {
-    const log = ss.getSheetByName(LOG);
-    if (log) log.getRange(log.getLastRow() + 1, 1, 1, 4).setValues([[new Date(), '임시 기록 교체', 0, '오류: ' + e.message]]);
-  }
-  weeklySnapshot();
+  return withLock_('스냅샷 기록', () => runSnapshot_());
 }
 
-function isMonday_(ymd) { return new Date(ymd + 'T12:00:00+09:00').getDay() === 1; }
-
-// 마지막 기록이 이번 주 임시 기록(월요일 아님 · 최근 7일 안 · 오늘 아님)이면 지운다
-function dropProvisional_(ss, today) {
-  const snap = ss.getSheetByName(SNAP);
-  const last = snap.getLastRow();
-  if (last < 2) return;
-  const latest = snap.getRange(last, 1).getDisplayValue();
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(latest) || latest === today || isMonday_(latest) || latest <= shiftDate_(today, -7)) return;
-  clearDate_(snap, latest);
-  const acc = ss.getSheetByName(ACCOUNT);
-  if (acc && acc.getLastRow() >= 2) {
-    const d = acc.getRange(2, 1, acc.getLastRow() - 1, 1).getDisplayValues();
-    for (let i = d.length - 1; i >= 0; i--) if (d[i][0] === latest) acc.deleteRow(i + 2);
-  }
-  const log = ss.getSheetByName(LOG);
-  if (log) log.getRange(log.getLastRow() + 1, 1, 1, 4).setValues([[new Date(), '임시 기록 교체', 0, latest + ' → ' + today]]);
-}
-
-// ───────── 주간 기록 (트리거 실행 함수) ─────────
+// 예전 주간 트리거·setup 호환용 이름. 지금은 dailySnapshot과 같다(월요일 = 확정, 그 밖 = 임시).
 function weeklySnapshot() {
+  return dailySnapshot();
+}
+
+// 스크립트 잠금: 트리거·메뉴가 겹쳐 같은 날 기록이 두 번 쌓이는 것을 막는다 (안에서 다시 부르면 그대로 실행)
+let LOCK_DEPTH_ = 0;
+function withLock_(name, fn) {
+  if (LOCK_DEPTH_ > 0) return fn();
+  const lock = LockService.getScriptLock();
+  if (!lock.tryLock(30000)) {
+    try { logRows_(SpreadsheetApp.getActive() || SpreadsheetApp.openById(SS_ID), [[new Date(), name, 0, '건너뜀: 다른 기록 작업이 실행 중(잠금)']]); } catch (e) {}
+    return null;
+  }
+  LOCK_DEPTH_++;
+  try { return fn(); }
+  finally { LOCK_DEPTH_--; lock.releaseLock(); }
+}
+
+function logRows_(ss, rows) {
+  if (!rows || !rows.length) return;
+  let log = ss.getSheetByName(LOG);
+  if (!log) { ensureSheets_(ss); log = ss.getSheetByName(LOG); }
+  log.getRange(log.getLastRow() + 1, 1, rows.length, 4).setValues(rows);
+}
+
+// 요일(1=월 … 7=일). getDay()는 스크립트 프로젝트 시간대를 따르므로 TZ로 직접 계산한다
+function weekday_(ymd) { return Number(Utilities.formatDate(new Date(ymd + 'T12:00:00+09:00'), TZ, 'u')); }
+function isMonday_(ymd) { return weekday_(ymd) === 1; }
+function isWeekend_(ymd) { return weekday_(ymd) >= 6; }
+
+// 이번 주 임시 기록인가 (월요일 아님 · 최근 7일 안 · 오늘 아님)
+function isProvisional_(d, today) {
+  return /^\d{4}-\d{2}-\d{2}$/.test(d) && d !== today && d < today && d > shiftDate_(today, -7) && !isMonday_(d);
+}
+
+// 스냅샷 맨 아래부터: 오늘 기록 블록 [todayFrom, end), 그 위로 이어진 임시 기록 블록 [provFrom, todayFrom)
+// col: A열 표시값(2행부터). 반환 인덱스는 col 기준(0 = 2행)
+function scanTail_(col, today) {
+  let i = col.length - 1;
+  while (i >= 0 && col[i] === today) i--;
+  const todayFrom = i + 1;
+  const prov = [];
+  while (i >= 0 && isProvisional_(col[i], today)) { if (prov.indexOf(col[i]) < 0) prov.push(col[i]); i--; }
+  return { todayFrom: todayFrom, provFrom: i + 1, provDates: prov };
+}
+
+function runSnapshot_() {
+  const t0 = Date.now();
   const ss = SpreadsheetApp.getActive();
   ensureSheets_(ss);
+  const props = PropertiesService.getScriptProperties();
+  props.setProperty(PROP_RUNNING, String(t0));
+  props.deleteProperty(PROP_PENDING);
+  try { clearResumeTriggers_(); } catch (e) {}
+  try { cacheClear_(); } catch (e) {}
   const today = Utilities.formatDate(new Date(), TZ, 'yyyy-MM-dd');
   const snap = ss.getSheetByName(SNAP);
-  clearDate_(snap, today); // 같은 날 재실행 시 중복 방지
-
-  const rows = [];
   const logs = [];
-  const bySrc = [];
-  SOURCES.forEach(src => {
-    try {
-      const byCh = readSource_(src, today);
-      bySrc.push(byCh);
-      const chs = Object.keys(byCh);
-      let total = 0;
-      chs.forEach(ch => {
-        Object.keys(byCh[ch]).forEach(k => {
-          const it = byCh[ch][k];
-          rows.push([today, ch, k, it.date, it.title, it.url]
-            .concat(METRICS.map(m => it[m]))
-            .concat([it.type, it.reach, it.engaged, it.avgSec, it.lengthSec]));
-          total++;
+  try {
+    // 1) 원본 읽기 (아직 시트에 아무것도 쓰지 않음)
+    const rows = [];
+    const bySrc = [];
+    const failed = [];
+    SOURCES.forEach(src => {
+      try {
+        const byCh = readSource_(src, today);
+        const chs = Object.keys(byCh);
+        let total = 0;
+        const part = [];
+        chs.forEach(ch => {
+          Object.keys(byCh[ch]).forEach(k => {
+            const it = byCh[ch][k];
+            part.push([today, ch, k, it.date, it.title, it.url]
+              .concat(METRICS.map(m => it[m]))
+              .concat([it.type, it.reach, it.engaged, it.avgSec, it.lengthSec]));
+            total++;
+          });
         });
-      });
-      if (!total) throw new Error('읽은 콘텐츠가 0건');
-      logs.push([new Date(), src.channel, total, src.bench ? '정상 (계정 ' + chs.length + '개)' : '정상']);
-    } catch (e) {
-      logs.push([new Date(), src.channel, 0, '오류: ' + e.message]);
+        if (!total) throw new Error('읽은 콘텐츠가 0건');
+        bySrc.push(byCh);
+        Array.prototype.push.apply(rows, part);
+        logs.push([new Date(), src.channel, total, src.bench ? '정상 (계정 ' + chs.length + '개)' : '정상']);
+      } catch (e) {
+        failed.push({ src: src, msg: e.message });
+        logs.push([new Date(), src.channel, 0, '오류: ' + e.message]);
+      }
+    });
+    const allOk = failed.length === 0;
+    const isFailedCh = ch => failed.some(f => f.src.bench ? ch.indexOf(BENCH_PREFIX) === 0 : ch === f.src.channel);
+
+    // 2) 원본 갱신 여부: 직전 기록 대비 값이 바뀐 게시물 수
+    const last0 = snap.getLastRow();
+    const col = last0 >= 2 ? snap.getRange(2, 1, last0 - 1, 1).getDisplayValues().map(r => r[0]) : [];
+    try {
+      const prevDate = col.filter(d => /^\d{4}-\d{2}-\d{2}$/.test(d) && d < today).sort().pop() || '';
+      let prevRows = [];
+      if (prevDate) {
+        let a = -1, b = -1;
+        col.forEach((d, i) => { if (d === prevDate) { if (a < 0) a = i; b = i; } });
+        prevRows = snap.getRange(a + 2, 1, b - a + 1, M0 + METRICS.length).getValues()
+          .filter(r => fmtDate_(r[0]) === prevDate);
+      }
+      const fresh = freshStats_(prevRows, bySrc, prevDate, today);
+      failed.filter(f => !f.src.bench).forEach(f => { fresh[f.src.channel] = { changed: null, total: 0, latest: '', prev: prevDate, d: today, error: f.msg }; });
+      props.setProperty(PROP_FRESH, JSON.stringify(fresh));
+      Object.keys(fresh).forEach(ch => logs.push(freshLog_(ch, fresh[ch])));
+    } catch (e) { logs.push([new Date(), '원본 갱신', 0, '오류: ' + e.message]); }
+
+    // 3) 쓰기: 오늘 기존 기록 중 이번에 읽은 채널만 교체, 모든 원본이 성공했을 때만 지난 임시 기록 삭제
+    const tail = scanTail_(col, today);
+    const keepToday = [];
+    if (tail.todayFrom < col.length) {
+      snap.getRange(tail.todayFrom + 2, 1, col.length - tail.todayFrom, SNAP_HEADER.length).getValues()
+        .forEach(r => { if (isFailedCh(String(r[1]))) keepToday.push(r); });
     }
-  });
+    const clearFrom = allOk ? tail.provFrom : tail.todayFrom;
+    if (clearFrom < col.length) snap.getRange(clearFrom + 2, 1, col.length - clearFrom, SNAP_HEADER.length).clearContent();
+    const out = keepToday.concat(rows);
+    if (out.length) snap.getRange(snap.getLastRow() + 1, 1, out.length, SNAP_HEADER.length).setValues(out);
+    if (allOk && tail.provDates.length) {
+      const acc = ss.getSheetByName(ACCOUNT);
+      if (acc && acc.getLastRow() >= 2) {
+        const d = acc.getRange(2, 1, acc.getLastRow() - 1, 1).getDisplayValues();
+        for (let i = d.length - 1; i >= 0; i--) if (tail.provDates.indexOf(d[i][0]) >= 0) acc.deleteRow(i + 2);
+      }
+      logs.push([new Date(), '임시 기록 교체', 0, tail.provDates.join(', ') + ' → ' + today]);
+    } else if (!allOk && tail.provDates.length) {
+      logs.push([new Date(), '임시 기록 교체', 0, '보류: 원본 읽기 실패가 있어 ' + tail.provDates.join(', ') + ' 기록을 남겨 둠']);
+    }
+    if (keepToday.length) logs.push([new Date(), '스냅샷', keepToday.length, '읽기 실패 채널은 오늘 앞서 기록한 값 유지']);
+    logRows_(ss, logs.splice(0));
 
-  if (rows.length) {
-    snap.getRange(snap.getLastRow() + 1, 1, rows.length, SNAP_HEADER.length).setValues(rows);
+    // 4) 나머지 단계 (5분이 넘으면 멈추고 이어서 실행)
+    runSteps_({ ss: ss, today: today, bySrc: bySrc, logs: logs, t0: t0, n: 0 }, SNAP_STEPS.slice());
+  } finally {
+    try { logRows_(ss, logs); } catch (e) {}
+    props.deleteProperty(PROP_RUNNING);
   }
+}
 
-  accountSnapshot_(ss, today, logs);
+// prevRows: 직전 기록일의 스냅샷 행, bySrc: 이번에 읽은 원본 → { 채널(벤치 접두어 없음): {changed, total, latest, prev, d} }
+// changed = 두 기록에 모두 있는 게시물 중 조회·좋아요·댓글·공유·저장 중 하나라도 바뀐 수, latest = 원본 최신 게시일
+function freshStats_(prevRows, bySrc, prevDate, today) {
+  const val = x => (x === '' || x === null || x === undefined || isNaN(Number(x))) ? null : Number(x);
+  const prev = {};
+  (prevRows || []).forEach(r => { prev[String(r[1]) + '§' + String(r[2])] = r; });
+  const out = {};
+  (bySrc || []).forEach(byCh => Object.keys(byCh).forEach(ch => {
+    let changed = 0, total = 0, latest = '';
+    Object.keys(byCh[ch]).forEach(k => {
+      const it = byCh[ch][k];
+      if (it.date && it.date > latest) latest = it.date;
+      const p = prev[ch + '§' + k];
+      if (!p) return;
+      total++;
+      if (METRICS.some((m, i) => val(it[m]) !== val(p[M0 + i]))) changed++;
+    });
+    const name = ch.indexOf(BENCH_PREFIX) === 0 ? ch.slice(BENCH_PREFIX.length) : ch;
+    out[name] = { changed: changed, total: total, latest: latest, prev: prevDate || '', d: today };
+  }));
+  return out;
+}
 
-  try { saveTags_(ss, bySrc, today); logs.push([new Date(), '태그', bySrc.length, '정상']); }
-  catch (e) { logs.push([new Date(), '태그', 0, '오류: ' + e.message]); }
+function freshLog_(ch, f) {
+  if (f.error) return [new Date(), '원본 갱신·' + ch, 0, '오류: ' + f.error];
+  const stale = f.total >= 5 && f.changed === 0;
+  const msg = (stale ? '경고: 원본 미갱신 — ' : '정상 — ') + '바뀐 게시물 ' + f.changed + '/' + f.total +
+    (f.prev ? ' (비교 ' + f.prev + ')' : ' (첫 기록)') + ' · 원본 최신 게시 ' + (f.latest || '없음');
+  return [new Date(), '원본 갱신·' + ch, f.changed, msg];
+}
 
-  try { const n = saveDailyTotals_(ss, bySrc, today); logs.push([new Date(), '일별 합계', n, '정상']); }
-  catch (e) { logs.push([new Date(), '일별 합계', 0, '오류: ' + e.message]); }
-  try { const n = saveAgeViews_(ss, bySrc, today); logs.push([new Date(), '게시 후 조회', n, '정상']); }
-  catch (e) { logs.push([new Date(), '게시 후 조회', 0, '오류: ' + e.message]); }
+function loadFresh_() {
+  try { return JSON.parse(PropertiesService.getScriptProperties().getProperty(PROP_FRESH) || '{}'); } catch (e) { return {}; }
+}
 
-  const log = ss.getSheetByName(LOG);
-  log.getRange(log.getLastRow() + 1, 1, logs.length, 4).setValues(logs);
+// ───────── 기록 뒤 단계 (시간 초과 시 다음 실행에서 이어 받음) ─────────
+const SNAP_STEPS = ['acct', 'tags', 'daily', 'age', 'build', 'cache'];
+const STEP_FN = {
+  acct: x => {
+    try { accountSnapshot_(x.ss, x.today, x.logs); } catch (e) { x.logs.push([new Date(), '계정 지표', 0, '오류: ' + e.message]); }
+  },
+  tags: x => {
+    try { const b = stepBySrc_(x, true); saveTags_(x.ss, b, x.today); x.logs.push([new Date(), '태그', b.length, '정상']); }
+    catch (e) { x.logs.push([new Date(), '태그', 0, '오류: ' + e.message]); }
+  },
+  daily: x => {
+    try { const n = saveDailyTotals_(x.ss, stepBySrc_(x, false), x.today); x.logs.push([new Date(), '일별 합계', n, '정상']); }
+    catch (e) { x.logs.push([new Date(), '일별 합계', 0, '오류: ' + e.message]); }
+  },
+  age: x => {
+    try { const n = saveAgeViews_(x.ss, stepBySrc_(x, false), x.today); x.logs.push([new Date(), '게시 후 조회', n, '정상']); }
+    catch (e) { x.logs.push([new Date(), '게시 후 조회', 0, '오류: ' + e.message]); }
+  },
+  build: x => {
+    try { buildAll(); } catch (e) { x.logs.push([new Date(), '분석 탭', 0, '오류: ' + e.message]); }
+  },
+  cache: x => {
+    try { const r = cacheBuild_(); x.logs.push([new Date(), '응답 캐시', r.n, '정상 (' + Math.round(r.raw / 1024) + 'KB → 압축 ' + Math.round(r.bytes / 1024) + 'KB)']); }
+    catch (e) { x.logs.push([new Date(), '응답 캐시', 0, '오류: ' + e.message]); }
+  },
+};
 
-  buildAll();
+function runSteps_(ctx, steps) {
+  for (let i = 0; i < steps.length; i++) {
+    if (Date.now() - ctx.t0 > TIME_LIMIT_MS) {
+      const rest = steps.slice(i);
+      const again = ctx.n < RESUME_MAX;
+      if (again) savePending_(ctx.today, rest, ctx.n + 1);
+      ctx.logs.push([new Date(), '시간 초과', 0, '경고: 실행 ' + Math.round((Date.now() - ctx.t0) / 1000) + '초 — 남은 단계 ' + rest.join(', ') +
+        (again ? ' 는 1분 뒤 이어서 실행' : ' 는 이어서 실행 한도(' + RESUME_MAX + '번)를 넘어 다음 정기 실행으로 넘김')]);
+      return false;
+    }
+    STEP_FN[steps[i]](ctx);
+  }
+  return true;
+}
+
+// 단계에 쓸 원본: 이번 실행에서 읽은 것 → 없으면(이어서 실행) 태그는 원본을 다시 읽고, 합계·나이는 스냅샷 기록으로
+function stepBySrc_(ctx, needFull) {
+  if (ctx.bySrc) return ctx.bySrc;
+  if (needFull) {
+    const b = [];
+    SOURCES.forEach(src => { try { b.push(readSource_(src, ctx.today)); } catch (e) { ctx.logs.push([new Date(), src.channel, 0, '오류(이어서 실행): ' + e.message]); } });
+    return b;
+  }
+  if (!ctx.snapBySrc) {
+    const snap = ctx.ss.getSheetByName(SNAP);
+    const last = snap.getLastRow();
+    const col = last >= 2 ? snap.getRange(2, 1, last - 1, 1).getDisplayValues().map(r => r[0]) : [];
+    const t = scanTail_(col, ctx.today);
+    const byCh = {};
+    if (t.todayFrom < col.length) snap.getRange(t.todayFrom + 2, 1, col.length - t.todayFrom, SNAP_HEADER.length).getValues().forEach(r => {
+      const ch = String(r[1]), k = String(r[2]); if (!ch || !k) return;
+      const it = { date: fmtDate_(r[C.date]) };
+      METRICS.forEach((m, i) => { it[m] = r[M0 + i]; });
+      (byCh[ch] = byCh[ch] || {})[k] = it;
+    });
+    ctx.snapBySrc = [byCh];
+  }
+  return ctx.snapBySrc;
+}
+
+function savePending_(date, steps, n) {
+  PropertiesService.getScriptProperties().setProperty(PROP_PENDING, JSON.stringify({ date: date, steps: steps, n: n }));
+  clearResumeTriggers_();
+  ScriptApp.newTrigger('resumeSnapshot').timeBased().after(60 * 1000).create();
+}
+
+function clearResumeTriggers_() {
+  ScriptApp.getProjectTriggers().filter(t => t.getHandlerFunction() === 'resumeSnapshot').forEach(t => ScriptApp.deleteTrigger(t));
+}
+
+// 시간 초과로 남은 단계 이어서 실행 (savePending_이 만든 1회용 트리거가 부름)
+function resumeSnapshot() {
+  try { clearResumeTriggers_(); } catch (e) {}
+  return withLock_('이어서 실행', () => {
+    const props = PropertiesService.getScriptProperties();
+    let p = null;
+    try { p = JSON.parse(props.getProperty(PROP_PENDING) || 'null'); } catch (e) {}
+    props.deleteProperty(PROP_PENDING);
+    if (!p || !p.steps || !p.steps.length) return;
+    const ss = SpreadsheetApp.getActive() || SpreadsheetApp.openById(SS_ID);
+    const today = Utilities.formatDate(new Date(), TZ, 'yyyy-MM-dd');
+    if (p.date !== today) { logRows_(ss, [[new Date(), '이어서 실행', 0, '건너뜀: ' + p.date + ' 기록의 남은 단계(다음 정기 실행이 다시 계산)']]); return; }
+    props.setProperty(PROP_RUNNING, String(Date.now()));
+    try { cacheClear_(); } catch (e) {}
+    const ctx = { ss: ss, today: today, bySrc: null, logs: [[new Date(), '이어서 실행', p.n, p.steps.join(', ')]], t0: Date.now(), n: p.n };
+    try { runSteps_(ctx, p.steps.filter(s => STEP_FN[s])); }
+    finally { try { logRows_(ss, ctx.logs); } catch (e) {} props.deleteProperty(PROP_RUNNING); }
+  });
 }
 
 // ───────── 원본 읽기 ─────────
 // 반환: { 채널명: { 콘텐츠키: item } }
+// 같은 원본 시트(퍼블릭 원본: hong·벤치마크)는 한 실행에서 한 번만 읽음
+const SRC_VALUES_ = {};
 function readSource_(src, today) {
-  const ss = SpreadsheetApp.openById(src.id);
-  const sh = ss.getSheetByName(src.sheet || '시트1') || ss.getSheets()[0];
-  const rng = sh.getDataRange();
-  const values = rng.getValues();
-  const disp = src.needDisplay ? rng.getDisplayValues() : null;
+  const ck = src.id + '|' + (src.sheet || '') + '|' + (src.needDisplay ? 1 : 0);
+  let got = SRC_VALUES_[ck];
+  if (!got) {
+    const ss = SpreadsheetApp.openById(src.id);
+    const sh = ss.getSheetByName(src.sheet || '시트1') || ss.getSheets()[0];
+    const rng = sh.getDataRange();
+    got = { values: rng.getValues(), disp: src.needDisplay ? rng.getDisplayValues() : null };
+    if (!src.sheet) SRC_VALUES_[ck] = got; // _hist_ 탭(importHistory)은 저장하지 않음
+  }
+  const values = got.values;
+  const disp = got.disp;
   if (values.length < 2) throw new Error('데이터 없음');
 
   const header = values[0].map(h => String(h).trim());
@@ -350,7 +566,7 @@ function readSource_(src, today) {
       const key = src.keyFn(date, title, url);
       if (!key) continue;
 
-      const item = { date: date, title: title.replace(/\s+/g, ' ').trim().slice(0, 80), url: url, full: title, desc: idx.desc >= 0 ? String(row[idx.desc] || '') : '' };
+      const item = { date: date, title: cut_(title.replace(/\s+/g, ' ').trim(), 80), url: url, full: title, desc: idx.desc >= 0 ? String(row[idx.desc] || '') : '' };
       NUMF.forEach(m => { item[m] = idx[m] >= 0 ? num_(row[idx[m]]) : ''; });
       item.lengthSec = (idx.length >= 0 && disp) ? parseDur_(disp[r][idx.length]) : '';
       item.type = src.typeFn
@@ -386,8 +602,14 @@ function accountSnapshot_(ss, today, logs) {
     // 가로형(1행 지표명 / 2행 값) · 세로형(A열 지표명 / B열 값) 모두 지원
     const vertical = v[0].length === 2 && v[0][1] !== '' && !isNaN(Number(v[0][1]));
     const hdr = vertical ? v.map(r => String(r[0]).trim()) : v[0].map(h => String(h).trim());
+    // Supermetrics 오류 문구(예: 유튜브 「Channel total subscribers」의 "Can't be calculated… ALLOW_SUM_UNIQUE")는 '수집 오류'로 기록
+    // (응답에서는 숫자가 아니라 m에서 빠지고, acct[].e 에 지표 이름이 들어감)
+    const errCols = [];
     const data = (vertical ? v.map(r => r[1]) : v[1])
-      .map(x => (typeof x === 'string' && x.length > 40 ? '' : x)); // 오류 문구는 빈칸
+      .map((x, j) => {
+        if (typeof x === 'string' && (x.length > 40 || /can'?t be calculated|ALLOW_SUM_UNIQUE|^#?error/i.test(x))) { errCols.push(hdr[j] || ('열' + (j + 1))); return ACCT_ERR; }
+        return x;
+      });
 
     // 헤더 병합 (새 지표가 생기면 열 추가)
     const lastCol = Math.max(acc.getLastColumn(), 2);
@@ -412,12 +634,15 @@ function accountSnapshot_(ss, today, logs) {
       }
     }
     acc.getRange(target, 1, 1, head.length).setValues([row]);
-    logs.push([new Date(), name, 1, '정상']);
+    logs.push([new Date(), name, 1, errCols.length ? '정상 · 경고: 수집 오류 지표 — ' + errCols.join(', ') : '정상']);
   });
 }
 
 // ───────── 분석 탭 ─────────
 function buildAll() {
+  return withLock_('분석 탭', () => buildAll_());
+}
+function buildAll_() {
   const ss = SpreadsheetApp.getActive();
   ensureSheets_(ss);
   const byCh = loadSnap_(ss);
@@ -762,8 +987,7 @@ function mergeAgeViews_(ss, obs) {
 }
 function saveAgeViews_(ss, bySrc, today) {
   if (!ss.getSheetByName(AGE_SHEET)) backfillAgeViews(); // 처음 한 번: 기존 스냅샷 기록으로 채움
-  const wd = new Date(today + 'T12:00:00+09:00').getDay();
-  if (wd === 0 || wd === 6) return 0; // 주말: 원본이 금요일 값 그대로라 건너뜀
+  if (isWeekend_(today)) return 0; // 주말: 원본이 금요일 값 그대로라 건너뜀
   const obs = [];
   bySrc.forEach(byCh => Object.keys(byCh).forEach(ch => Object.keys(byCh[ch]).forEach(k => {
     const it = byCh[ch][k]; obs.push([ch, k, it.date, it.views, today]);
@@ -772,6 +996,9 @@ function saveAgeViews_(ss, bySrc, today) {
 }
 // 한 번만: 「스냅샷」 탭에 이미 있는 기록으로 채우기 (메뉴·편집기에서 실행)
 function backfillAgeViews() {
+  return withLock_('게시 후 조회 다시 채우기', () => { const n = backfillAgeViews_(); dropCache_(); return n; });
+}
+function backfillAgeViews_() {
   const ss = SpreadsheetApp.getActive() || SpreadsheetApp.openById(SS_ID);
   const v = ss.getSheetByName(SNAP).getDataRange().getValues().slice(1);
   const obs = v.filter(r => r[0] && r[1]).map(r => [String(r[1]), String(r[2]), r[C.date], r[C.views], r[0]]);
@@ -817,8 +1044,7 @@ function mergeDailyTotals_(ss, rows) {
 }
 function saveDailyTotals_(ss, bySrc, today) {
   if (!ss.getSheetByName(DAILY_SHEET)) backfillDailyTotals();
-  const wd = new Date(today + 'T12:00:00+09:00').getDay();
-  if (wd === 0 || wd === 6) return 0;
+  if (isWeekend_(today)) return 0;
   const rows = [];
   bySrc.forEach(byCh => Object.keys(byCh).forEach(ch => Object.keys(byCh[ch]).forEach(k => {
     const it = byCh[ch][k]; rows.push([today, ch, k].concat(METRICS.map(m => it[m])));
@@ -827,6 +1053,9 @@ function saveDailyTotals_(ss, bySrc, today) {
 }
 // 한 번만: 「스냅샷」 탭의 기록일별로 합계 채우기
 function backfillDailyTotals() {
+  return withLock_('일별 합계 다시 채우기', () => { const n = backfillDailyTotals_(); dropCache_(); return n; });
+}
+function backfillDailyTotals_() {
   const ss = SpreadsheetApp.getActive() || SpreadsheetApp.openById(SS_ID);
   const v = ss.getSheetByName(SNAP).getDataRange().getValues().slice(1).filter(r => r[0] && r[1]);
   return mergeDailyTotals_(ss, v.map(r => [r[0], r[1], r[2]].concat([0, 1, 2, 3, 4].map(j => r[M0 + j]))));
@@ -845,13 +1074,73 @@ const SS_ID = '1WshbvV-foluKpVu79vdZ75BBfH-ycME_nPe0RcJuwr4';
 const OWN_CHANNELS = ['인스타그램', '유튜브', 'hong._.video'];
 const DASH_METRICS = ['조회수', '좋아요', '댓글', '공유', '저장'];
 
+// 읽기 전용. ?callback=__sbData 이면 JSONP, 그 밖의 callback 값이나 없으면 일반 JSON.
+// 응답은 기록 때 CacheService에 미리 만들어 둔 것을 쓰고, 없으면 계산해서 캐시(기록 중이면 캐시에 넣지 않음).
 function doGet(e) {
   const cb = (e && e.parameter && e.parameter.callback) || '';
-  const json = JSON.stringify(buildDashboardData_());
-  if (cb && /^[A-Za-z_$][\w.$]*$/.test(cb)) {
+  let json = null;
+  try { json = cacheGet_(); } catch (err) { json = null; }
+  if (!json) {
+    try {
+      json = JSON.stringify(buildDashboardData_());
+      if (!isRecording_()) { try { cachePut_(json); } catch (err) {} }
+    } catch (err) {
+      json = JSON.stringify({ error: '데이터를 만들지 못했어요: ' + String(err && err.message || err) });
+    }
+  }
+  if (cb === JSONP_CB) {
     return ContentService.createTextOutput(cb + '(' + json + ');').setMimeType(ContentService.MimeType.JAVASCRIPT);
   }
   return ContentService.createTextOutput(json).setMimeType(ContentService.MimeType.JSON);
+}
+
+// ───────── 응답 캐시 (CacheService · gzip+base64 조각, Drive 파일 저장 없음) ─────────
+function isRecording_() {
+  const t = Number(PropertiesService.getScriptProperties().getProperty(PROP_RUNNING) || 0);
+  return t > 0 && Date.now() - t < 10 * 60 * 1000; // 10분 넘은 표시는 실패한 실행의 흔적으로 보고 무시
+}
+function cachePut_(json) {
+  const gz = Utilities.gzip(Utilities.newBlob('', 'application/json').setDataFromString(json, 'UTF-8'));
+  const b64 = Utilities.base64Encode(gz.getBytes());
+  const id = String(Date.now());
+  const parts = {};
+  let n = 0;
+  for (let i = 0; i < b64.length; i += CACHE_CHUNK) parts[CACHE_PREFIX + ':' + id + ':' + (n++)] = b64.slice(i, i + CACHE_CHUNK);
+  const c = CacheService.getScriptCache();
+  c.putAll(parts, CACHE_TTL);
+  c.put(CACHE_PREFIX + ':meta', JSON.stringify({ id: id, n: n, len: b64.length }), CACHE_TTL); // 조각을 다 넣은 뒤 마지막에
+  return { n: n, bytes: b64.length, raw: json.length };
+}
+function cacheGet_() {
+  const c = CacheService.getScriptCache();
+  const meta = JSON.parse(c.get(CACHE_PREFIX + ':meta') || 'null');
+  if (!meta || !meta.n) return null;
+  const keys = [];
+  for (let i = 0; i < meta.n; i++) keys.push(CACHE_PREFIX + ':' + meta.id + ':' + i);
+  const got = c.getAll(keys);
+  let b64 = '';
+  for (const k of keys) { if (got[k] == null) return null; b64 += got[k]; } // 조각 하나라도 빠지면 캐시 없음으로
+  if (b64.length !== meta.len) return null;
+  return Utilities.ungzip(Utilities.newBlob(Utilities.base64Decode(b64), 'application/x-gzip')).getDataAsString('UTF-8');
+}
+function cacheClear_() {
+  CacheService.getScriptCache().remove(CACHE_PREFIX + ':meta');
+}
+function dropCache_() { try { cacheClear_(); } catch (e) {} }
+function cacheBuild_() {
+  return cachePut_(JSON.stringify(buildDashboardData_()));
+}
+// 메뉴: 사람이 적는 탭(태그 수정·명단·전략 기록·채널 목표 등)을 고친 뒤 대시보드에 바로 반영하고 싶을 때
+function clearDashboardCache() {
+  dropCache_();
+  try { SpreadsheetApp.getActive().toast('대시보드 캐시를 비웠어요. 다음에 대시보드를 열 때 새로 계산해요(15초 안팎).'); } catch (e) {}
+}
+// 단순 트리거: 사람이 적는 탭을 고치면 캐시를 비움 (실패해도 무시 — 메뉴로 비울 수 있음)
+function onEdit(e) {
+  try {
+    const name = e && e.range && e.range.getSheet().getName();
+    if ([ROSTER_SHEET, ADMAP_SHEET, ADPLAN_SHEET, TAGFIX_SHEET, STRAT_SHEET, GOAL_SHEET, META_SHEET, IG_HIST_SHEET].indexOf(name) >= 0) dropCache_();
+  } catch (err) {}
 }
 
 function buildDashboardData_() {
@@ -879,8 +1168,9 @@ function buildDashboardData_() {
       const url = s_(r[C.url]);
       it = items[key] = {
         c: ch, t: s_(r[C.type]) || '미분류', d: s_(r[C.date]).slice(0, 10),
-        n: s_(r[C.title]).slice(0, 70),
-        u: /youtube\.com|youtu\.be/.test(url) ? url : '',
+        n: cut_(s_(r[C.title]), 70),
+        // 유튜브 URL · 인스타는 퍼머링크 모양일 때만(지금 인스타 원본 「미디어 URL」은 만료되는 CDN 주소라 비움)
+        u: /youtube\.com|youtu\.be/.test(url) ? url : (ch === '인스타그램' ? (igPermalink_(url) || igPermalink_(s_(r[2]))) : ''),
         h: dates.map(() => null),
       };
     }
@@ -900,9 +1190,15 @@ function buildDashboardData_() {
     a.slice(1).forEach(r => {
       const d = s_(r[0]).slice(0, 10), ch = s_(r[1]);
       if (!d || !ch) return;
-      const m = {};
-      head.slice(2).forEach((h, j) => { const x = n_(r[j + 2]); if (x !== null && h) m[h] = x; });
-      acct.push({ d: d, ch: ch, m: m });
+      const m = {}, er = [];
+      head.slice(2).forEach((h, j) => {
+        const x = n_(r[j + 2]);
+        if (x !== null && h) m[h] = x;
+        else if (h && String(r[j + 2]).trim() === ACCT_ERR) er.push(h); // 숫자가 아니므로 m에는 넣지 않음
+      });
+      const row = { d: d, ch: ch, m: m };
+      if (er.length) row.e = er; // 수집 오류 지표 이름 (예: 유튜브 Channel total subscribers)
+      acct.push(row);
     });
   }
 
@@ -932,7 +1228,24 @@ function buildDashboardData_() {
     goals: loadGoals_(ss),
     daily: (function () { try { return loadDailyTotals_(ss); } catch (e) { return []; } })(),
     tagError: extra.tagError || '',
+    // 원본 갱신 여부 { 채널: {changed: 직전 기록 대비 값이 바뀐 게시물 수, total: 두 기록 모두 있는 게시물 수, latest: 원본 최신 게시일, prev, d} }
+    // 마지막 기록 때 계산해 스크립트 속성에 저장한 값 (응답 때 다시 계산하지 않음)
+    fresh: loadFresh_(),
   };
+}
+
+// 인스타 퍼머링크(https://www.instagram.com/p|reel|tv/…)만 남김, 아니면 ''
+function igPermalink_(s) {
+  const t = String(s || '').trim();
+  return /^https?:\/\/(www\.)?instagram\.com\/(p|reel|reels|tv)\/[\w-]+/.test(t) ? t.split('?')[0] : '';
+}
+
+// 글자(코드 포인트) 단위로 자르기 — UTF-16 slice는 이모지 가운데를 끊어 짝 없는 서로게이트를 남김
+// 이미 시트에 반쪽으로 저장된 서로게이트도 함께 지움
+function cut_(s, n) {
+  const t = String(s == null ? '' : s).replace(/[\uD800-\uDBFF](?![\uDC00-\uDFFF])|(?<![\uD800-\uDBFF])[\uDC00-\uDFFF]/g, '');
+  const a = Array.from(t);
+  return a.length > n ? a.slice(0, n).join('') : t;
 }
 
 
@@ -954,25 +1267,31 @@ const ADS_ID = '1KWALIRH1NfizDTtiKa6koega5ECAirOuOCc8pXNU5pE'; // 전주대_구�
 const COVERAGE = { '유튜브': '2024-01-01', '인스타그램': '2024-12-27', 'hong._.video': '2021-01-01', acct: '지난주(월~일)' };
 const ADMAP_SEED = [["2019 전주대학교  CF", "rTFFwv7w5X0", "확인"], ["2020 CF 본편", "d46MRvYKTYM, zQTtrjirNoI, E8XcB6NX-Yg", "추정"], ["2020 CF 본편 건너뛸 수 있는 광고", "d46MRvYKTYM, zQTtrjirNoI, E8XcB6NX-Yg", "추정"], ["하림융합전공 소개_센터장 디스플레이 광고", "atZ_KytBKb0", "추정"], ["동영상광고 2021 C F", "UwbBowD8UwA, EmABQ1PvB1M, F7FzHL90j0o", "확인"], ["2021 CF", "UwbBowD8UwA, EmABQ1PvB1M, F7FzHL90j0o", "확인"], ["2021 CF_키워드", "UwbBowD8UwA, EmABQ1PvB1M, F7FzHL90j0o", "확인"], ["2021 CF_지역", "UwbBowD8UwA, EmABQ1PvB1M, F7FzHL90j0o", "확인"], ["입학_2021 CF_지역", "UwbBowD8UwA, EmABQ1PvB1M, F7FzHL90j0o", "확인"], ["입학_2021 CF 키워드", "UwbBowD8UwA, EmABQ1PvB1M, F7FzHL90j0o", "확인"], ["10월_CF_성장_취업", "EmABQ1PvB1M, F7FzHL90j0o", "확인"], ["10월_CF_창업", "UwbBowD8UwA", "확인"], ["CF 동영상 창업", "UwbBowD8UwA", "추정"], ["20220811_2022 CF 영상 '신입생'편", "XeFvocm3LEM", "확인"], ["20220721 스킵 불가_2022 CF 티저", "XeFvocm3LEM, AuNPHA1_7Bs", "추정"], ["스킵가능_2022 CF 영상 티저", "XeFvocm3LEM, AuNPHA1_7Bs", "추정"], ["전라북도의 중심, 전주대학교", "_o_ORvqXk-w", "확인"], ["기숙사 소개 영상 광고", "Y-VTucYX-C0", "추정"], ["천원의 아침밥 소개", "8tWIqtvGCAU", "확인"], ["학과 동영상 공모전", "@2022 천하제일", "추정"], ["전주대학교 캠퍼스 스토리", "NjYhL4pFfGM", "확인"], ["2023 ESG 동영상 광고", "7n_vNR4Z8QI", "추정"], ["(디스커버리) 2023 유웨이 온터뷰 광고", "fHn9rzClVaI, b125ICdQy4Y", "확인"], ["천원의 아침밥 - 사장님의 마음", "JfC9Ax3ifrY", "확인"], ["선행릴레이 캠페인 영상", "JocZENhjodk", "확인"], ["브랜드 광고 '시설'편", "HP2hSCEWRd0", "추정"], ["(전주대 HP 방문자/18--24) 개교 60주년 30초 광고", "MODUK0zsLiM", "확인"], ["(전주대 HP 방문자_40-50대) 개교 60주년 30초 광고", "MODUK0zsLiM", "확인"], ["(전주대 HP 방문자_전연령) 개교 60주년 15초 광고", "MODUK0zsLiM", "추정"], ["FPV 드론 영상(18-24세/전국)", "d7sEsLmKhvc", "확인"], ["[도서관] FPV 드론 영상(18-24세/전국)", "lcf3SN9ad-A", "확인"], ["[방송광고/인근지역/18-24] '도서관'편", "b1dxndu1rgo", "확인"], ["[방송광고/인근지역/40-60] '도서관'편", "b1dxndu1rgo", "확인"], ["(18-24) 카카오클라우드센터 유치", "gI0zmwS3Dok", "확인"], ["(18-24/전국) 2025 정시모집 TV 광고", "UyS82wPiEJg", "추정"], ["(45-64/전국) 2025 정시모집 TV 광고", "UyS82wPiEJg", "추정"], ["2025 동영상 광고 - 51초", "LyrHjY20PXs", "추정"], ["2025 동영상 광고 - 숏츠", "axUL_0OPwtg", "추정"], ["2025 농촌봉사활동", "goCPo6bqm8o", "확인"], ["2025 국토대장정", "SML_fJsyBTQ", "추정"], ["[20초 Ver] 새로운 별들의 새로운 시작 '전주대학교'", "el1j8k0C_ek, _C0mUel-abs, bdAIJziubkk, YIa0V8JRiUg", "확인"], ["[20초_B Ver] 새로운 별들의 새로운 시작 '전주대학교'", "el1j8k0C_ek, _C0mUel-abs, bdAIJziubkk, YIa0V8JRiUg", "확인"], ["글로컬대학30 응원 & 릴스 영상", "Gzw0jIEYp6U, Dba7HtkPltg", "확인"], ["자유전공학부 팟캐스트 인터뷰", "TEOyPw5SxdM, F6aAIU-pqXE", "확인"]];
 
-/* 콘텐츠 분류·제작 주체 태깅 규칙 (Apps Script와 대시보드가 같은 규칙을 씀) */
+/* 콘텐츠 분류 태깅 규칙 (서버에서만 계산 — src/app.js에는 이 규칙이 없고 응답의 g를 그대로 씀)
+ * 위에서부터 처음 맞는 분류. 2026-10-16 개선:
+ *  · 일반 낱말이 섞이는 키워드에 경계 추가 — 수시로(자주)·정시에·개발자·유치원·스트리트·컨트리·알려드립니다(공지 투)
+ *  · '댓글로'는 참여 유도(댓글로 참여·응모·신청…)일 때만 이벤트, '모집 중'은 신입생·편입생 등 입시 대상일 때만 입시
+ *  · 브랜드 영상의 고유 문구(새로운 별들·AI를 넘어 등)는 입시·모집보다 먼저 확인
+ *  · '알려드립니다'는 안내·일정·기간·신청·공지·마감이 함께 있으면 정보·꿀팁으로 보지 않음 */
 var TAG_CATEGORIES = [
-  ['이벤트·참여', /이벤트|𝗘𝗩𝗘𝗡𝗧|EVENT|당첨자|경품|추첨|기프티콘|댓글로|참여 방법|달꾸/i],
+  ['이벤트·참여', /이벤트|𝗘𝗩𝗘𝗡𝗧|EVENT|당첨자|경품|추첨|기프티콘|댓글로\s*(참여|응모|신청|도전|남겨\s*주시면|달아\s*주시면)|댓글\s*이벤트|참여 방법|달꾸/i],
   ['홍보대사 모집', /홍보대사\s?(모집|선발)/],
-  ['입시·모집', /수시|정시|입시|원서|모집요강|신입생 모집|모집기간|모집 기간|예비\s?신입생|입학정보|입학 상담|편입|추가모집|입학처|모집\s?중|대학입학/],
+  ['브랜드 영상', /새로운 별들|AI를 넘어|AX 시대|빛나는 순간|가장 나다운|나다운 라이프|같이 만드는 가치|진심을 다합니다/],
+  ['입시·모집', /수시(?!로)|정시(?![에간])|입시|원서|모집요강|신입생 모집|모집기간|모집 기간|예비\s?신입생|입학정보|입학 상담|편입|추가모집|입학처|(신입생|편입생|수시|정시|학생)\s?모집\s?중|대학입학/],
   ['동문 소식', null], // 동문 이름(ALUMNI · 「명단」 탭 역할 '동문') 또는 '동문'·'졸업생 근황' 등 — alumniRe_()
   ['행사·축제', /^(?![\s\S]*(축구부|운동부))[\s\S]*(전북현대|K\s?리그|프로\s?(축구|야구|농구|배구)|직관(?!적))/i], // 외부 구단 방문·직관 (우리 운동부 언급이 없을 때)
   ['체육부 소식', /축구부|U-?\s?리그|U-?LEAGUE|유리그|대학축구|연맹전|왕중왕전|씨름|레슬링|싸울아비|태권도\s?(시범단|대회)|시범단|전국체육대회|전국체전|운동부|체육부|선수단|경기 결과/i],
   ['학사·생활 안내', /수강\s?신청|등록 (기간|일정|안내)|재학생 등록|장학|국가장학금|생활관|기숙사 (신청|입사)|셔틀|직통 버스|버스 운행|천원의 아침밥|아침밥|학사|휴학|복학 신청|전과|만족도 조사|도서관 이용|안내📢|안내 📢|이용 (방법|안내)|운영 안내|신청 안내/],
-  ['성과·뉴스', /선정|우승|수상|최우수|S등급|최고 등급|금메달|협약|유치|개발|1위|1등|최초|획득|성과|기록 경신|글로컬|체결|개소|출범식|📰/],
-  ['행사·축제', /체육대회|JJ체전|체전|전북현대|직관(?!적)|특강|강연|포럼|세미나|컨퍼런스|전시|축제|대동제|중동제|스케치|𝗦𝗞𝗘𝗧𝗖𝗛|SKETCH|학위수여식|입학식|졸업식|기념식|JUMF|페스티벌|공연|패션쇼|FASHION SHOW|선서식|팝업|박람회|부스|토크 콘서트|Major Fair|MAJOR FAIR|메이저 ?페어|가맥|낙화|트리|오리엔테이션|적응력/i],
+  ['성과·뉴스', /선정|우승|수상|최우수|S등급|최고 등급|금메달|협약|유치(?!원)|개발(?![자팀])|1위|1등|최초|획득|성과|기록 경신|글로컬|체결|개소|출범식|📰/],
+  ['행사·축제', /체육대회|JJ체전|체전|전북현대|직관(?!적)|특강|강연|포럼|세미나|컨퍼런스|전시|축제|대동제|중동제|스케치|𝗦𝗞𝗘𝗧𝗖𝗛|SKETCH|학위수여식|입학식|졸업식|기념식|JUMF|페스티벌|공연|패션쇼|FASHION SHOW|선서식|팝업|박람회|부스|토크 콘서트|Major Fair|MAJOR FAIR|메이저 ?페어|가맥|낙화|(?<![스컨])트리(?!트)|오리엔테이션|적응력/i],
   ['시설·공간', /도서관|(?<!(📍|장소)\s*)스타(센터|타워)|해치\s?라운지|편의시설|시설\s?(소개|안내|투어|이용)|신축|개관|리모델링|열람실|좋은 공간|공간\s?(소개|추천)|카페 투어|공부하기 좋은|휴식 장소|장소 추천|랜선 투어|캠퍼스 투어|둘러보기/],
   ['학과·전공', /[가-힣]+(학과|학부)|과잠|전공|오늘의 강의|복담화|단과대|교수님|약학|간호/],
-  ['정보·꿀팁', /꿀팁|팁|알려|방법|가이드|용어|미리 알|재테크|해결|백과|요리|퇴치|공부법|Q&A|FAQ/],
+  ['정보·꿀팁', /꿀팁|팁(?!스)|알려\s?(줄게|줄께|줌|주는|주고|줍니다|드릴게|드릴께|드릴|드려요)|^(?![\s\S]*(안내|일정|기간|신청|공지|마감))[\s\S]*알려\s?드립니다|방법|가이드|용어|미리 알|재테크|해결|백과|요리|퇴치|공부법|Q&A|FAQ/],
   ['학생 이야기', /인터뷰|브이로그|vlog|후기|탐방|봉사|국토대장정|해외|자기소개|What'?s in my bag|하루|공강|MBTI|데이트|고백|새내기|대학생활|갓생|방학|룸투어|어디서 살|여름 기록|방학 기록|일상|선배|동아리|은하수|UCDC/i],
   ['캠퍼스·계절', /벚꽃|겹벚꽃|유채|철쭉|단풍|가을|봄꽃|눈 내린|눈사람|겨울|캠퍼스|핫스팟|일출|명소|피크닉|전망대|드론|FPV|포토 ?스팟|스타정원|야간 개장|해 질|Sunset|노을/i],
   ['시즌 인사', /새해|크리스마스|성탄|어버이날|스승의 날|광복절|추석|설날|애도|추모|수능|응원합니다|파이팅|화이팅|종강|개강|중간고사|기말고사|시험 ?기간|시험 (공부|끝)/],
   ['숏폼·예능', /POV|𝗣𝗢𝗩|VS|챌린지|밈|유형|체험왕|스피드 ?게임|소개팅|마음의 소리|드래곤|ㅋㅋ|레전드|몇 초|맞혀|퀴즈|노래|커버|댄스|Dance|𝘿𝙖𝙣𝙘𝙚|ASMR|비밀|토템/i],
-  ['브랜드 영상', /새로운 별들|AI를 넘어|AX 시대|빛나는 순간|가장 나다운|나다운 라이프|60년|같이 만드는 가치|세상의 중심|진심을 다합니다|슬로건|캠페인/],
+  ['브랜드 영상', /60년|세상의 중심|슬로건|캠페인/], // 고유 문구는 맨 위(입시·모집 앞)에서 먼저 확인
 ];
 
 // 캡션에서 제작 크레딧 앞부분만 분류에 사용
@@ -1059,17 +1378,26 @@ function creditNames(caption) {
     var toks = line.replace(/\([^)]*\)/g, ' ').split(/[\s,&·|:▪️🔸@\/]+/u);
     for (var t = 0; t < toks.length; t++) {
       var n = toks[t];
-      if (!/^[가-힣]{3,4}$/.test(n) || NAME_STOP.test(n) || seen[n]) continue;
-      if (STAFF.indexOf(n) >= 0) continue;
+      if (seen[n] || STAFF.indexOf(n) >= 0) continue;
+      if (!inRoster_(n) && !nameLike_(n)) continue; // 명단 이름(2~4자) 또는 이름 모양(성+2자)만
       seen[n] = 1; out.push({ n: n, amb: amb });
     }
   }
   return out;
 }
+function inRoster_(n) { return AMBASSADORS.indexOf(n) >= 0 || WORKSTUDY.indexOf(n) >= 0; }
+// 명단에 없는 크레딧 토큰이 사람 이름처럼 보이는가: 한글 3자 · 흔한 성으로 시작 · 불용어·조사·기관 접미어가 아님
+// (2자·4자는 '안내'·'신청'·'홍보대사'처럼 이름이 아닌 말이 많아 명단에 있을 때만 인정)
+var NAME_SURNAMES = '김이박최정강조윤장임한오서신권황안송류유전홍고문양손배백허남심노하곽성차주우구민진나지엄채원천방공현함변금';
+var NAME_STOP2 = /(을|를|에서|으로|에게|까지|부터|처럼|도록|니다|해요|하는|하고|했던|있는|없는|들의|들이|생|팀|단|님|회|실|청|처|관|시|군|가)$|^(오류가|정확한|금요일|금메달|이야기|이번에|이번주|이용권|정보원|전주시|한국어|한국인|홍보팀|홍보부|기획단|기자단|운영진|지원단|관계자|선생님|작업물|안녕하|감사합|최고의|최신판|김치전|조회수|장학금|장학생|전공자|전체적|오리엔|유튜버|성공적|차세대|주인공|구독자|진로탐|나만의|우리의|함께한)$/;
+function nameLike_(n) {
+  return /^[가-힣]{3}$/.test(n) && NAME_SURNAMES.indexOf(n.charAt(0)) >= 0 && !NAME_STOP.test(n) && !NAME_STOP2.test(n);
+}
+// 역할은 「명단」(없으면 코드 기본 명단) 기준. 명단에 없는 이름은 '미확인'
 function roleOf(name, ambCtx) {
   if (WORKSTUDY.indexOf(name) >= 0) return '근로장학생';
-  if (AMBASSADORS.indexOf(name) >= 0 || ambCtx) return '홍보대사';
-  return '근로장학생';
+  if (AMBASSADORS.indexOf(name) >= 0) return '홍보대사';
+  return '미확인';
 }
 
 // channel: 인스타그램 | 유튜브 | hong._.video | (타 대학 계정명)
@@ -1078,7 +1406,12 @@ function roleOf(name, ambCtx) {
 function tagProducer(channel, caption, m) {
   var c = String(caption || '');
   var res = { p: '자체 제작', w: [], roles: {} };
-  if (channel === 'hong._.video') { res.p = /🎬\s*(by|By)|by\.?\s*@?[\w._]+/.test(c) ? '학생 크리에이터' : '홍보대사'; return res; }
+  if (channel === 'hong._.video') {
+    // 홍보대사 운영 계정: 캡션에 명단의 홍보대사 이름이 있으면 홍보대사, 없고 「🎬 by …」 크레딧이 있으면 학생 크리에이터
+    if (AMBASSADORS.some(function (n) { return n.length >= 3 && c.indexOf(n) >= 0; })) res.p = '홍보대사';
+    else res.p = /🎬\s*by\.?\s*@?[\w._]+/i.test(c) ? '학생 크리에이터' : '홍보대사';
+    return res;
+  }
   if (channel !== '인스타그램' && channel !== '유튜브') { res.p = '타 대학'; return res; }
   var credit = creditBlock(c);
   var names = creditNames(c);
@@ -1086,7 +1419,7 @@ function tagProducer(channel, caption, m) {
   names.forEach(function (x) {
     var r = roleOf(x.n, x.amb);
     res.w.push(x.n); res.roles[x.n] = r;
-    if (r === '홍보대사') hasAmb = true; else hasWork = true;
+    if (r === '홍보대사') hasAmb = true; else hasWork = true; // '미확인'(명단에 없는 이름)도 예전처럼 근로장학생 제작으로 봄
   });
   if (hasAmb) res.p = '홍보대사';
   else if (hasWork) res.p = '근로장학생';
@@ -1110,7 +1443,7 @@ function ensureTagSheets_(ss) {
       .concat(STAFF.map(n => [n, '직원', '이름이 있어도 자체 제작']));
     sh.getRange(1, 1, rows.length, 3).setValues(rows);
     sh.setFrozenRows(1); sh.getRange('A1:C1').setFontWeight('bold');
-    sh.getRange(rows.length + 2, 1).setValue('※ 홍보대사·근로장학생 명단. 역할을 바꾸거나 이름을 추가하면 다음 태그 계산부터 반영돼요. 명단에 없는 크레딧 이름은 근로장학생으로 봐요.');
+    sh.getRange(rows.length + 2, 1).setValue('※ 홍보대사·근로장학생 명단. 역할을 바꾸거나 이름을 추가하면 다음 태그 계산부터 반영돼요. 명단에 없는 크레딧 이름은 역할 「미확인」으로 표시하고, 제작 주체는 근로장학생으로 봐요.');
   }
   sh = ss.getSheetByName(ADMAP_SHEET);
   if (!sh) {
@@ -1183,11 +1516,14 @@ function saveTags_(ss, bySrc, today) {
 
 // 메뉴: 지금 원본을 읽어 태그만 다시 계산 (스냅샷은 기록하지 않음)
 function recalcTags() {
-  const ss = SpreadsheetApp.getActive() || SpreadsheetApp.openById(SS_ID);
-  const today = Utilities.formatDate(new Date(), TZ, 'yyyy-MM-dd');
-  const bySrc = [];
-  SOURCES.forEach(src => { try { bySrc.push(readSource_(src, today)); } catch (e) { Logger.log(src.channel + ' 오류: ' + e.message); } });
-  saveTags_(ss, bySrc, today);
+  return withLock_('태그 다시 계산', () => {
+    const ss = SpreadsheetApp.getActive() || SpreadsheetApp.openById(SS_ID);
+    const today = Utilities.formatDate(new Date(), TZ, 'yyyy-MM-dd');
+    const bySrc = [];
+    SOURCES.forEach(src => { try { bySrc.push(readSource_(src, today)); } catch (e) { Logger.log(src.channel + ' 오류: ' + e.message); } });
+    saveTags_(ss, bySrc, today);
+    dropCache_();
+  });
 }
 
 // 대시보드용: 태그 맵 · 역할 · 수정값
@@ -1196,11 +1532,12 @@ function loadTagData_(ss) {
   const tags = {}, roles = {};
   const sh = ss.getSheetByName(TAG_SHEET);
   if (sh && sh.getLastRow() > 1) sh.getRange(2, 1, sh.getLastRow() - 1, 7).getValues().forEach(r => {
-    const w = String(r[4] || '').split(',').map(x => x.trim()).filter(Boolean);
+    // 예전 규칙으로 저장된 참여자 중 이름이 아닌 말(「영상을」「있도록」 등)은 여기서 뺌
+    const w = String(r[4] || '').split(',').map(x => x.trim()).filter(n => n && STAFF.indexOf(n) < 0 && (inRoster_(n) || nameLike_(n)));
     tags[r[0] + '§' + r[1]] = { g: String(r[2] || ''), p: String(r[3] || ''), w: w, u: String(r[6] || '') };
-    w.forEach(n => { roles[n] = WORKSTUDY.indexOf(n) >= 0 ? '근로장학생' : AMBASSADORS.indexOf(n) >= 0 ? '홍보대사' : (roles[n] || '근로장학생'); });
+    w.forEach(n => { roles[n] = roleOf(n); });
   });
-  // 크레딧 줄에 '홍보대사'가 붙어 자동으로 홍보대사가 된 이름은 그대로 둠
+  // 역할은 명단 기준만: 홍보대사 / 근로장학생 / 미확인(명단에 없는 이름 — 「명단」 탭에 추가하면 다음 응답부터 반영)
   const fix = {};
   const fs = ss.getSheetByName(TAGFIX_SHEET);
   if (fs && fs.getLastRow() > 1) fs.getRange(2, 1, fs.getLastRow() - 1, 3).getValues().forEach(r => {
@@ -1274,7 +1611,7 @@ function attachTags_(ss, items, keys) {
   items.forEach((it, i) => {
     const t = T.tags[keys[i]] || {};
     const f = T.fix[keys[i].split('§')[1]] || (it.u && T.fix[it.u]) || (t.u && T.fix[t.u]) || {};
-    // it.g·it.p가 미리 있으면(「인스타_과거기록」 탭) 「태그」 탭 자동값보다 우선, 「태그 수정」이 최우선
+    // 반영 순서: 「태그 수정」 > 「태그」 탭 자동값 > it.g·it.p(「인스타_과거기록」 탭 값) > 기본값
     it.g = f.g || t.g || it.g || (it.c === 'hong._.video' ? '숏폼·예능' : '기타');
     it.p = f.p || t.p || it.p || (OWN_CHANNELS.indexOf(it.c) >= 0 ? '자체 제작' : '타 대학');
     // 「태그 수정」에 '체육부 소식/축구부'처럼 적으면 세부 분류까지 지정
@@ -1329,7 +1666,7 @@ function loadIgHistory_(ss, items, rawKey, dates) {
     if (items[key]) { skip++; return; }
     const url = s_(at(r, ix.url));
     items[key] = {
-      c: '인스타그램', t: s_(at(r, ix.type)) || '미분류', d: d, n: s_(at(r, ix.title)).slice(0, 70),
+      c: '인스타그램', t: s_(at(r, ix.type)) || '미분류', d: d, n: cut_(s_(at(r, ix.title)), 70),
       u: /instagram\.com\/(p|reel)\//.test(url) ? url : '',
       h: dates.map(() => null), P: ix.m.map(i => n_(at(r, i))),
       r: n_(at(r, ix.reach)), im: n_(at(r, ix.imp)), x: 1,
@@ -1347,6 +1684,9 @@ function loadIgHistory_(ss, items, rawKey, dates) {
 // 「_hist_채널_yyyy-MM-dd」 탭(과거 Supermetrics 원본 그대로)을 같은 규칙으로 읽어 스냅샷 맨 위에 넣고, 탭은 지움
 // 「_meta_ads」 탭은 「메타 광고」 탭으로 바꿔 둠
 function importHistory() {
+  return withLock_('과거 기록 가져오기', () => { importHistory_(); dropCache_(); });
+}
+function importHistory_() {
   const ss = SpreadsheetApp.getActive() || SpreadsheetApp.openById(SS_ID);
   const snap = ss.getSheetByName(SNAP);
   const tabs = ss.getSheets().filter(s => /^_hist_/.test(s.getName()))
@@ -1371,6 +1711,8 @@ function importHistory() {
           .concat([it.type, it.reach, it.engaged, it.avgSec, it.lengthSec]));
         n++;
       }));
+      // 0건이면 열 이름이 안 맞는 등 읽기 실패로 보고 경고만 남김 — 탭은 지우지 않음(아래 삭제는 '정상'·'건너뜀'만)
+      if (!n) { logs.push([new Date(), '과거·' + ch + ' ' + date, 0, '경고: 읽은 콘텐츠 0건 — 열 이름을 확인해 주세요(탭은 그대로 둠)']); return; }
       bySrc.push(byCh);
       logs.push([new Date(), '과거·' + ch + ' ' + date, n, '정상']);
     } catch (e) {
