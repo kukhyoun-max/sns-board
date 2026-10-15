@@ -10,26 +10,27 @@
   --tile: #f9fafb;
   --fg: #191f28;
   --sub: #4e5968;
-  --muted: #8b95a1;
+  --muted: #5f6b78; /* 글자 대비 4.5:1 이상(이전 #8b95a1은 3.0:1) */
   --line: #e5e8eb;
   /* 전주대학교 UI 컬러 — 메인 JJ 블루 #0078AD, 서브 골드 #CAAE65 · 퍼플 #8F7EAB · 그린 #83B093 · 코랄 #D1906A */
   --jj: #0078ad;
   --navy: #005494;
   --up: #0078ad;
   --up-soft: #e4f1f8;
-  --down: #a5822a;
+  --down: #8a6a1f;
   --down-soft: #f6f0de;
-  --ok: #3f8a5e;
+  --ok: #357850;
   --ok-soft: #e8f3ec;
   --ai: #6f5f9e;
   --ai-soft: #efecf6;
-  --coral: #c0673b;
+  --coral: #a8562e;
   --coral-soft: #fbeee6;
-  --ch-ig: #c0673b;
+  /* 채널 배지의 흰 글자 대비 4.5:1 이상이 되도록 UI 컬러를 한 단계 진하게 */
+  --ch-ig: #a8562e;
   --ch-yt: #005494;
-  --ch-hong: #3f8a5e;
-  --ch-b1: #8f7eab;
-  --ch-b2: #a5822a;
+  --ch-hong: #357850;
+  --ch-b1: #76659a;
+  --ch-b2: #8a6a1f;
   --ch-b3: #6b7684;
   --font: "Noto Sans KR", "Apple SD Gothic Neo", "Malgun Gothic", system-ui, sans-serif;
 }
@@ -39,6 +40,7 @@
     --up: #4fb0dd; --up-soft: #12293a; --down: #d8b55a; --down-soft: #2f2915; --ok: #6fbf8d; --ok-soft: #15301f; --ai: #ab9dd6; --ai-soft: #252036; --coral: #e39a72; --coral-soft: #35221a; --jj: #4fb0dd; --navy: #6fa3d6;
     --ch-ig: #e39a72; --ch-yt: #6fa3d6; --ch-hong: #6fbf8d; --ch-b1: #ab9dd6; --ch-b2: #d8b55a; --ch-b3: #9aa4b1;
     color-scheme: dark;
+    --badge-fg: #17171c;
   }
 }
 :root[data-theme="dark"] {
@@ -46,6 +48,7 @@
   --up: #4fb0dd; --up-soft: #12293a; --down: #d8b55a; --down-soft: #2f2915; --ok: #6fbf8d; --ok-soft: #15301f; --ai: #ab9dd6; --ai-soft: #252036; --coral: #e39a72; --coral-soft: #35221a; --jj: #4fb0dd; --navy: #6fa3d6;
   --ch-ig: #e39a72; --ch-yt: #6fa3d6; --ch-hong: #6fbf8d; --ch-b1: #ab9dd6; --ch-b2: #d8b55a; --ch-b3: #9aa4b1;
   color-scheme: dark;
+  --badge-fg: #17171c;
 }
 * { box-sizing: border-box; }
 [hidden] { display: none !important; }
@@ -63,7 +66,7 @@ button { font: inherit; color: inherit; }
 /* 상단 탭 */
 .top { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 10; background: var(--bg); padding: 14px clamp(16px, 4vw, 32px) 0; display: flex; gap: 18px; overflow-x: auto; scrollbar-width: none; border-bottom: 1px solid var(--line); }
 .top::-webkit-scrollbar { display: none; }
-.tt { background: none; border: 0; padding: 4px 0 12px; font-size: 22px; font-weight: 800; color: #b0b8c1; cursor: pointer; white-space: nowrap; letter-spacing: -0.02em; }
+.tt { background: none; border: 0; padding: 4px 0 12px; font-size: 22px; font-weight: 800; color: #8b95a1; cursor: pointer; white-space: nowrap; letter-spacing: -0.02em; }
 .tt[aria-selected="true"] { color: var(--fg); }
 .status { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; padding: 16px clamp(16px, 4vw, 32px) 4px; background: var(--bg); }
 .status .st { display: flex; gap: 16px; color: var(--sub); font-size: 14px; }
@@ -140,10 +143,10 @@ button { font: inherit; color: inherit; }
 .tag.p-ugc { background: var(--ai-soft); color: var(--ai); }
 .tag.p-col { background: var(--down-soft); color: var(--down); }
 /* 채널 배너 */
-.chb { display: inline-flex; align-items: center; flex: none; font-size: 11.5px; font-weight: 800; letter-spacing: -0.01em; line-height: 1; padding: 4px 7px; border-radius: 5px; color: #fff; background: var(--c); margin-right: 7px; vertical-align: 2px; }
+.chb { display: inline-flex; align-items: center; flex: none; font-size: 11.5px; font-weight: 800; letter-spacing: -0.01em; line-height: 1; padding: 4px 7px; border-radius: 5px; color: var(--badge-fg, #fff); background: var(--c); margin-right: 7px; vertical-align: 2px; }
 .ln { display: flex; align-items: center; min-width: 0; }
 .ln > .tx { min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
-.rk .t .ln .chb { color: #fff; font-size: 11.5px; }
+.rk .t .ln .chb { color: var(--badge-fg, #fff); font-size: 11.5px; }
 .rk .t .ln .tx { color: var(--fg); font-size: 16px; }
 
 /* 분석 표 */
