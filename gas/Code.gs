@@ -1147,7 +1147,7 @@ function loadIgHistory_(ss, items, rawKey, dates) {
   const head = v[0].map(h => String(h).trim());
   const col = n => head.indexOf(n);
   const ix = { key: col('콘텐츠키'), date: col('게시일'), title: col('제목/캡션'), url: col('URL'), type: col('유형'), reach: col('리치'),
-    g: col('분류'), p: col('제작'), imp: col('노출'), m: ['조회수', '좋아요', '댓글', '공유', '저장'].map(col) };
+    g: col('분류'), p: col('제작'), imp: col('노출'), ad: col('광고'), m: ['조회수', '좋아요', '댓글', '공유', '저장'].map(col) };
   if (ix.key < 0 || ix.date < 0) throw new Error(IG_HIST_SHEET + ' 탭에 콘텐츠키·게시일 열이 없어요');
   const s_ = x => (x instanceof Date) ? Utilities.formatDate(x, TZ, 'yyyy-MM-dd') : String(x == null ? '' : x).trim();
   const n_ = x => (x === '' || x === null || isNaN(Number(x))) ? null : Number(x);
@@ -1166,6 +1166,8 @@ function loadIgHistory_(ss, items, rawKey, dates) {
       r: n_(at(r, ix.reach)), im: n_(at(r, ix.imp)), x: 1,
       g: s_(at(r, ix.g)), p: s_(at(r, ix.p)),
     };
+    // 「광고」 열에 값이 있으면(과거 엑셀에 '광고 집행'으로 적힌 게시물) 광고 표시 — 평소 대비·히트율 기준에서 빠짐
+    if (s_(at(r, ix.ad))) items[key].ad = { s: '확인', k: [], x: '과거 기록: ' + s_(at(r, ix.ad)) };
     rawKey[key] = key;
     n++; if (!from || d < from) from = d; if (d > to) to = d;
   });
