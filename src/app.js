@@ -112,7 +112,7 @@
   function line(it) { const ty = typeShort(it.t); return '<span class="ln">' + badge(it.c) + (ty ? '<span class="ty">' + esc(ty) + '</span>' : '') + '<span class="tx">' + esc(title(it.n)) + '</span></span>'; }
   const ptag = p => '<span class="tag ' + (PROD_CLASS[p] || '') + '">' + esc(p) + '</span>';
   const histTag = it => it.x ? '<span class="tag" title="엑셀로 기록하던 시기의 값(기록 당시 수치)">과거 기록</span>' : '';
-  const adtag = it => it.ad ? '<span class="tag p-ad" title="' + esc(it.ad.s === '패턴' ? '광고 리포트 이후 영상 · 조회 패턴으로 추정' : it.ad.mk && !it.ad.k.length ? '메타 광고(게시물 홍보): ' + it.ad.mk.map(metaLabel).join(', ') : '구글애즈 캠페인 연결(' + it.ad.s + '): ' + it.ad.k.join(', ')) + '">광고' + (it.ad.s === '확인' ? '' : '?') + '</span>' : '';
+  const adtag = it => it.ad ? '<span class="tag p-ad" title="' + esc(it.ad.s === '패턴' ? '광고 리포트 이후 영상 · 조회 패턴으로 추정' : it.ad.x && !it.ad.k.length && !it.ad.mk ? it.ad.x + ' (캠페인 정보 없음)' : it.ad.mk && !it.ad.k.length ? '메타 광고(게시물 홍보): ' + it.ad.mk.map(metaLabel).join(', ') : '구글애즈 캠페인 연결(' + it.ad.s + '): ' + it.ad.k.join(', ')) + '">광고' + (it.ad.s === '확인' ? '' : '?') + '</span>' : '';
 
   // ───────── 필터 ─────────
   const since = () => S.range === 'all' ? '' : addDays(D.updated, -Number(S.range));
@@ -1688,7 +1688,7 @@
     if (it.c === '유튜브') {
       const c = completion(it);
       if (c != null) out.push(c >= 0.6 ? ['good', '강점', '시청자의 ' + Math.round(c * 100) + '%가 끝까지 봤어요.', '평균 시청 ' + fmt(it.a) + '초 / 영상 ' + fmt(it.l) + '초'] : c < 0.2 ? ['bad', '보완', '평균적으로 영상의 ' + Math.round(c * 100) + '%만 보고 나갔어요.', '평균 시청 ' + fmt(it.a) + '초 / 영상 ' + fmt(it.l) + '초'] : ['info', '참고', '시청 완료율 ' + Math.round(c * 100) + '%예요.', '평균 시청 ' + fmt(it.a) + '초 / 영상 ' + fmt(it.l) + '초']);
-      if (it.ad) out.push(['info', '광고', it.ad.s === '패턴' ? '광고로 늘어난 조회수로 보여요 (추정).' : it.ad.mk && !it.ad.k.length ? '메타 광고로 홍보한 게시물이에요. 조회·도달에 광고분이 섞여 있어요.' : '구글애즈 광고를 집행한 영상이에요' + (it.ad.s === '추정' ? ' (추정 연결).' : '.'), it.ad.k.length ? it.ad.k.join(' · ') : it.ad.mk ? it.ad.mk.map(metaLabel).join(' · ') : '조회 1만당 좋아요 ' + ((v[1] || 0) / Math.max(1, v[0]) * 1e4).toFixed(1) + '개']);
+      if (it.ad) out.push(['info', '광고', it.ad.s === '패턴' ? '광고로 늘어난 조회수로 보여요 (추정).' : it.ad.x && !it.ad.k.length && !it.ad.mk ? '과거 엑셀 기록에 광고 집행으로 적힌 게시물이에요.' : it.ad.mk && !it.ad.k.length ? '메타 광고로 홍보한 게시물이에요. 조회·도달에 광고분이 섞여 있어요.' : '구글애즈 광고를 집행한 영상이에요' + (it.ad.s === '추정' ? ' (추정 연결).' : '.'), it.ad.k.length ? it.ad.k.join(' · ') : it.ad.mk ? it.ad.mk.map(metaLabel).join(' · ') : it.ad.x ? '캠페인 정보 없음' : '조회 1만당 좋아요 ' + ((v[1] || 0) / Math.max(1, v[0]) * 1e4).toFixed(1) + '개']);
       if (it.e != null && v[0]) { const er = it.e / v[0]; if (er < 0.3) out.push(['bad', '보완', '조회 중 참여로 이어진 비율이 ' + Math.round(er * 100) + '%뿐이에요.', '광고 노출이 많았을 수 있어요']); }
     }
     if (weekly()) { const w = inc(it, mainM(it.c)); if (w != null) out.push([w > 0 ? 'good' : 'info', w > 0 ? '강점' : '참고', '이번 주 ' + MN[mainM(it.c)] + ' ' + sgn(w) + fmt(w), mdLabel(D.dates[D.dates.length - 2]) + ' → ' + mdLabel(D.updated)]); }
@@ -1699,6 +1699,8 @@
   function whyText(it) {
     if (it.ad) {
       const v = last(it) || [], cs = D.ads ? D.ads.camps.filter(c => it.ad.k.includes(c.n)) : [];
+      if (!cs.length && it.ad.mk) return '메타 광고(게시물 홍보)로 노출한 게시물이에요 (' + it.ad.mk.map(metaLabel).join(', ') + '). 조회·도달에 광고분이 섞여 있어 채널 평소와 비교하지 않아요.';
+      if (!cs.length && it.ad.x) return '과거 엑셀 기록에 광고 집행으로 적힌 게시물이에요. 캠페인·광고비 정보는 남아 있지 않아요. 조회·도달에 광고분이 섞여 있어 평소와 비교하지 않아요.';
       if (!cs.length) return '광고 리포트 이후 영상이라 캠페인 연결은 없지만, 조회 ' + fmtK(v[0]) + '에 비해 좋아요가 ' + fmt(v[1]) + '개뿐이라 광고 노출로 늘어난 조회수로 추정해요.';
       const cost = sum(cs.map(c => c.cost)), imp = sum(cs.map(c => c.imp));
       return '구글애즈 캠페인 ' + cs.length + '개(' + cs.map(c => c.n).join(', ') + ')로 노출 ' + fmtK(imp) + '회, 광고비 ' + fmtK(cost) + '원이 집행된 영상이에요. 조회 ' + fmtK(v[0]) + ' 중 상당 부분이 광고 노출이라 채널 평소와 비교하지 않아요.';
