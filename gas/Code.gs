@@ -1303,22 +1303,22 @@ var TAG_CATEGORIES = [
   }],
   ['홍보대사 모집', /홍보대사\s?(모집|선발)/],
   ['브랜드 영상', /새로운 별들|AI를 넘어|AX 시대|빛나는 순간|가장 나다운|나다운 라이프|같이 만드는 가치|진심을 다합니다/],
-  ['입시·모집', /수시(?!로)|정시(?![에간])|입시|원서|모집요강|신입생 모집|모집기간|모집 기간|예비\s?신입생|입학정보|입학 상담|편입|추가모집|입학처|(신입생|편입생|수시|정시|학생)\s?모집\s?중|대학입학/],
+  ['입시·모집', /수시(?!로)|정시(?![에간])|입시|원서|모집요강|신입생 모집|모집기간|모집 기간|예비\s?신입생|입학정보|입학 상담|편입|추가\s?모집|대입\s?전형|입학처|(신입생|편입생|수시|정시|학생)\s?모집\s?중|대학입학/],
   ['학생 이야기', /패션왕을 찾아라/], // 단과대 이름이 붙는 시리즈라 학과·전공보다 먼저
   ['동문 소식', null], // 동문 이름(ALUMNI · 「명단」 탭 역할 '동문') 또는 '동문'·'졸업생 근황' 등 — alumniRe_()
   ['행사·축제', /^(?![\s\S]*(축구부|운동부))[\s\S]*(전북현대|K\s?리그|프로\s?(축구|야구|농구|배구)|직관(?!적))/i], // 외부 구단 방문·직관 (우리 운동부 언급이 없을 때)
   ['체육부 소식', /축구부|U-?\s?리그|U-?LEAGUE|유리그|대학축구|연맹전|왕중왕전|씨름|레슬링|싸울아비|태권도\s?(시범단|대회)|시범단|전국체육대회|전국체전|운동부|체육부|선수단|경기 결과/i],
   ['학사·생활 안내', /수강\s?신청|등록 (기간|일정|안내)|재학생 등록|장학|국가장학금|생활관|기숙사 (신청|입사)|셔틀|직통 버스|버스 운행|천원의 아침밥|아침밥|학사|휴학|복학 신청|전과|만족도 조사|도서관 이용|안내📢|안내 📢|이용 (방법|안내)|운영 안내|신청 안내/],
   ['성과·뉴스', /선정|우승|수상|최우수|S등급|최고 등급|금메달|협약|유치(?!원)|개발(?![자팀])|1위|1등|최초|획득|성과|기록 경신|글로컬|체결|개소|출범식|📰/],
-  ['행사·축제', /체육대회|JJ체전|체전|전북현대|직관(?!적)|특강|강연|포럼|세미나|컨퍼런스|전시|축제|대동제|중동제|스케치|𝗦𝗞𝗘𝗧𝗖𝗛|SKETCH|학위수여식|입학식|졸업식|기념식|JUMF|페스티벌|공연|패션쇼|FASHION SHOW|선서식|팝업|박람회|부스|토크 콘서트|Major Fair|MAJOR FAIR|메이저 ?페어|가맥|낙화|(?<![스컨])트리(?!트)|오리엔테이션|적응력|학생성공주간|간담회|축하연|워크숍|발대식|해단식|문학기행|제이제이 랜드|JJ ?LAND/i],
+  ['행사·축제', /체육대회|JJ체전|체전|전북현대|직관(?!적)|특강|강연|포럼|세미나|컨퍼런스|전시|축제|대동제|중동제|스케치|𝗦𝗞𝗘𝗧𝗖𝗛|SKETCH|학위수여식|입학식|졸업식|기념식|JUMF|페스티벌|공연|패션쇼|FASHION SHOW|선서식|팝업|박람회|부스|토크 콘서트|Major Fair|MAJOR FAIR|메이저 ?페어|가맥|낙화|(?<![스컨])트리(?!트)|오리엔테이션|적응력|학생성공주간|간담회|축하연|워크숍|발대식|해단식|문학기행|제이제이 랜드|JJ ?LAND|롤드컵|e-?sports|이스포츠|전우전|학위\s?수여|멘토링|환영\s?인사|라이브\s?중계|콘서트|영화제|취임|시무/i],
   ['시설·공간', /도서관|(?<!(📍|장소)\s*)스타(센터|타워)|해치\s?라운지|글로벌\s?라운지|편의\s?시설|시설\s?(소개|안내|투어|이용|모음)|기숙사|[1-4]인실|보존\s?서고|루디아\s?홀|학습\s?공간|진리관|신축|개관|리모델링|열람실|좋은 공간|공간\s?(소개|추천)|카페 투어|공부하기 좋은|휴식 장소|장소 추천|랜선 투어|캠퍼스 투어|둘러보기/],
-  ['학과·전공', /[가-힣]+(학과|학부)|과잠|전공|오늘의 강의|복담화|단과대|[가-힣]{2,6}대학(을|를)?\s?소개|교수님|약학|간호/],
-  ['정보·꿀팁', /꿀팁|팁(?!스)|알려\s?(줄게|줄께|줌|주는|주고|줍니다|드릴게|드릴께|드릴|드려요)|^(?![\s\S]*(안내|일정|기간|신청|공지|마감))[\s\S]*알려\s?드립니다|방법|가이드|용어|미리 알|재테크|해결|백과|요리|퇴치|공부법|Q&A|FAQ/],
-  ['학생 이야기', /인터뷰|브이로그|vlog|후기|탐방|봉사|국토대장정|해외|자기소개|What'?s in my bag|하루|공강|MBTI|데이트|고백|새내기|대학생활|갓생|방학|룸투어|어디서,?\s?(어떻게\s)?살|여름 기록|방학 기록|일상|선배|동아리|은하수|UCDC|연수|한\s?달 살기|교환학생|파란사다리|학식|썰|RC\s?공동체|서포터즈|JUNI:?ON|주니온|체험기|체험하기|취미|필수 활동|자주 가는|신입생에게|재학생에게/i],
-  ['캠퍼스·계절', /벚꽃|겹벚꽃|유채|철쭉|단풍|가을|봄꽃|눈 내린|눈사람|겨울|캠퍼스|핫스팟|일출|명소|피크닉|전망대|드론|FPV|포토 ?스팟|스타정원|야간 개장|해 질|Sunset|노을/i],
-  ['시즌 인사', /새해|크리스마스|성탄|어버이날|스승의 날|광복절|추석|설날|애도|추모|수능|응원합니다|파이팅|화이팅|종강|개강|중간고사|기말고사|시험 ?기간|시험 (공부|끝)/],
-  ['예능·챌린지', /POV|𝗣𝗢𝗩|VS|챌린지|밈|유형|체험왕|스피드 ?게임|소개팅|마음의 소리|드래곤|ㅋㅋ|레전드|몇 초|맞혀|퀴즈|노래|커버|댄스|Dance|𝘿𝙖𝙣𝙘𝙚|ASMR|비밀|토템|연애|토론회|들어주마|갸루|다섯 글자|초\s?안에|웃으면|눈 마주치면|오싹|공포|복학생|\d{2}학번|TOP\s?\d|게임|버티기|challenge|이상형|하우머치|알고리즘/i],
-  ['브랜드 영상', /60년|세상의 중심|슬로건|캠페인/], // 고유 문구는 맨 위(입시·모집 앞)에서 먼저 확인
+  ['학과·전공', /[가-힣]+(학과|학부)|과잠|전공|오늘의 강의|복담화|단과대|[가-힣]{2,6}대학(을|를)?\s?소개|교수님|약학|간호|출품작|학과별/],
+  ['정보·꿀팁', /꿀팁|팁(?!스)|알려\s?(줄게|줄께|줌|주는|주고|줍니다|드릴게|드릴께|드릴|드려요)|^(?![\s\S]*(안내|일정|기간|신청|공지|마감))[\s\S]*알려\s?드립니다|방법|가이드|용어|미리 알|재테크|해결|백과|요리|퇴치|공부법|Q&A|FAQ|홍알홍알|용돈|취업을 원해|Dream ?JOB/i],
+  ['학생 이야기', /인터뷰|브이로그|vlog|후기|탐방|봉사|국토대장정|해외|자기소개|What'?s in my|하루|공강|MBTI|데이트|고백|새내기|대학생활|갓생|방학|룸투어|어디서,?\s?(어떻게\s)?살|여름 기록|방학 기록|일상|선배|동아리|은하수|UCDC|연수|한\s?달 살기|교환학생|파란사다리|학식|썰|RC\s?공동체|서포터즈|JUNI:?ON|주니온|체험기|체험하기|취미|필수 활동|자주 가는|신입생에게|재학생에게|궁금하다면|이야기,? 들어|온 이유|강철부대|합격한/i],
+  ['캠퍼스·계절', /벚꽃|겹벚꽃|유채|철쭉|단풍|가을|봄꽃|눈 내린|눈사람|겨울|캠퍼스|핫스팟|일출|명소|피크닉|전망대|드론|FPV|포토 ?스팟|스타정원|야간 개장|해 질|Sunset|노을|새벽|과거와 현재|인생샷|호수|새하얗게/i],
+  ['시즌 인사', /새해|크리스마스|𝐂𝐡𝐫𝐢𝐬𝐭𝐦𝐚𝐬|𝐂𝐡𝐢𝐫𝐬𝐭𝐦𝐚𝐬|Merry Christmas|성탄|어버이날|스승의 (날|은혜)|스승(님)?에게|한글날|현충일|기림의 날|년은 어땠|광복절|추석|설날|애도|추모|수능|응원합니다|파이팅|화이팅|종강|개강|중간고사|기말고사|시험 ?기간|시험 (공부|끝)/],
+  ['예능·챌린지', /POV|𝗣𝗢𝗩|VS|챌린지|밈|유형|체험왕|스피드 ?게임|소개팅|마음의 소리|드래곤|ㅋㅋ|레전드|몇 초|맞혀|퀴즈|노래|커버|댄스|Dance|𝘿𝙖𝙣𝙘𝙚|ASMR|비밀|토템|연애|토론회|들어주마|갸루|다섯 글자|초\s?안에|웃으면|눈 마주치면|오싹|공포|복학생|\d{2}학번|TOP\s?\d|게임|버티기|challenge|이상형|하우머치|알고리즘|솔까말|솔직히 까놓고|한심좌|환심좌|패러디|방위대|EYES/i],
+  ['브랜드 영상', /60년|세상의 중심|슬로건|캠페인|선행\s?릴레이|\bCF\b|홍보\s?동영상|수퍼스타를 키우는|함께 한다는 것|^Jeonju University\s*$/], // 고유 문구는 맨 위(입시·모집 앞)에서 먼저 확인
 ];
 
 // 캡션에서 제작 크레딧 앞부분만 분류에 사용
@@ -1623,6 +1623,65 @@ function ensureAdSheets_(ss) {
     const sh = ss.insertSheet(GADS_SHEET);
     sh.getRange(1, 1).setValue('※ 구글애즈 → 보고서 → 「캠페인」 보고서(열: 일·캠페인·노출수·클릭수·비용, 기간: 2026-02-01 ~ 어제)를 내보내 A1부터 그대로 붙여 넣으세요. 영어(Day·Campaign·Impr.·Clicks·Cost)도 돼요. 이 안내 줄은 지워도 돼요.');
   }
+  if (!ss.getSheetByName(GVID_SHEET)) {
+    const sh = ss.insertSheet(GVID_SHEET);
+    sh.getRange(1, 1).setValue('※ 구글애즈 → 보고서 → 「동영상」 보고서(열: 캠페인·동영상 URL 또는 동영상 ID·동영상·비용·노출수·조회수, 기간: 전체)를 내보내 A1부터 그대로 붙여 넣으세요. 여기 있는 영상은 광고 집행 영상으로 「확인」 표시돼요. 이 안내 줄은 지워도 돼요.');
+  }
+  if (!ss.getSheetByName(META_AD_SHEET)) {
+    const sh = ss.insertSheet(META_AD_SHEET);
+    sh.getRange(1, 1).setValue('※ 메타 광고 관리자 → 「광고」 탭 → 내보내기(열: 캠페인 이름·광고 이름·본문·인스타그램 게시물 링크·시작·종료·지출 금액·노출·도달, 기간: 전체)를 A1부터 그대로 붙여 넣으세요. 게시물 링크나 본문(캡션)으로 인스타 게시물에 광고 표시를 붙여요. 이 안내 줄은 지워도 돼요.');
+  }
+}
+// ───────── 광고 소재 ↔ 콘텐츠 연결 (ID·링크·본문이 있는 광고 보고서) ─────────
+// 캠페인 보고서에는 영상·게시물 정보가 없어서 「광고 매핑」(사람이 적음)·캡션 앞부분·조회 패턴으로 짐작했는데,
+// 구글 「동영상」 보고서와 메타 「광고」 단위 보고서를 붙여 두면 소재를 직접 맞춘다(이 연결이 가장 우선).
+const GVID_SHEET = '구글애즈 동영상';
+const META_AD_SHEET = '메타 광고(광고별)';
+function adHead_(v, need) {
+  for (let r = 0; r < Math.min(v.length, 8); r++) {
+    const head = v[r].map(h => String(h).trim());
+    if (head.some(h => need.test(h))) return { r: r, head: head };
+  }
+  return null;
+}
+function loadAdLinks_(ss) {
+  const out = { g: [], m: [] };
+  const s_ = x => (x instanceof Date) ? Utilities.formatDate(x, TZ, 'yyyy-MM-dd') : String(x == null ? '' : x).trim();
+  const find = (head, re) => head.findIndex(h => re.test(h));
+  const ytId = x => { const m = /(?:v=|youtu\.be\/|shorts\/|embed\/)([\w-]{11})/.exec(x); return m ? m[1] : (/^[\w-]{11}$/.test(x) ? x : ''); };
+  try {
+    const sh = ss.getSheetByName(GVID_SHEET);
+    const v = sh && sh.getLastRow() > 1 ? sh.getDataRange().getValues() : [];
+    const h = v.length ? adHead_(v, /^(캠페인|Campaign)$/i) : null;
+    if (h) {
+      const cc = find(h.head, /^(캠페인|Campaign)$/i);
+      const ic = find(h.head, /(동영상|Video|YouTube).*(ID|URL)|^URL$/i);
+      const tc = find(h.head, /^(동영상|Video|동영상 제목|Video title)$/i);
+      v.slice(h.r + 1).forEach(r => {
+        const c = s_(r[cc]); if (!c || /^(합계|Total)/i.test(c)) return;
+        let id = ic >= 0 ? ytId(s_(r[ic])) : '';
+        if (!id) { const u = r.map(s_).find(x => /youtu/.test(x)); id = u ? ytId(u) : ''; }
+        const title = tc >= 0 ? s_(r[tc]) : '';
+        if (id || title) out.g.push({ c: c, id: id, title: title });
+      });
+    }
+  } catch (e) {}
+  try {
+    const sh = ss.getSheetByName(META_AD_SHEET);
+    const v = sh && sh.getLastRow() > 1 ? sh.getDataRange().getValues() : [];
+    const h = v.length ? adHead_(v, /^(캠페인 이름|Campaign name)$/i) : null;
+    if (h) {
+      const cc = find(h.head, /^(캠페인 이름|Campaign name)$/i), ac = find(h.head, /^(광고 이름|Ad name)$/i);
+      const bc = find(h.head, /본문|Body|광고 문구|Primary text/i), lc = find(h.head, /(게시물|post).*(링크|link|URL)|퍼머링크|permalink/i);
+      const ec = find(h.head, /^(종료|보고 종료|Ends|Reporting ends)$/i);
+      v.slice(h.r + 1).forEach(r => {
+        const c = s_(r[cc]); if (!c) return;
+        const link = lc >= 0 ? s_(r[lc]) : (r.map(s_).filter(x => /instagram\.com\//.test(x))[0] || '');
+        out.m.push({ c: c, ad: ac >= 0 ? s_(r[ac]) : '', body: bc >= 0 ? s_(r[bc]) : '', link: link, end: ec >= 0 ? s_(r[ec]).slice(0, 10) : '' });
+      });
+    }
+  } catch (e) {}
+  return out;
 }
 // 머리글 행을 찾아(안내 줄·보고서 제목 줄 건너뜀) 일·캠페인·노출·비용·클릭 열 위치를 돌려준다
 function gadsCols_(v) {
@@ -1760,6 +1819,43 @@ function attachTags_(ss, items, keys) {
       if (iu >= 0 && iv >= 0) lv.slice(1).forEach(r => { const id = vid(String(r[iu])); if (id) L[id] = [Number(r[iv]) || 0, il >= 0 ? Number(r[il]) || 0 : null, ic >= 0 ? Number(r[ic]) || 0 : null, ish >= 0 ? Number(r[ish]) || 0 : null]; });
       items.forEach(it => { if (it.c === '유튜브') { const x = L[vid(it.u)]; if (x) it.L = x; } });
     }
+  } catch (e) {}
+  // 소재 보고서(「구글애즈 동영상」·「메타 광고(광고별)」)로 직접 연결 — 가장 확실하므로 추정·패턴보다 우선해 「확인」으로 올림
+  try {
+    const L = loadAdLinks_(ss);
+    const nz = x => String(x || '').replace(/(\.\.\.|…)\s*$/, '').replace(/[\s⠀.]+/g, '');
+    const tn = x => String(x || '').replace(/\s+/g, ' ').trim();
+    const camp = {}; A.camps.forEach(c => { camp[c.n] = c; });
+    const mark = (it, c, meta) => {
+      it.ad = it.ad || { s: '확인', k: [] };
+      if (it.ad.s !== '확인') { it.ad.s = '확인'; if (!meta) it.ad.k = []; } // 추정·패턴 연결은 확인된 소재로 대체
+      if (meta) { it.ad.mk = it.ad.mk || []; if (it.ad.mk.indexOf(c) < 0) it.ad.mk.push(c); }
+      else if (it.ad.k.indexOf(c) < 0) it.ad.k.push(c);
+    };
+    const yts = items.filter(it => it.c === '유튜브');
+    L.g.forEach(x => {
+      const hits = x.id ? yts.filter(it => vid(it.u) === x.id) : yts.filter(it => tn(it.n) === tn(x.title));
+      hits.forEach(it => {
+        mark(it, x.c, false);
+        const c = camp[x.c], id = vid(it.u);
+        if (c && id && c.videos.indexOf(id) < 0) { c.videos.push(id); c.conf = '확인'; }
+      });
+    });
+    const igs = items.filter(it => it.c === '인스타그램').map(it => [it, nz(it.n)]);
+    L.m.forEach(x => {
+      const code = igCode(x.link);
+      let hits = code ? igs.filter(([it]) => igCode(it.u) === code).map(p => p[0]) : [];
+      if (!hits.length) {
+        // 본문(캡션) 또는 광고 이름(「Instagram 게시물: 캡션…」) 앞 30자로 맞춤
+        const t = x.body || String(x.ad).replace(/^(Instagram (게시물|post)|게시물):\s*"?/i, '');
+        const key = nz(t).slice(0, 30);
+        if (key.length >= 8) {
+          hits = igs.filter(([it, n]) => n.length >= 8 && (!x.end || it.d <= x.end) && n.startsWith(key.slice(0, Math.min(key.length, n.length)))).map(p => p[0]);
+          if (hits.length > 1) hits = [hits.sort((a, b) => a.d < b.d ? 1 : -1)[0]]; // 같은 문구로 시작하는 시리즈면 종료일 직전 게시물
+        }
+      }
+      hits.forEach(it => mark(it, x.c, true));
+    });
   } catch (e) {}
   // 캠페인 연결이 없는 유튜브 영상도 조회 패턴(조회 10만 이상·1만 조회당 좋아요 3개 미만)이면 광고 추정 — 기간과 관계없이
   // (예전에는 광고 리포트 이후 영상만 봤으나, 리포트 안에도 영상 연결이 없는 캠페인이 많아 전 기간으로 넓힘)
