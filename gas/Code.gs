@@ -1445,9 +1445,8 @@ function tagProducer(channel, caption, m) {
   var c = String(caption || '');
   var res = { p: '자체 제작', w: [], roles: {} };
   if (channel === 'hong._.video') {
-    // 홍보대사 운영 계정: 캡션에 명단의 홍보대사 이름이 있으면 홍보대사, 없고 「🎬 by …」 크레딧이 있으면 학생 크리에이터
-    if (AMBASSADORS.some(function (n) { return n.length >= 3 && c.indexOf(n) >= 0; })) res.p = '홍보대사';
-    else res.p = /🎬\s*by\.?\s*@?[\w._]+/i.test(c) ? '학생 크리에이터' : '홍보대사';
+    // 홍보대사 운영 계정: 크레딧(「🎬 by …」)과 상관없이 모두 홍보대사 제작
+    res.p = '홍보대사';
     return res;
   }
   if (channel !== '인스타그램' && channel !== '유튜브') { res.p = '타 대학'; return res; }

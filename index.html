@@ -1147,7 +1147,7 @@ details.adv[open] > summary { border-bottom: 1px solid var(--line); }
     const p = w.cur;
     return '<div class="wk-card' + (wide ? ' wide' : '') + '" style="--c:' + col + '"><div class="wk-h">' + label + '</div>' +
       '<div class="wk-v num">+' + fmtK(p.v) + '<small>조회</small></div>' + (w.prev ? '<div class="wk-s">' + dayChg(w) + '</div>' : '') +
-      (p.nw.length ? wkBar(p, col) + '<div class="wk-l"><span><i style="background:' + col + '"></i>새 게시물 ' + p.nw.length + '개 <b class="num">' + fmtK(p.vn) + '</b></span><span><i style="background:' + col + '55"></i>기존 게시물 <b class="num">' + fmtK(p.vo) + '</b></span></div>' : '<div class="wk-s mu">새 게시물 없음 · 모두 기존 콘텐츠에서 늘었어요</div>') +
+      wkBar(p, col) + '<div class="wk-l"><span><i style="background:' + col + '"></i>' + (p.nw.length ? '새 게시물 ' + p.nw.length + '개 <b class="num">' + fmtK(p.vn) + '</b>' : '새 게시물 없음') + '</span><span><i style="background:' + col + '55"></i>기존 게시물 <b class="num">' + fmtK(p.vo) + '</b></span></div>' +
       (foot ? '<div class="wk-f">' + foot + '</div>' : '') + '</div>';
   }
   function chFoot(ch) {
