@@ -2220,8 +2220,8 @@
       (s.length ? '<b>' + s.map(chName).join(' · ') + '</b> 게시물 값' : '') + (s.length && a.length ? ', ' : '') + (a.length ? '<b>' + a.map(chName).join(' · ') + '</b> 계정 지표' : '') +
       '<small>' + mdLabel(d.d0) + ' → ' + mdLabel(d.d1) + ' 두 기록의 값이 모두 같아요. 이 구간 증가는 0이 아니라 셀 수 없어서 합계에서 뺐어요. Supermetrics 예약 갱신을 확인해 주세요.</small></div>';
   }
-  const nz = x => String(x || '').replace(/\s+/g, '').replace(/(\.\.\.|…)$/, '');
-  const metaLabel = n => { const m = /^Instagram 게시물:\s*([\s\S]*)$/.exec(n || ''); return (m ? m[1] : n || '').split('\n')[0].replace(/(\.\.\.|…)$/, '').trim() || n; };
+  const nz = x => String(x || '').replace(/(\.\.\.|…)\s*$/, '').replace(/[\s⠀.]+/g, '');
+  const metaLabel = n => { const m = /^(?:Instagram (?:게시물|post)|게시물):\s*"?([\s\S]*?)"?$/i.exec(n || ''); return (m ? m[1] : n || '').split('\n')[0].replace(/(\.\.\.|…)$/, '').trim() || n; };
   function prep() {
     if (D.items.some(it => it.L)) { D.coverage = D.coverage || {}; D.coverage['유튜브'] = '2012-01-01'; }
     const igMin = D.items.filter(it => it.c === '인스타그램').map(it => it.d).sort()[0];
@@ -2253,7 +2253,8 @@
     const ig = D.items.filter(it => it.c === '인스타그램').map(it => [it, nz(it.n)]);
     M.forEach(c => {
       c.posts = [];
-      const m = /^Instagram 게시물:\s*([\s\S]*)$/.exec(c.n || ''); if (!m) return;
+      // 메타 내보내기 이름: 「Instagram 게시물: 캡션…」 · 「Instagram post: 캡션…」 · 「게시물: "캡션"」
+      const m = /^(?:Instagram (?:게시물|post)|게시물):\s*"?([\s\S]*?)"?$/i.exec(c.n || ''); if (!m) return;
       const key = nz(m[1]).slice(0, 30); if (key.length < 8) return;
       const end = /^\d{4}-\d{2}-\d{2}$/.test(c.end) ? c.end : '9999-12-31';
       const hits = ig.filter(([it, n]) => n.length >= 8 && it.d <= end && n.startsWith(key.slice(0, Math.min(key.length, n.length)))).map(x => x[0]);
@@ -2262,9 +2263,12 @@
       pick.forEach(it => {
         c.posts.push(it);
         it.ad = it.ad || { s: '확인', k: [] };
-        (it.ad.mk = it.ad.mk || []).push(c.n);
+        it.ad.mk = it.ad.mk || [];
+        if (!it.ad.mk.includes(c.n)) it.ad.mk.push(c.n);
       });
     });
+    // 서버가 「광고 매핑」 탭으로 붙인 메타 캠페인(트래픽 광고 등)도 캠페인별 게시물에 넣음
+    D.items.forEach(it => { if (it.ad && it.ad.mk) it.ad.mk.forEach(n => M.filter(c => c.n === n).forEach(c => { if (!c.posts.includes(it)) c.posts.push(it); })); });
   }
   function boot(data) {
     D = data;
