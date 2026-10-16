@@ -78,5 +78,6 @@ Apps Script (gas/Code.gs, 스냅샷 시트에 연결)  ──월 07:00 트리거
 - 나머지는 스크립트·Supermetrics가 채우는 탭이에요. 손으로 고치지 않아요.
 
 ## 알려진 이슈
-- 이 PC(Windows)에는 node·clasp가 없어 Apps Script는 편집기에 `gas/Code.gs`를 붙여 넣고 **기존 배포를 새 버전으로** 배포해요. 저장소의 `gas/Code.gs`가 배포본보다 앞설 수 있어요(커밋 메시지에 '배포 전' 표시).
+- 이 PC(Windows)에 Node·clasp 2.4.2 설치됨(2026-10-16). `gas/.clasp.json`(스크립트 ID, 커밋 안 함)·`gas/.claspignore`(Code.gs·appsscript.json만 올림)로 연결. 배포할 때만 `clasp login`(권한: Apps Script 프로젝트·배포·웹앱 게시 3개만) → `cd gas && clasp push` → `clasp deploy -i <배포ID>` → 끝나면 `clasp logout`.
+- Claude가 PowerShell에서 실행할 때는 PATH에 `C:\Program Files\nodejs`와 `%APPDATA%\npm`을 앞에 붙이고 `clasp.cmd`로 호출해요.
 - 구글애즈 보고서가 26.01.30에서 멈춰 있어요 (kukhyoun5 계정).
