@@ -1384,6 +1384,9 @@ var AMBASSADORS = [
 var WORKSTUDY = ['김산하','김민우','문민경','최민경','노준영','신재광','박종원','김윤태'];
 // 홍보실 직원 — 이름이 있어도 자체 제작
 var STAFF = ['노의진'];
+// 「명단」 역할 '서포터즈'(대학혁신지원사업 JUNI:ON 등 학과·기관 학생 기자단) → 제작 주체 학과·기관 협업
+// 「명단」 역할 '출연'(크레딧에 이름이 있지만 제작자가 아닌 동아리원·출연자) → 참여자·제작 판단에서 뺌
+var PARTNER = [], EXCLUDE = [];
 var NAME_STOP = /(학과|학부|대학|대학교|교수|센터|사업단|위원회|학생회|홍보실|홍보대사|서포터즈|콘텐츠|숏폼|유튜브|인스타|기획|제작|촬영|편집|출연|시나리오|재학생|박물관|지원실|입학처|입학|협조|제공|그림|디자인|사진|영상|음악|내레이션|나레이션|썸네일|자막|모델|도움|주니온|홈페이지|전주대|자세히|애플워치|졸업생|베이스|글로벌|호텔리어|서비스|이벤트|당첨자|안내|일정|장소|기간|문의|블로그|페이스북|트위터|카카오톡)$/;
 
 function creditBlock(caption) {
@@ -1412,14 +1415,14 @@ function creditNames(caption) {
     var toks = line.replace(/\([^)]*\)/g, ' ').split(/[\s,&·|:▪️🔸@\/]+/u);
     for (var t = 0; t < toks.length; t++) {
       var n = toks[t];
-      if (seen[n] || STAFF.indexOf(n) >= 0) continue;
+      if (seen[n] || STAFF.indexOf(n) >= 0 || EXCLUDE.indexOf(n) >= 0) continue;
       if (!inRoster_(n) && !nameLike_(n)) continue; // 명단 이름(2~4자) 또는 이름 모양(성+2자)만
       seen[n] = 1; out.push({ n: n, amb: amb });
     }
   }
   return out;
 }
-function inRoster_(n) { return AMBASSADORS.indexOf(n) >= 0 || WORKSTUDY.indexOf(n) >= 0; }
+function inRoster_(n) { return AMBASSADORS.indexOf(n) >= 0 || WORKSTUDY.indexOf(n) >= 0 || PARTNER.indexOf(n) >= 0; }
 // 명단에 없는 크레딧 토큰이 사람 이름처럼 보이는가: 한글 3자 · 흔한 성으로 시작 · 불용어·조사·기관 접미어가 아님
 // (2자·4자는 '안내'·'신청'·'홍보대사'처럼 이름이 아닌 말이 많아 명단에 있을 때만 인정)
 var NAME_SURNAMES = '김이박최정강조윤장임한오서신권황안송류유전홍고문양손배백허남심노하곽성차주우구민진나지엄채원천방공현함변금';
@@ -1430,6 +1433,7 @@ function nameLike_(n) {
 // 역할은 「명단」(없으면 코드 기본 명단) 기준. 명단에 없는 이름은 '미확인'
 function roleOf(name, ambCtx) {
   if (WORKSTUDY.indexOf(name) >= 0) return '근로장학생';
+  if (PARTNER.indexOf(name) >= 0) return '서포터즈';
   if (AMBASSADORS.indexOf(name) >= 0) return '홍보대사';
   return '미확인';
 }
@@ -1449,14 +1453,15 @@ function tagProducer(channel, caption, m) {
   if (channel !== '인스타그램' && channel !== '유튜브') { res.p = '타 대학'; return res; }
   var credit = creditBlock(c);
   var names = creditNames(c);
-  var hasAmb = /홍보대사/.test(credit), hasWork = false;
+  var hasAmb = /홍보대사/.test(credit), hasWork = false, hasPartner = /서포터즈|JUNI:?ON|주니온/i.test(credit); // 크레딧에 서포터즈가 적혀 있으면 명단 없이도 협업
   names.forEach(function (x) {
     var r = roleOf(x.n, x.amb);
     res.w.push(x.n); res.roles[x.n] = r;
-    if (r === '홍보대사') hasAmb = true; else hasWork = true; // '미확인'(명단에 없는 이름)도 예전처럼 근로장학생 제작으로 봄
+    if (r === '홍보대사') hasAmb = true; else if (r === '서포터즈') hasPartner = true; else hasWork = true; // '미확인'(명단에 없는 이름)도 예전처럼 근로장학생 제작으로 봄
   });
   if (hasAmb) res.p = '홍보대사';
-  else if (hasWork) res.p = '근로장학생';
+  else if (hasWork && !(hasPartner && names.every(function (x) { return roleOf(x.n) !== '근로장학생'; }))) res.p = '근로장학생'; // 서포터즈와 미확인만 있으면 협업으로
+  else if (hasPartner) res.p = '학과·기관 협업';
   else if (/Created by|by\s*@/.test(credit)) res.p = '학생 크리에이터';
   else if (/(협조|제공|서포터즈|총학생회|주니온|JUNI:?ON|사업단|위원회)/i.test(credit) && !/대외협력홍보실/.test(credit)) res.p = '학과·기관 협업';
   return res;
@@ -1477,7 +1482,7 @@ function ensureTagSheets_(ss) {
       .concat(STAFF.map(n => [n, '직원', '이름이 있어도 자체 제작']));
     sh.getRange(1, 1, rows.length, 3).setValues(rows);
     sh.setFrozenRows(1); sh.getRange('A1:C1').setFontWeight('bold');
-    sh.getRange(rows.length + 2, 1).setValue('※ 홍보대사·근로장학생 명단. 역할을 바꾸거나 이름을 추가하면 다음 태그 계산부터 반영돼요. 명단에 없는 크레딧 이름은 역할 「미확인」으로 표시하고, 제작 주체는 근로장학생으로 봐요.');
+    sh.getRange(rows.length + 2, 1).setValue('※ 홍보대사·근로장학생 명단. 역할을 바꾸거나 이름을 추가하면 다음 태그 계산부터 반영돼요. 역할: 홍보대사 · 근로장학생 · 직원 · 동문 · 서포터즈(학과·기관 협업으로 집계) · 출연(제작자가 아님, 참여자에서 뺌). 명단에 없는 크레딧 이름은 역할 「미확인」으로 표시하고, 제작 주체는 근로장학생으로 봐요.');
   }
   sh = ss.getSheetByName(ADMAP_SHEET);
   if (!sh) {
@@ -1512,14 +1517,17 @@ function loadRoster_(ss) {
   const sh = ss.getSheetByName(ROSTER_SHEET);
   if (!sh || sh.getLastRow() < 2) return;
   const v = sh.getRange(2, 1, sh.getLastRow() - 1, 2).getValues();
-  const amb = [], ws = [], st = [];
+  const amb = [], ws = [], st = [], pt = [], ex = [];
   v.forEach(r => {
     const n = String(r[0]).trim(), role = String(r[1]).trim();
     if (!/^[가-힣]{2,4}$/.test(n)) return;
     if (role === '홍보대사') amb.push(n); else if (role === '근로장학생') ws.push(n); else if (role === '직원') st.push(n);
     else if (role === '동문' && ALUMNI.indexOf(n) < 0) ALUMNI.push(n);
+    else if (role === '서포터즈' || role === '협업') pt.push(n);
+    else if (role === '출연' || role === '제외') ex.push(n);
   });
   if (amb.length || ws.length) { AMBASSADORS = amb; WORKSTUDY = ws; STAFF = st; }
+  PARTNER = pt; EXCLUDE = ex;
 }
 
 // 원본 item(전체 캡션 포함) → 태그
@@ -1567,7 +1575,7 @@ function loadTagData_(ss) {
   const sh = ss.getSheetByName(TAG_SHEET);
   if (sh && sh.getLastRow() > 1) sh.getRange(2, 1, sh.getLastRow() - 1, 7).getValues().forEach(r => {
     // 예전 규칙으로 저장된 참여자 중 이름이 아닌 말(「영상을」「있도록」 등)은 여기서 뺌
-    const w = String(r[4] || '').split(',').map(x => x.trim()).filter(n => n && STAFF.indexOf(n) < 0 && (inRoster_(n) || nameLike_(n)));
+    const w = String(r[4] || '').split(',').map(x => x.trim()).filter(n => n && STAFF.indexOf(n) < 0 && EXCLUDE.indexOf(n) < 0 && (inRoster_(n) || nameLike_(n)));
     tags[r[0] + '§' + r[1]] = { g: String(r[2] || ''), p: String(r[3] || ''), w: w, u: String(r[6] || '') };
     w.forEach(n => { roles[n] = roleOf(n); });
   });
