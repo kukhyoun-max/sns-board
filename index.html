@@ -1977,7 +1977,7 @@ details.adv[open] > summary { border-bottom: 1px solid var(--line); }
     if (S.roleF !== '전체') ps = ps.filter(p => p.role === S.roleF);
     const sk = { n: p => p.k, views: p => p.views, idx: p => p.idx || 0, hits: p => p.hits, score: p => p.score }[S.psort] || (p => p.k);
     ps.sort((a, b) => sk(b) - sk(a));
-    const roleChips = ['전체', '홍보대사', '근로장학생'].map(r => '<button class="chip" type="button" data-r="' + r + '" aria-pressed="' + (S.roleF === r) + '">' + r + '</button>').join('');
+    const roleChips = ['전체', '홍보대사', '근로장학생', '서포터즈'].map(r => '<button class="chip" type="button" data-r="' + r + '" aria-pressed="' + (S.roleF === r) + '">' + r + '</button>').join('');
     const th = (k, l) => '<th class="n"><button type="button" data-s="' + k + '"' + (S.psort === k ? ' data-dir="desc"' : '') + '>' + l + '</button></th>';
     html += secOpen('사람별 성과', '캡션 제작 크레딧에 적힌 이름 기준이에요 · 팀 콘텐츠는 참여자 모두에게 똑같이 집계해요 · 등급 점수는 상벌점표의 조회 기준이에요(100만 +10 · 50만 +5 · 10만 +1 · 1만 +0.1 · 1만 미만 −0.1)',
       '<button class="btn" type="button" id="pXls">엑셀로 받기</button>') +
@@ -2556,7 +2556,7 @@ details.adv[open] > summary { border-bottom: 1px solid var(--line); }
       '<div class="k">분류</div><div class="v">' + tg('cat', '', !E.cats.length, '전체') + cats.map(c => tg('cat', c, E.cats.includes(c))).join('') + '</div>' +
       '<div class="k">제작</div><div class="v">' + tg('prod', '', !E.prods.length, '전체') + PRODS.concat(['타 대학']).map(p => tg('prod', p, E.prods.includes(p))).join('') + '</div>' +
       '<div class="k">사람</div><div class="v"><select class="inp" id="xPerson"><option value="">전체</option>' + people.map(([n, k]) => '<option value="' + esc(n) + '"' + (E.person === n ? ' selected' : '') + '>' + esc(n) + ' (' + ((D.roles || {})[n] || '근로장학생') + ' · ' + k + ')</option>').join('') + '</select>' +
-        (E.group === 'person' ? '<span class="hint" style="margin-left:6px">역할</span>' + ['전체', '홍보대사', '근로장학생'].map(r => tg('role', r, E.roleF === r)).join('') : '') + '</div>' +
+        (E.group === 'person' ? '<span class="hint" style="margin-left:6px">역할</span>' + ['전체', '홍보대사', '근로장학생', '서포터즈'].map(r => tg('role', r, E.roleF === r)).join('') : '') + '</div>' +
       '<div class="k">검색어</div><div class="v"><input class="inp wide" id="xText" placeholder="제목·캡션에 포함된 단어 (예: 축제, 수시)" value="' + esc(E.text) + '"></div>' +
       '<div class="k">광고</div><div class="v">' + tg('ad', 'no', !E.ads, '광고 제외') + tg('ad', 'yes', E.ads === true, '광고 포함') + tg('ad', 'only', E.ads === 'only', '광고만') + '<span class="hint">구글애즈 캠페인에 연결된 유튜브 영상 · 메타 광고로 홍보한 인스타 게시물 기준</span></div>' +
       '<div class="k">수치 기준</div><div class="v">' + tg('mode', 'cum', E.mode === 'cum', '기간 중 올린 게시물의 누적') + '<button type="button" class="tg2" data-mode="inc" aria-pressed="' + (E.mode === 'inc') + '"' + (D.dates.length < 2 ? ' disabled title="주간 기록이 2회 이상 쌓이면 쓸 수 있어요"' : '') + '>기간 동안 늘어난 수치</button>' +
@@ -2643,7 +2643,7 @@ details.adv[open] > summary { border-bottom: 1px solid var(--line); }
       const cond = [['항목', '값'], ['기간', E.from + ' ~ ' + E.to + (E.q ? ' (' + E.q + ')' : '')], ['채널', E.chs.map(chName).join(', ')]].concat(xcondText().map(t => { const i = t.indexOf(': '); return i > 0 ? [t.slice(0, i), t.slice(i + 2)] : ['옵션', t]; })).concat([
         ['기준 데이터', D.updated + ' 기록'], ['만든 날', new Date(Date.now() + 9 * 36e5).toISOString().slice(0, 10)], [],
         ['정의', ''], ['평소 대비', '같은 채널·같은 형식 최근 1년 게시물 중앙값 대비 배수(형식 게시물이 ' + BASE_T_MIN + '개 미만이면 채널 중앙값, 광고·스토리 제외). 1.0 = 평소 · 게시 ' + AGE_MIN + '일 전은 집계 중'], ['히트', '평소 대비 1.5배 이상'], ['참여율', '(좋아요+댓글+공유+저장) ÷ 도달'], ['시청 완료율', '평균 시청 시간 ÷ 영상 길이'],
-        ['자체 제작', '캡션에 제작자 이름이 없는 홍보실 제작물'], ['근로장학생', '크레딧 이름 중 홍보대사 명단에 없는 이름'], ['광고', '구글애즈 캠페인에 연결된 유튜브 영상(확인 = 제목·게시일 일치, 추정 = 시기·조회 패턴). 광고 리포트 이후 영상은 조회 10만 이상 & 1만 조회당 좋아요 3개 미만이면 추정'], ['타 대학', '릴스 외에는 조회가 공개되지 않아 좋아요 기준']]);
+        ['자체 제작', '캡션에 제작자 이름이 없는 홍보실 제작물'], ['근로장학생', '크레딧 이름이 근로장학생이거나 「명단」에 없는 이름(서포터즈로 적힌 크레딧은 학과·기관 협업)'], ['광고', '구글애즈 캠페인에 연결된 유튜브 영상(확인 = 제목·게시일 일치, 추정 = 시기·조회 패턴). 광고 리포트 이후 영상은 조회 10만 이상 & 1만 조회당 좋아요 3개 미만이면 추정'], ['타 대학', '릴스 외에는 조회가 공개되지 않아 좋아요 기준']]);
       const fname = '전주대SNS_' + E.from.replace(/-/g, '') + '-' + E.to.replace(/-/g, '') + '_' + GROUPS.find(g => g[0] === E.group)[1];
       writeXlsx(fname, [['결과', [head].concat(body), fmts], ['포함 콘텐츠', [['게시일', '채널', '형식', '분류', '제작', '참여자', '제목', '조회', '좋아요', '댓글', '공유', '저장', '도달', '평소 대비(배)', '광고', '광고 캠페인', '링크']].concat(inc)], ['조건·정의', cond]]);
     });
