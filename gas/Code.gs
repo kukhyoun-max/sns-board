@@ -1266,31 +1266,58 @@ const TAGFIX_SHEET = '태그 수정';
 const ADS_ID = '1KWALIRH1NfizDTtiKa6koega5ECAirOuOCc8pXNU5pE'; // 전주대_구글애즈_캠페인리포트
 const COVERAGE = { '유튜브': '2024-01-01', '인스타그램': '2024-12-27', 'hong._.video': '2021-01-01', acct: '지난주(월~일)' };
 const ADMAP_SEED = [["2019 전주대학교  CF", "rTFFwv7w5X0", "확인"], ["2020 CF 본편", "d46MRvYKTYM, zQTtrjirNoI, E8XcB6NX-Yg", "추정"], ["2020 CF 본편 건너뛸 수 있는 광고", "d46MRvYKTYM, zQTtrjirNoI, E8XcB6NX-Yg", "추정"], ["하림융합전공 소개_센터장 디스플레이 광고", "atZ_KytBKb0", "추정"], ["동영상광고 2021 C F", "UwbBowD8UwA, EmABQ1PvB1M, F7FzHL90j0o", "확인"], ["2021 CF", "UwbBowD8UwA, EmABQ1PvB1M, F7FzHL90j0o", "확인"], ["2021 CF_키워드", "UwbBowD8UwA, EmABQ1PvB1M, F7FzHL90j0o", "확인"], ["2021 CF_지역", "UwbBowD8UwA, EmABQ1PvB1M, F7FzHL90j0o", "확인"], ["입학_2021 CF_지역", "UwbBowD8UwA, EmABQ1PvB1M, F7FzHL90j0o", "확인"], ["입학_2021 CF 키워드", "UwbBowD8UwA, EmABQ1PvB1M, F7FzHL90j0o", "확인"], ["10월_CF_성장_취업", "EmABQ1PvB1M, F7FzHL90j0o", "확인"], ["10월_CF_창업", "UwbBowD8UwA", "확인"], ["CF 동영상 창업", "UwbBowD8UwA", "추정"], ["20220811_2022 CF 영상 '신입생'편", "XeFvocm3LEM", "확인"], ["20220721 스킵 불가_2022 CF 티저", "XeFvocm3LEM, AuNPHA1_7Bs", "추정"], ["스킵가능_2022 CF 영상 티저", "XeFvocm3LEM, AuNPHA1_7Bs", "추정"], ["전라북도의 중심, 전주대학교", "_o_ORvqXk-w", "확인"], ["기숙사 소개 영상 광고", "Y-VTucYX-C0", "추정"], ["천원의 아침밥 소개", "8tWIqtvGCAU", "확인"], ["학과 동영상 공모전", "@2022 천하제일", "추정"], ["전주대학교 캠퍼스 스토리", "NjYhL4pFfGM", "확인"], ["2023 ESG 동영상 광고", "7n_vNR4Z8QI", "추정"], ["(디스커버리) 2023 유웨이 온터뷰 광고", "fHn9rzClVaI, b125ICdQy4Y", "확인"], ["천원의 아침밥 - 사장님의 마음", "JfC9Ax3ifrY", "확인"], ["선행릴레이 캠페인 영상", "JocZENhjodk", "확인"], ["브랜드 광고 '시설'편", "HP2hSCEWRd0", "추정"], ["(전주대 HP 방문자/18--24) 개교 60주년 30초 광고", "MODUK0zsLiM", "확인"], ["(전주대 HP 방문자_40-50대) 개교 60주년 30초 광고", "MODUK0zsLiM", "확인"], ["(전주대 HP 방문자_전연령) 개교 60주년 15초 광고", "MODUK0zsLiM", "추정"], ["FPV 드론 영상(18-24세/전국)", "d7sEsLmKhvc", "확인"], ["[도서관] FPV 드론 영상(18-24세/전국)", "lcf3SN9ad-A", "확인"], ["[방송광고/인근지역/18-24] '도서관'편", "b1dxndu1rgo", "확인"], ["[방송광고/인근지역/40-60] '도서관'편", "b1dxndu1rgo", "확인"], ["(18-24) 카카오클라우드센터 유치", "gI0zmwS3Dok", "확인"], ["(18-24/전국) 2025 정시모집 TV 광고", "UyS82wPiEJg", "추정"], ["(45-64/전국) 2025 정시모집 TV 광고", "UyS82wPiEJg", "추정"], ["2025 동영상 광고 - 51초", "LyrHjY20PXs", "추정"], ["2025 동영상 광고 - 숏츠", "axUL_0OPwtg", "추정"], ["2025 농촌봉사활동", "goCPo6bqm8o", "확인"], ["2025 국토대장정", "SML_fJsyBTQ", "추정"], ["[20초 Ver] 새로운 별들의 새로운 시작 '전주대학교'", "el1j8k0C_ek, _C0mUel-abs, bdAIJziubkk, YIa0V8JRiUg", "확인"], ["[20초_B Ver] 새로운 별들의 새로운 시작 '전주대학교'", "el1j8k0C_ek, _C0mUel-abs, bdAIJziubkk, YIa0V8JRiUg", "확인"], ["글로컬대학30 응원 & 릴스 영상", "Gzw0jIEYp6U, Dba7HtkPltg", "확인"], ["자유전공학부 팟캐스트 인터뷰", "TEOyPw5SxdM, F6aAIU-pqXE", "확인"]];
+// 「광고 매핑」 탭에 없으면 덧붙이는 줄 (2026-10-16 광고 연결 점검)
+//  · 2027 수시 동영상·범퍼 캠페인 ↔ 'AI를 넘어 AX' 영상 3개: 캠페인 기간(8/28~)에 올라왔고 조회 39만~90만에 좋아요 1~189라 광고 영상으로 봄. 캠페인별 소재는 구글애즈에서 확인 필요 → 추정
+//  · 메타 트래픽 광고 「체험콘텐츠4종」: 수시 마감 브리핑에 '씨름부+밤과내일'로 적힌 두 게시물만 확인, 나머지 2종은 미확인
+const ADMAP_ADD = [
+  ['2027-수시모집-동영상 광고', 'pEYNhKpZXug, kRX6YAzXnW8, VbT4hrrlFxg', '추정'],
+  ['2027-수시모집-동영상 광고-18~24세', 'pEYNhKpZXug, kRX6YAzXnW8, VbT4hrrlFxg', '추정'],
+  ['2027-수시모집-범퍼 광고', 'pEYNhKpZXug, kRX6YAzXnW8, VbT4hrrlFxg', '추정'],
+  ['2027-수시모집-트래픽 광고-체험콘텐츠4종', '@씨름부 VS 체험왕, @각자의 밤', '확인'],
+  // 메타 캠페인 이름이 게시물 캡션이 아니라 자동 연결이 안 되는 2024년 캠페인
+  ['카카오클라우드 유치 광고 캠페인', '@전북 카카오클라우드 디지털혁신센터 유치', '추정'],
+  ['공연예술학과 홍보 영상 홍보 캠페인', '@공연예술학과 홍보 영상', '추정']
+];
+function addAdMapRows_(sh) {
+  const have = {};
+  if (sh.getLastRow() > 1) sh.getRange(2, 1, sh.getLastRow() - 1, 1).getValues().forEach(r => { have[String(r[0]).trim()] = 1; });
+  const add = ADMAP_ADD.filter(r => !have[r[0]]);
+  if (add.length) sh.getRange(sh.getLastRow() + 1, 1, add.length, 3).setValues(add);
+}
 
 /* 콘텐츠 분류 태깅 규칙 (서버에서만 계산 — src/app.js에는 이 규칙이 없고 응답의 g를 그대로 씀)
  * 위에서부터 처음 맞는 분류. 2026-10-16 개선:
  *  · 일반 낱말이 섞이는 키워드에 경계 추가 — 수시로(자주)·정시에·개발자·유치원·스트리트·컨트리·알려드립니다(공지 투)
  *  · '댓글로'는 참여 유도(댓글로 참여·응모·신청…)일 때만 이벤트, '모집 중'은 신입생·편입생 등 입시 대상일 때만 입시
  *  · 브랜드 영상의 고유 문구(새로운 별들·AI를 넘어 등)는 입시·모집보다 먼저 확인
- *  · '알려드립니다'는 안내·일정·기간·신청·공지·마감이 함께 있으면 정보·꿀팁으로 보지 않음 */
+ *  · '알려드립니다'는 안내·일정·기간·신청·공지·마감이 함께 있으면 정보·꿀팁으로 보지 않음
+ *  2026-10-16 (태깅 점검 반영):
+ *  · 이벤트·참여는 첫머리(60자)에 이벤트·당첨자 발표가 있거나 본문에 참여 방법·응모가 있을 때만 — 경기·행사 안내 속 경품 한 줄로는 이벤트가 되지 않음
+ *  · 유튜브는 제목 + 설명란 첫머리(링크·크레딧 전)로 분류 — ytHead_()
+ *  · '숏폼·예능' → '예능·챌린지'로 이름을 바꾸고, hong·60초 이하 자동 배정은 없앰(형식은 t 필드가 따로 나타냄)
+ *  · 유튜브 「기타」에 많던 낱말 보강: ○○대학 소개·편의 시설·기숙사·학식·연수·간담회·JUNI:ON·패션왕 등 */
 var TAG_CATEGORIES = [
-  ['이벤트·참여', /이벤트|𝗘𝗩𝗘𝗡𝗧|EVENT|당첨자|경품|추첨|기프티콘|댓글로\s*(참여|응모|신청|도전|남겨\s*주시면|달아\s*주시면)|댓글\s*이벤트|참여 방법|달꾸/i],
+  ['이벤트·참여', function (t) {
+    return /이벤트|𝗘𝗩𝗘𝗡𝗧|𝐄𝐕𝐄𝐍𝐓|EVENT|당첨자\s?(발표|안내)|경품|추첨/i.test(t.slice(0, 60)) ||
+      /참여\s?(방법|대상)|응모\s?(방법|기간)|댓글로\s*(참여|응모|신청|도전|남겨\s*주시면|달아\s*주시면)|댓글\s*이벤트|달꾸|기프티콘을?\s?(선물|드립|증정)/.test(t);
+  }],
   ['홍보대사 모집', /홍보대사\s?(모집|선발)/],
   ['브랜드 영상', /새로운 별들|AI를 넘어|AX 시대|빛나는 순간|가장 나다운|나다운 라이프|같이 만드는 가치|진심을 다합니다/],
   ['입시·모집', /수시(?!로)|정시(?![에간])|입시|원서|모집요강|신입생 모집|모집기간|모집 기간|예비\s?신입생|입학정보|입학 상담|편입|추가모집|입학처|(신입생|편입생|수시|정시|학생)\s?모집\s?중|대학입학/],
+  ['학생 이야기', /패션왕을 찾아라/], // 단과대 이름이 붙는 시리즈라 학과·전공보다 먼저
   ['동문 소식', null], // 동문 이름(ALUMNI · 「명단」 탭 역할 '동문') 또는 '동문'·'졸업생 근황' 등 — alumniRe_()
   ['행사·축제', /^(?![\s\S]*(축구부|운동부))[\s\S]*(전북현대|K\s?리그|프로\s?(축구|야구|농구|배구)|직관(?!적))/i], // 외부 구단 방문·직관 (우리 운동부 언급이 없을 때)
   ['체육부 소식', /축구부|U-?\s?리그|U-?LEAGUE|유리그|대학축구|연맹전|왕중왕전|씨름|레슬링|싸울아비|태권도\s?(시범단|대회)|시범단|전국체육대회|전국체전|운동부|체육부|선수단|경기 결과/i],
   ['학사·생활 안내', /수강\s?신청|등록 (기간|일정|안내)|재학생 등록|장학|국가장학금|생활관|기숙사 (신청|입사)|셔틀|직통 버스|버스 운행|천원의 아침밥|아침밥|학사|휴학|복학 신청|전과|만족도 조사|도서관 이용|안내📢|안내 📢|이용 (방법|안내)|운영 안내|신청 안내/],
   ['성과·뉴스', /선정|우승|수상|최우수|S등급|최고 등급|금메달|협약|유치(?!원)|개발(?![자팀])|1위|1등|최초|획득|성과|기록 경신|글로컬|체결|개소|출범식|📰/],
-  ['행사·축제', /체육대회|JJ체전|체전|전북현대|직관(?!적)|특강|강연|포럼|세미나|컨퍼런스|전시|축제|대동제|중동제|스케치|𝗦𝗞𝗘𝗧𝗖𝗛|SKETCH|학위수여식|입학식|졸업식|기념식|JUMF|페스티벌|공연|패션쇼|FASHION SHOW|선서식|팝업|박람회|부스|토크 콘서트|Major Fair|MAJOR FAIR|메이저 ?페어|가맥|낙화|(?<![스컨])트리(?!트)|오리엔테이션|적응력/i],
-  ['시설·공간', /도서관|(?<!(📍|장소)\s*)스타(센터|타워)|해치\s?라운지|편의시설|시설\s?(소개|안내|투어|이용)|신축|개관|리모델링|열람실|좋은 공간|공간\s?(소개|추천)|카페 투어|공부하기 좋은|휴식 장소|장소 추천|랜선 투어|캠퍼스 투어|둘러보기/],
-  ['학과·전공', /[가-힣]+(학과|학부)|과잠|전공|오늘의 강의|복담화|단과대|교수님|약학|간호/],
+  ['행사·축제', /체육대회|JJ체전|체전|전북현대|직관(?!적)|특강|강연|포럼|세미나|컨퍼런스|전시|축제|대동제|중동제|스케치|𝗦𝗞𝗘𝗧𝗖𝗛|SKETCH|학위수여식|입학식|졸업식|기념식|JUMF|페스티벌|공연|패션쇼|FASHION SHOW|선서식|팝업|박람회|부스|토크 콘서트|Major Fair|MAJOR FAIR|메이저 ?페어|가맥|낙화|(?<![스컨])트리(?!트)|오리엔테이션|적응력|학생성공주간|간담회|축하연|워크숍|발대식|해단식|문학기행|제이제이 랜드|JJ ?LAND/i],
+  ['시설·공간', /도서관|(?<!(📍|장소)\s*)스타(센터|타워)|해치\s?라운지|글로벌\s?라운지|편의\s?시설|시설\s?(소개|안내|투어|이용|모음)|기숙사|[1-4]인실|보존\s?서고|루디아\s?홀|학습\s?공간|진리관|신축|개관|리모델링|열람실|좋은 공간|공간\s?(소개|추천)|카페 투어|공부하기 좋은|휴식 장소|장소 추천|랜선 투어|캠퍼스 투어|둘러보기/],
+  ['학과·전공', /[가-힣]+(학과|학부)|과잠|전공|오늘의 강의|복담화|단과대|[가-힣]{2,6}대학(을|를)?\s?소개|교수님|약학|간호/],
   ['정보·꿀팁', /꿀팁|팁(?!스)|알려\s?(줄게|줄께|줌|주는|주고|줍니다|드릴게|드릴께|드릴|드려요)|^(?![\s\S]*(안내|일정|기간|신청|공지|마감))[\s\S]*알려\s?드립니다|방법|가이드|용어|미리 알|재테크|해결|백과|요리|퇴치|공부법|Q&A|FAQ/],
-  ['학생 이야기', /인터뷰|브이로그|vlog|후기|탐방|봉사|국토대장정|해외|자기소개|What'?s in my bag|하루|공강|MBTI|데이트|고백|새내기|대학생활|갓생|방학|룸투어|어디서 살|여름 기록|방학 기록|일상|선배|동아리|은하수|UCDC/i],
+  ['학생 이야기', /인터뷰|브이로그|vlog|후기|탐방|봉사|국토대장정|해외|자기소개|What'?s in my bag|하루|공강|MBTI|데이트|고백|새내기|대학생활|갓생|방학|룸투어|어디서,?\s?(어떻게\s)?살|여름 기록|방학 기록|일상|선배|동아리|은하수|UCDC|연수|한\s?달 살기|교환학생|파란사다리|학식|썰|RC\s?공동체|서포터즈|JUNI:?ON|주니온|체험기|체험하기|취미|필수 활동|자주 가는|신입생에게|재학생에게/i],
   ['캠퍼스·계절', /벚꽃|겹벚꽃|유채|철쭉|단풍|가을|봄꽃|눈 내린|눈사람|겨울|캠퍼스|핫스팟|일출|명소|피크닉|전망대|드론|FPV|포토 ?스팟|스타정원|야간 개장|해 질|Sunset|노을/i],
   ['시즌 인사', /새해|크리스마스|성탄|어버이날|스승의 날|광복절|추석|설날|애도|추모|수능|응원합니다|파이팅|화이팅|종강|개강|중간고사|기말고사|시험 ?기간|시험 (공부|끝)/],
-  ['숏폼·예능', /POV|𝗣𝗢𝗩|VS|챌린지|밈|유형|체험왕|스피드 ?게임|소개팅|마음의 소리|드래곤|ㅋㅋ|레전드|몇 초|맞혀|퀴즈|노래|커버|댄스|Dance|𝘿𝙖𝙣𝙘𝙚|ASMR|비밀|토템/i],
+  ['예능·챌린지', /POV|𝗣𝗢𝗩|VS|챌린지|밈|유형|체험왕|스피드 ?게임|소개팅|마음의 소리|드래곤|ㅋㅋ|레전드|몇 초|맞혀|퀴즈|노래|커버|댄스|Dance|𝘿𝙖𝙣𝙘𝙚|ASMR|비밀|토템|연애|토론회|들어주마|갸루|다섯 글자|초\s?안에|웃으면|눈 마주치면|오싹|공포|복학생|\d{2}학번|TOP\s?\d|게임|버티기|challenge|이상형|하우머치|알고리즘/i],
   ['브랜드 영상', /60년|세상의 중심|슬로건|캠페인/], // 고유 문구는 맨 위(입시·모집 앞)에서 먼저 확인
 ];
 
@@ -1302,15 +1329,22 @@ function categoryText(caption) {
   return c.slice(0, 220);
 }
 
-// opts.lengthSec: 유튜브 영상 길이(초) — 분류가 안 되면 60초 이하는 숏폼으로
+// 유튜브 설명란 첫머리: 구독 안내·링크·구분선·크레딧·해시태그 앞까지 (설명란 대부분이 인스타 캡션과 같은 본문으로 시작함)
+function ytHead_(desc) {
+  var d = String(desc || '');
+  // 첫 문단 구분('.'·'-' 두 줄) 뒤에는 입시 일정·운영 안내가 덧붙는 경우가 많아 첫 문단만 씀
+  var cut = d.search(/\n\s*[.\-]\s*\n\s*[.\-]\s*\n|👇|👉|https?:\/\/|입학처 (홈페이지|누리집)|【온라인 상담|【𝐍𝐄𝐖𝐒】|─|━|🎬|📸|🎥|▪️?\s*제작|제작\s*[:|▪]|Created by|\n\s*#|\s#전주대학교/);
+  if (cut >= 0) d = d.slice(0, cut);
+  return d.slice(0, 200);
+}
+
+// 분류가 안 되면 '기타' (예전에는 hong 전부와 60초 이하 유튜브를 숏폼으로 넣었으나 형식과 주제가 섞여 없앰)
 function tagCategory(text, channel, opts) {
   var t = String(text || '');
   for (var i = 0; i < TAG_CATEGORIES.length; i++) {
     var re = TAG_CATEGORIES[i][1] || alumniRe_();
-    if (re.test(t)) return TAG_CATEGORIES[i][0];
+    if (typeof re === 'function' ? re(t) : re.test(t)) return TAG_CATEGORIES[i][0];
   }
-  if (channel === 'hong._.video') return '숏폼·예능';
-  if (channel === '유튜브' && opts && opts.lengthSec && opts.lengthSec <= 60) return '숏폼·예능';
   return '기타';
 }
 
@@ -1318,7 +1352,7 @@ function tagCategory(text, channel, opts) {
 var ALUMNI = ['김영권', '구자철'];
 function alumniRe_() {
   var names = ALUMNI.filter(function (n) { return /^[가-힣A-Za-z]{2,10}$/.test(n); });
-  return new RegExp((names.length ? names.join('|') + '|' : '') + '동문의 밤|동문인의 밤|동문회|총동문|당선 동문|동문 (소식|근황|선배)|졸업생\\s?(소식|근황|활약|인터뷰)');
+  return new RegExp((names.length ? names.join('|') + '|' : '') + '동문의 밤|동문인의 밤|동문회|총동문|당선\\s?동문|동문\\s?축하연|동문 (소식|근황|선배)|졸업생\\s?(소식|근황|활약|인터뷰)');
 }
 // 체육부 소식 → 세부(종목)
 function sportSub(text) {
@@ -1492,7 +1526,7 @@ function loadRoster_(ss) {
 function tagItem_(channel, it) {
   const ch = channel.indexOf(BENCH_PREFIX) === 0 ? channel.slice(BENCH_PREFIX.length) : channel;
   const cap = it.full || it.title || '';
-  const g = tagCategory(ch === '유튜브' ? cap : categoryText(cap), ch, { lengthSec: it.lengthSec });
+  const g = tagCategory(ch === '유튜브' ? cap + '\n' + ytHead_(it.desc) : categoryText(cap), ch, { lengthSec: it.lengthSec });
   const pr = tagProducer(ch, cap + '\n' + (it.desc || ''), { views: it.views, likes: it.likes });
   return { g: g, p: pr.p, w: pr.w, roles: pr.roles };
 }
@@ -1634,7 +1668,9 @@ function loadAds_(ss) {
     out.manualEnd = out.manualEnd && out.manualEnd > x.to ? out.manualEnd : x.to;
   });
   const ms = ss.getSheetByName(ADMAP_SHEET);
-  const map = ms && ms.getLastRow() > 1 ? ms.getRange(2, 1, ms.getLastRow() - 1, 3).getValues() : ADMAP_SEED;
+  if (ms) try { addAdMapRows_(ms); } catch (e) {}
+  const map = ms && ms.getLastRow() > 1 ? ms.getRange(2, 1, ms.getLastRow() - 1, 3).getValues() : ADMAP_SEED.concat(ADMAP_ADD);
+  out.map = map.map(r => [String(r[0]).trim(), String(r[1] || '').trim(), String(r[2] || '').trim()]).filter(r => r[0] && r[0].charAt(0) !== '※');
   map.forEach(r => {
     const c = String(r[0]).trim(); if (!c || !camps[c]) return;
     camps[c].videos = String(r[1] || '').split(',').map(x => x.trim()).filter(Boolean);
@@ -1675,7 +1711,8 @@ function attachTags_(ss, items, keys) {
     const t = T.tags[keys[i]] || {};
     const f = T.fix[keys[i].split('§')[1]] || (it.u && T.fix[it.u]) || (t.u && T.fix[t.u]) || {};
     // 반영 순서: 「태그 수정」 > 「태그」 탭 자동값 > it.g·it.p(「인스타_과거기록」 탭 값) > 기본값
-    it.g = f.g || t.g || it.g || (it.c === 'hong._.video' ? '숏폼·예능' : '기타');
+    it.g = f.g || t.g || it.g || '기타';
+    if (it.g === '숏폼·예능') it.g = '예능·챌린지'; // 예전 이름(2026-10-16 변경) — 「태그 다시 계산」 전 값·「태그 수정」·과거 기록 탭
     it.p = f.p || t.p || it.p || (OWN_CHANNELS.indexOf(it.c) >= 0 ? '자체 제작' : '타 대학');
     // 「태그 수정」에 '체육부 소식/축구부'처럼 적으면 세부 분류까지 지정
     let sub = '';
@@ -1685,10 +1722,25 @@ function attachTags_(ss, items, keys) {
     if (t.w && t.w.length) it.w = t.w;
     if (it.c === '유튜브') {
       const cs = v2c[vid(it.u)];
-      const last = it.h.filter(Boolean).pop() || [];
       if (cs) it.ad = { s: cs.some(c => c.conf === '확인') ? '확인' : '추정', k: cs.map(c => c.n) };
-      else if ((!A.end || it.d > A.end) && isAdPattern({ views: last[0], likes: last[1] })) it.ad = { s: '패턴', k: [] };
     }
+  });
+  // 「광고 매핑」의 메타 캠페인(구글애즈 리포트에 없는 캠페인 이름) → 인스타그램 게시물
+  //  대상 칸: 인스타 URL·숏코드(쉼표로 여러 개) 또는 @캡션 일부. 메타 「Instagram 게시물: …」 캠페인은 대시보드가 캡션 앞부분으로 자동 연결하므로
+  //  여기에는 자동 연결이 안 되는 캠페인(트래픽 광고 등)만 적으면 돼요
+  const gNames = {}; A.camps.forEach(c => { gNames[c.n] = 1; });
+  const igCode = u => { const m = /instagram\.com\/(?:[\w.]+\/)?(?:p|reel|reels|tv)\/([\w-]+)/.exec(u || ''); return m ? m[1] : ''; };
+  (A.map || []).forEach(([c, target, conf]) => {
+    if (gNames[c] || !target) return;
+    target.split(',').map(x => x.trim()).filter(Boolean).forEach(x => {
+      const code = x.charAt(0) === '@' ? '' : (igCode(x) || (/^[\w-]{6,20}$/.test(x) ? x : ''));
+      items.filter(it => it.c === '인스타그램' && (code ? igCode(it.u) === code : x.charAt(0) === '@' && String(it.n || '').indexOf(x.slice(1)) >= 0)).forEach(it => {
+        it.ad = it.ad || { s: conf === '확인' ? '확인' : '추정', k: [] };
+        if (conf === '확인') it.ad.s = '확인';
+        it.ad.mk = it.ad.mk || [];
+        if (it.ad.mk.indexOf(c) < 0) it.ad.mk.push(c);
+      });
+    });
   });
   // 유튜브 전체 기간(「유튜브_전체기간」 탭, Supermetrics 2012~어제) → it.L = [조회, 좋아요, 댓글, 공유]
   try {
@@ -1701,6 +1753,13 @@ function attachTags_(ss, items, keys) {
       items.forEach(it => { if (it.c === '유튜브') { const x = L[vid(it.u)]; if (x) it.L = x; } });
     }
   } catch (e) {}
+  // 캠페인 연결이 없는 유튜브 영상도 조회 패턴(조회 10만 이상·1만 조회당 좋아요 3개 미만)이면 광고 추정 — 기간과 관계없이
+  // (예전에는 광고 리포트 이후 영상만 봤으나, 리포트 안에도 영상 연결이 없는 캠페인이 많아 전 기간으로 넓힘)
+  items.forEach(it => {
+    if (it.c !== '유튜브' || it.ad) return;
+    const v = it.L || it.h.filter(Boolean).pop() || [];
+    if (isAdPattern({ views: v[0], likes: v[1] })) it.ad = { s: '패턴', k: [] };
+  });
   return { roles: T.roles, ads: { end: A.end, daily: A.daily, camps: A.camps, rows: A.rows, plans: A.plans, meta: loadMeta_(ss), error: A.error || '', src: A.src || [], manualEnd: A.manualEnd || '' } };
 }
 
