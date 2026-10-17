@@ -784,6 +784,12 @@ details.adv[open] > summary { border-bottom: 1px solid var(--line); }
 .brand-home:hover b { color: var(--jj); }
 /* 타 대학: 점유율 한 줄 결론 */
 .lead-s { margin: 0 0 12px; font-size: var(--fs-md); line-height: 1.6; }
+/* 홈 KPI: 짝수 개로 맞춤(홀수면 「가장 잘 된 게시물」 카드 추가) · PC는 4개면 4칸, 6개면 3칸 */
+@media (min-width: 561px) { .kpi-row.n4 { grid-template-columns: repeat(4, minmax(0, 1fr)); } .kpi-row.n6 { grid-template-columns: repeat(3, minmax(0, 1fr)); } .kpi-row.n6 .kpi-t { aspect-ratio: auto; min-height: 168px; } }
+.kpi-t.best { cursor: pointer; }
+.kpi-t.best:hover { border-color: var(--jj); }
+.kpi-t.best .bt { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; color: var(--sub); }
+.kpi-t.best .chb { margin-right: 5px; }
 </style>
 
 <div class="app" id="app">
@@ -1258,7 +1264,10 @@ details.adv[open] > summary { border-bottom: 1px solid var(--line); }
     const p30 = pool({ channels: chs, since: addDays(D.updated, -60), until: addDays(D.updated, -31) }).length, dn = c30all.length - p30;
     const cmp = p30 ? (dn === 0 ? '그 전 30일(' + p30 + '개)과 <span class="flat">같아요</span>' : '그 전 30일(' + p30 + '개)보다 <span class="' + (dn > 0 ? 'up' : 'down') + '">' + Math.abs(dn) + '개 ' + (dn > 0 ? '많아요' : '적어요') + '</span>') : '';
     t.push(kpiTile('최근 30일 올린 게시물', c30all.length + '개', [cmp, by].filter(Boolean).join('<br>'), '', spark(monthly(chs, 'n'), '최근 6달 월별 게시 수')));
-    return '<div class="kpi-row">' + t.join('') + '</div>';
+    // 카드가 홀수면 한 칸이 혼자 길어지므로 「최근 30일 가장 잘 된 게시물」로 짝을 맞춘다
+    const best = c30.slice().sort((a, b) => ratio(b) - ratio(a))[0];
+    if (t.length % 2 && best) { window.__best = best; t.push('<div class="kpi-t best" role="button" tabindex="0" aria-label="최근 30일 가장 잘 된 게시물 상세 보기"><div class="kpi-l">최근 30일 가장 잘 된 게시물</div><div class="kpi-v num up">' + xf(ratio(best)) + '</div><div class="kpi-s"><span class="bt">' + badge(best.c) + esc(title(best.n)) + '</span></div></div>'); }
+    return '<div class="kpi-row n' + t.length + '">' + t.join('') + '</div>';
   }
   function homeSummary(chs) {
     const w = weekModel(chs), p = w && w.cur, out = [];
@@ -1345,6 +1354,7 @@ details.adv[open] > summary { border-bottom: 1px solid var(--line); }
   }
   function wireTop(chs) {
     wireRace();
+    const bt = document.querySelector('.kpi-t.best'); if (bt && window.__best) { const go = () => openDetail(window.__best); bt.addEventListener('click', go); bt.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); go(); } }); }
     const c = $('repCopy'), p = $('repPrint');
     if (c) c.addEventListener('click', () => copyText(reportText(chs)));
     if (p) p.addEventListener('click', () => window.print());
