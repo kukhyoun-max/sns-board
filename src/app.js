@@ -451,7 +451,10 @@
     const p30 = pool({ channels: chs, since: addDays(D.updated, -60), until: addDays(D.updated, -31) }).length, dn = c30all.length - p30;
     const cmp = p30 ? (dn === 0 ? '그 전 30일(' + p30 + '개)과 <span class="flat">같아요</span>' : '그 전 30일(' + p30 + '개)보다 <span class="' + (dn > 0 ? 'up' : 'down') + '">' + Math.abs(dn) + '개 ' + (dn > 0 ? '많아요' : '적어요') + '</span>') : '';
     t.push(kpiTile('최근 30일 올린 게시물', c30all.length + '개', [cmp, by].filter(Boolean).join('<br>'), '', spark(monthly(chs, 'n'), '최근 6달 월별 게시 수')));
-    return '<div class="kpi-row">' + t.join('') + '</div>';
+    // 카드가 홀수면 한 칸이 혼자 길어지므로 「최근 30일 가장 잘 된 게시물」로 짝을 맞춘다
+    const best = c30.slice().sort((a, b) => ratio(b) - ratio(a))[0];
+    if (t.length % 2 && best) { window.__best = best; t.push('<div class="kpi-t best" role="button" tabindex="0" aria-label="최근 30일 가장 잘 된 게시물 상세 보기"><div class="kpi-l">최근 30일 가장 잘 된 게시물</div><div class="kpi-v num up">' + xf(ratio(best)) + '</div><div class="kpi-s"><span class="bt">' + badge(best.c) + esc(title(best.n)) + '</span></div></div>'); }
+    return '<div class="kpi-row n' + t.length + '">' + t.join('') + '</div>';
   }
   function homeSummary(chs) {
     const w = weekModel(chs), p = w && w.cur, out = [];
@@ -538,6 +541,7 @@
   }
   function wireTop(chs) {
     wireRace();
+    const bt = document.querySelector('.kpi-t.best'); if (bt && window.__best) { const go = () => openDetail(window.__best); bt.addEventListener('click', go); bt.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); go(); } }); }
     const c = $('repCopy'), p = $('repPrint');
     if (c) c.addEventListener('click', () => copyText(reportText(chs)));
     if (p) p.addEventListener('click', () => window.print());
