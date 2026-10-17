@@ -264,7 +264,7 @@
     const low = cur.filter(it => judged(it) && ratio(it) < 0.5).sort((a, b) => ratio(a) - ratio(b)).slice(0, 3);
     let html = topHtml(chs) + '<div class="gap"></div>' + weekHtml(chs) + '<div class="gap"></div>' + trendHtml(chs);
     html += '<div class="gap"></div><section class="sec"><div class="sh"><div><h2>점검할 것</h2><p>최근 3달 요약과 평소보다 처진 콘텐츠</p></div></div>' +
-      '<p class="note" style="margin:0 0 14px">용어 · <b>평소</b> = 같은 채널·같은 형식으로 최근 1년 올린 게시물 조회의 중간값(그 형식 게시물이 ' + BASE_T_MIN + '개 미만이면 채널 전체 중간값, 광고·스토리 제외). 예) 「평소의 2배」 = 비슷한 게시물보다 조회가 2배 많았어요 · 평소의 <b>1.5배</b> 이상이면 <b>잘 된 게시물</b> · 올린 지 ' + AGE_MIN + '일이 안 된 게시물은 <b>조회 모이는 중</b>이라 판정에서 빼요 · 게시물이 ' + MIN_N + '개 미만인 분류·묶음은 <b>게시물 적음(참고용)</b></p>' + briefText(chs).replace('style="padding:18px 0 0"', 'style="padding:0 0 18px"') +
+      defsHtml() + briefText(chs).replace('style="padding:18px 0 0"', 'style="padding:0 0 18px"') +
       '<h3 class="sub">평소보다 처진 콘텐츠</h3><p class="d">최근 30일에 올렸고 ' + AGE_MIN + '일이 지났는데도 평소의 절반이 안 나온 콘텐츠예요 · 다음 기획 때 제목·첫 장·썸네일을 다시 봐 주세요</p><ol class="rank" id="bLow">' + (low.length ? rankRows(low) : '<li class="empty">처진 콘텐츠가 없어요 👍</li>') + '</ol>' + secClose;
     if (S.ch !== '전체') html += secOpen('최근 3달 분류별 성과', '게시물이 평소의 몇 배였는지(중간값) · 누르면 그 분류 콘텐츠를 볼 수 있어요') + '<div class="bars" id="bCat"></div>' + secClose;
     html += yearlyHtml(S.ch === '전체' ? OWN : chs);
@@ -302,7 +302,7 @@
           '<td>' + share(a, it => typeShort(it.t), 2) + '</td><td>' + share(a, it => it.g, 2) + '</td>' + (ig ? '<td>' + src(a) + '</td>' : '') + '</tr>';
       });
     }
-    const notes = ['게시일 기준 · 게시물당 값은 중간값(조회 0은 기록 없음으로 보고 제외)', adWord()];
+    const notes = ['게시일 기준 · 게시물당 값은 중간값', adWord()];
     if (chs.includes('인스타그램') && histOf('인스타그램')) notes.push(histNote());
     if (chs.includes('유튜브')) notes.push('유튜브는 전체 기간 누적 조회');
     return secOpen('연도별 추이', esc(notes.join(' · '))) + '<div class="tw"><table class="tbl"><thead><tr>' + head + '</tr></thead><tbody>' + rows.join('') + '</tbody></table></div>' + secClose;
@@ -317,6 +317,28 @@
     return out;
   }
   // 최근 3달 분류별 요약 — 채널마다 따로(유튜브처럼 기준값이 작은 채널이 합계를 끌고 가지 않게)
+  // 용어 칩: 이름 + 한 줄 뜻(자세한 기준은 마우스를 올리면)
+  function defsHtml() {
+    const D4 = [['평소', '같은 채널·형식 최근 1년 조회 중간값', '그 형식 게시물이 ' + BASE_T_MIN + '개 미만이면 채널 전체 중간값 · 광고·스토리 제외'], ['잘 된 게시물', '평소의 1.5배 이상', ''], ['조회 모이는 중', '올린 지 ' + AGE_MIN + '일 안 됨 · 판정 제외', ''], ['게시물 적음', MIN_N + '개 미만 묶음 · 참고용', '']];
+    return '<dl class="defs">' + D4.map(d => '<div' + (d[2] ? ' title="' + esc(d[2]) + '"' : '') + '><dt>' + d[0] + '</dt><dd>' + d[1] + '</dd></div>').join('') + '</dl>';
+  }
+  // 최근 3달 분류별 요약을 채널마다 한 줄 덩어리로(가장 높은 분류 · 가장 약한 분류)
+  function insightRows(chs) {
+    const own = (chs || OWN).filter(c => OWN.includes(c)), R = [];
+    own.forEach(ch => {
+      const L = pool({ channels: [ch], since: addDays(D.updated, -90) }).filter(it => ratio(it) != null);
+      if (!L.length) return;
+      const g = groupBy(L, 'g').filter(r => r.n >= MIN_N && r.idx != null).sort(byIdx);
+      if (!g.length) { R.push('<div class="ir"><div class="ir-h">' + badge(ch) + '<span class="mu">한 분류에 ' + MIN_N + '개 이상 모인 게 없어 비교 전이에요</span></div></div>'); return; }
+      const t = g[0], w = g.length > 1 ? g[g.length - 1] : null;
+      const cell = (lab, r, cls) => '<div class="ir-c"><span class="ir-l">' + lab + '</span><b>' + esc(r.k) + '</b><span class="ir-v"><b class="num ' + cls + '">' + r.idx.toFixed(1) + '배</b> · ' + r.n + '개 · 잘 된 비율 ' + pct0(r.hit) + '</span></div>';
+      R.push('<div class="ir"><div class="ir-h">' + badge(ch) + '<span class="mu">최근 3달 ' + L.length + '개</span></div><div class="ir-g">' + cell(t.idx >= 1 ? '가장 높은 분류' : '그나마 나은 분류', t, t.idx >= 1 ? 'up' : 'flat') + (w ? cell('가장 약한 분류', w, 'down') : '') + '</div></div>');
+    });
+    const ig = pool({ channels: ['인스타그램'], since: addDays(D.updated, -90) }).filter(it => ratio(it) != null);
+    const ft = own.includes('인스타그램') ? groupBy(ig.filter(it => it.r > 0), 't').map(r => ({ k: r.k, n: r.n, rv: median(r.arr.map(it => it.r)) })).filter(r => r.n >= 5 && r.rv > 0).sort((a, b) => b.rv - a.rv) : [];
+    if (ft.length >= 2) R.push('<div class="ir"><div class="ir-h">' + badge('인스타그램') + '<span class="mu">형식별 도달(게시물 하나가 닿은 사람 수)</span></div><div class="ir-f">' + ft.map(r => '<span>' + esc(r.k) + ' <b class="num">' + fmtK(r.rv) + '명</b> · ' + r.n + '개</span>').join('') + '</div><p class="ir-n">캐러셀은 슬라이드를 넘길 때마다 조회가 다시 세져서 조회 대신 도달로 견줘요</p></div>');
+    return R.length ? R.join('') : '<p class="mu">최근 3달 게시물이 없어요.</p>';
+  }
   function insights(chs) {
     const out = [];
     const own = (chs || OWN).filter(c => OWN.includes(c));
@@ -339,8 +361,7 @@
   }
   function briefText(chs) {
     const ins = insights(chs);
-    return '<div class="brief" style="padding:18px 0 0"><div class="lb">✦ 최근 3달 분류별 요약<small>최근 3달에 올린 게시물 기준 · 이번 주 성과가 아니에요</small></div>' +
-      '<ul>' + ins.map(s => '<li>' + esc(s) + '</li>').join('') + '</ul></div>';
+    return '<div class="brief" style="padding:18px 0 0"><div class="lb">최근 3달 분류별 요약<small>이번 주가 아니라 최근 3달 게시물 기준이에요</small></div><div class="irs">' + insightRows(chs) + '</div></div>';
   }
   function wireBrief() {
     const b = $('briefBtn'); if (!b) return;
@@ -383,12 +404,12 @@
   }
   function ageLine(it) {
     const age = daysBetween(it.d, D.updated);
-    let s = '게시 ' + (age <= 0 ? '당일' : age + '일째');
+    let s = '올린 지 ' + (age <= 0 ? '오늘' : age + '일째');
     for (let j = 2; j >= 0; j--) {
       if (!it.ag || !it.ag[j] || !(it.ag[j][0] > 0)) continue; // 0은 아직 수집 전으로 보고 비교하지 않음
       const b = agMed(it.c, j, it.t), r = b && b.m > 0 ? it.ag[j][0] / b.m : null;
       if (r == null) break;
-      s += ' · <em class="' + (r >= 1 ? 'up' : 'down') + '" title="같은 형식 게시물의 게시 ' + AG_DAYS[j] + '일 뒤 조회 중간값 ' + fmtK(b.m) + ' 대비">' + AG_DAYS[j] + '일 뒤 기준 평소의 ' + xf(r) + '</em>';
+      s += ' · <em class="' + (r >= 1 ? 'up' : 'down') + '" title="같은 형식 게시물의 게시 ' + AG_DAYS[j] + '일 뒤 조회 중간값 ' + fmtK(b.m) + ' 대비">' + AG_DAYS[j] + '일째 평소의 ' + xf(r) + '</em>';
       break;
     }
     return s;
@@ -575,7 +596,7 @@
     const a = w.cur.v / w.cur.days, b = w.prev.v / w.prev.days;
     if (!b) return '<span class="mu">그 전 기간 0</span>';
     const d = (a - b) / b;
-    return '<b class="' + dCls(d) + '">' + dTxt(d, 1) + '</b> <span class="mu">하루 평균, 그 전 기간 대비</span>';
+    return '<span class="mu" title="하루 평균으로 비교">직전 ' + w.prev.days + '일 대비</span> <b class="' + dCls(d) + '">' + dTxt(d, 1) + '</b>';
   }
   function wkBar(p, col) {
     if (!p || !p.v) return '<div class="wk-bar"></div>';
@@ -774,7 +795,7 @@
     M.forEach((s, i) => {
       const multi = s.series.length > 1;
       const ds = s.series.map(x => {
-        const col = s.kind === 'all' ? css('--fg') : chColor(x.ch || s.ch);
+        const col = s.kind === 'all' ? css('--jj') : chColor(x.ch || s.ch);
         return { label: x.ch ? chName(x.ch) : s.label || chName(s.ch), data: x.data, backgroundColor: s.keys.map(k => k === s.curK ? col + '55' : col), borderRadius: 3, maxBarThickness: multi ? 12 : 34, minBarLength: 2, categoryPercentage: multi ? 0.8 : 0.8, barPercentage: multi ? 0.9 : 0.9 };
       });
       draw('trC' + i, { type: 'bar', data: { labels: s.keys.map(k => trLabel(k, u)), datasets: ds },
@@ -1152,7 +1173,7 @@
       '<table class="tbl compact"><thead><tr><th>형식</th><th class="n">최근 월평균</th><th class="n">권장</th><th>이유</th></tr></thead><tbody>' +
       p.rows.map(r => '<tr><td>' + esc(fmtType(r.t)) + '</td><td class="n">' + r.per.toFixed(1) + '</td><td class="n"><b>' + r.rec + '</b></td><td class="' + (r.idx == null ? '' : r.idx >= 1.2 ? 'hi' : r.idx <= 0.8 ? 'lo' : '') + '">' + esc(r.why) + '</td></tr>').join('') + '</tbody></table>' +
       (p.topics.length ? '<div class="pl-t"><b>지난 ' + m + '월에 잘 된 주제 · 올해도 후보예요</b> <small>(' + p.yrs.join('·') + '년)</small><div class="chips">' + p.topics.map(t => '<span class="chip" aria-pressed="true">' + esc(t.k) + ' ' + xf(t.idx) + '</span>').join('') + '</div></div>' : '<p class="note">' + (p.yrs.length ? '지난 ' + m + '월(' + p.yrs.join('·') + '년)에는 평소보다 뚜렷하게 잘 된 주제가 없었어요.' : '지난 ' + m + '월 데이터가 없어요.') + '</p>') +
-      (p.best.length ? '<p class="note">지난 ' + m + '월 가장 잘 된 게시물: ' + p.best.map(it => esc(title(it.n)) + ' (' + dot(it.d) + ', 평소의 ' + xf(ratio(it)) + ')').join(' · ') + '</p>' : '') + '</div>').join('') + '</div>' +
+      (p.best.length ? '<div class="pl-b"><div class="pl-bh">지난 ' + m + '월 가장 잘 된 게시물</div><ul class="rx-l">' + p.best.map(it => '<li><div class="rx-t">' + esc(title(it.n)) + '</div><div class="rx-m"><b>평소의 ' + xf(ratio(it)) + '</b> · ' + dot(it.d) + '</div></li>').join('') + '</ul></div>' : '') + '</div>').join('') + '</div>' +
       '<div style="margin-top:12px"><button type="button" class="btn" id="planCopy">회의용으로 복사</button> <span class="hint">형식별 권장 개수와 이유, 잘 된 주제를 글로 복사해요</span></div>';
   }
   function planText(P) {
@@ -1422,7 +1443,7 @@
       '<div class="two"><div><div class="bars" id="byProd"></div>' + (call ? '<div class="callout">' + call + '</div>' : '') + '</div><div>' +
       '<div class="tw"><table class="tbl compact"><thead><tr><th>제작</th><th class="n">게시</th><th class="n">잘 된 비율</th><th class="n">조회 합</th><th class="n">게시물당 조회</th></tr></thead><tbody>' +
       prod.concat(ads.length ? [{ k: '광고 영상', n: ads.length, hit: null, arr: ads, v: median(ads.map(mainVal)) }] : []).map(r => '<tr><td>' + ptag(r.k) + '</td><td class="n">' + r.n + '</td><td class="n">' + pct0(r.hit) + '</td><td class="n">' + fmtK(sum(r.arr.map(mainVal))) + '</td><td class="n">' + fmtK(r.v) + '</td></tr>').join('') +
-      '</tbody></table></div><p class="note">자체 제작: 캡션에 제작자 이름이 없는 홍보실 제작물 · 근로장학생: 크레딧 이름 중 홍보대사 명단에 없는 사람 · 광고 영상: 구글애즈 캠페인과 연결된 유튜브 영상(비교에서 빼고 따로 표시)</p></div></div>' + secClose;
+      '</tbody></table></div><dl class="defs"><div><dt>자체 제작</dt><dd>캡션에 제작자 이름이 없는 홍보실 제작물</dd></div><div><dt>근로장학생</dt><dd>크레딧 이름 중 홍보대사 명단에 없는 사람</dd></div><div><dt>광고 영상</dt><dd>구글애즈 캠페인과 연결된 유튜브 영상 · 비교에서 빼고 따로 표시</dd></div></dl></div></div>' + secClose;
     // 사람별
     let ps = peopleStats(noAd);
     if (S.roleF !== '전체') ps = ps.filter(p => p.role === S.roleF);
@@ -1430,7 +1451,7 @@
     ps.sort((a, b) => sk(b) - sk(a));
     const roleChips = ['전체', '홍보대사', '근로장학생', '서포터즈'].map(r => '<button class="chip" type="button" data-r="' + r + '" aria-pressed="' + (S.roleF === r) + '">' + r + '</button>').join('');
     const th = (k, l) => '<th class="n"><button type="button" data-s="' + k + '"' + (S.psort === k ? ' data-dir="desc"' : '') + '>' + l + '</button></th>';
-    html += secOpen('사람별 성과', '캡션 제작 크레딧에 적힌 이름 기준이에요 · 팀 콘텐츠는 참여자 모두에게 똑같이 집계해요 · 등급 점수는 상벌점표의 조회 기준이에요(100만 +10 · 50만 +5 · 10만 +1 · 1만 +0.1 · 1만 미만 −0.1)',
+    html += secOpen('사람별 성과', '캡션 크레딧에 적힌 이름 기준 · 팀 콘텐츠는 참여자 모두에게 똑같이 집계해요<span class="tiers"><b>등급 점수</b><span>100만 +10</span><span>50만 +5</span><span>10만 +1</span><span>1만 +0.1</span><span>1만 미만 −0.1</span></span>',
       '<button class="btn" type="button" id="pXls">엑셀로 받기</button>') +
       '<div class="chips">' + roleChips + '</div>' +
       '<div class="tw"><table class="tbl" id="pTbl"><thead><tr><th>이름</th><th>역할</th>' + th('n', '참여') + th('views', '조회 합') + th('idx', '평소 대비') + th('hits', '잘 된 게시물') + th('score', '등급 점수') + '<th>최고 콘텐츠</th></tr></thead><tbody>' +
@@ -1492,7 +1513,7 @@
     const SEA_M = [['idx', '게시물당 평소 대비'], ['orgV', '자연 조회'], ['n', '게시 수'], ['hit', '잘 된 비율']];
     if (!SEA_M.some(m => m[0] === S.seaM)) S.seaM = 'idx';
     html += secOpen('해마다 비교', '수시·정시를 연도순으로 놓았어요 · 막대를 누르면 그 시즌을 봐요', '<div class="seg" id="seaM" aria-label="비교할 숫자">' + SEA_M.map(m => '<button type="button" data-m="' + m[0] + '" aria-pressed="' + (S.seaM === m[0]) + '">' + m[1] + '</button>').join('') + '</div>') +
-      '<div class="chart"><canvas id="yoyChart"></canvas></div><p class="note">' + (S.seaM === 'orgV' ? '자연 조회는 오래된 시즌일수록 조회가 쌓인 기간이 길어 많아 보여요. 해마다 견주려면 「게시물당 평소 대비」를 보세요.' : S.seaM === 'idx' ? '1배 = 그 채널·형식의 평소 수준. 시즌 게시물이 평소보다 잘 됐는지를 해마다 같은 잣대로 봐요.' : S.seaM === 'hit' ? '시즌 게시물 중 평소의 1.5배 이상 나온 비율이에요.' : '시즌 동안 올린 게시물 수(광고 제외)예요.') + ' · <span class="mu">* 원본 수집 범위 밖 기간이 섞인 시즌</span></p>' + secClose;
+      '<div class="chart"><canvas id="yoyChart"></canvas></div><p class="note">' + (S.seaM === 'orgV' ? '자연 조회는 오래된 시즌일수록 조회가 쌓인 기간이 길어 많아 보여요. 해마다 견주려면 「게시물당 평소 대비」를 보세요.' : S.seaM === 'idx' ? '1배 = 그 채널·형식의 평소 수준. 시즌 게시물이 평소보다 잘 됐는지를 해마다 같은 잣대로 봐요.' : S.seaM === 'hit' ? '시즌 게시물 중 평소의 1.5배 이상 나온 비율이에요.' : '시즌 동안 올린 게시물 수(광고 제외)예요.') + '</p><p class="note"><span class="lg"><i style="background:var(--jj)"></i>수시</span><span class="lg"><i style="background:var(--ai)"></i>정시</span><span class="mu">· 막대 아래 숫자는 연도 · * 원본 수집 범위 밖 기간이 섞인 시즌</span></p>' + secClose;
     html += secOpen('주별 게시 콘텐츠 조회', '주마다 올린 콘텐츠의 현재 누적 조회 · 광고 영상과 나머지를 나눠 보여줘요') + '<div class="chart tall"><canvas id="seaChart"></canvas></div>' + secClose;
     const admSorted = st.adm.slice().sort((a, b) => (ratio(b) || 0) - (ratio(a) || 0));
     const topSorted = st.org.slice().sort((a, b) => (ratio(b) || 0) - (ratio(a) || 0)).slice(0, 8);
@@ -1511,7 +1532,7 @@
     while (ys.length > 1 && (ys[0].v == null || ys[0].v === 0) && ys[0].x.id !== s.id) ys.shift(); // 값이 없는 앞쪽 시즌(수집 범위 밖)은 그리지 않음
     const ycol = y => { const c = css(/정시$/.test(y.x.id) ? '--ai' : '--jj'); return y.x.id === s.id ? c : c + '59'; };
     const yfmt = v => v == null ? '–' : S.seaM === 'idx' ? xf(v) : S.seaM === 'hit' ? Math.round(v) + '%' : S.seaM === 'n' ? v + '개' : fmtK(v);
-    draw('yoyChart', { type: 'bar', data: { labels: ys.map(y => y.x.id.slice(2, 4) + '년 ' + y.x.id.slice(4) + (y.cn ? '*' : '')), datasets: [{ data: ys.map(y => y.v), backgroundColor: ys.map(ycol), borderRadius: 3, maxBarThickness: 36 }] },
+    draw('yoyChart', { type: 'bar', data: { labels: ys.map(y => /수시$/.test(y.x.id) ? "'" + y.x.id.slice(2, 4) + (y.cn ? '*' : '') : ''), datasets: [{ data: ys.map(y => y.v), backgroundColor: ys.map(ycol), borderRadius: 3, maxBarThickness: 36 }] },
       options: chartOpts({ onClick: (e, els) => { if (!els.length) return; S.season = ys[els[0].index].x.id; viewSeason(); }, layout: { padding: { top: 20 } },
         plugins: { tooltip: { callbacks: { title: it => ys[it[0].dataIndex].x.label, label: c => SEA_M.find(m => m[0] === S.seaM)[1] + ' ' + yfmt(c.raw) } } },
         scales: { x: { ticks: { autoSkip: false, maxRotation: 0, font: { size: 12 } } }, y: { display: true, grid: { color: css('--line') }, ticks: { maxTicksLimit: 4, callback: v => yfmt(v) } } } }),

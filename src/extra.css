@@ -574,3 +574,32 @@ small { line-height: 1.6; }
 .s2-t .chb { margin-right: 6px; }
 .s2-r b { grid-area: v; font-size: var(--fs-md); white-space: nowrap; }
 @media (hover: hover) { .s2-r:hover .s2-t { color: var(--jj); } }
+
+/* ───── 덩어리 정리(2026-10-18): 용어 칩 · 분류 요약 행 · 편성 참고 목록 · 등급 칩 · 범례 ───── */
+.defs { margin: 0 0 18px; display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 8px; }
+.defs > div { background: var(--tile); border-radius: var(--r-md); padding: 10px 12px; min-width: 0; }
+.defs dt { font-size: var(--fs-tag); font-weight: 700; color: var(--fg); }
+.defs dd { margin: 2px 0 0; font-size: var(--fs-tag); color: var(--sub); line-height: 1.55; }
+.defs > div[title] { cursor: help; }
+.irs { display: flex; flex-direction: column; gap: 10px; margin-top: 10px; }
+.ir { border: 1px solid var(--line); border-radius: var(--r-lg); padding: 14px 16px; display: flex; flex-direction: column; gap: 10px; background: var(--bg); }
+.ir-h { display: flex; align-items: center; gap: 8px; font-size: var(--fs-xs); }
+.ir-g { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+@media (max-width: 420px) { .ir-g { grid-template-columns: minmax(0, 1fr); } }
+.ir-c { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.ir-l { font-size: var(--fs-tag); color: var(--muted); font-weight: 600; }
+.ir-c > b { font-size: var(--fs-md); color: var(--fg); }
+.ir-v { font-size: var(--fs-tag); color: var(--sub); }
+.ir-v b { font-size: var(--fs-sm); }
+.ir-f { display: flex; flex-wrap: wrap; gap: 6px; }
+.ir-f span { background: var(--tile); border-radius: 999px; padding: 4px 10px; font-size: var(--fs-xs); color: var(--sub); }
+.ir-f b { color: var(--fg); }
+.ir-n { margin: 0; font-size: var(--fs-tag); color: var(--muted); line-height: 1.6; }
+.pl-b { margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--line); }
+.pl-bh { font-size: var(--fs-tag); font-weight: 700; color: var(--muted); margin-bottom: 4px; }
+.tiers { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 6px; margin-top: 8px; }
+.tiers b { font-size: var(--fs-tag); color: var(--sub); margin-right: 2px; }
+.tiers span { font-size: var(--fs-tag); background: var(--tile); border-radius: 999px; padding: 2px 9px; color: var(--sub); white-space: nowrap; }
+.lg { display: inline-flex; align-items: center; gap: 5px; margin-right: 10px; font-size: var(--fs-tag); color: var(--sub); }
+.lg i { width: 10px; height: 10px; border-radius: 3px; display: inline-block; }
+.tw + .defs, table + .defs { margin-top: 14px; margin-bottom: 0; }
