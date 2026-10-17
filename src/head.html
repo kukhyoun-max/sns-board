@@ -23,8 +23,13 @@
   --ok-soft: #e6f7f0;
   --ai: #6f5f9e;
   --ai-soft: #efecf6;
+  /* --coral은 --down과 같은 hex라 칩·분류에 쓰면 하락으로 읽힘 → 쓰지 않음(경고 문구는 --sub + 선 아이콘) */
   --coral: #c2410c;
   --coral-soft: #fff1ea;
+  --down-bar: #f26b2a; /* 넓은 막대 면용 하락 주황(글자용 --down은 면에서 갈색처럼 보임) */
+  /* 분류 전용 팔레트(상태색·채널색과 겹치지 않음, 갈색·주황 없음) */
+  --cat-1: #0078ad; --cat-2: #005494; --cat-3: #7b61c9; --cat-4: #087f5b; --cat-5: #2aa198; --cat-6: #4e5968; --cat-7: #9aa4b1; --cat-8: #7fb3cf; --cat-9: #b9a6e8;
+  --ws: #0f766e; --ws-soft: #e6f4f1; /* 근로장학생 칩(제작 주체 = 분류색) */
   /* 시안: 상태색은 계열색과 다른 hex. 빨강은 수집 실패 같은 경보에만 */
   --st-danger: #da1e28;
   --st-danger-soft: #fdecee;
@@ -57,6 +62,7 @@
     --bg: #17171c; --plane: #101013; --tile: #202027; --fg: #f2f3f5; --sub: #c3c8cf; --muted: #8b929c; --line: #2c2c35;
     --up: #4fb0dd; --up-soft: #12293a; --down: #ff8a5c; --down-soft: #3a2118; --ok: #38d9a9; --ok-soft: #12302a; --ai: #ab9dd6; --ai-soft: #252036; --coral: #ff8a5c; --coral-soft: #3a2118; --jj: #4fb0dd; --navy: #6fa3d6;
     --ch-ig: #f06595; --ch-yt: #74a9e8; --ch-hong: #38d9a9; --ch-b1: #c3c8cf; --ch-b2: #9aa4b1; --ch-b3: #7d8590; --chb-hong: #38d9a9; --chb-bench: #9aa4b1; --st-danger: #ff6b72; --st-danger-soft: #3a1a1d; --ad: rgba(79, 176, 221, .4);
+    --down-bar: #ff8a5c; --cat-1: #4fb0dd; --cat-2: #6fa3d6; --cat-3: #ab9dd6; --cat-4: #38d9a9; --cat-5: #5fd3c6; --cat-6: #c3c8cf; --cat-7: #7d8590; --cat-8: #9ccbe3; --cat-9: #d0c4f0; --ws: #5fd3c6; --ws-soft: #12302e;
     color-scheme: dark;
     --badge-fg: #17171c;
   }
@@ -65,6 +71,7 @@
   --bg: #17171c; --plane: #101013; --tile: #202027; --fg: #f2f3f5; --sub: #c3c8cf; --muted: #8b929c; --line: #2c2c35;
   --up: #4fb0dd; --up-soft: #12293a; --down: #ff8a5c; --down-soft: #3a2118; --ok: #38d9a9; --ok-soft: #12302a; --ai: #ab9dd6; --ai-soft: #252036; --coral: #ff8a5c; --coral-soft: #3a2118; --jj: #4fb0dd; --navy: #6fa3d6;
   --ch-ig: #f06595; --ch-yt: #74a9e8; --ch-hong: #38d9a9; --ch-b1: #c3c8cf; --ch-b2: #9aa4b1; --ch-b3: #7d8590; --chb-hong: #38d9a9; --chb-bench: #9aa4b1; --st-danger: #ff6b72; --st-danger-soft: #3a1a1d; --ad: rgba(79, 176, 221, .4);
+  --down-bar: #ff8a5c; --cat-1: #4fb0dd; --cat-2: #6fa3d6; --cat-3: #ab9dd6; --cat-4: #38d9a9; --cat-5: #5fd3c6; --cat-6: #c3c8cf; --cat-7: #7d8590; --cat-8: #9ccbe3; --cat-9: #d0c4f0; --ws: #5fd3c6; --ws-soft: #12302e;
   color-scheme: dark;
   --badge-fg: #17171c;
 }
@@ -143,7 +150,7 @@ button { font: inherit; color: inherit; }
 .tm { position: absolute; border: 2px solid var(--bg); border-radius: 6px; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; padding: 4px 6px; color: #fff; cursor: pointer; overflow: hidden; }
 .tm:hover { filter: brightness(1.08); }
 .tm .a { font-size: var(--fs-md); font-weight: 700; line-height: 1.3; max-width: 100%; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
-.tm .b { font-size: var(--fs-sm); font-weight: 400; opacity: .95; }
+.tm .b { font-size: var(--fs-sm); font-weight: 400; opacity: .95; max-width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .tm.s .a { font-size: var(--fs-tag); }
 .tm.s .b { font-size: var(--fs-tag); }
 .tm.xs .b { display: none; }
@@ -169,7 +176,7 @@ button { font: inherit; color: inherit; }
 /* 태그 */
 .tag { display: inline-flex; align-items: center; font-size: var(--fs-tag); font-weight: 700; padding: 3px 8px; border-radius: 6px; background: var(--plane); color: var(--sub); white-space: nowrap; }
 .tag.p-amb { background: var(--ok-soft); color: var(--ok); }
-.tag.p-ad { background: var(--coral-soft); color: var(--coral); }
+.tag.p-ad { background: transparent; color: var(--jj); box-shadow: inset 0 0 0 1px var(--ad); } /* 광고 = 블루 외곽선(하락 주황 아님) */
 .tag.p-own { background: var(--up-soft); color: var(--navy); }
 .tag.p-ugc { background: var(--ai-soft); color: var(--ai); }
 .tag.p-col { background: var(--down-soft); color: var(--down); }
@@ -188,7 +195,8 @@ button { font: inherit; color: inherit; }
 .br { display: grid; grid-template-columns: 150px minmax(0, 1fr) 64px; align-items: center; gap: 10px; padding: 6px 4px; border-radius: 8px; cursor: pointer; border: 0; background: none; text-align: left; width: 100%; }
 .br:hover { background: var(--tile); }
 .br .l { font-size: var(--fs-sm); font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.br .l small { display: block; font-size: var(--fs-tag); color: var(--muted); font-weight: 400; }
+.br .l small { display: block; font-size: var(--fs-tag); color: var(--muted); font-weight: 400; white-space: normal; line-height: 1.5; }
+.br .v em { display: block; font-style: normal; font-size: var(--fs-tag); font-weight: 400; color: var(--muted); }
 .br .tr { height: 22px; background: var(--tile); border-radius: 6px; position: relative; overflow: hidden; }
 .br .tr i { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 6px; }
 .br .tr .mid { position: absolute; top: -3px; bottom: -3px; width: 2px; background: var(--fg); opacity: .35; }
@@ -224,7 +232,7 @@ td.tt2 { max-width: 420px; }
 .dtitle { font-size: var(--fs-xl); font-weight: 700; letter-spacing: -0.02em; line-height: 1.4; margin: 0 0 10px; }
 .dtitle .chb { font-size: var(--fs-tag); padding: 5px 8px; }
 .dbig { font-size: var(--fs-3xl); font-weight: 700; letter-spacing: -0.02em; }
-.dbig small { font-size: var(--fs-lg); font-weight: 700; margin-left: 8px; }
+.dbig small { display: block; margin: 4px 0 0; font-size: var(--fs-sm); font-weight: 700; line-height: 1.5; white-space: normal; letter-spacing: 0; }
 .dtags { display: flex; gap: 6px; flex-wrap: wrap; margin: 10px 0 0; }
 .cmp { position: relative; height: 230px; margin-top: 16px; }
 .dper { display: flex; gap: 6px; justify-content: center; margin-top: 10px; }
@@ -238,7 +246,7 @@ td.tt2 { max-width: 420px; }
 .sg { display: grid; grid-template-columns: 56px minmax(0, 1fr); gap: 14px; align-items: center; padding: 12px 0; }
 .sg .k { width: 56px; height: 56px; border-radius: 16px; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: var(--fs-md); }
 .sg .k.good { background: var(--up-soft); color: var(--up); }
-.sg .k.bad { background: var(--coral-soft); color: var(--coral); }
+.sg .k.bad { background: var(--down-soft); color: var(--down); }
 .sg .k.info { background: var(--plane); color: var(--sub); }
 .sg b { font-size: var(--fs-lg); font-weight: 600; display: block; letter-spacing: -0.01em; color: var(--fg); }
 .sg span span { display: block; }
