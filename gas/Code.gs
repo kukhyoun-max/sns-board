@@ -1086,6 +1086,16 @@ function backfillDailyTotals_() {
   const v = ss.getSheetByName(SNAP).getDataRange().getValues().slice(1).filter(r => r[0] && r[1]);
   return mergeDailyTotals_(ss, v.map(r => [r[0], r[1], r[2]].concat([0, 1, 2, 3, 4].map(j => r[M0 + j]))));
 }
+// 팔로워 일별(최근 400일): 타 대학(「타대학 일별」 [날짜, 계정, 팔로워…]) + 우리 계정(IGX_DAY_SHEET [채널, 날짜, 팔로워…])
+function loadFollowers_(ss) {
+  const out = [], from = shiftDate_(Utilities.formatDate(new Date(), TZ, 'yyyy-MM-dd'), -400);
+  const ymd = v => v instanceof Date ? Utilities.formatDate(v, TZ, 'yyyy-MM-dd') : String(v || '').slice(0, 10);
+  const b = ss.getSheetByName('타대학 일별');
+  if (b && b.getLastRow() > 1) b.getRange(2, 1, b.getLastRow() - 1, 3).getValues().forEach(r => { const d = ymd(r[0]), n = Number(r[2]); if (d >= from && n > 0) out.push([d, String(r[1]).trim(), n]); });
+  const o = ss.getSheetByName(IGX_DAY_SHEET);
+  if (o && o.getLastRow() > 1) o.getRange(2, 1, o.getLastRow() - 1, 3).getValues().forEach(r => { const d = ymd(r[1]), n = Number(r[2]); if (d >= from && n > 0) out.push([d, String(r[0]).trim(), n]); });
+  return out.sort((x, y) => x[0] < y[0] ? -1 : x[0] > y[0] ? 1 : 0);
+}
 function loadDailyTotals_(ss) {
   const sh = ss.getSheetByName(DAILY_SHEET);
   if (!sh || sh.getLastRow() < 2) return [];
@@ -1255,6 +1265,8 @@ function buildDashboardData_() {
     strat: loadStrat_(ss),
     goals: loadGoals_(ss),
     daily: (function () { try { return loadDailyTotals_(ss); } catch (e) { return []; } })(),
+    // 팔로워 일별 [날짜, 계정, 팔로워] — 타 대학 비교의 팔로워당 반응·증가용
+    fol: (function () { try { return loadFollowers_(ss); } catch (e) { return []; } })(),
     tagError: extra.tagError || '',
     // 원본 갱신 여부 { 채널: {changed: 직전 기록 대비 값이 바뀐 게시물 수, total: 두 기록 모두 있는 게시물 수, latest: 원본 최신 게시일, prev, d} }
     // 마지막 기록 때 계산해 스크립트 속성에 저장한 값 (응답 때 다시 계산하지 않음)
