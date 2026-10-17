@@ -734,21 +734,26 @@ details.adv[open] > summary { border-bottom: 1px solid var(--line); }
 @media (max-width: 560px) { .kpi-row .kpi-t { padding: 14px 14px 12px; } .kpi-row .kpi-s { font-size: var(--fs-tag); } .kpi-row .kspark { height: 24px; padding-top: 8px; } }
 @media (max-width: 560px) { .kpi-row .kpi-t:last-child:nth-child(odd) { grid-column: 1 / -1; aspect-ratio: auto; } }
 
-/* 상단 상태 줄: 한 줄(기준일 · 비교일 | 광고 포함 스위치) */
-.status { flex-wrap: nowrap; gap: 12px; padding-top: 10px; padding-bottom: 10px; }
-.status .st { flex-wrap: nowrap; gap: 0; min-width: 0; font-size: var(--fs-xs); color: var(--muted); }
-.status .st span { overflow: hidden; text-overflow: ellipsis; }
+/* 상단 상태 줄: 왼쪽 「10/17 기준 · 지난 기록 10/12」 한 줄, 맨 오른쪽 「광고 포함」 버튼. 기간 선택은 아래 줄 */
+.status { flex-wrap: wrap; gap: 8px 12px; padding-top: 12px; padding-bottom: 8px; }
+.status .st { flex: 1 1 0; min-width: 0; flex-wrap: nowrap; gap: 0; font-size: var(--fs-xs); color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: block; }
+.status .st span::before, .status .st span.live::before { display: none; }
 .status .st span:empty { display: none; }
-.status .st span + span::before { content: "·"; width: auto; height: auto; border-radius: 0; background: none; margin: 0 6px; vertical-align: 0; }
+.status .st span + span:not(:empty)::before { display: inline; content: "·"; margin: 0 6px; }
 .status .st span.live { color: var(--sub); font-weight: 600; }
-.status .ctl { flex: none; flex-wrap: nowrap; }
-.adtg { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px 4px 6px; border-radius: 999px; font-size: var(--fs-tag); font-weight: 600; color: var(--sub); }
-.adtg::before { position: relative; left: auto; top: auto; margin: 0; width: 26px; height: 16px; border-radius: 999px; border: 0; background: var(--line); box-shadow: none; flex: none; transition: background .15s; }
-.adtg::after { content: ""; position: absolute; left: 8px; top: 50%; width: 12px; height: 12px; margin-top: -6px; border-radius: 50%; background: #fff; box-shadow: 0 1px 2px rgba(0, 0, 0, .25); transition: transform .15s; }
-.adtg[aria-pressed="true"] { border-color: var(--line); color: var(--fg); background: var(--bg); }
-.adtg[aria-pressed="true"]::before { background: var(--jj); box-shadow: none; }
-.adtg[aria-pressed="true"]::after { transform: translateX(10px); }
-@media (prefers-reduced-motion: reduce) { .adtg::before, .adtg::after { transition: none; } }
+.status .ctl { flex: none; }
+.status .st { order: 1; } .status .ctl { order: 2; }
+.status::after { content: ""; order: 3; flex-basis: 100%; height: 0; } /* 줄바꿈: 기간 선택은 아래 줄 */
+.status #rangeSeg { order: 4; }
+.status:not(:has(#rangeSeg:not([hidden])))::after { display: none; }
+.adtg, .adtg[aria-pressed="true"] { padding: 5px 12px; border-radius: 999px; font-size: var(--fs-tag); font-weight: 700; }
+.adtg::before, .adtg::after { display: none; }
+.adtg { color: var(--muted); background: var(--bg); border: 1px solid var(--line); }
+.adtg[aria-pressed="true"] { color: #fff; background: var(--jj); border-color: var(--jj); }
+/* 칩 줄: 위 상자와 붙지 않게 간격, 크기 한 단계 작게, 넘치면 오른쪽 끝을 흐리게(옆으로 밀면 더 있음) */
+:where(.sec) * + .chips { margin-top: 14px; }
+.chip { padding: 7px 14px; font-size: var(--fs-sm); }
+.chips { -webkit-mask-image: linear-gradient(90deg, #000 calc(100% - 28px), transparent); mask-image: linear-gradient(90deg, #000 calc(100% - 28px), transparent); padding-right: 28px; }
 </style>
 
 <div class="app" id="app">
@@ -756,7 +761,8 @@ details.adv[open] > summary { border-bottom: 1px solid var(--line); }
   <nav class="top" role="tablist" id="tabs" aria-label="채널"></nav>
   <div class="status">
     <div class="st"><span id="st1">데이터 불러오는 중</span><span id="st2"></span></div>
-    <div class="ctl"><button type="button" class="adtg" id="adTg" aria-pressed="false" hidden>광고 제외</button><div class="seg" id="rangeSeg" aria-label="게시 기간" hidden></div></div>
+    <div class="ctl"><button type="button" class="adtg" id="adTg" aria-pressed="false" hidden>광고 포함</button></div>
+    <div class="seg" id="rangeSeg" aria-label="게시 기간" hidden></div>
   </div>
   <main id="view"></main>
   <div class="gap"></div>
