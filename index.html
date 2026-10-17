@@ -792,6 +792,9 @@ details.adv[open] > summary { border-bottom: 1px solid var(--line); }
 .kpi-t.best .chb { margin-right: 5px; }
 /* 카드 설명: 숫자(1.5배 등) 가운데서 줄이 끊기지 않게 */
 .kpi-s { overflow-wrap: break-word; word-break: keep-all; }
+/* 홈 KPI: 카드 이름·설명은 무조건 한 줄(넘치면 …) */
+.kpi-row .kpi-l, .kpi-row .kpi-s { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.kpi-row .kpi-t.best .bt { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; -webkit-line-clamp: unset; }
 </style>
 
 <div class="app" id="app">
@@ -1249,7 +1252,7 @@ details.adv[open] > summary { border-bottom: 1px solid var(--line); }
     if (ch === '유튜브') {
       const g = a.cur && a.cur.m['Gained subscribers']; if (g == null) return '';
       const n = g - (a.cur.m['Lost subscribers'] || 0);
-      return kpiTile('유튜브 구독자 증감', sgn(n) + fmt(n) + '<small>명</small>', stale ? '<span class="warn">구독자 수 미갱신</span>' : '지난주 새 구독 ' + fmt(g) + ' · 취소 ' + fmt(g - n), n >= 0 ? 'up' : 'down', spark(A.map(x => x.m['Gained subscribers'] == null ? null : x.m['Gained subscribers'] - (x.m['Lost subscribers'] || 0)), '기록별 구독자 순증'));
+      return kpiTile('유튜브 구독자 증감', sgn(n) + fmt(n) + '<small>명</small>', stale ? '<span class="warn">구독자 수 미갱신</span>' : '새 구독 ' + fmt(g) + ' · 취소 ' + fmt(g - n), n >= 0 ? 'up' : 'down', spark(A.map(x => x.m['Gained subscribers'] == null ? null : x.m['Gained subscribers'] - (x.m['Lost subscribers'] || 0)), '기록별 구독자 순증'));
     }
     return '';
   }
@@ -1263,16 +1266,16 @@ details.adv[open] > summary { border-bottom: 1px solid var(--line); }
       if (w.prev) { const a = p.v / p.days, b = w.prev.v / w.prev.days; if (b) { const d = (a - b) / b; chg = '직전 ' + w.prev.days + '일 대비 <span class="' + dCls(d) + '" title="하루 평균으로 비교">' + dTxt(d, 1) + '</span>'; } }
       t.push(kpiTile('최근 ' + p.days + '일 늘어난 조회', '+' + fmtK(p.v), (chg || md(p.d0) + '–' + md(p.d1)), '', spark(viewSeries(chs), '최근 기록 기간별 하루 평균 조회 증가')));
     }
-    t.push(kpiTile('최근 30일 잘 된 비율', c30.length ? pct0(hitRate(c30)) : '–', c30.length ? '<span title="올린 지 ' + AGE_MIN + '일이 지난 게시물만 셌어요">' + c30.length + '개 중 ' + hits.length + '개가 평소의 1.5배 이상</span>' : '아직 셀 만큼 지난 게시물이 없어요', '', spark(monthly(chs, 'hit'), '최근 6달 월별 잘 된 비율')));
+    t.push(kpiTile('최근 30일 잘 된 비율', c30.length ? pct0(hitRate(c30)) : '–', c30.length ? '<span title="올린 지 ' + AGE_MIN + '일이 지난 ' + c30.length + '개 중 ' + hits.length + '개가 평소의 1.5배 이상">' + c30.length + '개 중 ' + hits.length + '개 · 1.5배↑</span>' : '아직 셀 만큼 지난 게시물이 없어요', '', spark(monthly(chs, 'hit'), '최근 6달 월별 잘 된 비율')));
     chs.filter(c => c === '인스타그램' || c === '유튜브').forEach(c => { const x = acctTile(c); if (x) t.push(x); });
     const by = chs.length > 1 ? chs.map(c => chName(c) + ' ' + c30all.filter(it => it.c === c).length).join(' · ') : '';
     // 그 전 30일(같은 길이)과 비교 — 달력 지난달은 이번 달이 덜 지나 공정하지 않음
     const p30 = pool({ channels: chs, since: addDays(D.updated, -60), until: addDays(D.updated, -31) }).length, dn = c30all.length - p30;
     const cmp = p30 ? '직전 30일 대비 ' + dNum(dn, '개') : '';
-    t.push(kpiTile('최근 30일 올린 게시물', c30all.length + '개', [cmp, by].filter(Boolean).join('<br>'), '', spark(monthly(chs, 'n'), '최근 6달 월별 게시 수')));
+    t.push(kpiTile('최근 30일 올린 게시물', c30all.length + '개', cmp || by, '', spark(monthly(chs, 'n'), '최근 6달 월별 게시 수')));
     // 카드가 홀수면 한 칸이 혼자 길어지므로 「최근 30일 가장 잘 된 게시물」로 짝을 맞춘다
     const best = c30.slice().sort((a, b) => ratio(b) - ratio(a))[0];
-    if (t.length % 2 && best) { window.__best = best; t.push('<div class="kpi-t best" role="button" tabindex="0" aria-label="최근 30일 가장 잘 된 게시물 상세 보기"><div class="kpi-l">최근 30일 가장 잘 된 게시물</div><div class="kpi-v num up">' + xf(ratio(best)) + '</div><div class="kpi-s"><span class="bt">' + badge(best.c) + esc(title(best.n)) + '</span></div></div>'); }
+    if (t.length % 2 && best) { window.__best = best; t.push('<div class="kpi-t best" role="button" tabindex="0" aria-label="최근 30일 가장 잘 된 게시물 상세 보기"><div class="kpi-l">30일 최고 게시물</div><div class="kpi-v num up">' + xf(ratio(best)) + '</div><div class="kpi-s"><span class="bt">' + badge(best.c) + esc(title(best.n)) + '</span></div></div>'); }
     return '<div class="kpi-row n' + t.length + '">' + t.join('') + '</div>';
   }
   function homeSummary(chs) {
