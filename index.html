@@ -1226,15 +1226,18 @@ details.adv[open] > summary { border-bottom: 1px solid var(--line); }
   }
   function acctTile(ch) {
     const a = acctLatest(ch), stale = D.acctStale && D.acctStale[ch];
+    // 스파크라인: 인스타 팔로워는 일별(D.fol, 최근 30일)이 있으면 그것, 없으면 계정 지표 기록들. 유튜브는 기록마다 구독 순증
+    const A = (D.acct || []).filter(x => x.ch === ch).sort((x, y) => x.d < y.d ? -1 : 1);
+    const F = (D.fol || []).filter(r => r[1] === ch && r[0] >= addDays(D.updated, -30));
     if (ch === '인스타그램') {
       const f = a.cur && a.cur.m['Profile followers']; if (f == null) return '';
       const p = a.prev && a.prev.m['Profile followers'];
-      return kpiTile('인스타 팔로워', fmt(f) + '<small>명</small>', stale ? '<span class="warn">팔로워 수가 아직 새로 안 들어왔어요</span>' : p != null && p !== f ? '지난 기록보다 <span class="' + (f > p ? 'up' : 'down') + '">' + fmt(Math.abs(f - p)) + '명 ' + (f > p ? '늘었어요' : '줄었어요') + '</span>' : '지난 기록과 같아요');
+      return kpiTile('인스타 팔로워', fmt(f) + '<small>명</small>', stale ? '<span class="warn">팔로워 수가 아직 새로 안 들어왔어요</span>' : p != null && p !== f ? '지난 기록보다 <span class="' + (f > p ? 'up' : 'down') + '">' + fmt(Math.abs(f - p)) + '명 ' + (f > p ? '늘었어요' : '줄었어요') + '</span>' : '지난 기록과 같아요', '', spark(F.length >= 3 ? F.map(r => r[2]) : A.map(x => x.m['Profile followers']), F.length >= 3 ? '최근 30일 팔로워 수' : '기록별 팔로워 수'));
     }
     if (ch === '유튜브') {
       const g = a.cur && a.cur.m['Gained subscribers']; if (g == null) return '';
       const n = g - (a.cur.m['Lost subscribers'] || 0);
-      return kpiTile('유튜브 구독자 증감', sgn(n) + fmt(n) + '<small>명</small>', stale ? '<span class="warn">구독자 수가 아직 새로 안 들어왔어요</span>' : '지난주 새 구독 ' + fmt(g) + '명, 취소 ' + fmt(g - n) + '명', n >= 0 ? 'up' : 'down');
+      return kpiTile('유튜브 구독자 증감', sgn(n) + fmt(n) + '<small>명</small>', stale ? '<span class="warn">구독자 수가 아직 새로 안 들어왔어요</span>' : '지난주 새 구독 ' + fmt(g) + '명, 취소 ' + fmt(g - n) + '명', n >= 0 ? 'up' : 'down', spark(A.map(x => x.m['Gained subscribers'] == null ? null : x.m['Gained subscribers'] - (x.m['Lost subscribers'] || 0)), '기록별 구독자 순증'));
     }
     return '';
   }
