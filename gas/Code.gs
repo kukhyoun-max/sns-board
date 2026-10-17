@@ -3339,8 +3339,14 @@ function backfillExtras() {
   }
   p.setProperty('BACKFILL_DONE', JSON.stringify(done));
   const all = done.aud && done.vid && done.ig && done.cm;
-  logRows_(ss, [[new Date(), '과거 채우기', 0, parts.join(' · ') + ytaFailText_() + ' — ' + Math.round((Date.now() - t0) / 1000) + '초' + (all ? ' · 전부 끝남' : ' · 메뉴 「과거 데이터 채우기」를 한 번 더 실행하세요')]]);
-  Logger.log(parts.join(' · ') + (all ? ' · 전부 끝남' : ' · 한 번 더 실행하세요'));
+  logRows_(ss, [[new Date(), '과거 채우기', 0, parts.join(' · ') + ytaFailText_() + ' — ' + Math.round((Date.now() - t0) / 1000) + '초' + (all ? ' · 전부 끝남' : ' · 1분 뒤 자동으로 이어서')]]);
+  Logger.log(parts.join(' · ') + (all ? ' · 전부 끝남' : ' · 1분 뒤 자동으로 이어서'));
+  // 끝나지 않았으면 1분 뒤 자기 자신을 다시 예약(한 번만 실행하면 끝까지 감). 끝났으면 예약을 지움
+  ScriptApp.getProjectTriggers().filter(t => t.getHandlerFunction() === 'backfillExtras').forEach(t => ScriptApp.deleteTrigger(t));
+  const runs = Number(p.getProperty('BACKFILL_RUNS') || 0) + 1; // 같은 단계가 계속 실패해도 무한히 돌지 않게 30번에서 멈춤
+  p.setProperty('BACKFILL_RUNS', String(all ? 0 : runs));
+  if (!all && runs < 30) ScriptApp.newTrigger('backfillExtras').timeBased().after(60 * 1000).create();
+  else if (!all) logRows_(ss, [[new Date(), '과거 채우기', 0, '자동 반복 30번에서 멈춤 — 실행 로그의 오류를 확인하세요']]);
 }
 // 「인스타 계정 일별」에 줄을 합쳐 씀(같은 채널·날짜면 빈칸이 아닌 값만 덮어씀)
 function igxAccountMerge_(ss, rows) {
