@@ -1037,12 +1037,12 @@
     return { more, less, again };
   }
   function rxHtml(P) {
-    const card = (kind, lab, head, body, key) => '<div class="rx ' + kind + '"><div class="rx-k">' + lab + '</div><div class="rx-h">' + head + '</div><p>' + body + '</p>' + (key ? '<button type="button" class="rx-b" data-rx="' + esc(key) + '">콘텐츠 보기</button>' : '') + '</div>';
+    const card = (kind, lab, head, body, key) => '<div class="rx ' + kind + '"><div class="rx-k">' + lab + '</div><div class="rx-h">' + head + '</div><div class="rx-p">' + body + '</div>' + (key ? '<button type="button" class="rx-b" data-rx="' + esc(key) + '">콘텐츠 보기</button>' : '') + '</div>';
     const combo = r => badge(r.c) + '<span>' + esc(r.g) + ' × ' + esc(fmtType(r.t)) + '</span>';
     const cards = [];
-    P.more.forEach(r => cards.push(card('more', '더 만들기', combo(r), '최근 1년 ' + r.n + '개가 평소의 <b>' + xf(r.idx) + '</b>였고, 잘 된 비율도 <b>' + pct0(r.hit) + '</b>로 채널 평균(' + pct0(r.hb) + ')보다 높아요. 그런데 최근 2달엔 ' + (r.recent ? '<b>' + r.recent + '개</b>만 올렸어요.' : '<b>하나도</b> 안 올렸어요.') + '<br><small>→ 다음 기획에 이 조합을 하나 넣어 보세요.</small>', 'c:' + r.k)));
-    P.less.forEach(r => cards.push(card('less', '줄이거나 바꾸기', combo(r), '최근 2달 ' + r.recent + '개를 올렸는데, 최근 1년 이 조합은 평소의 <b>' + xf(r.idx) + '</b>에 그쳤어요(' + r.n + '개).<br><small>→ ' + (r.alt ? '같은 주제를 <b>' + esc(jo(fmtType(r.alt.t), '으로', '로')) + '</b> 만들면 평소의 ' + xf(r.alt.idx) + '(' + r.alt.n + '개)였어요. 형식을 바꿔 보세요.' : '횟수를 줄이고, 그 시간에 「더 만들기」 쪽을 만들어 보세요.') + '</small>', 'c:' + r.k)));
-    if (P.again.length) cards.push(card('again', '작년 이맘때 잘 된 것', '<span>올해 버전으로 다시 만들어 볼 후보</span>', P.again.map(it => badge(it.c) + esc(title(it.n)) + ' <b>평소의 ' + xf(ratio(it)) + '</b> <small>' + dot(it.d) + '</small>').join('<br>') + '<br><small>→ 작년 이맘때부터 6주 사이에 잘 된 게시물이에요. 곧 같은 시기가 오니 올해 버전으로 준비해 보세요.</small>', 'a:again'));
+    P.more.forEach(r => cards.push(card('more', '더 만들기', combo(r), '최근 1년 ' + r.n + '개가 평소의 <b>' + xf(r.idx) + '</b>였고, 잘 된 비율도 <b>' + pct0(r.hit) + '</b>로 채널 평균(' + pct0(r.hb) + ')보다 높아요. 그런데 최근 2달엔 ' + (r.recent ? '<b>' + r.recent + '개</b>만 올렸어요.' : '<b>하나도</b> 안 올렸어요.') + '<small class="rx-n">→ 다음 기획에 이 조합을 하나 넣어 보세요.</small>', 'c:' + r.k)));
+    P.less.forEach(r => cards.push(card('less', '줄이거나 바꾸기', combo(r), '최근 2달 ' + r.recent + '개를 올렸는데, 최근 1년 이 조합은 평소의 <b>' + xf(r.idx) + '</b>에 그쳤어요(' + r.n + '개).<small class="rx-n">→ ' + (r.alt ? '같은 주제를 <b>' + esc(jo(fmtType(r.alt.t), '으로', '로')) + '</b> 만들면 평소의 ' + xf(r.alt.idx) + '(' + r.alt.n + '개)였어요. 형식을 바꿔 보세요.' : '횟수를 줄이고, 그 시간에 「더 만들기」 쪽을 만들어 보세요.') + '</small>', 'c:' + r.k)));
+    if (P.again.length) cards.push(card('again', '작년 이맘때 잘 된 것', '<span>올해 버전으로 다시 만들어 볼 후보</span>', '<ul class="rx-l">' + P.again.map(it => '<li><div class="rx-t">' + badge(it.c) + esc(title(it.n)) + '</div><div class="rx-m"><b>평소의 ' + xf(ratio(it)) + '</b> · ' + dot(it.d) + '</div></li>').join('') + '</ul><small class="rx-n">→ 작년 이맘때부터 6주 사이에 잘 된 게시물이에요. 곧 같은 시기가 오니 올해 버전으로 준비해 보세요.</small>', 'a:again'));
     if (!cards.length) return '<div class="wait">지금은 따로 권할 만한 게 없어요. 같은 주제·형식 게시물이 ' + MIN_N + '개 이상 쌓이면 「더 만들기」·「줄이거나 바꾸기」를 알려 드려요.</div>';
     return '<div class="rxs">' + cards.join('') + '</div><div id="rxList"></div>';
   }
