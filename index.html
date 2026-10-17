@@ -782,6 +782,8 @@ details.adv[open] > summary { border-bottom: 1px solid var(--line); }
 /* 왼쪽 위 제목 = 홈으로 + 새로고침 */
 .brand-home { display: inline-flex; align-items: center; gap: 8px; color: inherit; text-decoration: none; border-radius: 8px; min-height: 44px; }
 .brand-home:hover b { color: var(--jj); }
+/* 타 대학: 점유율 한 줄 결론 */
+.lead-s { margin: 0 0 12px; font-size: var(--fs-md); line-height: 1.6; }
 </style>
 
 <div class="app" id="app">
@@ -2482,6 +2484,17 @@ details.adv[open] > summary { border-bottom: 1px solid var(--line); }
   }
 
   // ═════════ 5. 타 대학 ═════════
+  // 팔로워(D.fol = [[날짜, 계정, 팔로워]]): 그 날짜 또는 바로 전 기록, 없으면 7일 안의 다음 기록
+  function folAt(ch, d) {
+    const L = (D.fol || []).filter(r => r[1] === ch);
+    let b = null; for (const r of L) { if (r[0] <= d) b = r; else { if (!b && daysBetween(d, r[0]) <= 7) b = r; break; } }
+    return b ? b[2] : null;
+  }
+  function folGrowth(ch) {
+    const L = (D.fol || []).filter(r => r[1] === ch); if (L.length < 2) return null;
+    const z = L[L.length - 1], from = addDays(z[0], -30), a = L.find(r => r[0] >= from) || L[0], days = daysBetween(a[0], z[0]);
+    return days >= 7 && a[2] > 0 ? { r: (z[2] - a[2]) / a[2], d: z[2] - a[2], days, now: z[2] } : null;
+  }
   function viewBench() {
     const schools = ['인스타그램'].concat(benchNames());
     const f = since();
@@ -2498,12 +2511,31 @@ details.adv[open] > summary { border-bottom: 1px solid var(--line); }
       const cats = groupBy(L, 'g').map(r => ({ k: r.k, n: r.n, idx: median(r.arr.map(likeRatio)) || 0 })).sort((a, b) => b.n - a.n);
       const hidden = L.length >= 5 && median(likes) === 0;
       const reelV = median(L.filter(it => /릴스/.test(it.t)).map(it => val(it, 0)).filter(v => v > 0));
-      return { ch, L, latest, hidden, reelV, n: L.length, perWeek: L.length / (span / 7), like: median(likes), cr, reels: L.length ? reels / L.length : null, cats };
+      // 팔로워당 반응 = (좋아요 + 댓글) ÷ 게시일 팔로워, 게시물별 값의 중간값(규모가 달라도 견줄 수 있게)
+      const erF = hidden ? null : median(L.map(it => { const v = last(it), fo = folAt(ch, it.d); return v && fo > 0 ? ((v[1] || 0) + (v[2] || 0)) / fo : null; }));
+      const eng = hidden ? null : sum(L.map(it => { const v = last(it); return v ? (v[1] || 0) + (v[2] || 0) : 0; }));
+      return { ch, L, latest, hidden, reelV, n: L.length, perWeek: L.length / (span / 7), like: median(likes), cr, reels: L.length ? reels / L.length : null, cats, erF, eng, gr: folGrowth(ch), fol: folAt(ch, D.updated) };
     });
     let html = secOpen('한눈에 비교', periodPhrase() + ' 게시물 · 타 대학은 릴스만 조회가 공개돼 <b>좋아요</b>로 비교해요 · 규모보다 운영 방식을 보는 용도예요') +
       '<div class="tw"><table class="tbl"><thead><tr><th>계정</th><th>최근 게시</th><th class="n">게시</th><th class="n">주당 게시</th><th class="n">게시물당 좋아요</th><th class="n">릴스 조회(중앙)</th><th class="n">댓글/좋아요</th><th class="n">릴스 비중</th></tr></thead><tbody>' +
       data.map(d => '<tr><td>' + badge(d.ch) + ' <span style="color:var(--muted);font-size:var(--fs-xs)">' + esc(d.ch === '인스타그램' ? '우리' : d.ch) + '</span></td><td>' + (d.latest ? dot(d.latest) + (daysBetween(d.latest, D.updated) > 14 ? ' <span class="tag p-ad">수집 지연</span>' : '') + (D.stale && D.stale[d.ch] ? ' <span class="tag p-ad" title="최근 두 기록의 값이 모두 같아요">원본 미갱신</span>' : '') : '–') + '</td><td class="n">' + d.n + '</td><td class="n">' + (d.perWeek ? d.perWeek.toFixed(1) : '–') + '</td><td class="n">' + (d.hidden ? '<span style="color:var(--muted)">비공개</span>' : fmtK(d.like)) + '</td><td class="n">' + fmtK(d.reelV) + '</td><td class="n">' + (d.hidden ? '–' : pct(d.cr)) + '</td><td class="n">' + pct0(d.reels) + '</td></tr>').join('') +
       '</tbody></table></div>' + secClose;
+    // 팔로워로 보정한 비교
+    const hasFol = data.some(d => d.fol);
+    html += secOpen('팔로워 규모를 감안하면', hasFol ? '팔로워 수가 달라도 견줄 수 있게, 팔로워 한 명당으로 나눠 봤어요' : '팔로워 수 자료가 들어오면 채워져요') + (hasFol ?
+      '<div class="tw"><table class="tbl"><thead><tr><th>계정</th><th class="n">팔로워</th><th class="n" title="(좋아요+댓글) ÷ 게시일 팔로워, 게시물별 중간값">팔로워당 반응</th><th class="n">최근 30일 팔로워</th></tr></thead><tbody>' +
+      data.map(d => '<tr' + (d.ch === '인스타그램' ? ' class="on"' : '') + '><td>' + badge(d.ch) + '</td><td class="n">' + (d.fol ? fmt(d.fol) + '명' : '–') + '</td><td class="n">' + (d.hidden ? '<span class="mu">좋아요 비공개</span>' : pct(d.erF)) + '</td><td class="n">' + (d.gr ? '<span class="' + (d.gr.d > 0 ? 'up' : d.gr.d < 0 ? 'down' : 'flat') + '">' + sgn(d.gr.d) + fmt(d.gr.d) + '명 (' + sgn(d.gr.r) + (Math.abs(d.gr.r) * 100).toFixed(1) + '%)</span>' + (d.gr.days < 28 ? ' <span class="mu">' + d.gr.days + '일치</span>' : '') : '–') + '</td></tr>').join('') +
+      '</tbody></table></div><p class="note">팔로워당 반응 = 게시물 하나의 (좋아요 + 댓글) ÷ 그날 팔로워 수, 게시물별 중간값 · 팔로워가 많은 계정일수록 이 값이 낮게 나오는 게 보통이에요</p>' :
+      '<div class="wait">타 대학 팔로워 수는 매일 스냅샷 시트 「타대학 일별」 탭에 쌓이고 있어요. 보드로 가져오는 업데이트를 배포하면 팔로워당 반응과 팔로워 증가가 여기에 나와요.</div>') + secClose;
+    // 반응 점유율 vs 게시 점유율
+    const vis = data.filter(d => !d.hidden && d.n), tn = sum(vis.map(d => d.n)), te = sum(vis.map(d => d.eng || 0));
+    if (vis.length > 1 && tn && te) {
+      const o = vis.find(d => d.ch === '인스타그램'), ps = o ? o.n / tn : 0, es = o ? (o.eng || 0) / te : 0;
+      html += secOpen('올린 양과 받은 반응의 몫', periodPhrase() + ' · ' + vis.length + '곳 합계 중 각 계정의 비율' + (data.some(d => d.hidden) ? ' · 좋아요 비공개 계정은 뺐어요' : '')) +
+        '<p class="lead-s">우리는 ' + vis.length + '곳 게시물의 <b>' + pct0(ps) + '</b>를 올리고, 좋아요·댓글의 <b>' + pct0(es) + '</b>를 받았어요. ' + (es > ps * 1.1 ? '올린 양보다 반응을 <b class="up">더 많이</b> 받고 있어요.' : es < ps * 0.9 ? '올린 양에 비해 반응이 <b class="down">적은 편</b>이에요.' : '올린 만큼 반응을 받고 있어요.') + '</p>' +
+        '<div class="chart" style="height:150px"><canvas id="shareChart"></canvas></div>' + secClose;
+      window.__share = vis;
+    } else window.__share = null;
     // 분류 구성
     const catsAll = [...new Set(data.flatMap(d => d.cats.map(c => c.k)))];
     const share = data.map(d => { const o = {}; d.cats.forEach(c => { o[c.k] = d.n ? c.n / d.n : 0; }); return o; });
@@ -2528,6 +2560,11 @@ details.adv[open] > summary { border-bottom: 1px solid var(--line); }
     html += secOpen('벤치마킹 후보 콘텐츠', '각 계정에서 평소보다 좋아요가 많이 나온 게시물') + '<ol class="rank" id="bCand">' + rankRows(cand, { right: it => '좋아요 <span class="num">' + fmtK(val(it, 1)) + '</span> <em class="up">평소의 ' + xf(likeRatio(it)) + '</em>' }) + '</ol>' + secClose;
     $('view').innerHTML = html.replace(/^<div class="gap"><\/div>/, '');
     wireRank($('bCand'), cand);
+    if (window.__share) {
+      const V = window.__share, tn2 = sum(V.map(d => d.n)), te2 = sum(V.map(d => d.eng || 0));
+      draw('shareChart', { type: 'bar', data: { labels: ['게시 수', '좋아요·댓글'], datasets: V.map(d => ({ label: chName(d.ch) + (d.ch === '인스타그램' ? '(우리)' : ''), data: [d.n / tn2, (d.eng || 0) / te2], backgroundColor: chColor(d.ch), borderColor: css('--bg'), borderWidth: { left: 0, right: 2, top: 0, bottom: 0 }, borderSkipped: false, stack: 's', barPercentage: 0.7 })) },
+        options: chartOpts({ indexAxis: 'y', layout: { padding: { top: 4 } }, plugins: { legend: { display: true, position: 'bottom' }, tooltip: { displayColors: true, callbacks: { label: c => c.dataset.label + ' ' + pct0(c.raw) } } }, scales: { x: { stacked: true, display: false, max: 1 }, y: { stacked: true, display: true, grid: { display: false }, border: { display: false }, ticks: { color: css('--sub'), font: { size: 13, weight: '700' } } } } }) });
+    }
     const pal = [css('--jj'), css('--navy'), css('--down'), css('--ok'), css('--ch-b1'), css('--coral'), '#9aa4b1', '#c9b27a', '#7fb3cf'];
     draw('mixChart', { type: 'bar', data: { labels: data.map(d => chName(d.ch) + (d.ch === '인스타그램' ? '(우리)' : '')), datasets: topCats.map((k, i) => ({ label: k, data: share.map(o => o[k] || 0), backgroundColor: pal[i % pal.length], stack: 's' })).concat([{ label: '그 외', data: share.map(o => Math.max(0, 1 - sum(topCats.map(k => o[k] || 0)))), backgroundColor: css('--line'), stack: 's' }]) },
       options: chartOpts({ indexAxis: 'y', layout: { padding: { top: 4 } }, plugins: { legend: { display: true, position: 'bottom' }, tooltip: { displayColors: true, callbacks: { label: c => c.dataset.label + ' ' + pct0(c.raw) } } }, scales: { x: { stacked: true, display: false, max: 1 }, y: { stacked: true, display: true, grid: { display: false }, border: { display: false }, ticks: { color: css('--sub'), font: { size: 13, weight: '700' } } } } }) });
