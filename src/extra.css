@@ -513,3 +513,6 @@ details.adv[open] > summary { border-bottom: 1px solid var(--line); }
 @media print { .bell, .ntf { display: none !important; } }
 /* 입시 시즌 카드: 휴대폰에서도 2칸, 홀수면 마지막 카드는 넓게 */
 @media (max-width: 760px) { .kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; } .kpis > :last-child:nth-child(odd) { grid-column: 1 / -1; } .kpis .kpi { padding: 14px; } }
+/* 왼쪽 위 제목 = 홈으로 + 새로고침 */
+.brand-home { display: inline-flex; align-items: center; gap: 8px; color: inherit; text-decoration: none; border-radius: 8px; min-height: 44px; }
+.brand-home:hover b { color: var(--jj); }

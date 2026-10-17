@@ -202,6 +202,8 @@
   const periodPhrase = () => S.range === 'all' ? '전체 기간' : '최근 ' + rangeLabel();
   const rangeOn = () => ({ brief: false, strategy: true, maker: S.ch !== '타 대학', season: false, ads: false, explore: true, export: false })[S.view];
   function buildChrome() {
+    // 왼쪽 위 제목: 홈(전체)으로 돌아가며 새로고침(최신 데이터 다시 받기)
+    if ($('brandHome') && !$('brandHome').__w) { $('brandHome').__w = 1; $('brandHome').addEventListener('click', e => { e.preventDefault(); S.view = 'brief'; S.ch = '전체'; save(); location.reload(); }); }
     $('tabs').innerHTML = TABS.map(t => '<button class="tt" role="tab" type="button" data-t="' + esc(t) + '">' + esc(t === 'hong._.video' ? 'hong' : t) + '</button>').join('');
     $('tabs').querySelectorAll('.tt').forEach(b => b.addEventListener('click', () => {
       S.ch = b.dataset.t; S.g = null; S.mx = null; S.person = null; S.rankShown = 10; S.tblShown = 30; CS.sel = null;
