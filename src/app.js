@@ -392,6 +392,7 @@
   }
   // 같은 시점 비교: it.ag = [[조회, 경과일] | null] × (게시 1·3·7일 뒤). 기준은 같은 채널·같은 형식(5개 미만이면 채널 전체)
   const AG_DAYS = [1, 3, 7], AGB = {};
+  const AG_NAME = ['첫날', '3일간', '1주일']; // 「첫날 조회 평소의 0.8배」 = 첫 하루 조회가 같은 형식 게시물의 첫 하루 조회 중간값의 0.8배
   function agMed(ch, j, t) {
     const k = ch + '|' + j + '|' + (t || '');
     if (!(k in AGB)) {
@@ -409,7 +410,7 @@
       if (!it.ag || !it.ag[j] || !(it.ag[j][0] > 0)) continue; // 0은 아직 수집 전으로 보고 비교하지 않음
       const b = agMed(it.c, j, it.t), r = b && b.m > 0 ? it.ag[j][0] / b.m : null;
       if (r == null) break;
-      s += ' · <em class="' + (r >= 1 ? 'up' : 'down') + '" title="같은 형식 게시물의 게시 ' + AG_DAYS[j] + '일 뒤 조회 중간값 ' + fmtK(b.m) + ' 대비">' + AG_DAYS[j] + '일째 평소의 ' + xf(r) + '</em>';
+      s += ' · <em class="' + (r >= 1 ? 'up' : 'down') + '" title="같은 형식 게시물이 ' + AG_NAME[j] + ' 받은 조회 중간값 ' + fmtK(b.m) + ' 대비">' + AG_NAME[j] + ' 조회 평소의 ' + xf(r) + '</em>';
       break;
     }
     return s;
@@ -570,13 +571,13 @@
     window.__race = L;
     if (!L.length) return '';
     const MX = 3;
-    return '<div class="race"><div class="race-h"><h3>최근 게시물, 평소보다 잘 크고 있나요?</h3><span>올린 지 1·3·7일째 조회를 같은 형식 게시물의 같은 날과 비교했어요</span></div><ol class="race-l">' + L.map((it, i) => {
+    return '<div class="race"><div class="race-h"><h3>최근 게시물, 평소보다 잘 크고 있나요?</h3><span>첫날·3일간·1주일 조회를 같은 형식 게시물의 같은 기간과 견줘요</span></div><ol class="race-l">' + L.map((it, i) => {
       const p = paceOf(it), r = p ? p.r : null, age = daysBetween(it.d, D.updated);
       const cls = r == null ? 'na' : p.base ? 'base' : r >= HIT ? 'hit' : r >= 1 ? 'up' : 'down';
       return '<li data-r="' + i + '" tabindex="0" role="button" aria-label="' + esc(title(it.n)) + ' 상세 보기"><div class="race-t">' + badge(it.c) + '<span>' + esc(title(it.n)) + '</span></div>' +
         '<div class="race-b"><span class="bl"><i class="' + cls + '" style="width:' + (r == null ? 0 : Math.min(100, r / MX * 100)) + '%"></i><em style="left:' + (100 / MX) + '%"></em><em class="h" style="left:' + (HIT / MX * 100) + '%"></em></span>' +
         '<b class="num ' + (r == null || p.base ? 'flat' : r >= 1 ? 'up' : 'down') + '">' + (r == null ? '비교 전' : '평소의 ' + (p.base ? pct0(r) : xf(r))) + '</b></div>' +
-        '<small>올린 지 ' + (age <= 0 ? '오늘' : age + '일째') + ' · 조회 ' + fmtK(mainVal(it)) + (r == null ? '' : p.base ? ' · 평소 게시물의 최종 조회와 비교' : ' · 평소 게시물의 ' + p.day + '일째와 비교') + '</small></li>';
+        '<small>올린 지 ' + (age <= 0 ? '오늘' : age + '일째') + ' · 조회 ' + fmtK(mainVal(it)) + (r == null ? '' : p.base ? ' · 평소 게시물의 최종 조회와 비교' : ' · ' + AG_NAME[AG_DAYS.indexOf(p.day)] + ' 조회끼리 비교') + '</small></li>';
     }).join('') + '</ol><div class="race-k"><span><em></em>평소만큼</span><span><em class="h"></em>평소의 1.5배(잘 된 게시물)</span><span>막대 끝 = 3배</span></div></div>';
   }
   function wireRace() {
@@ -635,7 +636,7 @@
     // 새로 올린 콘텐츠가 없으면 빈 칸을 두지 않고 '많이 큰 것' 하나만 넓게
     const oldBox = '<div><h3>' + (nw.length ? '기존 콘텐츠 중 많이 늘어난 것' : '이번 주 많이 늘어난 콘텐츠') + '</h3><p class="d">' + (nw.length ? '예전에 올렸는데 이번 주에도 조회가 늘어난 콘텐츠' : '이번 기간에 새로 올린 콘텐츠는 없어요 · 예전 콘텐츠 중 조회가 많이 늘어난 순') + '</p><ol class="rank' + (nw.length ? '' : ' wide') + '" id="wkOld">' +
       (old.length ? rankRows(old, { right: it => '<em class="up">+' + fmtK(p.inc0(it)) + '</em> 이번 주' }) : '<li class="empty">이번 기간에 늘어난 콘텐츠가 없어요</li>') + '</ol></div>';
-    h += nw.length ? '<div class="two wk-lists"><div><h3>이번 주 올린 콘텐츠 <small>' + nw.length + '개</small></h3><p class="d">게시 1·3·7일 뒤 조회를 같은 형식 게시물의 같은 시점 평소와 비교해요</p><ol class="rank" id="wkNew">' +
+    h += nw.length ? '<div class="two wk-lists"><div><h3>이번 주 올린 콘텐츠 <small>' + nw.length + '개</small></h3><p class="d">첫날·3일간·1주일 조회를 같은 형식 게시물의 같은 기간 조회와 견줘요</p><ol class="rank" id="wkNew">' +
       rankRows(nw.slice(0, 8), { right: it => '<span class="num">' + fmtK(mainVal(it)) + '</span> · ' + ageLine(it) }) + '</ol></div>' + oldBox + '</div>' : '<div class="wk-lists">' + oldBox + '</div>';
     w.lists = { nw: nw.slice(0, 8), old };
     window.__wk = w;
