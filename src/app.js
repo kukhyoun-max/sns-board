@@ -438,6 +438,17 @@
     }
     return '';
   }
+  // 30일 최고 게시물 비교 막대: 이 게시물 · 우리 채널 평균(중간값) · 타 대학 평균. 타 대학은 좋아요만 공개라 인스타·hong은 좋아요, 유튜브는 조회로 비교(타 대학 없음)
+  function bestCmp(it) {
+    const yt = it.c === '유튜브', m = yt ? 0 : 1, from = addDays(D.updated, -365);
+    const ours = median(D.items.filter(x => x.c === it.c && x.t !== '스토리' && !x.ad && x.d >= from).map(x => val(x, m)).filter(v => v != null));
+    let bench = null;
+    if (!yt) { const bl = benchNames().map(b => D.items.filter(x => x.c === b && x.t !== '스토리' && x.d >= from).map(x => val(x, 1)).filter(v => v != null)).filter(a => a.length >= 3 && median(a) > 0); if (bl.length) bench = median([].concat(...bl)); }
+    const R = [['이 게시물', val(it, m), chColor(it.c)], ['우리 평균', ours, css('--muted')]].concat(bench == null ? [] : [['타 대학 평균', bench, css('--ch-b3')]]).filter(r => r[1] != null);
+    if (R.length < 2) return '';
+    const mx = Math.max(...R.map(r => r[1])) || 1;
+    return '<div class="cmp3" title="' + (yt ? '조회' : '좋아요') + ' 기준 · 평균은 최근 1년 게시물 중간값">' + R.map(r => '<div class="c3r"><span>' + r[0] + '</span><span class="c3t"><i style="width:' + Math.max(3, r[1] / mx * 100) + '%;background:' + r[2] + '"></i></span><b class="num">' + fmtK(r[1]) + '</b></div>').join('') + '</div>';
+  }
   function kpiHtml(chs) {
     const w = weekModel(chs), p = w && w.cur;
     const c30all = pool({ channels: chs, since: addDays(D.updated, -30) }), c30 = c30all.filter(judged), hits = c30.filter(isHit);
@@ -457,7 +468,7 @@
     t.push(kpiTile('최근 30일 올린 게시물', c30all.length + '개', cmp || by, '', spark(monthly(chs, 'n'), '최근 6달 월별 게시 수')));
     // 카드가 홀수면 한 칸이 혼자 길어지므로 「최근 30일 가장 잘 된 게시물」로 짝을 맞춘다
     const best = c30.slice().sort((a, b) => ratio(b) - ratio(a))[0];
-    if (t.length % 2 && best) { window.__best = best; t.push('<div class="kpi-t best" role="button" tabindex="0" aria-label="최근 30일 가장 잘 된 게시물 상세 보기"><div class="kpi-l">30일 최고 게시물</div><div class="kpi-v num up">' + xf(ratio(best)) + '</div><div class="kpi-s"><span class="bt">' + badge(best.c) + esc(title(best.n)) + '</span></div></div>'); }
+    if (t.length % 2 && best) { window.__best = best; t.push('<div class="kpi-t best" role="button" tabindex="0" aria-label="최근 30일 가장 잘 된 게시물 상세 보기"><div class="kpi-l">30일 최고 게시물</div><div class="kpi-v num up">' + xf(ratio(best)) + '</div><div class="kpi-s"><span class="bt">' + badge(best.c) + esc(title(best.n)) + '</span></div>' + bestCmp(best) + '</div>'); }
     return '<div class="kpi-row n' + t.length + '">' + t.join('') + '</div>';
   }
   function homeSummary(chs) {
