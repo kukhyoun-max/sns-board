@@ -2221,7 +2221,7 @@ function metaStep_(ss, today, logs) {
   const rows = metaDailyRows_(conf, from, to);
   const n = metaMergeDaily_(ss, from, rows);
   const r = metaRefreshInfo_(ss, conf);
-  logs.push([new Date(), '메타 광고 API', rows.length, '정상 — ' + from + '~' + to + ' 일별 ' + rows.length + '행(탭 전체 ' + n + '행) · 캠페인 ' + r.camps + '개 · 소재 ' + r.ads + '개']);
+  logs.push([new Date(), '메타 광고 API', rows.length, '정상 — ' + from + '~' + to + ' 일별 ' + rows.length + '행(탭 전체 ' + n + '행) · 캠페인 ' + r.camps + '개 · 소재 ' + r.ads + '개' + (conf.warn.length ? ' · 일부 계정 실패: ' + conf.warn.join(' / ').slice(0, 200) : '')]);
 }
 // 처음 한 번(편집기에서 실행): 메타가 허용하는 가장 오래된 날(37개월 전 다음 날)부터 어제까지 한 달씩 받아 「메타 일별」을 새로 채움
 // 첫 구간이 기간 한도(code 100)에 걸리면 그 달은 건너뛰고 다음 달부터 받음. 그 이전은 「메타 광고」 수동 탭(2023-06~)이 맡음
