@@ -198,6 +198,8 @@ function onOpen() {
     .addItem('유튜브 분석 승인(브랜드 계정, 처음 한 번)', 'ytAuthorize')
     .addItem('유튜브 분석 승인 마무리(YT_AUTH_CODE 넣은 뒤)', 'ytAuthFinish')
     .addItem('인스타 스토리·계정 일별·팔로워 분포 지금 받기', 'collectInstagramExtras')
+    .addItem('유튜브·인스타 추가 지표 지금 받기(매일 몫)', 'collectMoreNow')
+    .addItem('주간 추가 수집 지금(시청 지속률·전체 게시물 등)', 'weeklyExtras')
     .addSeparator()
     .addItem('최초 설정(탭·트리거)', 'setup')
     .addToUi();
@@ -410,7 +412,7 @@ function loadFresh_() {
 }
 
 // ───────── 기록 뒤 단계 (시간 초과 시 다음 실행에서 이어 받음) ─────────
-const SNAP_STEPS = ['acct', 'meta', 'igx', 'tags', 'daily', 'age', 'build', 'cache'];
+const SNAP_STEPS = ['acct', 'meta', 'igx', 'yta', 'igm', 'tags', 'daily', 'age', 'build', 'cache'];
 const STEP_FN = {
   acct: x => {
     try { accountSnapshot_(x.ss, x.today, x.logs); } catch (e) { x.logs.push([new Date(), '계정 지표', 0, '오류: ' + e.message]); }
@@ -420,6 +422,12 @@ const STEP_FN = {
   },
   igx: x => {
     try { igxStep_(x.ss, x.today, x.logs); } catch (e) { x.logs.push([new Date(), '인스타 추가 수집', 0, '오류: ' + e.message]); }
+  },
+  yta: x => {
+    try { ytaStep_(x.ss, x.today, x.logs); } catch (e) { x.logs.push([new Date(), '유튜브 추가 수집', 0, '오류: ' + e.message]); }
+  },
+  igm: x => {
+    try { igmStep_(x.ss, x.today, x.logs); } catch (e) { x.logs.push([new Date(), '인스타 게시물 추가', 0, '오류: ' + e.message]); }
   },
   tags: x => {
     try { const b = stepBySrc_(x, true); saveTags_(x.ss, b, x.today); x.logs.push([new Date(), '태그', b.length, '정상']); }
@@ -2891,6 +2899,306 @@ function collectInstagramExtras() {
   const today = Utilities.formatDate(new Date(), TZ, 'yyyy-MM-dd');
   const logs = [];
   igxStep_(ss, today, logs);
+  logRows_(ss, logs);
+  logs.forEach(l => Logger.log(l[3]));
+}
+
+// ───────── 유튜브 분석 추가 수집(yta): 브랜드 계정 토큰(YT_REFRESH)으로 ─────────
+//  · 「유튜브 채널 일별」  : 날짜별 조회·시청 시간·구독 증감·좋아요·댓글·공유 (처음엔 2024-01부터, 이후 최근 7일 다시 씀 — 집계가 1~3일 늦음)
+//  · 「유튜브 시청자」     : 최근 28일 + 지난달들의 연령·성별, 국가, 기기, 구독 여부, 유입 경로(채널 전체)
+//  · 「유튜브 영상 분석」  : 영상별 구독 증감·공유·평균 시청률·시청 시간(2024-01~)
+//  · 「유튜브 유입 경로」  : 최근 90일 영상별 유입 경로(검색·추천·쇼츠 피드·외부 …)
+//  · 「유튜브 검색어」     : 최근 90일 영상별 + 채널 전체(최근 28일) 유튜브 검색어 상위
+//  · 「유튜브 시청 지속률」: 최근 90일 영상의 구간별 시청 비율(월요일·처음에만)
+//  · 「유튜브 댓글」       : 최근 90일 영상의 댓글 내용(작성자 이름은 저장하지 않음)
+//  · 「유튜브 영상 정보」  : 영상별 태그·재생목록(월요일·처음에만)
+const YTA_RECENT_DAYS = 90;
+const YTA_MONTHS_PER_RUN = 8;                  // 지난달 시청자 분포 과거 채우기: 한 번에 최대 N달(실행 시간 보호)
+const YTA_TRAFFIC = { YT_SEARCH: '유튜브 검색', RELATED_VIDEO: '추천 영상', SUBSCRIBER: '구독 피드·홈', BROWSE: '탐색(홈 등)', SHORTS: '쇼츠 피드',
+  EXT_URL: '외부', NO_LINK_OTHER: '직접·알 수 없음', PLAYLIST: '재생목록', YT_CHANNEL: '채널 페이지', NOTIFICATION: '알림', END_SCREEN: '최종 화면',
+  ANNOTATION: '카드·주석', YT_OTHER_PAGE: '기타 유튜브', ADVERTISING: '광고', HASHTAGS: '해시태그', SOUND_PAGE: '사운드 페이지', CAMPAIGN_CARD: '캠페인 카드',
+  LIVE_REDIRECT: '라이브 이동', RELATED_SHORT: '관련 쇼츠', VIDEO_REMIXES: '리믹스', IMMERSIVE_LIVE: '라이브 피드', PRODUCT_PAGE: '상품 페이지' };
+
+function ytaGet_(url) {
+  const res = UrlFetchApp.fetch(url, { headers: { Authorization: 'Bearer ' + ytBrandToken_() }, muteHttpExceptions: true });
+  const j = JSON.parse(res.getContentText() || '{}');
+  if (j.error) throw new Error('HTTP ' + res.getResponseCode() + ' ' + String(j.error.message || '').slice(0, 140));
+  return j;
+}
+// 분석 보고서 → [{열이름: 값}]
+function ytaReport_(prm) {
+  const q = Object.assign({ ids: 'channel==MINE' }, prm);
+  const j = ytaGet_('https://youtubeanalytics.googleapis.com/v2/reports?' + Object.keys(q).map(k => k + '=' + encodeURIComponent(q[k])).join('&'));
+  const head = (j.columnHeaders || []).map(h => h.name);
+  return (j.rows || []).map(r => { const o = {}; head.forEach((h, i) => { o[h] = r[i]; }); return o; });
+}
+// 최근 N일에 올린 영상 [{id, title, date}] (업로드 재생목록을 최신부터 넘기다 기간을 벗어나면 멈춤)
+function ytaRecent_(days, today) {
+  const ch = ytaGet_('https://www.googleapis.com/youtube/v3/channels?part=contentDetails&mine=true');
+  const up = ch.items[0].contentDetails.relatedPlaylists.uploads;
+  const cut = shiftDate_(today, -days), out = [];
+  let tok = '';
+  for (let page = 0; page < 10; page++) {
+    const r = ytaGet_('https://www.googleapis.com/youtube/v3/playlistItems?part=snippet,contentDetails&maxResults=50&playlistId=' + up + (tok ? '&pageToken=' + tok : ''));
+    let old = false;
+    (r.items || []).forEach(x => {
+      const d = Utilities.formatDate(new Date(x.contentDetails.videoPublishedAt || x.snippet.publishedAt), TZ, 'yyyy-MM-dd');
+      if (d >= cut) out.push({ id: x.contentDetails.videoId, title: String(x.snippet.title || '').slice(0, 60), date: d }); else old = true;
+    });
+    tok = r.nextPageToken || '';
+    if (old || !tok) break;
+  }
+  return out;
+}
+const ytaNum_ = v => (v === undefined || v === null || v === '') ? '' : Number(v);
+
+function ytaChannelDaily_(ss, today) {
+  const sh = ss.getSheetByName('유튜브 채널 일별');
+  const from = (!sh || sh.getLastRow() < 2) ? YT_PERIOD_START : shiftDate_(today, -7);
+  const rows = ytaReport_({ startDate: from, endDate: today, dimensions: 'day', sort: 'day',
+    metrics: 'views,estimatedMinutesWatched,averageViewDuration,subscribersGained,subscribersLost,likes,comments,shares' });
+  const now = Utilities.formatDate(new Date(), TZ, 'yyyy-MM-dd HH:mm');
+  const out = rows.map(r => [r.day, r.views, r.estimatedMinutesWatched, r.averageViewDuration, r.subscribersGained, r.subscribersLost, r.likes, r.comments, r.shares, now]);
+  igxUpsert_(ss, '유튜브 채널 일별', ['날짜', '조회', '시청 시간(분)', '평균 시청(초)', '구독 증가', '구독 감소', '좋아요', '댓글', '공유', '기록 시각'], [0], out);
+  return out.length;
+}
+
+// 기간 하나의 시청자 분포 행들
+function ytaAudienceRows_(label, s, e, now) {
+  const rows = [];
+  const add = (kind, rs, key, val, name) => rs.forEach(r => rows.push([label, kind, name ? name(r[key]) : r[key], ytaNum_(r[val]), now]));
+  add('연령·성별(%)', ytaReport_({ startDate: s, endDate: e, dimensions: 'ageGroup,gender', metrics: 'viewerPercentage' }).map(r => ({ k: r.ageGroup.replace('age', '') + ' ' + (r.gender === 'female' ? '여' : r.gender === 'male' ? '남' : r.gender), v: r.viewerPercentage })), 'k', 'v');
+  add('국가(조회)', ytaReport_({ startDate: s, endDate: e, dimensions: 'country', metrics: 'views', sort: '-views', maxResults: 15 }), 'country', 'views');
+  add('기기(조회)', ytaReport_({ startDate: s, endDate: e, dimensions: 'deviceType', metrics: 'views' }), 'deviceType', 'views');
+  add('구독 여부(조회)', ytaReport_({ startDate: s, endDate: e, dimensions: 'subscribedStatus', metrics: 'views' }), 'subscribedStatus', 'views', x => x === 'SUBSCRIBED' ? '구독자' : '비구독자');
+  add('유입 경로(조회)', ytaReport_({ startDate: s, endDate: e, dimensions: 'insightTrafficSourceType', metrics: 'views' }), 'insightTrafficSourceType', 'views', x => YTA_TRAFFIC[x] || x);
+  return rows;
+}
+function ytaAudience_(ss, today, maxMonths) {
+  const now = Utilities.formatDate(new Date(), TZ, 'yyyy-MM-dd HH:mm');
+  const head = ['기간', '구분', '항목', '값', '기록 시각'];
+  let rows = ytaAudienceRows_('최근 28일', shiftDate_(today, -28), shiftDate_(today, -1), now);
+  // 지난달들: 아직 없는 달만, 한 번에 YTA_MONTHS_PER_RUN달까지(최근 달부터)
+  const sh = ss.getSheetByName('유튜브 시청자');
+  const have = {};
+  if (sh && sh.getLastRow() > 1) sh.getRange(2, 1, sh.getLastRow() - 1, 1).getDisplayValues().forEach(r => { have[r[0]] = 1; });
+  const months = [];
+  for (let d = today.slice(0, 7) + '-01'; ;) {
+    d = shiftDate_(d, -1).slice(0, 7) + '-01';
+    if (d < YT_PERIOD_START) break;
+    if (!have[d.slice(0, 7)]) months.push(d);
+  }
+  months.slice(0, maxMonths).forEach(m => {
+    const end = shiftDate_(Utilities.formatDate(new Date(Date.UTC(Number(m.slice(0, 4)), Number(m.slice(5, 7)), 1)), 'UTC', 'yyyy-MM-dd'), -1);
+    rows = rows.concat(ytaAudienceRows_(m.slice(0, 7), m, end, now));
+  });
+  // 「최근 28일」은 매일 통째로 바꿈 → 기존 최근 28일 줄을 지우고 씀
+  if (sh && sh.getLastRow() > 1) {
+    const v = sh.getRange(2, 1, sh.getLastRow() - 1, head.length).getValues().filter(r => String(r[0]) !== '최근 28일');
+    sh.getRange(2, 1, sh.getLastRow() - 1, head.length).clearContent();
+    if (v.length) sh.getRange(2, 1, v.length, head.length).setValues(v);
+  }
+  igxUpsert_(ss, '유튜브 시청자', head, [0, 1, 2], rows);
+  return { n: rows.length, months: Math.min(months.length, maxMonths), left: Math.max(0, months.length - maxMonths) };
+}
+
+// 영상별 구독 증감·공유·평균 시청률·시청 시간(2024-01~, 80개씩)
+function ytaVideoStats_(ss, today) {
+  const api = YT_API_ || null;
+  let ids = api ? Object.keys(api.videos).filter(id => api.videos[id].date >= YT_PERIOD_START) : [];
+  if (!ids.length) ids = ytaRecent_(1100, today).map(v => v.id);
+  const now = Utilities.formatDate(new Date(), TZ, 'yyyy-MM-dd');
+  const out = [];
+  for (let i = 0; i < ids.length; i += YT_BATCH) {
+    ytaReport_({ startDate: YT_PERIOD_START, endDate: today, dimensions: 'video', filters: 'video==' + ids.slice(i, i + YT_BATCH).join(','), maxResults: 200,
+      metrics: 'subscribersGained,subscribersLost,shares,averageViewPercentage,estimatedMinutesWatched' })
+      .forEach(r => out.push([r.video, r.subscribersGained, r.subscribersLost, r.shares, r.averageViewPercentage, r.estimatedMinutesWatched, now]));
+  }
+  igxUpsert_(ss, '유튜브 영상 분석', ['영상 ID', '구독 증가', '구독 감소', '공유', '평균 시청률(%)', '시청 시간(분)', '기록일'], [0], out);
+  return out.length;
+}
+
+// 최근 영상: 유입 경로·검색어·(월요일·처음) 시청 지속률·댓글
+function ytaRecentVideos_(ss, today, weekly) {
+  const vids = ytaRecent_(YTA_RECENT_DAYS, today);
+  const now = Utilities.formatDate(new Date(), TZ, 'yyyy-MM-dd');
+  const tr = [], kw = [], ret = [], cm = [];
+  vids.forEach(v => {
+    ytaReport_({ startDate: v.date, endDate: today, dimensions: 'insightTrafficSourceType', metrics: 'views,estimatedMinutesWatched', filters: 'video==' + v.id, sort: '-views' })
+      .forEach(r => tr.push([v.id, v.title, v.date, YTA_TRAFFIC[r.insightTrafficSourceType] || r.insightTrafficSourceType, r.views, r.estimatedMinutesWatched, now]));
+    ytaReport_({ startDate: v.date, endDate: today, dimensions: 'insightTrafficSourceDetail', metrics: 'views', filters: 'video==' + v.id + ';insightTrafficSourceType==YT_SEARCH', sort: '-views', maxResults: 15 })
+      .forEach(r => kw.push([v.id, v.title, r.insightTrafficSourceDetail, r.views, now]));
+    if (weekly) {
+      try {
+        ytaReport_({ startDate: v.date, endDate: today, dimensions: 'elapsedVideoTimeRatio', metrics: 'audienceWatchRatio,relativeRetentionPerformance', filters: 'video==' + v.id + ';audienceType==ORGANIC' })
+          .forEach(r => ret.push([v.id, v.title, Math.round(r.elapsedVideoTimeRatio * 100), r.audienceWatchRatio, r.relativeRetentionPerformance, now]));
+      } catch (e) {}
+    }
+    try {
+      const c = ytaGet_('https://www.googleapis.com/youtube/v3/commentThreads?part=snippet&maxResults=100&textFormat=plainText&videoId=' + v.id);
+      (c.items || []).forEach(t => { const s = t.snippet.topLevelComment.snippet;
+        cm.push([t.id, v.id, Utilities.formatDate(new Date(s.publishedAt), TZ, 'yyyy-MM-dd HH:mm'), String(s.textDisplay || '').slice(0, 500), s.likeCount, t.snippet.totalReplyCount, now]); });
+    } catch (e) {} // 댓글이 꺼진 영상
+  });
+  // 채널 전체 검색어(최근 28일)
+  ytaReport_({ startDate: shiftDate_(today, -28), endDate: today, dimensions: 'insightTrafficSourceDetail', metrics: 'views', filters: 'insightTrafficSourceType==YT_SEARCH', sort: '-views', maxResults: 50 })
+    .forEach(r => kw.push(['(채널 전체 최근 28일)', '', r.insightTrafficSourceDetail, r.views, now]));
+  // 최근 영상 몫은 통째로 바꿈(값이 누적이라 최신만 의미 있음)
+  const replace = (name, head, rows) => {
+    const sh = ss.getSheetByName(name) || ss.insertSheet(name);
+    sh.clearContents();
+    sh.getRange(1, 1, 1, head.length).setValues([head]).setFontWeight('bold'); sh.setFrozenRows(1);
+    if (rows.length) { sh.getRange(2, 1, rows.length, 1).setNumberFormat('@'); sh.getRange(2, 1, rows.length, head.length).setValues(rows); }
+  };
+  replace('유튜브 유입 경로', ['영상 ID', '제목', '게시일', '유입 경로', '조회', '시청 시간(분)', '기록일'], tr);
+  replace('유튜브 검색어', ['영상 ID', '제목', '검색어', '조회', '기록일'], kw);
+  if (weekly) replace('유튜브 시청 지속률', ['영상 ID', '제목', '구간(%)', '시청 비율', '비슷한 영상 대비', '기록일'], ret);
+  if (cm.length) igxUpsert_(ss, '유튜브 댓글', ['댓글 ID', '영상 ID', '작성 시각', '내용', '좋아요', '답글 수', '기록일'], [0], cm);
+  return { vids: vids.length, tr: tr.length, kw: kw.length, ret: ret.length, cm: cm.length };
+}
+
+// 영상별 태그·재생목록(월요일·처음)
+function ytaVideoInfo_(ss, today) {
+  const pl = {};
+  let tok = '';
+  for (let p = 0; p < 10; p++) {
+    const r = ytaGet_('https://www.googleapis.com/youtube/v3/playlists?part=snippet&mine=true&maxResults=50' + (tok ? '&pageToken=' + tok : ''));
+    (r.items || []).forEach(x => { pl[x.id] = x.snippet.title; });
+    tok = r.nextPageToken || ''; if (!tok) break;
+  }
+  const inPl = {};
+  Object.keys(pl).forEach(id => {
+    let t = '';
+    for (let p = 0; p < 20; p++) {
+      const r = ytaGet_('https://www.googleapis.com/youtube/v3/playlistItems?part=contentDetails&maxResults=50&playlistId=' + id + (t ? '&pageToken=' + t : ''));
+      (r.items || []).forEach(x => { (inPl[x.contentDetails.videoId] = inPl[x.contentDetails.videoId] || []).push(pl[id]); });
+      t = r.nextPageToken || ''; if (!t) break;
+    }
+  });
+  const ids = ytaRecent_(1100, today).map(v => v.id), now = today, out = [];
+  for (let i = 0; i < ids.length; i += 50) {
+    const r = ytaGet_('https://www.googleapis.com/youtube/v3/videos?part=snippet&id=' + ids.slice(i, i + 50).join(','));
+    (r.items || []).forEach(x => out.push([x.id, (x.snippet.tags || []).join(', ').slice(0, 500), (inPl[x.id] || []).join(' / '), now]));
+  }
+  igxUpsert_(ss, '유튜브 영상 정보', ['영상 ID', '태그', '재생목록', '기록일'], [0], out);
+  return out.length;
+}
+
+// 매일 기록 단계(yta): 가벼운 것만 — 채널 일별·시청자(최근 28일 + 지난달 2개까지)·영상 분석·최근 영상 유입·검색어·댓글
+function ytaStep_(ss, today, logs) {
+  if (!PropertiesService.getScriptProperties().getProperty('YT_REFRESH')) { logs.push([new Date(), '유튜브 추가 수집', 0, '건너뜀: 브랜드 계정 승인(YT_REFRESH) 없음']); return; }
+  ensureWeeklyTrigger_();
+  const parts = [];
+  const run = (name, fn) => { try { parts.push(name + ' ' + fn()); } catch (e) { parts.push(name + ' 오류: ' + String(e.message).slice(0, 120)); } };
+  run('채널 일별', () => ytaChannelDaily_(ss, today) + '일');
+  run('시청자', () => { const a = ytaAudience_(ss, today, 2); return a.n + '줄' + (a.left ? '(지난달 ' + a.left + '개는 주간 수집에서)' : ''); });
+  run('영상 분석', () => ytaVideoStats_(ss, today) + '개');
+  run('최근 영상', () => { const r = ytaRecentVideos_(ss, today, false); return r.vids + '개(유입 ' + r.tr + '·검색어 ' + r.kw + '·댓글 ' + r.cm + ')'; });
+  logs.push([new Date(), '유튜브 추가 수집', 0, parts.join(' · ')]);
+}
+
+// ───────── 인스타 게시물 추가 지표·접속 시간대·타 대학(igm) ─────────
+//  · 「인스타 게시물 추가」: 게시물별 팔로우 유입·프로필 방문·상호작용, 릴스 평균·총 시청 시간(최근 30일은 매일, 전체는 월요일·처음)
+//  · 「인스타 접속 시간대」: 팔로워가 접속한 시간대(월요일·처음, 지원 안 되면 로그에 남김)
+//  · 「타대학 일별」·「타대학 게시물」: 타 대학 공개 계정의 팔로워·게시물 수와 최근 게시물 좋아요·댓글(조회수는 API가 주지 않음)
+const IGM_BENCH = ['jbnu1947', 'wonkwang_univ', 'woosukuni'];
+const IGM_METRICS = {
+  REELS: ['total_interactions', 'follows', 'profile_visits', 'ig_reels_avg_watch_time', 'ig_reels_video_view_total_time'],
+  FEED: ['total_interactions', 'follows', 'profile_visits', 'profile_activity'],
+};
+
+function igmMedia_(ss, today, all, deadline) {
+  const now = today, rows = [], miss = [], bad = { REELS: [], FEED: [] };
+  let stopped = false;
+  igxChannels_().forEach(c => {
+    const cut = all ? IG_CH[c.ch].from : shiftDate_(today, -30);
+    const list = igMedia_(c.conf, c.user, 'id,timestamp,permalink,media_type,media_product_type', 100, cut);
+    list.forEach(m => {
+      if (stopped || (deadline && Date.now() > deadline)) { stopped = true; return; }
+      const kind = m.media_product_type === 'REELS' ? 'REELS' : 'FEED';
+      const want = IGM_METRICS[kind].filter(x => bad[kind].indexOf(x) < 0), mm = [];
+      const v = want.length ? igxInsights_(c.conf, m.id, want, null, mm) : {};
+      mm.forEach(x => { if (bad[kind].indexOf(x) < 0) bad[kind].push(x); if (miss.indexOf(x) < 0) miss.push(x); }); // 한 번 안 되면 같은 유형은 다시 묻지 않음
+      const sec = x => x === undefined || x === '' ? '' : Math.round(Number(x) / 100) / 10; // ms → 초
+      rows.push([c.ch, String(m.id), Utilities.formatDate(new Date(m.timestamp), TZ, 'yyyy-MM-dd HH:mm'), kind === 'REELS' ? '릴스' : (m.media_type === 'CAROUSEL_ALBUM' ? '캐러셀' : m.media_type === 'VIDEO' ? '영상' : '이미지'),
+        m.permalink || '', ytaNum_(v.follows), ytaNum_(v.profile_visits), ytaNum_(v.total_interactions), sec(v.ig_reels_avg_watch_time), sec(v.ig_reels_video_view_total_time), now]);
+    });
+  });
+  if (rows.length) igxUpsert_(ss, '인스타 게시물 추가', ['채널', '게시물 ID', '게시 시각', '유형', '링크', '팔로우 유입', '프로필 방문', '상호작용', '릴스 평균 시청(초)', '릴스 총 시청(초)', '기록일'], [0, 1], rows);
+  return { n: rows.length, miss: miss, stopped: stopped };
+}
+
+function igmOnline_(ss, today) {
+  const rows = [];
+  igxChannels_().forEach(c => {
+    const d = igxGet_(c.conf, c.user + '/insights', { metric: 'online_followers', period: 'lifetime' }).data || [];
+    const vals = (d[0] && d[0].values) || [];
+    const last = vals[vals.length - 1];
+    if (last && last.value) Object.keys(last.value).forEach(h => rows.push([today, c.ch, Number(h), last.value[h]]));
+  });
+  if (rows.length) igxUpsert_(ss, '인스타 접속 시간대', ['기록일', '채널', '시(0~23, 메타 기준)', '접속 팔로워'], [0, 1, 2], rows);
+  return rows.length;
+}
+
+function igmBench_(ss, today) {
+  const c = igxChannels_().filter(x => x.ch === '인스타그램')[0] || igxChannels_()[0];
+  if (!c) return { acc: 0, posts: 0 };
+  const now = Utilities.formatDate(new Date(), TZ, 'yyyy-MM-dd HH:mm');
+  const acc = [], posts = [];
+  IGM_BENCH.forEach(u => {
+    try {
+      const b = igxGet_(c.conf, c.user, { fields: 'business_discovery.username(' + u + '){followers_count,media_count,media.limit(50){id,timestamp,media_type,media_product_type,permalink,caption,like_count,comments_count}}' }).business_discovery;
+      acc.push([today, u, b.followers_count, b.media_count, now]);
+      ((b.media && b.media.data) || []).forEach(m => posts.push([u, String(m.id), Utilities.formatDate(new Date(m.timestamp), TZ, 'yyyy-MM-dd'),
+        m.media_product_type === 'REELS' ? '릴스' : (m.media_type === 'CAROUSEL_ALBUM' ? '캐러셀' : m.media_type === 'VIDEO' ? '영상' : '이미지'),
+        m.permalink || '', String(m.caption || '').replace(/\s+/g, ' ').slice(0, 60), ytaNum_(m.like_count), ytaNum_(m.comments_count), today]));
+    } catch (e) { acc.push([today, u, '', '', now + ' 오류: ' + String(e.message).slice(0, 80)]); }
+  });
+  igxUpsert_(ss, '타대학 일별', ['날짜', '계정', '팔로워', '게시물 수', '기록 시각'], [0, 1], acc);
+  if (posts.length) igxUpsert_(ss, '타대학 게시물', ['계정', '게시물 ID', '게시일', '유형', '링크', '캡션 앞부분', '좋아요', '댓글', '기록일'], [0, 1], posts);
+  return { acc: acc.length, posts: posts.length };
+}
+
+// 매일 기록 단계(igm): 최근 30일 게시물 추가 지표 + 타 대학
+function igmStep_(ss, today, logs) {
+  if (!igxChannels_().length) { logs.push([new Date(), '인스타 게시물 추가', 0, '건너뜀: META_TOKEN 또는 IG_API 꺼짐']); return; }
+  const parts = [], miss = [];
+  try { const m = igmMedia_(ss, today, false, Date.now() + 90 * 1000); parts.push('게시물 ' + m.n + '개(최근 30일)'); miss.push.apply(miss, m.miss); } catch (e) { parts.push('게시물 오류: ' + String(e.message).slice(0, 120)); }
+  try { const b = igmBench_(ss, today); parts.push('타 대학 ' + b.acc + '곳·게시물 ' + b.posts + '개'); } catch (e) { parts.push('타 대학 오류: ' + String(e.message).slice(0, 120)); }
+  logs.push([new Date(), '인스타 게시물 추가', 0, parts.join(' · ') + (miss.length ? ' · 받지 못한 지표: ' + Array.from(new Set(miss)).join(', ') : '')]);
+}
+
+// 주간 수집(월요일 10시 트리거, 메뉴로도 실행): 무거운 것 — 시청 지속률·태그·재생목록·지난달 시청자 분포·인스타 전체 게시물·접속 시간대
+// 매일 기록과 따로 돌려 한 실행이 6분 한도를 넘지 않게 함. 시간이 모자라면 남은 것은 다음 주에(또는 다시 실행하면) 이어서
+function weeklyExtras() {
+  const t0 = Date.now(), deadline = t0 + 5 * 60 * 1000;
+  const ss = SpreadsheetApp.getActive() || SpreadsheetApp.openById(SS_ID);
+  const today = Utilities.formatDate(new Date(), TZ, 'yyyy-MM-dd');
+  const parts = [];
+  const run = (name, fn) => { if (Date.now() > deadline - 60 * 1000) { parts.push(name + ' 다음에'); return; } try { parts.push(name + ' ' + fn()); } catch (e) { parts.push(name + ' 오류: ' + String(e.message).slice(0, 120)); } };
+  if (PropertiesService.getScriptProperties().getProperty('YT_REFRESH')) {
+    run('시청 지속률', () => ytaRecentVideos_(ss, today, true).ret + '줄');
+    run('태그·재생목록', () => ytaVideoInfo_(ss, today) + '개');
+    run('지난달 시청자', () => { const a = ytaAudience_(ss, today, YTA_MONTHS_PER_RUN); return a.months + '달' + (a.left ? '(남은 ' + a.left + '달)' : ''); });
+  }
+  if (igxChannels_().length) {
+    run('인스타 접속 시간대', () => igmOnline_(ss, today) + '줄');
+    run('인스타 전체 게시물', () => { const m = igmMedia_(ss, today, true, deadline); return m.n + '개' + (m.stopped ? '(시간 한도로 일부 — 다시 실행하면 이어서)' : '') + (m.miss.length ? '(받지 못한 지표: ' + m.miss.join(', ') + ')' : ''); });
+  }
+  logRows_(ss, [[new Date(), '주간 추가 수집', 0, parts.join(' · ') + ' — ' + Math.round((Date.now() - t0) / 1000) + '초']]);
+  Logger.log(parts.join(' · '));
+}
+function ensureWeeklyTrigger_() {
+  if (ScriptApp.getProjectTriggers().some(t => t.getHandlerFunction() === 'weeklyExtras')) return;
+  ScriptApp.newTrigger('weeklyExtras').timeBased().onWeekDay(ScriptApp.WeekDay.MONDAY).atHour(10).inTimezone(TZ).create();
+}
+// 편집기·메뉴에서 바로 한 번: 매일 몫(유튜브·인스타 추가)
+function collectMoreNow() {
+  const ss = SpreadsheetApp.getActive() || SpreadsheetApp.openById(SS_ID);
+  const today = Utilities.formatDate(new Date(), TZ, 'yyyy-MM-dd');
+  const logs = [];
+  ytaStep_(ss, today, logs);
+  igmStep_(ss, today, logs);
   logRows_(ss, logs);
   logs.forEach(l => Logger.log(l[3]));
 }
