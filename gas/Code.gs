@@ -2281,15 +2281,26 @@ function ytOverlay_(out, today) {
   const ch = out['유튜브'] = out['유튜브'] || {};
   try {
     const api = YT_API_ || (YT_API_ = fetchYouTube_(Object.keys(ch).filter(k => k.indexOf('yt:') === 0).map(k => k.slice(3)), today));
+    const base = ytLifetime_(); // 원본 시트와 같은 시점(월요일)의 전체 기간 값
     let upd = 0, add = 0;
     Object.keys(api.videos).forEach(id => {
       const v = api.videos[id], a = api.stats[id], k = 'yt:' + id, it = ch[k];
       if (it) {
-        if (!a) return; // 분석 값이 없으면(집계 지연·권한 없음) 원본 시트 값을 그대로 둠
-        it.views = a.views; it.likes = a.likes; it.comments = a.comments;
-        if (a.engaged !== '') it.engaged = a.engaged;
-        if (a.avgSec !== '') it.avgSec = a.avgSec;
         if (!it.lengthSec && v.lengthSec) { it.lengthSec = v.lengthSec; it.type = lengthBucket_(v.lengthSec); }
+        if (a) { // 분석 API(채널 권한이 있을 때): 원본 시트와 같은 기간 값으로 바로 교체
+          it.views = a.views; it.likes = a.likes; it.comments = a.comments;
+          if (a.engaged !== '') it.engaged = a.engaged;
+          if (a.avgSec !== '') it.avgSec = a.avgSec;
+          upd++;
+          return;
+        }
+        // 분석 API가 안 되면: 원본 시트 값 + (지금 공개 수치 − 월요일 전체 기간 값). 원본 시트는 기간 조회라 전체 조회로 바로 바꾸면 기록이 튄다
+        const b = base[id];
+        if (!b) return;
+        const add_ = (cur, now, then) => (cur === '' || then == null || now < then) ? cur : cur + (now - then);
+        it.views = add_(it.views, v.views, b[0]);
+        it.likes = add_(it.likes, v.likes, b[1]);
+        it.comments = add_(it.comments, v.comments, b[2]);
         upd++;
       } else if (v.date >= shiftDate_(today, -YT_NEW_DAYS) && v.date >= YT_PERIOD_START) {
         // 새 영상: 분석 값이 아직 없으면(게시 1~2일) 데이터 API의 공개 수치 — 이 기간 영상은 전체 조회 = 기간 조회
@@ -2367,6 +2378,21 @@ function fetchYouTube_(seedIds, today) {
   return { videos: videos, stats: stats, chId: chId, note: note };
 }
 
+// 「유튜브_전체기간」 탭(Supermetrics, 원본 시트와 같은 월요일 갱신) → {영상ID: [조회, 좋아요, 댓글]}
+function ytLifetime_() {
+  const out = {};
+  const sh = (SpreadsheetApp.getActive() || SpreadsheetApp.openById(SS_ID)).getSheetByName('유튜브_전체기간');
+  if (!sh || sh.getLastRow() < 2) return out;
+  const v = sh.getDataRange().getValues(), h = v[0].map(x => String(x).trim());
+  const iu = h.indexOf('Video URL'), iv = h.indexOf('Video views'), il = h.indexOf('Likes'), ic = h.indexOf('Comments');
+  if (iu < 0 || iv < 0) return out;
+  v.slice(1).forEach(r => {
+    const m = /(?:v=|youtu\.be\/|shorts\/)([\w-]{11})/.exec(String(r[iu]));
+    if (m) out[m[1]] = [Number(r[iv]) || 0, il >= 0 ? Number(r[il]) || 0 : null, ic >= 0 ? Number(r[ic]) || 0 : null];
+  });
+  return out;
+}
+
 // ISO 8601 길이(PT1H2M3S) → 초
 function isoDur_(s) {
   const m = String(s || '').match(/^P(?:(\d+)D)?T?(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?$/);
@@ -2385,13 +2411,17 @@ function testYouTubeApi() {
   finally { if (was) props.setProperty('YT_API', was); }
   const ids = Object.keys(sheet).filter(k => k.indexOf('yt:') === 0).map(k => k.slice(3));
   const api = fetchYouTube_(ids, today);
-  const ratios = [];
-  let miss = 0;
+  const ratios = [], base = ytLifetime_(), lr = [];
+  let miss = 0, nob = 0;
   ids.forEach(id => {
-    const a = api.stats[id], s = sheet['yt:' + id];
+    const a = api.stats[id], s = sheet['yt:' + id], v = api.videos[id], b = base[id];
+    if (v && b && b[0] > 100) lr.push(v.views / b[0]); else nob++;
     if (!a) { miss++; return; }
     if (s.views > 100) ratios.push(a.views / s.views);
   });
+  lr.sort((a, b) => a - b);
+  const ql = p => lr.length ? lr[Math.floor((lr.length - 1) * p)].toFixed(3) : '-';
+  Logger.log('공개 조회÷「유튜브_전체기간」(월요일) 비율(%s개, 기준 없음 %s개): 하위10%% %s · 중앙 %s · 상위10%% %s — 1.000~1.05면 차이 방식으로 이어 붙일 수 있음', lr.length, nob, ql(0.1), ql(0.5), ql(0.9));
   ratios.sort((a, b) => a - b);
   const q = p => ratios.length ? ratios[Math.floor((ratios.length - 1) * p)].toFixed(3) : '-';
   const fresh = Object.keys(api.videos).filter(id => !sheet['yt:' + id] && api.videos[id].date >= shiftDate_(today, -YT_NEW_DAYS));
