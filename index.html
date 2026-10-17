@@ -1194,7 +1194,10 @@ details.adv[open] > summary { border-bottom: 1px solid var(--line); }
     t.push(kpiTile('최근 30일 잘 된 비율', c30.length ? pct0(hitRate(c30)) : '–', c30.length ? '<span title="올린 지 ' + AGE_MIN + '일이 지난 게시물만 셌어요">' + c30.length + '개 중 ' + hits.length + '개가 평소의 1.5배 이상</span>' : '아직 셀 만큼 지난 게시물이 없어요', '', spark(monthly(chs, 'hit'), '최근 6달 월별 잘 된 비율')));
     chs.filter(c => c === '인스타그램' || c === '유튜브').forEach(c => { const x = acctTile(c); if (x) t.push(x); });
     const by = chs.length > 1 ? chs.map(c => chName(c) + ' ' + c30all.filter(it => it.c === c).length).join(' · ') : '';
-    t.push(kpiTile('최근 30일 올린 게시물', c30all.length + '개', by, '', spark(monthly(chs, 'n'), '최근 6달 월별 게시 수')));
+    // 그 전 30일(같은 길이)과 비교 — 달력 지난달은 이번 달이 덜 지나 공정하지 않음
+    const p30 = pool({ channels: chs, since: addDays(D.updated, -60), until: addDays(D.updated, -31) }).length, dn = c30all.length - p30;
+    const cmp = p30 ? (dn === 0 ? '그 전 30일(' + p30 + '개)과 <span class="flat">같아요</span>' : '그 전 30일(' + p30 + '개)보다 <span class="' + (dn > 0 ? 'up' : 'down') + '">' + Math.abs(dn) + '개 ' + (dn > 0 ? '많아요' : '적어요') + '</span>') : '';
+    t.push(kpiTile('최근 30일 올린 게시물', c30all.length + '개', [cmp, by].filter(Boolean).join('<br>'), '', spark(monthly(chs, 'n'), '최근 6달 월별 게시 수')));
     return '<div class="kpi-row">' + t.join('') + '</div>';
   }
   function homeSummary(chs) {
