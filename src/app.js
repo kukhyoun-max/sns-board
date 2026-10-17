@@ -2186,7 +2186,8 @@
   function chartOpts(extra) {
     Chart.defaults.font.family = css('--font'); Chart.defaults.color = css('--muted'); Chart.defaults.font.size = 14;
     const o = { responsive: true, maintainAspectRatio: false, animation: false, layout: { padding: { top: 24 } },
-      plugins: { legend: { display: false, labels: { boxWidth: 12, boxHeight: 12, color: css('--sub') } }, tooltip: { backgroundColor: css('--fg'), titleColor: css('--bg'), bodyColor: css('--bg'), padding: 10, displayColors: false } },
+      plugins: { legend: { display: false, labels: { boxWidth: 12, boxHeight: 12, color: css('--sub') } }, tooltip: { backgroundColor: css('--fg'), titleColor: css('--bg'), bodyColor: css('--bg'), padding: 12, cornerRadius: 10, caretSize: 0, titleFont: { weight: '700' }, boxPadding: 4, usePointStyle: true, displayColors: false } },
+      elements: { line: { borderCapStyle: 'round', borderJoinStyle: 'round' }, point: { hoverBorderWidth: 2, hoverBorderColor: css('--bg') } },
       scales: { x: { grid: { display: false }, border: { display: false }, ticks: { color: css('--sub'), font: { size: 13, weight: '600' } } }, y: { display: false, beginAtZero: true, border: { display: false } } } };
     return merge(o, extra || {});
   }
