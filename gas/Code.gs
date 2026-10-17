@@ -1246,7 +1246,7 @@ function buildDashboardData_() {
     dates: dates,
     channels: order.map(c => ({ name: c, bench: OWN_CHANNELS.indexOf(c) < 0 })),
     metrics: DASH_METRICS,
-    items: list,
+    items: list.filter(it => !it._drop),
     acct: acct,
     roles: extra.roles,
     ads: extra.ads,
@@ -1819,6 +1819,8 @@ function attachTags_(ss, items, keys) {
   items.forEach((it, i) => {
     const t = T.tags[keys[i]] || {};
     const f = T.fix[keys[i].split('§')[1]] || (it.u && T.fix[it.u]) || (t.u && T.fix[t.u]) || {};
+    // 「태그 수정」 분류에 「제외」(비공개·테스트 업로드 등) → 대시보드 데이터에서 뺌(기록은 시트에 그대로)
+    if (f.g === '제외') { it._drop = 1; return; }
     // 반영 순서: 「태그 수정」 > 「태그」 탭 자동값 > it.g·it.p(「인스타_과거기록」 탭 값) > 기본값
     it.g = f.g || t.g || it.g || '기타';
     if (it.g === '숏폼·예능') it.g = '예능·챌린지'; // 예전 이름(2026-10-16 변경) — 「태그 다시 계산」 전 값·「태그 수정」·과거 기록 탭
