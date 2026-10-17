@@ -2624,13 +2624,13 @@ function ytAuthorize() {
     ['client_id', id], ['redirect_uri', ytRedirect_()], ['response_type', 'code'], ['scope', YT_SCOPES],
     ['access_type', 'offline'], ['prompt', 'consent select_account'], ['state', state],
   ].map(x => x[0] + '=' + encodeURIComponent(x[1])).join('&');
-  // 시트 메뉴에서 실행하면 누를 수 있는 링크 창을 띄움(로그의 긴 주소는 복사하다 끊기기 쉬움)
-  try {
-    SpreadsheetApp.getUi().showModalDialog(HtmlService.createHtmlOutput(
-      '<div style="font:15px sans-serif;line-height:1.6">아래 버튼을 눌러 <b>「전주대학교」 채널(브랜드 계정)</b>을 골라 허용하세요. 1시간 안에 눌러야 합니다.<br><br>' +
-      '<a href="' + url + '" target="_blank" style="display:inline-block;padding:10px 16px;background:#1a73e8;color:#fff;border-radius:6px;text-decoration:none">유튜브 분석 승인하기</a></div>'
-    ).setWidth(420).setHeight(170), '유튜브 분석 승인');
-  } catch (e) { /* 편집기에서 실행하면 창을 띄울 수 없음 → 아래 로그 주소 사용 */ }
+  // 누를 수 있는 링크를 「실행 로그」 탭 맨 아래에 씀(로그 창의 긴 주소는 복사하다 끊기기 쉬움. 창 띄우기는 별도 권한이 필요해 쓰지 않음)
+  const ss = SpreadsheetApp.getActive() || SpreadsheetApp.openById(SS_ID);
+  logRows_(ss, [[new Date(), '유튜브 분석 승인', 0, '아래 줄 링크를 눌러 「전주대학교」 채널을 골라 허용(1시간 안)']]);
+  const log = ss.getSheetByName(LOG), row = log.getLastRow() + 1;
+  log.getRange(row, 1, 1, 4).setValues([[new Date(), '유튜브 분석 승인', 0, '']]);
+  log.getRange(row, 4).setRichTextValue(SpreadsheetApp.newRichTextValue().setText('▶ 유튜브 분석 승인하기 (클릭)').setLinkUrl(url).build());
+  try { log.activate(); log.getRange(row, 4).activate(); } catch (e) {}
   Logger.log('아래 주소를 열고 「전주대학교」 채널(브랜드 계정)을 골라 허용하세요. 1시간 안에 열어야 합니다. 주소가 끊기면 시트 메뉴 「📊 스냅샷 → 유튜브 분석 승인」을 쓰세요.');
   Logger.log(url);
   Logger.log('클라우드 콘솔 OAuth 클라이언트의 「승인된 리디렉션 URI」에는 이 주소가 있어야 합니다: %s', ytRedirect_());
