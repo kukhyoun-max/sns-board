@@ -466,10 +466,9 @@
     return out.length ? '<ul class="sumry">' + out.map(s => '<li>' + s + '</li>').join('') + '</ul>' : '';
   }
   function topHtml(chs) {
-    const stl = staleHtml(S.ch === '전체' ? OWN.concat(benchNames()) : chs);
     return '<section class="sec top-sec"><div class="sh"><div><h2>' + (S.ch === '전체' ? '이번 주 한눈에' : chName(S.ch) + ' 이번 주') + '</h2><p>' + mdLabel(D.updated) + ' 기록 기준 · ' + adWord() + '</p></div>' +
       '<div class="top-act"><button type="button" class="btn sm" id="repCopy">주간 보고 복사</button><button type="button" class="btn sm" id="repPrint">인쇄·PDF</button></div></div>' +
-      kpiHtml(chs) + raceHtml(chs) + homeSummary(chs) + stl + '</section>';
+      kpiHtml(chs) + raceHtml(chs) + homeSummary(chs) + '</section>';
   }
   // 주간 보고: 카톡·메일에 붙일 글(맨 위 숫자 + 요약 + 많이 큰 콘텐츠 + 데이터 주의)
   function reportText(chs) {
@@ -1426,7 +1425,7 @@
     const ds = D.items.map(it => it.d).sort();
     const y0 = +ds[0].slice(0, 4), y1 = +D.updated.slice(0, 4);
     const out = [];
-    for (let y = Math.max(y0, y1 - 3); y <= y1; y++) {
+    for (let y = Math.max(y0, 2019); y <= y1; y++) {
       out.push({ id: y + '수시', label: (y + 1) + '학년도 수시 (' + y + '.8~9월)', from: y + '-08-01', to: y + '-09-30' });
       out.push({ id: y + '정시', label: (y + 1) + '학년도 정시 (' + y + '.12~' + (y + 1) + '.1월)', from: y + '-12-01', to: (y + 1) + '-01-31' });
     }
@@ -1457,6 +1456,10 @@
       '<div class="kpi"><div class="l">자연 조회 (광고 제외)</div><div class="v">' + fmtK(st.orgV) + '</div><div class="s">게시물당 평소의 <b>' + xf(st.idx) + '</b> · 잘 된 비율 ' + pct0(st.hit) + '</div></div>' +
       '<div class="kpi"><div class="l">광고 (구글애즈 계정 전체)</div><div class="v">' + (st.covered ? fmtK(st.cost) + '<small style="font-size:var(--fs-lg);color:var(--muted);font-weight:700">원</small>' : '–') + '</div><div class="s">' + (st.covered ? '캠페인 ' + st.camps.length + '개 · ' + (st.ad.length ? '광고 영상 <b>' + st.ad.length + '개</b> 조회 ' + fmtK(st.adV) : '연결된 광고 영상 없음') + (st.adV ? ' · 조회 1회당 <b>' + fmt(st.cost / st.adV) + '원</b>' : '') : '광고 리포트가 ' + dot(D.ads ? D.ads.end : '') + '까지라 이 시즌 광고비는 아직 없어요 · 광고 영상 ' + st.ad.length + '개(조회 패턴 추정) 조회 ' + fmtK(st.adV)) + '</div></div>' +
       '</div></section>';
+    const SEA_M = [['idx', '게시물당 평소 대비'], ['orgV', '자연 조회'], ['n', '게시 수'], ['hit', '잘 된 비율']];
+    if (!SEA_M.some(m => m[0] === S.seaM)) S.seaM = 'idx';
+    html += secOpen('해마다 비교', '수시·정시를 연도순으로 놓았어요 · 막대를 누르면 그 시즌을 봐요', '<div class="seg" id="seaM" aria-label="비교할 숫자">' + SEA_M.map(m => '<button type="button" data-m="' + m[0] + '" aria-pressed="' + (S.seaM === m[0]) + '">' + m[1] + '</button>').join('') + '</div>') +
+      '<div class="chart"><canvas id="yoyChart"></canvas></div><p class="note">' + (S.seaM === 'orgV' ? '자연 조회는 오래된 시즌일수록 조회가 쌓인 기간이 길어 많아 보여요. 해마다 견주려면 「게시물당 평소 대비」를 보세요.' : S.seaM === 'idx' ? '1배 = 그 채널·형식의 평소 수준. 시즌 게시물이 평소보다 잘 됐는지를 해마다 같은 잣대로 봐요.' : S.seaM === 'hit' ? '시즌 게시물 중 평소의 1.5배 이상 나온 비율이에요.' : '시즌 동안 올린 게시물 수(광고 제외)예요.') + ' · <span class="mu">* 원본 수집 범위 밖 기간이 섞인 시즌</span></p>' + secClose;
     html += secOpen('주별 게시 콘텐츠 조회', '주마다 올린 콘텐츠의 현재 누적 조회 · 광고 영상과 나머지를 나눠 보여줘요') + '<div class="chart tall"><canvas id="seaChart"></canvas></div>' + secClose;
     const admSorted = st.adm.slice().sort((a, b) => (ratio(b) || 0) - (ratio(a) || 0));
     const topSorted = st.org.slice().sort((a, b) => (ratio(b) || 0) - (ratio(a) || 0)).slice(0, 8);
@@ -1469,6 +1472,17 @@
       '</tbody></table></div><p class="note">「일부」는 원본 수집 범위 밖 기간이 섞인 시즌이에요(유튜브는 ' + dot(covFrom('유튜브') || '') + ' 이후 조회만, 인스타는 ' + dot(covFrom('인스타그램') || '') + ' 이후 게시물만) · 광고비 = 구글애즈 리포트의 그 기간 집행 비용(동영상·디스플레이 전체, ' + dot(D.ads ? D.ads.end : '') + '까지) · 광고 조회 = 캠페인에 연결된 유튜브 영상의 조회</p>' + secClose;
     $('view').innerHTML = html;
     $('seasonSel').addEventListener('change', e => { S.season = e.target.value; viewSeason(); });
+    $('seaM').querySelectorAll('button').forEach(b => b.addEventListener('click', () => { S.seaM = b.dataset.m; viewSeason(); }));
+    // 해마다 비교 그래프: 수시 = 블루, 정시 = 보라, 고른 시즌만 진하게
+    const chron = ss.slice().reverse(); let ys = chron.map(x => { const t = seasonStats(x); return { x, cn: covNote(viewChannels(), x.from), v: S.seaM === 'idx' ? t.idx : S.seaM === 'orgV' ? t.orgV : S.seaM === 'n' ? t.org.length : (t.hit == null ? null : t.hit * 100) }; });
+    while (ys.length > 1 && (ys[0].v == null || ys[0].v === 0) && ys[0].x.id !== s.id) ys.shift(); // 값이 없는 앞쪽 시즌(수집 범위 밖)은 그리지 않음
+    const ycol = y => { const c = css(/정시$/.test(y.x.id) ? '--ai' : '--jj'); return y.x.id === s.id ? c : c + '59'; };
+    const yfmt = v => v == null ? '–' : S.seaM === 'idx' ? xf(v) : S.seaM === 'hit' ? Math.round(v) + '%' : S.seaM === 'n' ? v + '개' : fmtK(v);
+    draw('yoyChart', { type: 'bar', data: { labels: ys.map(y => y.x.id.slice(2, 4) + '년 ' + y.x.id.slice(4) + (y.cn ? '*' : '')), datasets: [{ data: ys.map(y => y.v), backgroundColor: ys.map(ycol), borderRadius: 3, maxBarThickness: 36 }] },
+      options: chartOpts({ onClick: (e, els) => { if (!els.length) return; S.season = ys[els[0].index].x.id; viewSeason(); }, layout: { padding: { top: 20 } },
+        plugins: { tooltip: { callbacks: { title: it => ys[it[0].dataIndex].x.label, label: c => SEA_M.find(m => m[0] === S.seaM)[1] + ' ' + yfmt(c.raw) } } },
+        scales: { x: { ticks: { autoSkip: false, maxRotation: 0, font: { size: 12 } } }, y: { display: true, grid: { color: css('--line') }, ticks: { maxTicksLimit: 4, callback: v => yfmt(v) } } } }),
+      plugins: S.seaM !== 'idx' ? [] : [{ id: 'one', afterDatasetsDraw(c) { const y = c.scales.y.getPixelForValue(1), a = c.chartArea; if (y < a.top || y > a.bottom) return; const x = c.ctx; x.save(); x.setLineDash([4, 4]); x.strokeStyle = css('--muted'); x.lineWidth = 1; x.beginPath(); x.moveTo(a.left, y); x.lineTo(a.right, y); x.stroke(); x.setLineDash([]); x.font = '600 12px ' + css('--font'); x.fillStyle = css('--muted'); x.fillText('평소', a.left + 4, y - 5); x.restore(); } }] });
     $('view').querySelectorAll('tr[data-s]').forEach(tr => tr.addEventListener('click', () => { S.season = tr.dataset.s; viewSeason(); window.scrollTo({ top: 0 }); }));
     wireRank($('sAdm'), admSorted); wireRank($('sTop'), topSorted);
     // 주별 차트
@@ -1591,7 +1605,7 @@
     const yChips = '<div class="chips">' + ['all'].concat(years).map(y => '<button class="chip" type="button" data-y="' + y + '" aria-pressed="' + (S.adYear === y) + '">' + (y === 'all' ? '전체' : y + '년') + '</button>').join('') + '</div>';
     let html = seg + '<section class="sec"><div class="sh"><div><h2>광고 성과</h2><p>구글애즈 계정 전체(동영상·디스플레이) · 리포트 기간 ' + dot(A.camps[0].from) + ' ~ ' + dot(A.end) + ' · 상단 채널 탭과 관계없이 계정 전체 기준이에요</p></div></div>' +
       (manual.length ? '<div class="callout">일별 리포트는 <b>' + dot(daily) + '</b>까지예요. 그 뒤 광고 ' + manual.length + '개는 결과 보고 수치를 <b>캠페인 합계</b>로 넣었어요(「광고 추가 입력」 탭).<small>합계 입력분은 월별 그래프에서 종료월에 모여 보여요. 스냅샷 시트 「구글애즈 리포트」 탭에 일별 보고서를 붙여 넣으면 같은 캠페인은 자동으로 일별 값으로 바뀌어요.</small></div>' : '') +
-      (stale ? '<div class="callout warn">마지막 광고 데이터는 <b>' + dot(A.end) + '</b>이에요. 그 뒤 집행한 광고가 있다면 아직 반영되지 않았어요.<small>스냅샷 시트 「구글애즈 리포트」 탭에 구글애즈 일별 캠페인 보고서(' + (daily ? dot(addDays(daily, 1)) : '마지막 일별 리포트 다음 날') + ' ~ 어제)를 붙여 넣거나, 「광고 추가 입력」 탭에 캠페인 합계를 적으면 다음 갱신 때 반영돼요.</small></div>' : '') +
+      
       yChips +
       '<div class="kpis k6">' +
         '<div class="kpi"><div class="l">광고비</div><div class="v">' + wonL(tot.cost) + '</div><div class="s">캠페인 ' + camps.length + '개</div></div>' +
@@ -2294,6 +2308,7 @@
   document.addEventListener('keydown', e => { if ((e.key === 'Enter' || e.key === ' ') && e.target.matches && e.target.matches(KB_SEL)) { e.preventDefault(); e.target.click(); } });
   new MutationObserver(() => { wireScroll(); wireKeys(); }).observe(document.body, { childList: true, subtree: true });
   function render() {
+    renderBell();
     Object.keys(charts).forEach(k => { if (k !== 'dCanvas') { charts[k].destroy(); delete charts[k]; } });
     save(); syncChrome();
     ({ brief: viewBrief, strategy: viewStrategy, maker: viewMaker, season: viewSeason, ads: viewAds, explore: viewExplore, export: viewExport }[S.view] || viewBrief)();
@@ -2306,6 +2321,35 @@
   const manTag = c => c && c.manual ? ' <span class="tag p-col" title="' + esc(c.manual) + '">합계 입력</span>' : '';
   // 마지막 기록이 원본 미갱신이면 그 구간 증가분은 0이 아니라 '셀 수 없음'
   const staleAt = (c, i) => i === D.dates.length - 1 && !!(D.stale && D.stale[c]);
+  // 알림 목록: 데이터가 멈췄거나 새로 안 들어온 것. id에 날짜를 넣어 상황이 바뀌면 다시 새 알림으로 뜬다
+  function notices() {
+    const out = [], s = Object.keys(D.stale || {}), a = Object.keys(D.acctStale || {}).filter(c => !s.includes(c));
+    if (s.length || a.length) {
+      const d = (D.stale || {})[s[0]] || (D.acctStale || {})[a[0]];
+      out.push({ id: 'stale:' + s.concat(a).join(',') + ':' + d.d1, t: s.concat(a).map(chName).join(' · ') + ' 데이터가 새로 안 들어왔어요',
+        b: (s.length ? s.map(chName).join(' · ') + ' 게시물 값' : '') + (s.length && a.length ? ', ' : '') + (a.length ? a.map(chName).join(' · ') + ' 계정 지표' : '') + '가 ' + mdLabel(d.d0) + '과 ' + mdLabel(d.d1) + ' 기록에서 똑같아요. 그래서 이 기간에 늘어난 조회는 0으로 치지 않고 합계에서 뺐어요. 스냅샷 시트의 Supermetrics 예약 갱신이 돌았는지 확인해 주세요.' });
+    }
+    const A = D.ads || {};
+    if (A.end && daysBetween(A.end, D.updated) > 14) {
+      const daily = (A.camps || []).filter(c => !c.manual).map(c => c.to).sort().pop() || '';
+      out.push({ id: 'gads:' + A.end, t: '구글애즈 광고 데이터가 ' + dot(A.end) + '에서 멈춰 있어요',
+        b: '그 뒤에 집행한 광고는 아직 보드에 없어요. 스냅샷 시트 「구글애즈 리포트」 탭에 일별 캠페인 보고서(' + (daily ? dot(addDays(daily, 1)) : '마지막 날 다음 날') + ' ~ 어제)를 붙여 넣거나, 「광고 추가 입력」 탭에 캠페인 합계를 적으면 다음 갱신 때 들어와요.' });
+    }
+    return out;
+  }
+  const seenGet = () => { try { return JSON.parse(localStorage.getItem('sb-seen') || '[]'); } catch (e) { return []; } };
+  function renderBell() {
+    const btn = $('bell'), p = $('ntf'); if (!btn || !p) return;
+    const N = notices(), seen = seenGet(), k = N.filter(x => !seen.includes(x.id)).length;
+    $('bellN').textContent = k; $('bellN').hidden = !k;
+    btn.setAttribute('aria-label', '알림 ' + N.length + '개' + (k ? ', 새 알림 ' + k + '개' : ''));
+    p.innerHTML = '<div class="ntf-h">알림</div>' + (N.length ? '<ul>' + N.map(x => '<li' + (seen.includes(x.id) ? '' : ' class="new"') + '><b>' + esc(x.t) + '</b><p>' + esc(x.b) + '</p></li>').join('') + '</ul>' : '<p class="ntf-e">지금은 확인할 게 없어요. 데이터가 모두 제때 들어오고 있어요.</p>');
+    if (btn.__w) return; btn.__w = 1;
+    const close = () => { if (p.hidden) return; p.hidden = true; btn.setAttribute('aria-expanded', 'false'); renderBell(); };
+    btn.addEventListener('click', e => { e.stopPropagation(); if (!p.hidden) { close(); return; } p.hidden = false; btn.setAttribute('aria-expanded', 'true'); try { localStorage.setItem('sb-seen', JSON.stringify(notices().map(x => x.id))); } catch (er) {} $('bellN').hidden = true; });
+    document.addEventListener('click', e => { if (!p.contains(e.target)) close(); });
+    document.addEventListener('keydown', e => { if (e.key === 'Escape' && !p.hidden) { close(); btn.focus(); } });
+  }
   function staleHtml(chs) {
     const s = chs.filter(c => D.stale && D.stale[c]), a = chs.filter(c => D.acctStale && D.acctStale[c]);
     if (!s.length && !a.length) return '';
