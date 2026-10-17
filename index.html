@@ -790,6 +790,8 @@ details.adv[open] > summary { border-bottom: 1px solid var(--line); }
 .kpi-t.best:hover { border-color: var(--jj); }
 .kpi-t.best .bt { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; color: var(--sub); }
 .kpi-t.best .chb { margin-right: 5px; }
+/* 카드 설명: 숫자(1.5배 등) 가운데서 줄이 끊기지 않게 */
+.kpi-s { overflow-wrap: break-word; word-break: keep-all; }
 </style>
 
 <div class="app" id="app">
@@ -903,6 +905,7 @@ details.adv[open] > summary { border-bottom: 1px solid var(--line); }
   const chName = ch => CH_BADGE[ch] || ch;
   // 시안: 증감은 색 + 기호 + 숫자. ±3% 이내는 회색 "비슷해요"
   const FLAT = 0.03;
+  const dNum = (d, unit) => d === 0 ? '<span class="flat">변동 없음</span>' : '<span class="' + (d > 0 ? 'up' : 'down') + '">' + (d > 0 ? '▲ ' : '▼ ') + fmt(Math.abs(d)) + (unit || '') + '</span>';
   const dCls = d => Math.abs(d) < FLAT ? 'flat' : d >= 0 ? 'up' : 'down';
   const dTxt = (d, sp, dig) => Math.abs(d) < FLAT ? '비슷해요' : d >= 1 ? '▲' + (sp ? ' ' : '') + (1 + d).toFixed(1) + '배' : (d >= 0 ? '▲' : '▼') + (sp ? ' ' : '') + Math.abs(dig ? Math.round(d * 1000) / 10 : Math.round(d * 100)) + '%';
   const fmtType = t => t === '1분 이하' ? '쇼츠(1분 이하)' : t;
@@ -1208,7 +1211,8 @@ details.adv[open] > summary { border-bottom: 1px solid var(--line); }
   // ═════════ 홈 맨 위 — 핵심 숫자 한 줄 + 자동 요약 ═════════
   // 개편 1단계: KPI 카드 스파크라인(축·격자 없는 단색 선 + 옅은 면, Stripe·Apple 트렌드 방식)
   function spark(vals, lbl) {
-    const v = vals.map(x => x == null || isNaN(x) ? null : x), ok = v.filter(x => x != null);
+    // 값이 없는 칸은 빼고 남은 점으로 카드 폭 전체에 펼친다
+    const v = vals.filter(x => x != null && !isNaN(x)), ok = v;
     if (ok.length < 3) return '';
     const lo = Math.min(...ok), hi = Math.max(...ok), W = 100, H = 28, n = v.length - 1;
     const pts = v.map((x, i) => x == null ? null : [(i / n) * W, H - 3 - (hi === lo ? 0.5 : (x - lo) / (hi - lo)) * (H - 6)]).filter(Boolean);
@@ -1238,12 +1242,14 @@ details.adv[open] > summary { border-bottom: 1px solid var(--line); }
     if (ch === '인스타그램') {
       const f = a.cur && a.cur.m['Profile followers']; if (f == null) return '';
       const p = a.prev && a.prev.m['Profile followers'];
-      return kpiTile('인스타 팔로워', fmt(f) + '<small>명</small>', stale ? '<span class="warn">팔로워 수가 아직 새로 안 들어왔어요</span>' : p != null && p !== f ? '지난 기록보다 <span class="' + (f > p ? 'up' : 'down') + '">' + fmt(Math.abs(f - p)) + '명 ' + (f > p ? '늘었어요' : '줄었어요') + '</span>' : '지난 기록과 같아요', '', spark(F.length >= 3 ? F.map(r => r[2]) : A.map(x => x.m['Profile followers']), F.length >= 3 ? '최근 30일 팔로워 수' : '기록별 팔로워 수'));
+      const wk = (D.fol || []).filter(r => r[1] === ch && r[0] <= addDays(D.updated, -7)).pop();
+      const pv = wk ? wk[2] : p, lbl = wk ? '지난주 대비 ' : (a.prev ? md2(a.prev.d) + ' 대비 ' : '');
+      return kpiTile('인스타 팔로워', fmt(f) + '<small>명</small>', stale ? '<span class="warn">팔로워 수 미갱신</span>' : pv != null ? lbl + dNum(f - pv, '명') : '', '', spark(F.length >= 3 ? F.map(r => r[2]) : A.map(x => x.m['Profile followers']), F.length >= 3 ? '최근 30일 팔로워 수' : '기록별 팔로워 수'));
     }
     if (ch === '유튜브') {
       const g = a.cur && a.cur.m['Gained subscribers']; if (g == null) return '';
       const n = g - (a.cur.m['Lost subscribers'] || 0);
-      return kpiTile('유튜브 구독자 증감', sgn(n) + fmt(n) + '<small>명</small>', stale ? '<span class="warn">구독자 수가 아직 새로 안 들어왔어요</span>' : '지난주 새 구독 ' + fmt(g) + '명, 취소 ' + fmt(g - n) + '명', n >= 0 ? 'up' : 'down', spark(A.map(x => x.m['Gained subscribers'] == null ? null : x.m['Gained subscribers'] - (x.m['Lost subscribers'] || 0)), '기록별 구독자 순증'));
+      return kpiTile('유튜브 구독자 증감', sgn(n) + fmt(n) + '<small>명</small>', stale ? '<span class="warn">구독자 수 미갱신</span>' : '지난주 새 구독 ' + fmt(g) + ' · 취소 ' + fmt(g - n), n >= 0 ? 'up' : 'down', spark(A.map(x => x.m['Gained subscribers'] == null ? null : x.m['Gained subscribers'] - (x.m['Lost subscribers'] || 0)), '기록별 구독자 순증'));
     }
     return '';
   }
@@ -1254,7 +1260,7 @@ details.adv[open] > summary { border-bottom: 1px solid var(--line); }
     const t = [];
     if (p) {
       let chg = '';
-      if (w.prev) { const a = p.v / p.days, b = w.prev.v / w.prev.days; if (b) { const d = (a - b) / b; chg = '하루 평균, 그 전보다 <span class="' + dCls(d) + '" title="' + w.prev.days + '일 전 기간과 비교">' + dTxt(d, 1) + '</span>'; } }
+      if (w.prev) { const a = p.v / p.days, b = w.prev.v / w.prev.days; if (b) { const d = (a - b) / b; chg = '직전 ' + w.prev.days + '일 대비 <span class="' + dCls(d) + '" title="하루 평균으로 비교">' + dTxt(d, 1) + '</span>'; } }
       t.push(kpiTile('최근 ' + p.days + '일 늘어난 조회', '+' + fmtK(p.v), (chg || md(p.d0) + '–' + md(p.d1)), '', spark(viewSeries(chs), '최근 기록 기간별 하루 평균 조회 증가')));
     }
     t.push(kpiTile('최근 30일 잘 된 비율', c30.length ? pct0(hitRate(c30)) : '–', c30.length ? '<span title="올린 지 ' + AGE_MIN + '일이 지난 게시물만 셌어요">' + c30.length + '개 중 ' + hits.length + '개가 평소의 1.5배 이상</span>' : '아직 셀 만큼 지난 게시물이 없어요', '', spark(monthly(chs, 'hit'), '최근 6달 월별 잘 된 비율')));
@@ -1262,7 +1268,7 @@ details.adv[open] > summary { border-bottom: 1px solid var(--line); }
     const by = chs.length > 1 ? chs.map(c => chName(c) + ' ' + c30all.filter(it => it.c === c).length).join(' · ') : '';
     // 그 전 30일(같은 길이)과 비교 — 달력 지난달은 이번 달이 덜 지나 공정하지 않음
     const p30 = pool({ channels: chs, since: addDays(D.updated, -60), until: addDays(D.updated, -31) }).length, dn = c30all.length - p30;
-    const cmp = p30 ? (dn === 0 ? '그 전 30일(' + p30 + '개)과 <span class="flat">같아요</span>' : '그 전 30일(' + p30 + '개)보다 <span class="' + (dn > 0 ? 'up' : 'down') + '">' + Math.abs(dn) + '개 ' + (dn > 0 ? '많아요' : '적어요') + '</span>') : '';
+    const cmp = p30 ? '직전 30일 대비 ' + dNum(dn, '개') : '';
     t.push(kpiTile('최근 30일 올린 게시물', c30all.length + '개', [cmp, by].filter(Boolean).join('<br>'), '', spark(monthly(chs, 'n'), '최근 6달 월별 게시 수')));
     // 카드가 홀수면 한 칸이 혼자 길어지므로 「최근 30일 가장 잘 된 게시물」로 짝을 맞춘다
     const best = c30.slice().sort((a, b) => ratio(b) - ratio(a))[0];
