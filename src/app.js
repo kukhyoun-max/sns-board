@@ -680,8 +680,8 @@
     h += dailyHtml(chs);
     const nw = p.nw.slice().sort((a, b) => (mainVal(b) || 0) - (mainVal(a) || 0));
     const old = p.old.filter(it => p.inc0(it) > 0).sort((a, b) => p.inc0(b) - p.inc0(a)).slice(0, 5);
-    // 새로 올린 콘텐츠가 없으면 빈 칸을 두지 않고 '많이 큰 것' 하나만 넓게
-    const oldBox = '<div><h3>' + (nw.length ? '기존 콘텐츠 중 많이 늘어난 것' : '이번 주 많이 늘어난 콘텐츠') + '</h3><p class="d">' + (nw.length ? '예전에 올렸는데 이번 주에도 조회가 늘어난 콘텐츠' : '이번 기간에 새로 올린 콘텐츠는 없어요 · 예전 콘텐츠 중 조회가 많이 늘어난 순') + '</p><ol class="rank' + (nw.length ? '' : ' wide') + '" id="wkOld">' +
+    // 새로 올린 콘텐츠가 없으면 빈 칸을 두지 않고 '많이 늘어난 콘텐츠' 하나만 넓게
+    const oldBox = '<div><h3>' + (nw.length ? '많이 늘어난 기존 콘텐츠' : '이번 주 많이 늘어난 콘텐츠') + '</h3><p class="d">' + (nw.length ? '예전에 올렸는데 이번 주에도 조회가 늘어난 콘텐츠' : '이번 기간에 새로 올린 콘텐츠는 없어요 · 예전 콘텐츠 중 조회가 많이 늘어난 순') + '</p><ol class="rank' + (nw.length ? '' : ' wide') + '" id="wkOld">' +
       (old.length ? rankRows(old, { right: it => '이번 주 ' + mName(it) + ' <em class="up">+' + fmtK(p.inc0(it)) + '</em>' }) : '<li class="empty">이번 기간에 늘어난 콘텐츠가 없어요</li>') + '</ol></div>';
     h += nw.length ? '<div class="two wk-lists"><div><h3>이번 주 올린 콘텐츠 <small>' + nw.length + '개</small></h3><p class="d">조회 많은 순</p><ol class="rank" id="wkNew">' +
       rankRows(nw.slice(0, 8), { right: it => [mName(it) + ' <span class="num">' + fmtK(mainVal(it)) + '</span>', ageLine(it)].filter(Boolean).join(' · ') }) + '</ol></div>' + oldBox + '</div>' : '<div class="wk-lists">' + oldBox + '</div>';
@@ -1135,7 +1135,7 @@
     const rows = R => '<div class="rx-rows">' + R.map(x => '<div><span>' + x[0] + '</span><b class="num' + (x[2] ? ' ' + x[2] : '') + '">' + x[1] + '</b></div>').join('') + '</div>';
     P.more.forEach(r => cards.push(card('more', '더 만들기', combo(r), rows([['최근 1년 평소 대비', xf(r.idx) + ' · ' + r.n + '개', 'up'], ['잘 된 비율', pct0(r.hit) + ' · 채널 ' + pct0(r.hb)], ['최근 2달 게시', r.recent + '개']]) + '<small class="rx-n">→ 다음 기획에 이 조합을 하나 넣어 보세요.</small>', 'c:' + r.k)));
     P.less.forEach(r => cards.push(card('less', '줄이거나 바꾸기', combo(r), rows([['최근 1년 평소 대비', xf(r.idx) + ' · ' + r.n + '개', 'down'], ['최근 2달 게시', r.recent + '개']]) + '<small class="rx-n">→ ' + (r.alt ? '같은 주제를 <b>' + esc(jo(fmtType(r.alt.t), '으로', '로')) + '</b> 만들면 평소의 ' + xf(r.alt.idx) + ' · ' + r.alt.n + '개였어요. 형식을 바꿔 보세요.' : '횟수를 줄이고, 그 시간에 「더 만들기」 쪽을 만들어 보세요.') + '</small>', 'c:' + r.k)));
-    if (P.again.length) cards.push(card('again', '작년 이맘때 잘 된 것', '<span>올해 버전으로 다시 만들어 볼 후보</span>', '<ul class="rx-l">' + P.again.map(it => '<li><div class="rx-t">' + badge(it.c) + esc(title(it.n)) + '</div><div class="rx-m">' + mName(it) + ' <span class="num">' + fmtK(mainVal(it)) + '</span> · <b>평소의 ' + xf(ratio(it)) + '</b> · ' + whenTxt(it.d) + '</div></li>').join('') + '</ul><small class="rx-n">→ 작년 이맘때부터 6주 사이에 잘 된 게시물이에요. 곧 같은 시기가 오니 올해 버전으로 준비해 보세요.</small>', 'a:again'));
+    if (P.again.length) cards.push(card('again', '작년 이맘때 잘 된 콘텐츠', '<span>올해 버전으로 다시 만들어 볼 후보</span>', '<ul class="rx-l">' + P.again.map(it => '<li><div class="rx-t">' + badge(it.c) + esc(title(it.n)) + '</div><div class="rx-m">' + mName(it) + ' <span class="num">' + fmtK(mainVal(it)) + '</span> · <b>평소의 ' + xf(ratio(it)) + '</b> · ' + whenTxt(it.d) + '</div></li>').join('') + '</ul><small class="rx-n">→ 작년 이맘때부터 6주 사이에 잘 된 게시물이에요. 곧 같은 시기가 오니 올해 버전으로 준비해 보세요.</small>', 'a:again'));
     if (!cards.length) return '<div class="wait">지금은 따로 권할 만한 게 없어요. 같은 주제·형식 게시물이 ' + MIN_N + '개 이상 쌓이면 「더 만들기」·「줄이거나 바꾸기」를 알려 드려요.</div>';
     return '<div class="rxs">' + cards.join('') + '</div><div id="rxList"></div>';
   }
