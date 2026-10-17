@@ -513,8 +513,12 @@
       if (c === '인스타그램' && a.cur && a.cur.m['Profile followers'] != null) L.push('■ 인스타 팔로워 ' + fmt(a.cur.m['Profile followers']) + '명');
       if (c === '유튜브' && a.cur && a.cur.m['Gained subscribers'] != null) { const n = a.cur.m['Gained subscribers'] - (a.cur.m['Lost subscribers'] || 0); L.push('■ 유튜브 구독자 ' + sgn(n) + fmt(n) + '명 (지난주 새 구독 − 취소)'); }
     });
-    const sm = homeSummary(chs).match(/<li>([\s\S]*?)<\/li>/g) || [];
-    if (sm.length) { L.push(''); sm.forEach(s => L.push('- ' + plain(s.replace(/<\/?li>/g, '')))); }
+    // 요약 줄(화면의 덩어리 카드와 같은 내용을 글로)
+    const sm = [], wm = weekModel(chs), pc = wm && wm.cur;
+    if (pc) { let x = '- 최근 ' + pc.days + '일 조회 +' + fmtK(pc.v) + (pc.nw.length ? ' · 새 게시물 ' + pc.nw.length + '개 +' + fmtK(pc.vn) + ' · 예전 게시물 +' + fmtK(pc.vo) : ''); if (wm.prev && wm.prev.v > 0) { const d = (pc.v / pc.days) / (wm.prev.v / wm.prev.days) - 1; x += ' · 하루 평균 직전 ' + wm.prev.days + '일 대비 ' + plain(dTxt(d, 1)); } sm.push(x); }
+    const cs = pool({ channels: chs, since: addDays(D.updated, -30) }).filter(judged).sort((a, b) => ratio(b) - ratio(a));
+    if (cs.length) { sm.push('- 최근 30일 가장 잘 된 게시물: [' + chName(cs[0].c) + '] ' + title(cs[0].n) + ' · 평소의 ' + xf(ratio(cs[0]))); if (cs.length > 1) { const lw = cs[cs.length - 1]; sm.push('- 가장 처진 게시물: [' + chName(lw.c) + '] ' + title(lw.n) + ' · 평소의 ' + xf(ratio(lw))); } }
+    if (sm.length) { L.push(''); sm.forEach(x => L.push(x)); }
     if (p) {
       const old = p.old.filter(it => p.inc0(it) > 0).sort((a, b) => p.inc0(b) - p.inc0(a)).slice(0, 5);
       if (old.length) { L.push(''); L.push('이번 주 많이 늘어난 콘텐츠'); old.forEach((it, i) => L.push((i + 1) + '. [' + chName(it.c) + '] ' + title(it.n) + ' +' + fmtK(p.inc0(it)))); }
