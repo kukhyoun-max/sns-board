@@ -2391,42 +2391,104 @@
 
   // ───────── 상세 ─────────
   let lastFocus = null;
+  // 성과 진단: 이 콘텐츠의 특징(주제·시기·제작·시리즈·제목 조건·첫날 속도)마다 같은 특징의 과거 게시물이 보통 평소의 몇 배였는지 견줘
+  // 1.2배 이상 = 잘 되는 특징, 0.85배 이하 = 약한 특징. 함께 나타난 특징이지 원인 단정은 아님.
+  // 타 대학 조사값: context/타채널 벤치마크 분석.md(2026-10-15, 대학·입시 채널 15곳 유튜브 롱폼 · 이런 제목 / 아닌 제목 지수)
+  const EXT_TITLE = [
+    ['학번·대상을 부른 제목', /신입생|새내기|수험생|고3|고등학생|대학생|\d{2}학번/, 2.73, 0.97],
+    ['브이로그', /브이로그|vlog/i, 2.42, 1.00],
+    ['물음표 제목', /[?？]/, 1.51, 0.97],
+    ['따옴표 대사 제목', /["“”]/, 0.49, 1.03],
+    ['순위·꿀팁형 제목', /TOP\s?\d|순위|꿀팁/i, 0.64, 1.00],
+  ];
+  // 같은 조사에서 잘 된 영상이 모인 소재
+  const EXT_TOPIC = [['혜택·돈', /장학|등록금|무료|지원금|혜택|\d+\s?만\s?원/], ['입시 시즌 정보', /수시|정시|입시|전형|면접|실기|원서/], ['재학생의 솔직한 이야기', /재학생|솔직|브이로그|vlog/i], ['축제 공연', /(축제|대동제).*(공연|무대|라인업|직캠)|(공연|무대|라인업|직캠).*(축제|대동제)/]];
+  const gStat = L => { const a = L.filter(judged); return a.length >= MIN_N ? { m: median(a.map(ratio)), n: a.length, hit: hitRate(a) } : null; };
+  const lvl = m => m >= 1.2 ? 'good' : m <= 0.85 ? 'bad' : 'info';
+  const jong = w => { const c = String(w).replace(/[」』"'\s]+$/, '').slice(-1).charCodeAt(0); return c >= 0xAC00 && c <= 0xD7A3 && (c - 0xAC00) % 28 > 0; };
+  const eun = w => w + (jong(w) ? '은' : '는'), ieyo = w => w + (jong(w) ? '이에요' : '예요');
+  const doy = d => daysBetween(d.slice(0, 4) + '-01-01', d);
+  // 막대: 이 콘텐츠 / 우리 같은 주제 / 타 대학 같은 주제
+  const cmpBars = R => { R = R.filter(x => x && x[1] != null); if (R.length < 2) return ''; const mx = Math.max(1.5, ...R.map(x => x[1])); return '<div class="cmps">' + R.map((x, i) => '<div class="cmpb"><span class="cl">' + x[0] + '</span><span class="ct"><i class="' + (i ? '' : x[1] >= 1 ? 'up' : 'down') + '" style="width:' + Math.min(100, x[1] / mx * 100).toFixed(1) + '%"></i></span><span class="cv num">' + xf(x[1]) + '</span></div>').join('') + '</div>'; };
+  function diag(it) {
+    const out = [], F = [], r = ratio(it), base = baseFor(it), own = OWN.includes(it.c), we = own ? '우리' : chName(it.c), age = daysBetween(it.d, D.updated);
+    const P = D.items.filter(x => x !== it && x.c === it.c && x.t !== '스토리' && !x.ad && !x.x && x.d >= addDays(D.updated, -730));
+    const baseTxt = base.by === '형식' ? '평소 = 같은 형식 ' + typeShort(it.t) + ' 최근 1년 중간값 ' + fmtK(base.v) : '평소 = 채널 전체 중간값 ' + fmtK(base.v);
+    // 주제: 우리 같은 분류 · 타 대학 인스타 같은 분류(각 학교 자기 평소 대비 좋아요)
+    const tg = it.g ? gStat(P.filter(x => x.g === it.g)) : null;
+    const bg = own && it.g ? gStat(D.items.filter(x => benchNames().includes(x.c) && x.g === it.g && x.t !== '스토리' && x.d >= addDays(D.updated, -730))) : null;
+    if (tg) {
+      const q = '「' + it.g + '」';
+      const h = eun(q) + (tg.m >= 1.2 ? (bg && bg.m >= 1.2 ? ' 우리도 타 대학도 잘 되는 주제예요.' : bg && bg.m < 1 ? ' 타 대학보다 우리 채널에서 특히 잘 되는 주제예요.' : ' ' + we + ' 채널에서 잘 되는 주제예요.')
+        : tg.m <= 0.85 ? (r != null && r >= HIT && !young(it) ? ' 보통 약한 주제인데 이 콘텐츠는 잘 됐어요.' : ' ' + we + ' 채널에서 보통 약한 주제예요.') : ' ' + we + ' 채널에서 보통 수준의 주제예요.');
+      F.push({ k: '주제', m: tg.m, nm: q + ' 주제', h, s: we + ' 최근 2년 ' + tg.n + '개 중간값' + (tg.hit != null ? ' · 잘 된 비율 ' + pct0(tg.hit) : '') + (bg ? ' · 타 대학 인스타 3곳 ' + bg.n + '개' : ''), bars: cmpBars([['이 콘텐츠', r], [we + ' 같은 주제', tg.m], bg ? ['타 대학 같은 주제', bg.m] : null]) });
+    }
+    // 시기: 예년 같은 때(앞뒤 3주) 같은 주제, 없으면 채널 전체
+    const S0 = D.items.filter(x => x !== it && x.c === it.c && x.t !== '스토리' && !x.ad && !x.x && x.d < addDays(it.d, -300) && (dd => Math.min(dd, 365 - dd) <= 21)(Math.abs(doy(x.d) - doy(it.d))));
+    const sg = it.g ? gStat(S0.filter(x => x.g === it.g)) : null, sa = sg ? null : gStat(S0);
+    if (sg) F.push({ k: '시기', m: sg.m, nm: sg.m >= 1 ? '예년에도 잘 된 주제·시기' : '예년에 약했던 주제·시기', h: '예년 이맘때 「' + it.g + '」 게시물은 평소의 ' + xf(sg.m) + '였어요.', s: '지난해까지 같은 때 앞뒤 3주 · ' + sg.n + '개' });
+    else if (sa) F.push({ k: '시기', m: sa.m, nm: sa.m >= 1 ? '예년에도 잘 된 시기' : '예년에 약했던 시기', h: '예년 이맘때 ' + we + ' 게시물은 평소의 ' + xf(sa.m) + '였어요.', s: '지난해까지 같은 때 앞뒤 3주 · ' + sa.n + '개' });
+    // 제작 주체·시리즈
+    if (it.p && own) { const pg = gStat(P.filter(x => x.p === it.p)); if (pg) F.push({ k: '제작', m: pg.m, nm: it.p + (/제작$/.test(it.p) ? '' : ' 제작'), h: '「' + it.p + '」 콘텐츠는 보통 평소의 ' + xf(pg.m) + '예요.', s: we + ' 최근 2년 ' + pg.n + '개' + (pg.hit != null ? ' · 잘 된 비율 ' + pct0(pg.hit) : '') }); }
+    if (it.s) { const ss = gStat(P.filter(x => x.s === it.s)); if (ss) F.push({ k: '시리즈', m: ss.m, nm: '「' + it.s + '」 시리즈', h: '「' + it.s + '」 시리즈는 보통 평소의 ' + xf(ss.m) + '예요.', s: '같은 시리즈 ' + ss.n + '개' }); }
+    // 잘 되는 조건(전략 화면과 같은 계산) 중 이 콘텐츠에 해당하는 것
+    const RL = own ? rulesFor(it.c).filter(x => x.kind !== '형식' && !/제작|만든|협업/.test(x.label) && x.f(it)).slice(0, 3) : [];
+    RL.forEach(x => F.push({ k: /제목/.test(x.label) ? '제목' : '조건', m: x.eff, nm: x.label, h: eun('「' + x.label + '」') + ' ' + we + ' 채널에서 나머지보다 ' + xf(x.eff) + (x.eff >= 1 ? ' 잘 됐어요.' : '로 덜 됐어요.'), s: '이 조건 평소의 ' + xf(x.ma) + ' · 나머지 ' + xf(x.mb) + ' · 최근 2년 ' + x.na + '개' }));
+    // 타 대학 조사(유튜브): 제목 특징은 롱폼만(쇼츠는 제목에 따른 차이가 거의 없었음)
+    if (it.c === '유튜브') {
+      const tt = title(it.n);
+      if (it.t !== '1분 이하') EXT_TITLE.filter(e => e[1].test(tt)).forEach(e => { const mine = e[0] === '물음표 제목' ? RL.find(x => x.label === '질문형 제목') : null, opp = mine && (mine.eff >= 1) !== (e[2] >= e[3]); F.push({ k: '제목', m: e[2] / e[3], nm: e[0], ext: !!mine, h: '타 대학 조사에서 ' + eun('「' + e[0] + '」') + ' ' + (e[2] >= e[3] ? '잘 되는' : '약한') + ' 제목이었어요.', s: '대학·입시 채널 15곳 롱폼 · 이런 제목 평소의 ' + xf(e[2]) + ' · 아닌 제목 ' + xf(e[3]) + (opp ? ' · 우리 채널에서는 반대로 나왔어요' : '') }); });
+      const tp = EXT_TOPIC.find(e => e[1].test(it.n || ''));
+      if (tp) F.push({ k: '소재', m: 1.2, nm: '「' + tp[0] + '」 소재', h: '타 대학에서 잘 된 영상이 모인 소재 ' + ieyo('「' + tp[0] + '」') + '.', s: '대학·입시 채널 15곳 유튜브 조사 · 2026년 10월' });
+    }
+    // 첫날 속도 vs 최종: 처음엔 느렸는데 잘 됐으면 추천·검색으로 늦게 퍼진 흐름
+    const f0 = (it.ag || []).find(x => x && x[0] > 0 && x[1] >= 1 && x[1] <= 2), b0 = f0 && agAt(it.c, it.t, f0[1]);
+    if (b0 && b0.m > 0) {
+      const pr = f0[0] / b0.m, late = r != null && !young(it) && pr < 1 && r >= HIT;
+      F.push({ k: '속도', m: late ? 1.2 : pr >= 1.5 || pr <= 0.67 ? pr : 1, nm: pr >= 1.5 ? '빠른 첫 반응' : late ? '뒤늦은 확산' : pr <= 0.67 ? '느린 첫 반응' : '평소 같은 첫 반응', h: pr >= 1.5 ? '올리자마자 반응이 빨랐어요.' : late ? '처음엔 느렸다가 뒤늦게 늘었어요.' : pr <= 0.67 ? '첫날 반응이 평소보다 느렸어요.' : '첫날 반응은 평소와 비슷했어요.', s: agName(f0[1]) + ' 조회 평소의 ' + xf(pr) + (late ? ' · 추천·검색으로 늦게 퍼진 흐름으로 보여요' : '') });
+    }
+    // 결과 + 요약
+    if (r != null) {
+      if (young(it)) out.push(['info', '결과', (age <= 0 ? '오늘 올려서' : '올린 지 ' + age + '일째라') + ' 아직 판정 전이에요.', '지금까지 평소의 ' + xf(r) + ' · ' + AGE_MIN + '일이 지나면 판정해요']);
+      else out.push([r >= HIT ? 'good' : r < 0.5 ? 'bad' : 'info', '결과', MN[mainM(it.c)] + '가 평소의 ' + xf(r) + (r >= HIT ? '로 잘 된 게시물이에요.' : r < 0.5 ? '로 절반에 못 미쳤어요.' : r >= 1 ? '로 평소보다 조금 높아요.' : '로 평소보다 조금 낮아요.'), baseTxt]);
+      const use = F.filter(x => !x.ext), pos = use.filter(x => x.m >= 1.2).sort((a, b) => b.m - a.m), neg = use.filter(x => x.m <= 0.85).sort((a, b) => a.m - b.m);
+      const names = L => L.slice(0, 3).map(x => x.nm).join(' · ');
+      const over = tg && tg.m > 0 && r / tg.m >= 1.5 ? '같은 주제 평소보다도 ' + xf(r / tg.m) + ' 높아요' : '';
+      if (young(it)) out.push(['info', '요약', pos.length ? '지금 보이는 잘 되는 특징은 ' + ieyo(names(pos)) + '.' : '눈에 띄게 잘 되는 특징은 아직 없어요.', [neg.length ? '약한 특징 ' + names(neg) : '', '잘 된 이유는 ' + AGE_MIN + '일 뒤 판정과 함께 봐요'].filter(Boolean).join(' · ')]);
+      else if (r >= 1) out.push(['good', '요약', pos.length ? '잘 된 이유로 보이는 것은 ' + ieyo(names(pos)) + '.' : '주제·시기·제작만 보면 평범한 조합이에요. 장면·편집 같은 콘텐츠 자체의 힘으로 보여요.', [over, neg.length ? '약한 특징 ' + names(neg) : ''].filter(Boolean).join(' · ')]);
+      else out.push(['bad', '요약', neg.length ? '아쉬운 이유로 보이는 것은 ' + ieyo(names(neg)) + '.' : pos.length ? names(pos) + '처럼 잘 되는 조합인데 낮았어요. 제목·첫 장면을 살펴볼 만해요.' : '주제·시기·제작은 평범한 조합이에요. 제목·첫 장면을 살펴볼 만해요.', '']);
+    }
+    F.forEach(x => out.push([lvl(x.m), x.k, x.h, x.s, x.bars || '']));
+    return out;
+  }
   function signals(it) {
     const out = [];
     const r = ratio(it), base = baseFor(it), v = last(it) || [];
     // 과거 기록은 과거 기록끼리, 자동 수집 게시물은 자동 수집끼리 비교
     const peers = D.items.filter(x => x.c === it.c && x.t !== '스토리' && !x.ad && !x.x === !it.x);
     const rankPct = fn => { const vals = peers.map(fn).filter(x => x != null).sort((a, b) => b - a); const me = fn(it); if (me == null || !vals.length) return null; return (vals.findIndex(x => x <= me) + 1) / vals.length; };
-    if (r != null) {
-      if (young(it)) out.push(['info', '참고', '올린 지 아직 ' + AGE_MIN + '일이 안 돼 조회가 모이는 중이에요.', '지금까지 평소의 ' + xf(r) + ' · ' + AGE_MIN + '일이 지나면 판정해요']);
-      else if (r >= HIT) out.push(['good', '강점', MN[mainM(it.c)] + '가 평소의 ' + r.toFixed(1) + '배라 잘 된 게시물이에요.', (base.by === '형식' ? '평소 = 같은 형식(' + typeShort(it.t) + ') 최근 1년 중간값 ' : '평소 = 채널 전체 중간값 ') + fmtK(base.v)]);
-      else if (r < 0.5) out.push(['bad', '보완', MN[mainM(it.c)] + '가 평소의 ' + xf(r) + '로 절반에 못 미쳤어요.', (base.by === '형식' ? '평소 = 같은 형식(' + typeShort(it.t) + ') 최근 1년 중간값 ' : '평소 = 채널 전체 중간값 ') + fmtK(base.v)]);
-      else out.push(['info', '참고', MN[mainM(it.c)] + '가 평소의 ' + xf(r) + (r >= 1 ? '로 평소보다 조금 높아요.' : '로 평소보다 조금 낮아요.'), (base.by === '형식' ? '평소 = 같은 형식(' + typeShort(it.t) + ') 최근 1년 중간값 ' : '평소 = 채널 전체 중간값 ') + fmtK(base.v)]);
-    }
+    diag(it).forEach(x => out.push(x));
     const pr = rankPct(mainVal);
-    if (pr != null && pr <= 0.1) out.push(['good', '강점', '이 채널 게시물 전체에서 상위 ' + Math.max(1, Math.round(pr * 100)) + '%예요.', peers.length + '개 중 ' + Math.max(1, Math.round(pr * peers.length)) + '위']);
+    if (pr != null && pr <= 0.1) out.push(['good', '순위', '이 채널 게시물 전체에서 상위 ' + Math.max(1, Math.round(pr * 100)) + '%예요.', peers.length + '개 중 ' + Math.max(1, Math.round(pr * peers.length)) + '위']);
     if (it.c === '인스타그램' && it.r > 0) {
       const sh = (v[3] || 0) / it.r, sv = (v[4] || 0) / it.r;
       const shp = rankPct(x => x.r > 0 ? ((last(x) || [])[3] || 0) / x.r : null);
-      if (shp != null && shp <= 0.15) out.push(['good', '강점', '도달 대비 공유가 상위 ' + Math.max(1, Math.round(shp * 100)) + '%예요. 많이 공유된 콘텐츠예요.', '도달 대비 공유 ' + pct(sh)]);
+      if (shp != null && shp <= 0.15) out.push(['good', '반응', '도달 대비 공유가 상위 ' + Math.max(1, Math.round(shp * 100)) + '%예요. 많이 공유된 콘텐츠예요.', '도달 대비 공유 ' + pct(sh)]);
       const svp = rankPct(x => x.r > 0 ? ((last(x) || [])[4] || 0) / x.r : null);
-      if (svp != null && svp <= 0.15) out.push(['good', '강점', '도달 대비 저장이 상위 ' + Math.max(1, Math.round(svp * 100)) + '%예요. 나중에 다시 보려고 저장한 사람이 많아요.', '도달 대비 저장 ' + pct(sv)]);
+      if (svp != null && svp <= 0.15) out.push(['good', '반응', '도달 대비 저장이 상위 ' + Math.max(1, Math.round(svp * 100)) + '%예요. 나중에 다시 보려고 저장한 사람이 많아요.', '도달 대비 저장 ' + pct(sv)]);
       const e = engagement(it);
-      if (e != null && base.q && !it.x && e < base.q * 0.6) out.push(['bad', '보완', '도달 대비 반응이 평소의 60%도 안 돼요.', '도달한 사람 중 좋아요·댓글·공유·저장한 비율 ' + pct(e) + ' · 평소 ' + pct(base.q)]);
-      if ((v[2] || 0) > 200) out.push(['info', '참고', '댓글이 ' + fmt(v[2]) + '개 달렸어요. 이벤트·참여형 게시물에서 자주 보이는 모습이에요.', '']);
+      if (e != null && base.q && !it.x && e < base.q * 0.6) out.push(['bad', '반응', '도달 대비 반응이 평소의 60%도 안 돼요.', '도달한 사람 중 좋아요·댓글·공유·저장한 비율 ' + pct(e) + ' · 평소 ' + pct(base.q)]);
+      if ((v[2] || 0) > 200) out.push(['info', '반응', '댓글이 ' + fmt(v[2]) + '개 달렸어요. 이벤트·참여형 게시물에서 자주 보이는 모습이에요.', '']);
     }
     if (it.c === '유튜브') {
       const c = completion(it);
-      if (c != null) out.push(c >= 0.6 ? ['good', '강점', '시청자의 ' + Math.round(c * 100) + '%가 끝까지 봤어요.', '평균 시청 ' + fmt(it.a) + '초 / 영상 ' + fmt(it.l) + '초'] : c < 0.2 ? ['bad', '보완', '평균적으로 영상의 ' + Math.round(c * 100) + '%만 보고 나갔어요.', '평균 시청 ' + fmt(it.a) + '초 / 영상 ' + fmt(it.l) + '초'] : ['info', '참고', '평균적으로 영상의 ' + Math.round(c * 100) + '%까지 봤어요.', '평균 시청 ' + fmt(it.a) + '초 / 영상 ' + fmt(it.l) + '초']);
+      if (c != null) out.push(c >= 0.6 ? ['good', '시청', '시청자의 ' + Math.round(c * 100) + '%가 끝까지 봤어요.', '평균 시청 ' + fmt(it.a) + '초 / 영상 ' + fmt(it.l) + '초'] : c < 0.2 ? ['bad', '시청', '평균적으로 영상의 ' + Math.round(c * 100) + '%만 보고 나갔어요.', '평균 시청 ' + fmt(it.a) + '초 / 영상 ' + fmt(it.l) + '초'] : ['info', '시청', '평균적으로 영상의 ' + Math.round(c * 100) + '%까지 봤어요.', '평균 시청 ' + fmt(it.a) + '초 / 영상 ' + fmt(it.l) + '초']);
       if (it.ad) out.push(['info', '광고', it.ad.s === '패턴' ? '광고로 늘어난 조회로 보여요(추정).' : it.ad.x && !it.ad.k.length && !it.ad.mk ? '과거 엑셀 기록에 광고 집행으로 적힌 게시물이에요.' : it.ad.mk && !it.ad.k.length ? '메타 광고로 홍보한 게시물이에요. 조회·도달에 광고분이 섞여 있어요.' : '구글애즈 광고를 집행한 영상이에요' + (it.ad.s === '추정' ? ' (추정 연결).' : '.'), it.ad.k.length ? it.ad.k.join(' · ') : it.ad.mk ? it.ad.mk.map(metaLabel).join(' · ') : it.ad.x ? '캠페인 정보 없음' : '조회 1만당 좋아요 ' + ((v[1] || 0) / Math.max(1, v[0]) * 1e4).toFixed(1) + '개']);
-      if (it.e != null && v[0]) { const er = it.e / v[0]; if (er < 0.3) out.push(['bad', '보완', '실제 시청 조회는 전체의 ' + Math.round(er * 100) + '%뿐이에요.', '광고 노출이 많았을 수 있어요']); }
+      if (it.e != null && v[0]) { const er = it.e / v[0]; if (er < 0.3) out.push(['bad', '광고', '실제 시청 조회는 전체의 ' + Math.round(er * 100) + '%뿐이에요.', '광고 노출이 많았을 수 있어요']); }
       if (it.sus) out.push(['info', '참고', '광고 표시는 없지만 광고 조회로 보여요.', it.sus]);
       if (it.hid) out.push(['info', '참고', '비공개·중복 업로드로 보여요.', HID_TIP]);
     }
-    // 이번 주 증가는 강점이 아니라 참고(조금만 늘어도 강점이 되던 문제)
-    if (weekly()) { const w = inc(it, mainM(it.c)); if (w != null) out.push(['info', '참고', '이번 주 ' + MN[mainM(it.c)] + ' ' + sgn(w) + fmt(w), mdLabel(D.dates[D.dates.length - 2]) + ' → ' + mdLabel(D.updated)]); }
     if (it.c === '유튜브' && covFrom('유튜브') && it.d < covFrom('유튜브')) out.push(['info', '참고', dot(covFrom('유튜브')) + ' 이후 조회만 집계된 영상이에요.', '그 전 누적 조회는 원본 수집 범위 밖']);
-    out.push(['info', '참고', (x => x === '오늘 올림' ? '오늘 올렸어요.' : x === '어제 올림' ? '어제 올렸어요.' : /올림$/.test(x) ? x.replace(' 올림', '') + ' 올렸어요.' : x + '에 올렸어요.')(whenTxt(it.d)), dot(it.d)]);
     return out;
   }
   function whyText(it) {
@@ -2487,8 +2549,9 @@
         // 누를 수 없는 토글 대신 실제로 그린 차트 이름 한 줄
         '<p class="note" style="text-align:center">' + (detailLine(it) ? '기록 날짜별 누적 ' + MN[m] : '이 콘텐츠 · 같은 분류 · 같은 형식 중간값') + '</p></section>' +
       '<div class="gap"></div><section class="dsec why"><div class="lb"><span>' + ICO.spark + ' ' + (it.ad ? '광고 집행 정보' : d == null || young(it) ? '성과 요약' : d >= 0 ? '왜 잘 됐을까?' : '왜 아쉬웠을까?') + '</span><small>' + mdLabel(D.updated) + ' 기준</small></div><p>' + esc(whyText(it)) + '</p></section>' +
-      '<div class="gap"></div><section class="dsec sig" id="dSig"><h3>성과 진단</h3><div class="h">같은 채널 게시물과 비교한 강점 · 보완할 점</div>' +
-        signals(it).map(s => '<div class="sg"><span class="k ' + s[0] + '">' + s[1] + '</span><span><b>' + esc(s[2]) + '</b><span>' + esc(s[3]) + '</span></span></div>').join('') + '</section>' +
+      '<div class="gap"></div><section class="dsec sig" id="dSig"><h3>성과 진단</h3><div class="h">' + (OWN.includes(it.c) ? '우리 과거 게시물·타 대학 게시물과 견준 결과' : '이 학교 과거 게시물과 견준 결과') + '</div>' +
+        signals(it).map(s => '<div class="sg"><span class="k ' + s[0] + '">' + s[1] + '</span><div><b>' + esc(s[2]) + '</b>' + (s[3] ? '<span>' + esc(s[3]) + '</span>' : '') + (s[4] || '') + '</div></div>').join('') +
+        '<p class="note">우리 자료는 최근 2년 게시물 중간값이에요 · 타 대학 제목·소재는 2026년 10월 대학·입시 채널 15곳 유튜브 조사 · 함께 나타난 특징이라 원인이라고 단정하진 않아요</p></section>' +
       '<div class="gap"></div><section class="dsec" id="dMet"><h3 style="margin:0 0 6px;font-size:var(--fs-xl);font-weight:700">지표</h3><div class="mgrid">' + metrics.map(m2 => '<div><span>' + esc(m2[0]) + '</span><b>' + esc(m2[1]) + '</b></div>').join('') + '</div>' +
         '<h3 style="margin:22px 0 10px;font-size:var(--fs-lg);font-weight:700">캡션</h3><p class="caption">' + esc(String(it.n || '').trim()) + '</p></section>' +
       '<div class="gap"></div><section class="dsec" id="dSim"><h3 style="margin:0 0 6px;font-size:var(--fs-xl);font-weight:700">같은 분류의 다른 콘텐츠</h3><ol class="rank" id="dSimList">' + rankRows(sim) + '</ol></section>' +
