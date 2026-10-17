@@ -1175,7 +1175,7 @@ function clearDashboardCache() {
 function onEdit(e) {
   try {
     const name = e && e.range && e.range.getSheet().getName();
-    if ([ROSTER_SHEET, ADMAP_SHEET, ADPLAN_SHEET, TAGFIX_SHEET, STRAT_SHEET, GOAL_SHEET, META_SHEET, IG_HIST_SHEET, AD_EXTRA_SHEET, GADS_SHEET].indexOf(name) >= 0) dropCache_();
+    if ([ROSTER_SHEET, ID_SHEET, ADMAP_SHEET, ADPLAN_SHEET, TAGFIX_SHEET, STRAT_SHEET, GOAL_SHEET, META_SHEET, IG_HIST_SHEET, AD_EXTRA_SHEET, GADS_SHEET].indexOf(name) >= 0) dropCache_();
   } catch (err) {}
 }
 
@@ -1300,6 +1300,9 @@ function cut_(s, n) {
  */
 const TAG_SHEET = '태그';
 const ROSTER_SHEET = '명단';
+// 「아이디 매칭」 탭: 이름 · 인스타 아이디(hong 크레딧 「🎬by. 아이디」) · 담당 시리즈(크레딧 없는 hong 게시물의 캡션 낱말). 실명이라 코드에 넣지 않고 시트에만 둔다
+const ID_SHEET = '아이디 매칭';
+var HANDLES = {}, SERIES = [];
 const ADMAP_SHEET = '광고 매핑';
 const ADPLAN_SHEET = '광고 계획';
 const TAGFIX_SHEET = '태그 수정';
@@ -1472,6 +1475,7 @@ function nameLike_(n) {
 }
 // 역할은 「명단」(없으면 코드 기본 명단) 기준. 명단에 없는 이름은 '미확인'
 function roleOf(name, ambCtx) {
+  if (/^@/.test(name)) return '홍보대사'; // hong 크레딧 아이디 중 「아이디 매칭」에 이름이 없는 것
   if (WORKSTUDY.indexOf(name) >= 0) return '근로장학생';
   if (PARTNER.indexOf(name) >= 0) return '서포터즈';
   if (AMBASSADORS.indexOf(name) >= 0) return '홍보대사';
@@ -1487,6 +1491,11 @@ function tagProducer(channel, caption, m) {
   if (channel === 'hong._.video') {
     // 홍보대사 운영 계정: 크레딧(「🎬 by …」)과 상관없이 모두 홍보대사 제작
     res.p = '홍보대사';
+    // 참여자: 「🎬by. 아이디」 → 「아이디 매칭」 이름(없으면 @아이디). 크레딧이 없으면 「담당 시리즈」 낱말이 캡션에 있는 사람
+    var mm = /\bby\.?\s*:?\s*((?:@?[A-Za-z0-9._]{2,30}(?:\s*[,&\/·]\s*|\s+(?=@)))*@?[A-Za-z0-9._]{2,30})/i.exec(c);
+    var ids = mm ? mm[1].split(/[\s,&\/·]+/).map(function (x) { return x.replace(/^@/, '').replace(/\.+$/, ''); }).filter(function (x) { return x.length >= 2; }) : [];
+    ids.forEach(function (id) { var nm = HANDLES[id.toLowerCase()] || '@' + id; if (res.w.indexOf(nm) < 0) { res.w.push(nm); res.roles[nm] = roleOf(nm); } });
+    if (!res.w.length) SERIES.forEach(function (x) { if (x[0] && c.indexOf(x[0]) >= 0 && res.w.indexOf(x[1]) < 0) { res.w.push(x[1]); res.roles[x[1]] = roleOf(x[1]); } });
     return res;
   }
   if (channel !== '인스타그램' && channel !== '유튜브') { res.p = '타 대학'; return res; }
@@ -1522,6 +1531,14 @@ function ensureTagSheets_(ss) {
     sh.getRange(1, 1, rows.length, 3).setValues(rows);
     sh.setFrozenRows(1); sh.getRange('A1:C1').setFontWeight('bold');
     sh.getRange(rows.length + 2, 1).setValue('※ 홍보대사·근로장학생 명단. 역할을 바꾸거나 이름을 추가하면 다음 태그 계산부터 반영돼요. 역할: 홍보대사 · 근로장학생 · 직원 · 동문 · 서포터즈(학과·기관 협업으로 집계) · 출연(제작자가 아님, 참여자에서 뺌). 명단에 없는 크레딧 이름은 역할 「미확인」으로 표시하고, 제작 주체는 근로장학생으로 봐요.');
+  }
+  sh = ss.getSheetByName(ID_SHEET);
+  if (!sh) {
+    sh = ss.insertSheet(ID_SHEET);
+    sh.getRange(1, 1, 1, 3).setValues([['이름', '인스타 아이디', '담당 시리즈']]).setFontWeight('bold');
+    sh.setFrozenRows(1);
+    sh.getRange(1, 2).setNote('캡션 크레딧에 이름 대신 적히는 인스타 아이디(예: 🎬by. jarchiveo). @ 없이, 여러 개면 쉼표로.');
+    sh.getRange(1, 3).setNote('크레딧이 없는 hong 게시물을 이 사람 것으로 볼 캡션 낱말(예: 복학생). 여러 개면 쉼표로.');
   }
   sh = ss.getSheetByName(ADMAP_SHEET);
   if (!sh) {
@@ -1567,6 +1584,14 @@ function loadRoster_(ss) {
   });
   if (amb.length || ws.length) { AMBASSADORS = amb; WORKSTUDY = ws; STAFF = st; }
   PARTNER = pt; EXCLUDE = ex;
+  // 아이디 매칭
+  HANDLES = {}; SERIES = [];
+  const ih = ss.getSheetByName(ID_SHEET);
+  if (ih && ih.getLastRow() > 1) ih.getRange(2, 1, ih.getLastRow() - 1, 3).getValues().forEach(r => {
+    const nm = String(r[0]).trim(); if (!/^[가-힣]{2,4}$/.test(nm)) return;
+    String(r[1] || '').split(/[,\s]+/).map(x => x.replace(/^@/, '').trim().toLowerCase()).filter(Boolean).forEach(id => { HANDLES[id] = nm; });
+    String(r[2] || '').split(',').map(x => x.trim()).filter(Boolean).forEach(k => SERIES.push([k, nm]));
+  });
 }
 
 // 원본 item(전체 캡션 포함) → 태그
@@ -1614,7 +1639,7 @@ function loadTagData_(ss) {
   const sh = ss.getSheetByName(TAG_SHEET);
   if (sh && sh.getLastRow() > 1) sh.getRange(2, 1, sh.getLastRow() - 1, 7).getValues().forEach(r => {
     // 예전 규칙으로 저장된 참여자 중 이름이 아닌 말(「영상을」「있도록」 등)은 여기서 뺌
-    const w = String(r[4] || '').split(',').map(x => x.trim()).filter(n => n && STAFF.indexOf(n) < 0 && EXCLUDE.indexOf(n) < 0 && (inRoster_(n) || nameLike_(n)));
+    const w = String(r[4] || '').split(',').map(x => x.trim()).filter(n => n && STAFF.indexOf(n) < 0 && EXCLUDE.indexOf(n) < 0 && (inRoster_(n) || nameLike_(n) || /^@[A-Za-z0-9._]+$/.test(n)));
     tags[r[0] + '§' + r[1]] = { g: String(r[2] || ''), p: String(r[3] || ''), w: w, u: String(r[6] || '') };
     w.forEach(n => { roles[n] = roleOf(n); });
   });
