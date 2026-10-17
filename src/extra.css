@@ -526,3 +526,6 @@ details.adv[open] > summary { border-bottom: 1px solid var(--line); }
 .kpi-t.best .chb { margin-right: 5px; }
 /* 카드 설명: 숫자(1.5배 등) 가운데서 줄이 끊기지 않게 */
 .kpi-s { overflow-wrap: break-word; word-break: keep-all; }
+/* 홈 KPI: 카드 이름·설명은 무조건 한 줄(넘치면 …) */
+.kpi-row .kpi-l, .kpi-row .kpi-s { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.kpi-row .kpi-t.best .bt { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; -webkit-line-clamp: unset; }
