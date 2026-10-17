@@ -2772,6 +2772,8 @@ function igxInsights_(conf, id, metrics, extra, miss) {
 // 행 머리글이 있는 탭을 키(열 번호들)로 덮어쓰거나 덧붙임
 function igxUpsert_(ss, name, head, keyCols, rows) {
   const sh = ss.getSheetByName(name) || ss.insertSheet(name);
+  // 열 구성이 바뀌었으면(머리글이 다르면) 탭을 비우고 새로 씀 — 예전 줄이 엉뚱한 열에 남지 않게
+  if (sh.getLastRow() > 0 && sh.getRange(1, 1, 1, Math.max(sh.getLastColumn(), head.length)).getDisplayValues()[0].join('§').replace(/§+$/, '') !== head.join('§')) sh.clear();
   if (sh.getLastRow() === 0) { sh.getRange(1, 1, 1, head.length).setValues([head]).setFontWeight('bold'); sh.setFrozenRows(1); }
   const n = sh.getLastRow() - 1;
   const old = n > 0 ? sh.getRange(2, 1, n, head.length).getValues() : [];
@@ -2779,7 +2781,8 @@ function igxUpsert_(ss, name, head, keyCols, rows) {
   const at = {};
   old.forEach((r, i) => { at[key(r)] = i; });
   const add = [];
-  rows.forEach(r => { const k = key(r); if (k in at) old[at[k]] = r; else { at[k] = old.length + add.length; add.push(r); } });
+  // 같은 키가 이번 묶음 안에 두 번 오면 덧붙인 줄을 바꿈(예전엔 빈 줄이 생겨 「열 수가 일치하지 않음」)
+  rows.forEach(r => { const k = key(r); if (!(k in at)) { at[k] = old.length + add.length; add.push(r); } else if (at[k] < old.length) old[at[k]] = r; else add[at[k] - old.length] = r; });
   const all = old.concat(add);
   if (all.length) {
     keyCols.forEach(i => sh.getRange(2, i + 1, all.length, 1).setNumberFormat('@')); // 채널·ID·날짜는 글자로(긴 ID가 숫자로 바뀌지 않게), 지표는 숫자 그대로
@@ -2950,6 +2953,9 @@ function ytaRecent_(days, today) {
   }
   return out;
 }
+let YTA_FAIL_ = {};
+function ytaFail_(k) { YTA_FAIL_[k] = (YTA_FAIL_[k] || 0) + 1; }
+function ytaFailText_() { const k = Object.keys(YTA_FAIL_); const t = k.length ? ' · 분석 API 실패(건너뜀): ' + k.map(x => x + ' ' + YTA_FAIL_[x] + '건').join(', ') : ''; YTA_FAIL_ = {}; return t; }
 const ytaNum_ = v => (v === undefined || v === null || v === '') ? '' : Number(v);
 
 function ytaChannelDaily_(ss, today) {
@@ -2966,12 +2972,14 @@ function ytaChannelDaily_(ss, today) {
 // 기간 하나의 시청자 분포 행들
 function ytaAudienceRows_(label, s, e, now) {
   const rows = [];
+  // 질의 하나가 실패(분석 API가 가끔 HTTP 500)해도 나머지는 씀. 실패는 YTA_FAIL_에 셈
   const add = (kind, rs, key, val, name) => rs.forEach(r => rows.push([label, kind, name ? name(r[key]) : r[key], ytaNum_(r[val]), now]));
-  add('연령·성별(%)', ytaReport_({ startDate: s, endDate: e, dimensions: 'ageGroup,gender', metrics: 'viewerPercentage' }).map(r => ({ k: r.ageGroup.replace('age', '') + ' ' + (r.gender === 'female' ? '여' : r.gender === 'male' ? '남' : r.gender), v: r.viewerPercentage })), 'k', 'v');
-  add('국가(조회)', ytaReport_({ startDate: s, endDate: e, dimensions: 'country', metrics: 'views', sort: '-views', maxResults: 15 }), 'country', 'views');
-  add('기기(조회)', ytaReport_({ startDate: s, endDate: e, dimensions: 'deviceType', metrics: 'views' }), 'deviceType', 'views');
-  add('구독 여부(조회)', ytaReport_({ startDate: s, endDate: e, dimensions: 'subscribedStatus', metrics: 'views' }), 'subscribedStatus', 'views', x => x === 'SUBSCRIBED' ? '구독자' : '비구독자');
-  add('유입 경로(조회)', ytaReport_({ startDate: s, endDate: e, dimensions: 'insightTrafficSourceType', metrics: 'views' }), 'insightTrafficSourceType', 'views', x => YTA_TRAFFIC[x] || x);
+  const q = (kind, fn, key, val, name) => { try { add(kind, fn(), key, val, name); } catch (err) { ytaFail_(kind); } };
+  q('연령·성별(%)', () => ytaReport_({ startDate: s, endDate: e, dimensions: 'ageGroup,gender', metrics: 'viewerPercentage' }).map(r => ({ k: r.ageGroup.replace('age', '') + ' ' + (r.gender === 'female' ? '여' : r.gender === 'male' ? '남' : r.gender), v: r.viewerPercentage })), 'k', 'v');
+  q('국가(조회)', () => ytaReport_({ startDate: s, endDate: e, dimensions: 'country', metrics: 'views', sort: '-views', maxResults: 15 }), 'country', 'views');
+  q('기기(조회)', () => ytaReport_({ startDate: s, endDate: e, dimensions: 'deviceType', metrics: 'views' }), 'deviceType', 'views');
+  q('구독 여부(조회)', () => ytaReport_({ startDate: s, endDate: e, dimensions: 'subscribedStatus', metrics: 'views' }), 'subscribedStatus', 'views', x => x === 'SUBSCRIBED' ? '구독자' : '비구독자');
+  q('유입 경로(조회)', () => ytaReport_({ startDate: s, endDate: e, dimensions: 'insightTrafficSourceType', metrics: 'views' }), 'insightTrafficSourceType', 'views', x => YTA_TRAFFIC[x] || x);
   return rows;
 }
 function ytaAudience_(ss, today, maxMonths) {
@@ -3020,19 +3028,20 @@ function ytaVideoStats_(ss, today) {
 
 // 최근 영상: 유입 경로·검색어·(월요일·처음) 시청 지속률·댓글
 function ytaRecentVideos_(ss, today, weekly) {
-  const vids = ytaRecent_(YTA_RECENT_DAYS, today);
+  const yday = shiftDate_(today, -1);
+  const vids = ytaRecent_(YTA_RECENT_DAYS, today).filter(v => v.date <= yday);
   const now = Utilities.formatDate(new Date(), TZ, 'yyyy-MM-dd');
   const tr = [], kw = [], ret = [], cm = [];
   vids.forEach(v => {
-    ytaReport_({ startDate: v.date, endDate: today, dimensions: 'insightTrafficSourceType', metrics: 'views,estimatedMinutesWatched', filters: 'video==' + v.id, sort: '-views' })
-      .forEach(r => tr.push([v.id, v.title, v.date, YTA_TRAFFIC[r.insightTrafficSourceType] || r.insightTrafficSourceType, r.views, r.estimatedMinutesWatched, now]));
-    ytaReport_({ startDate: v.date, endDate: today, dimensions: 'insightTrafficSourceDetail', metrics: 'views', filters: 'video==' + v.id + ';insightTrafficSourceType==YT_SEARCH', sort: '-views', maxResults: 15 })
-      .forEach(r => kw.push([v.id, v.title, r.insightTrafficSourceDetail, r.views, now]));
+    try { ytaReport_({ startDate: v.date, endDate: yday, dimensions: 'insightTrafficSourceType', metrics: 'views,estimatedMinutesWatched', filters: 'video==' + v.id })
+      .forEach(r => tr.push([v.id, v.title, v.date, YTA_TRAFFIC[r.insightTrafficSourceType] || r.insightTrafficSourceType, r.views, r.estimatedMinutesWatched, now])); } catch (e) { ytaFail_('유입 경로'); }
+    try { ytaReport_({ startDate: v.date, endDate: yday, dimensions: 'insightTrafficSourceDetail', metrics: 'views', filters: 'video==' + v.id + ';insightTrafficSourceType==YT_SEARCH', sort: '-views', maxResults: 15 })
+      .forEach(r => kw.push([v.id, v.title, r.insightTrafficSourceDetail, r.views, now])); } catch (e) { ytaFail_('검색어'); }
     if (weekly) {
       try {
-        ytaReport_({ startDate: v.date, endDate: today, dimensions: 'elapsedVideoTimeRatio', metrics: 'audienceWatchRatio,relativeRetentionPerformance', filters: 'video==' + v.id + ';audienceType==ORGANIC' })
+        ytaReport_({ startDate: v.date, endDate: yday, dimensions: 'elapsedVideoTimeRatio', metrics: 'audienceWatchRatio,relativeRetentionPerformance', filters: 'video==' + v.id + ';audienceType==ORGANIC' })
           .forEach(r => ret.push([v.id, v.title, Math.round(r.elapsedVideoTimeRatio * 100), r.audienceWatchRatio, r.relativeRetentionPerformance, now]));
-      } catch (e) {}
+      } catch (e) { ytaFail_('시청 지속률'); }
     }
     try {
       const c = ytaGet_('https://www.googleapis.com/youtube/v3/commentThreads?part=snippet&maxResults=100&textFormat=plainText&videoId=' + v.id);
@@ -3041,8 +3050,8 @@ function ytaRecentVideos_(ss, today, weekly) {
     } catch (e) {} // 댓글이 꺼진 영상
   });
   // 채널 전체 검색어(최근 28일)
-  ytaReport_({ startDate: shiftDate_(today, -28), endDate: today, dimensions: 'insightTrafficSourceDetail', metrics: 'views', filters: 'insightTrafficSourceType==YT_SEARCH', sort: '-views', maxResults: 50 })
-    .forEach(r => kw.push(['(채널 전체 최근 28일)', '', r.insightTrafficSourceDetail, r.views, now]));
+  try { ytaReport_({ startDate: shiftDate_(today, -28), endDate: yday, dimensions: 'insightTrafficSourceDetail', metrics: 'views', filters: 'insightTrafficSourceType==YT_SEARCH', sort: '-views', maxResults: 25 })
+    .forEach(r => kw.push(['(채널 전체 최근 28일)', '', r.insightTrafficSourceDetail, r.views, now])); } catch (e) { ytaFail_('채널 검색어'); }
   // 최근 영상 몫은 통째로 바꿈(값이 누적이라 최신만 의미 있음)
   const replace = (name, head, rows) => {
     const sh = ss.getSheetByName(name) || ss.insertSheet(name);
@@ -3094,7 +3103,7 @@ function ytaStep_(ss, today, logs) {
   run('시청자', () => { const a = ytaAudience_(ss, today, 2); return a.n + '줄' + (a.left ? '(지난달 ' + a.left + '개는 주간 수집에서)' : ''); });
   run('영상 분석', () => ytaVideoStats_(ss, today) + '개');
   run('최근 영상', () => { const r = ytaRecentVideos_(ss, today, false); return r.vids + '개(유입 ' + r.tr + '·검색어 ' + r.kw + '·댓글 ' + r.cm + ')'; });
-  logs.push([new Date(), '유튜브 추가 수집', 0, parts.join(' · ')]);
+  logs.push([new Date(), '유튜브 추가 수집', 0, parts.join(' · ') + ytaFailText_()]);
 }
 
 // ───────── 인스타 게시물 추가 지표·접속 시간대·타 대학(igm) ─────────
@@ -3103,8 +3112,8 @@ function ytaStep_(ss, today, logs) {
 //  · 「타대학 일별」·「타대학 게시물」: 타 대학 공개 계정의 팔로워·게시물 수와 최근 게시물 좋아요·댓글(조회수는 API가 주지 않음)
 const IGM_BENCH = ['jbnu1947', 'wonkwang_univ', 'woosukuni'];
 const IGM_METRICS = {
-  REELS: ['total_interactions', 'follows', 'profile_visits', 'ig_reels_avg_watch_time', 'ig_reels_video_view_total_time'],
-  FEED: ['total_interactions', 'follows', 'profile_visits', 'profile_activity'],
+  REELS: ['total_interactions', 'ig_reels_avg_watch_time', 'ig_reels_video_view_total_time', 'profile_activity'],
+  FEED: ['total_interactions', 'profile_activity', 'follows', 'profile_visits'], // follows·profile_visits는 메타가 주지 않으면 빈칸
 };
 
 function igmMedia_(ss, today, all, deadline) {
@@ -3121,10 +3130,10 @@ function igmMedia_(ss, today, all, deadline) {
       mm.forEach(x => { if (bad[kind].indexOf(x) < 0) bad[kind].push(x); if (miss.indexOf(x) < 0) miss.push(x); }); // 한 번 안 되면 같은 유형은 다시 묻지 않음
       const sec = x => x === undefined || x === '' ? '' : Math.round(Number(x) / 100) / 10; // ms → 초
       rows.push([c.ch, String(m.id), Utilities.formatDate(new Date(m.timestamp), TZ, 'yyyy-MM-dd HH:mm'), kind === 'REELS' ? '릴스' : (m.media_type === 'CAROUSEL_ALBUM' ? '캐러셀' : m.media_type === 'VIDEO' ? '영상' : '이미지'),
-        m.permalink || '', ytaNum_(v.follows), ytaNum_(v.profile_visits), ytaNum_(v.total_interactions), sec(v.ig_reels_avg_watch_time), sec(v.ig_reels_video_view_total_time), now]);
+        m.permalink || '', ytaNum_(v.follows), ytaNum_(v.profile_visits), ytaNum_(v.profile_activity), ytaNum_(v.total_interactions), sec(v.ig_reels_avg_watch_time), sec(v.ig_reels_video_view_total_time), now]);
     });
   });
-  if (rows.length) igxUpsert_(ss, '인스타 게시물 추가', ['채널', '게시물 ID', '게시 시각', '유형', '링크', '팔로우 유입', '프로필 방문', '상호작용', '릴스 평균 시청(초)', '릴스 총 시청(초)', '기록일'], [0, 1], rows);
+  if (rows.length) igxUpsert_(ss, '인스타 게시물 추가', ['채널', '게시물 ID', '게시 시각', '유형', '링크', '팔로우 유입', '프로필 방문', '프로필 활동', '상호작용', '릴스 평균 시청(초)', '릴스 총 시청(초)', '기록일'], [0, 1], rows);
   return { n: rows.length, miss: miss, stopped: stopped };
 }
 
@@ -3136,7 +3145,8 @@ function igmOnline_(ss, today) {
     const last = vals[vals.length - 1];
     if (last && last.value) Object.keys(last.value).forEach(h => rows.push([today, c.ch, Number(h), last.value[h]]));
   });
-  if (rows.length) igxUpsert_(ss, '인스타 접속 시간대', ['기록일', '채널', '시(0~23, 메타 기준)', '접속 팔로워'], [0, 1, 2], rows);
+  if (!rows.length) throw new Error('메타가 빈 값을 줌(지원 중단으로 보임)');
+  igxUpsert_(ss, '인스타 접속 시간대', ['기록일', '채널', '시(0~23, 메타 기준)', '접속 팔로워'], [0, 1, 2], rows);
   return rows.length;
 }
 
@@ -3185,7 +3195,7 @@ function weeklyExtras() {
     run('인스타 접속 시간대', () => igmOnline_(ss, today) + '줄');
     run('인스타 전체 게시물', () => { const m = igmMedia_(ss, today, true, deadline); return m.n + '개' + (m.stopped ? '(시간 한도로 일부 — 다시 실행하면 이어서)' : '') + (m.miss.length ? '(받지 못한 지표: ' + m.miss.join(', ') + ')' : ''); });
   }
-  logRows_(ss, [[new Date(), '주간 추가 수집', 0, parts.join(' · ') + ' — ' + Math.round((Date.now() - t0) / 1000) + '초']]);
+  logRows_(ss, [[new Date(), '주간 추가 수집', 0, parts.join(' · ') + ytaFailText_() + ' — ' + Math.round((Date.now() - t0) / 1000) + '초']]);
   Logger.log(parts.join(' · '));
 }
 function ensureWeeklyTrigger_() {
