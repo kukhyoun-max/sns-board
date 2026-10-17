@@ -2116,7 +2116,7 @@ const META_DAILY_HEAD = ['날짜', '캠페인 ID', '캠페인 이름', '지출',
 const META_CAMP_HEAD = ['캠페인 ID', '캠페인 이름', '상태', '목표', '도달(전체 기간)', '통화', '받은 시각'];
 const META_CR_HEAD = ['캠페인 ID', '캠페인 이름', '광고 ID', '광고 이름', '본문', '인스타그램 게시물 링크'];
 const META_DAYS = 37;        // 매일 다시 받는 기간(늦게 잡히는 지출·전환 보정 포함)
-const META_MONTHS = 36;      // 처음 채울 때 거슬러 올라가는 개월 수(메타 보관 한도 37개월 안쪽)
+const META_MONTHS = 37;      // 메타 인사이트 보관 한도(37개월) — 처음 채울 때 여기까지 거슬러 올라감
 const META_STATUS = '["ACTIVE","PAUSED","ARCHIVED","CAMPAIGN_PAUSED","ADSET_PAUSED","IN_PROCESS","WITH_ISSUES"]';
 
 function metaConf_() {
@@ -2208,7 +2208,8 @@ function metaStep_(ss, today, logs) {
   const r = metaRefreshInfo_(ss, conf);
   logs.push([new Date(), '메타 광고 API', rows.length, '정상 — ' + from + '~' + to + ' 일별 ' + rows.length + '행(탭 전체 ' + n + '행) · 캠페인 ' + r.camps + '개 · 소재 ' + r.ads + '개']);
 }
-// 처음 한 번(편집기에서 실행): META_MONTHS개월 전 1일부터 어제까지 한 달씩 받아 「메타 일별」을 새로 채움
+// 처음 한 번(편집기에서 실행): 메타가 허용하는 가장 오래된 날(37개월 전 다음 날)부터 어제까지 한 달씩 받아 「메타 일별」을 새로 채움
+// 첫 구간이 기간 한도(code 100)에 걸리면 그 달은 건너뛰고 다음 달부터 받음. 그 이전은 「메타 광고」 수동 탭(2023-06~)이 맡음
 function backfillMeta() {
   return withLock_('메타 과거 채우기', () => {
     const ss = SpreadsheetApp.getActive() || SpreadsheetApp.openById(SS_ID);
@@ -2217,15 +2218,18 @@ function backfillMeta() {
     const today = Utilities.formatDate(new Date(), TZ, 'yyyy-MM-dd'), end = shiftDate_(today, -1);
     const ym = (y, m) => { const d = new Date(Date.UTC(y, m, 1)); return d.toISOString().slice(0, 10); };
     const Y = Number(today.slice(0, 4)), Mo = Number(today.slice(5, 7)) - 1;
-    const start = ym(Y, Mo - META_MONTHS), rows = [];
-    for (let i = META_MONTHS; i >= 0; i--) {
-      const a = ym(Y, Mo - i), b0 = shiftDate_(ym(Y, Mo - i + 1), -1), b = b0 < end ? b0 : end;
-      if (a > end) break;
-      Array.prototype.push.apply(rows, metaDailyRows_(conf, a, b));
+    const back = ym(Y, Mo - META_MONTHS).slice(0, 8) + today.slice(8, 10); // 37개월 전 같은 날(말일 넘침은 아래 비교로 걸러짐)
+    let start = shiftDate_(/^\d{4}-\d{2}-(29|30|31)$/.test(back) ? ym(Y, Mo - META_MONTHS + 1) : back, 1);
+    const rows = [], skipped = [];
+    for (let a = start; a <= end;) {
+      const next = ym(Number(a.slice(0, 4)), Number(a.slice(5, 7))), b = shiftDate_(next, -1) < end ? shiftDate_(next, -1) : end;
+      try { Array.prototype.push.apply(rows, metaDailyRows_(conf, a, b)); }
+      catch (e) { if (rows.length || !/code 100\b/.test(e.message)) throw e; skipped.push(a.slice(0, 7)); start = next; }
+      a = next;
     }
     const n = metaMergeDaily_(ss, start, rows);
     const r = metaRefreshInfo_(ss, conf);
-    logRows_(ss, [[new Date(), '메타 과거 채우기', n, '정상 — ' + start + '~' + end + ' · 캠페인 ' + r.camps + '개 · 소재 ' + r.ads + '개']]);
+    logRows_(ss, [[new Date(), '메타 과거 채우기', n, '정상 — ' + start + '~' + end + (skipped.length ? ' (기간 한도로 건너뜀: ' + skipped.join(', ') + ')' : '') + ' · 캠페인 ' + r.camps + '개 · 소재 ' + r.ads + '개']]);
     dropCache_();
     return n;
   });

@@ -25,6 +25,7 @@ Apps Script (gas/Code.gs, 스냅샷 시트에 연결)  ──월 07:00 트리거
 | `index.html` | **빌드 결과물.** 직접 고치지 말고 `src/`를 고친 뒤 `bash build.sh` |
 | `sample/data.json` | 테스트용 샘플 (실데이터 일부, 사람 이름은 가명, 광고 데이터는 비움) |
 | `gas/` | Apps Script 코드 (clasp로 동기화) |
+| `ads-script/google-ads-daily.js` | 구글애즈 스크립트(구글애즈 계정 안에서 매일 06:00 실행). 「구글애즈 리포트」·「구글애즈 동영상」 탭을 다시 씀. 고치면 구글애즈 → 도구 → 스크립트에 다시 붙여 넣어야 해요 |
 
 ## 작업 순서
 
