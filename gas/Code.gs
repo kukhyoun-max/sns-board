@@ -314,7 +314,7 @@ function runSnapshot_() {
         Array.prototype.push.apply(rows, part);
         logs.push([new Date(), src.channel, total, src.bench ? '정상 (계정 ' + chs.length + '개)' : '정상']);
         if (src.channel === '유튜브' && YT_API_LOG_) logs.push([new Date(), '유튜브 API', YT_API_LOG_.n, YT_API_LOG_.msg]);
-        if (src.channel === '인스타그램' && IG_API_LOG_) logs.push([new Date(), '인스타 API', IG_API_LOG_.n, IG_API_LOG_.msg]);
+        if (IG_API_LOG_[src.channel]) logs.push([new Date(), IG_CH[src.channel].log, IG_API_LOG_[src.channel].n, IG_API_LOG_[src.channel].msg]);
       } catch (e) {
         failed.push({ src: src, msg: e.message });
         logs.push([new Date(), src.channel, 0, '오류: ' + e.message]);
@@ -593,7 +593,7 @@ function readSource_(src, today) {
     }
   });
   if (src.channel === '유튜브' && !src.sheet) ytOverlay_(out, today);
-  if (src.channel === '인스타그램' && !src.sheet) igOverlay_(out, today);
+  if (IG_CH[src.channel] && !src.sheet) igOverlay_(out, today, src.channel);
   return out;
 }
 
@@ -2461,22 +2461,29 @@ function testYouTubeApi() {
   if (api.note) Logger.log('참고: %s', api.note);
 }
 
-// ───────── 인스타 API: 매일 기록 때 우리 계정(jjuniv) 게시물 값을 메타 그래프 API로 직접 받음 ─────────
-// 원본 시트(「인스타그램」, Supermetrics 월요일 갱신)를 읽은 뒤 같은 게시물의 값을 API 값으로 덮어쓰고, 시트에 아직 없는 새 게시물을 더한다.
+// ───────── 인스타 API: 매일 기록 때 우리 계정(jjuniv·hong._.video) 게시물 값을 메타 그래프 API로 직접 받음 ─────────
+// 원본 시트(「인스타그램」·공개 원본, Supermetrics 월요일 갱신)를 읽은 뒤 같은 게시물의 값을 API 값으로 덮어쓰고, 시트에 아직 없는 새 게시물을 더한다.
 //  · 토큰: 메타 광고와 같은 스크립트 속성 META_TOKEN(시스템 사용자, instagram_basic·instagram_manage_insights·pages_show_list·pages_read_engagement 포함)
-//  · 인스타 계정 ID는 토큰에 연결된 페이지에서 자동으로 찾음(IG_USER 속성에 넣으면 그 값 우선)
+//  · 인스타 계정 ID는 토큰에 연결된 페이지에서 username으로 찾음(IG_CH의 prop 속성에 ID를 넣으면 그 값 우선)
+//    hong._.video는 페이스북 페이지에 연결하고, 그 페이지·인스타 계정을 비즈니스 설정에서 시스템 사용자 sns-board에 할당해야 보임
 //  · 게시물 연결: 원본 시트 키(날짜|캡션 앞 40자)를 바꾸지 않고, 캡션 앞 40자 + 날짜 ±1일로 같은 게시물을 찾음. URL 열에는 게시물 주소를 넣음
-//  · 켜기: 스크립트 속성 IG_API = on. 끄거나 API가 실패하면 지금처럼 원본 시트 값만 쓴다
-//  · 처음 한 번: 편집기에서 testInstagramApi 실행(시트에 쓰지 않음, 원본 시트와 숫자·날짜 기준 비교)
+//  · 켜기: 스크립트 속성 IG_API = on(jjuniv) · HONG_API = on(hong). 끄거나 API가 실패하면 지금처럼 원본 시트 값만 쓴다
+//  · 처음 한 번: 편집기에서 testInstagramApi / testHongApi 실행(시트에 쓰지 않음, 원본 시트와 숫자·날짜 기준 비교)
+const IG_CH = {
+  '인스타그램':   { user: 'jjuniv',       prop: 'IG_USER',      on: 'IG_API',   from: '2024-12-27', log: '인스타 API' },
+  'hong._.video': { user: 'hong._.video', prop: 'IG_USER_HONG', on: 'HONG_API', from: '2021-01-01', log: 'hong API' },
+};
 const IG_NEW_DAYS = 60;                        // 원본 시트에 없는 게시물은 최근 N일 것만 더함
 const IG_DATE_TZ = TZ;                         // 원본 시트 「날짜」의 기준 시간대 — testInstagramApi 결과로 확인
-let IG_API_ = null, IG_API_LOG_ = null;
+const IG_API_ = {}, IG_API_LOG_ = {};          // 채널별 API 결과·실행 로그
+const IG_EACH_MAX = 200;                      // 인사이트를 게시물마다 받을 때 최대 개수
 
-function igOverlay_(out, today) {
-  if (PropertiesService.getScriptProperties().getProperty('IG_API') !== 'on') return;
-  const ch = out['인스타그램'] = out['인스타그램'] || {};
+function igOverlay_(out, today, chName) {
+  const cf = IG_CH[chName];
+  if (PropertiesService.getScriptProperties().getProperty(cf.on) !== 'on') return;
+  const ch = out[chName] = out[chName] || {};
   try {
-    const api = IG_API_ || (IG_API_ = fetchInstagram_());
+    const api = IG_API_[chName] || (IG_API_[chName] = fetchInstagram_(chName));
     const m = igMatch_(ch, api.media);
     let upd = 0, add = 0;
     api.media.forEach(x => {
@@ -2494,9 +2501,9 @@ function igOverlay_(out, today) {
         add++;
       }
     });
-    IG_API_LOG_ = { n: upd + add, msg: '정상 (갱신 ' + upd + ' · 새 게시물 ' + add + (m.amb ? ' · 캡션 겹침 ' + m.amb : '') + (api.note ? ' · ' + api.note : '') + ')' };
+    IG_API_LOG_[chName] = { n: upd + add, msg: '정상 (갱신 ' + upd + ' · 새 게시물 ' + add + (m.amb ? ' · 캡션 겹침 ' + m.amb : '') + (api.note ? ' · ' + api.note : '') + ')' };
   } catch (e) {
-    IG_API_LOG_ = { n: 0, msg: '오류(원본 시트 값 사용): ' + e.message };
+    IG_API_LOG_[chName] = { n: 0, msg: '오류(원본 시트 값 사용): ' + e.message };
   }
 }
 
@@ -2522,29 +2529,32 @@ function dayDiff_(a, b) {
 }
 
 // 반환: { media: [{id, date, caption, url, product, mediaType, views, likes, comments, shares, saves, reach}], user, note }
-function fetchInstagram_() {
+function fetchInstagram_(chName) {
+  const cf = IG_CH[chName];
   const p = PropertiesService.getScriptProperties();
   const token = p.getProperty('META_TOKEN');
   if (!token) throw new Error('스크립트 속성 META_TOKEN 없음');
   const conf = { token: token };
-  let user = String(p.getProperty('IG_USER') || '').trim();
+  let user = String(p.getProperty(cf.prop) || '').trim();
   if (!user) {
     const pages = metaGet_(conf, 'me/accounts', { fields: 'name,instagram_business_account{id,username}', limit: 100 });
     const igs = pages.map(x => x.instagram_business_account).filter(Boolean);
-    const pick = igs.filter(x => x.username === 'jjuniv')[0] || igs[0];
-    if (!pick) throw new Error('토큰에 연결된 페이지에서 인스타 계정을 찾지 못함(페이지·인스타 자산 할당 확인)');
+    const pick = igs.filter(x => x.username === cf.user)[0];
+    if (!pick) throw new Error('토큰에 연결된 페이지에서 ' + cf.user + '을 찾지 못함(보이는 계정: ' + (igs.map(x => x.username).join(', ') || '없음') + ' — 페이지 연결·시스템 사용자 자산 할당 확인)');
     user = pick.id;
   }
   const base = 'id,caption,timestamp,permalink,media_type,media_product_type,like_count,comments_count';
   let note = '', list;
   try {
     // 게시물 목록에 인사이트를 함께 받음(요청 수 최소)
-    list = igMedia_(conf, user, base + ',insights.metric(views,reach,saved,shares)', 50);
+    list = igMedia_(conf, user, base + ',insights.metric(views,reach,saved,shares)', 50, cf.from);
   } catch (e) {
     // 일부 게시물 형식이 지표를 지원하지 않으면 목록만 받고 게시물마다 따로 받음
     note = '인사이트 개별 조회';
-    list = igMedia_(conf, user, base, 100);
-    list.forEach(x => {
+    list = igMedia_(conf, user, base, 100, cf.from);
+    // 게시물이 많으면(hong) 실행 시간 한도에 걸리므로 최근 IG_EACH_MAX개만 따로 받고, 나머지는 원본 시트 값을 유지(조회 칸을 비워 둠)
+    list.forEach((x, i) => {
+      if (i >= IG_EACH_MAX) { x.insights = { data: [] }; return; }
       try { x.insights = { data: metaGet_(conf, x.id + '/insights', { metric: 'views,reach,saved,shares' }) }; } catch (e2) { x.insights = { data: [] }; }
     });
   }
@@ -2563,9 +2573,8 @@ function fetchInstagram_() {
   return { media: media, user: user, note: note };
 }
 
-// 게시물 목록(최신순)을 IG_FROM 이전 게시물이 나올 때까지만 받음 — 오래된 게시물은 인사이트가 없어 요청이 실패할 수 있고, 원본 시트도 그 이후만 다룸
-const IG_FROM = '2024-12-27';
-function igMedia_(conf, user, fields, limit) {
+// 게시물 목록(최신순)을 from(IG_CH) 이전 게시물이 나올 때까지만 받음 — 오래된 게시물은 인사이트가 없어 요청이 실패할 수 있고, 원본 시트도 그 이후만 다룸
+function igMedia_(conf, user, fields, limit, from) {
   let url = META_API + user + '/media?fields=' + encodeURIComponent(fields) + '&limit=' + limit + '&access_token=' + encodeURIComponent(conf.token);
   const out = [];
   for (let page = 0; url && page < 50; page++) {
@@ -2575,22 +2584,25 @@ function igMedia_(conf, user, fields, limit) {
     if (j.error) throw new Error((j.error.code === 190 ? '토큰 만료·무효 — ' : '') + 'code ' + j.error.code + ': ' + String(j.error.message || '').replace(/access_token=[^&\s]+/g, 'access_token=…'));
     const d = j.data || [];
     let old = false;
-    d.forEach(x => { if (Utilities.formatDate(new Date(x.timestamp), TZ, 'yyyy-MM-dd') >= IG_FROM) out.push(x); else old = true; });
+    d.forEach(x => { if (Utilities.formatDate(new Date(x.timestamp), TZ, 'yyyy-MM-dd') >= from) out.push(x); else old = true; });
     url = !old && j.paging && j.paging.next || '';
   }
   return out;
 }
 
 // 편집기에서 실행: 원본 시트 값과 API 값 비교 (시트에 쓰지 않음, 결과는 실행 로그에 출력)
-function testInstagramApi() {
+function testInstagramApi() { testIgApi_('인스타그램'); }
+function testHongApi() { testIgApi_('hong._.video'); }
+function testIgApi_(chName) {
   const today = Utilities.formatDate(new Date(), TZ, 'yyyy-MM-dd');
   const props = PropertiesService.getScriptProperties();
-  const was = props.getProperty('IG_API');
-  props.deleteProperty('IG_API');
+  const on = IG_CH[chName].on, was = props.getProperty(on);
+  props.deleteProperty(on);
   let sheet;
-  try { sheet = readSource_(SOURCES.filter(s => s.channel === '인스타그램')[0], today)['인스타그램'] || {}; }
-  finally { if (was) props.setProperty('IG_API', was); }
-  const api = fetchInstagram_();
+  try { sheet = readSource_(SOURCES.filter(s => s.channel === chName)[0], today)[chName] || {}; }
+  finally { if (was) props.setProperty(on, was); }
+  const api = fetchInstagram_(chName);
+  Logger.log('%s 계정 ID %s', IG_CH[chName].user, api.user);
   const m = igMatch_(sheet, api.media);
   const r = { views: [], reach: [], likes: [], saves: [] };
   api.media.forEach(x => {
