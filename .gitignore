@@ -3,3 +3,4 @@ node_modules/
 .clasprc.json
 .DS_Store
 gas/.clasp.json
+gas/IdSeed.gs
