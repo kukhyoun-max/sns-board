@@ -1509,7 +1509,7 @@
     const hasG = !!(A.camps && A.camps.length), hasM = !!(A.meta && A.meta.length);
     if (!hasG && !hasM) return msgView('광고 데이터가 아직 없어요.', '구글애즈 리포트 시트나 「메타 광고」 탭이 연결되면 여기서 광고비·노출·클릭과 광고 콘텐츠 성과를 볼 수 있어요.');
     if (!S.adPf || (S.adPf === 'meta' && !hasM) || (S.adPf === 'google' && !hasG)) S.adPf = hasG ? 'google' : 'meta';
-    const seg = hasG && hasM ? '<div class="pfseg" role="tablist" aria-label="광고 매체">' + [['google', '구글애즈 (유튜브)'], ['meta', '메타 (인스타)']].map(p => '<button type="button" role="tab" data-pf="' + p[0] + '" aria-selected="' + (S.adPf === p[0]) + '">' + p[1] + '</button>').join('') + '</div>' : '';
+    const seg = hasG && hasM ? '<div class="sec pf-sec"><div class="pfseg" role="tablist" aria-label="광고 매체">' + [['google', '구글애즈 (유튜브)'], ['meta', '메타 (인스타)']].map(p => '<button type="button" role="tab" data-pf="' + p[0] + '" aria-selected="' + (S.adPf === p[0]) + '">' + p[1] + '</button>').join('') + '</div></div>' : '';
     if (S.adPf === 'meta') viewMeta(seg); else viewGoogle(seg);
     $('view').querySelectorAll('[data-pf]').forEach(b => b.addEventListener('click', () => { if (S.adPf === b.dataset.pf) return; S.adPf = b.dataset.pf; S.adYear = 'all'; S.adOpen = null; viewAds(); window.scrollTo({ top: 0 }); }));
   }
