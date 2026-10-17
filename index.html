@@ -779,10 +779,13 @@ details.adv[open] > summary { border-bottom: 1px solid var(--line); }
 @media print { .bell, .ntf { display: none !important; } }
 /* 입시 시즌 카드: 휴대폰에서도 2칸, 홀수면 마지막 카드는 넓게 */
 @media (max-width: 760px) { .kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; } .kpis > :last-child:nth-child(odd) { grid-column: 1 / -1; } .kpis .kpi { padding: 14px; } }
+/* 왼쪽 위 제목 = 홈으로 + 새로고침 */
+.brand-home { display: inline-flex; align-items: center; gap: 8px; color: inherit; text-decoration: none; border-radius: 8px; min-height: 44px; }
+.brand-home:hover b { color: var(--jj); }
 </style>
 
 <div class="app" id="app">
-  <div class="brand"><span class="brand-mk" aria-hidden="true"></span><b>전주대학교</b><span>SNS 성과 보드</span><button type="button" class="bell" id="bell" aria-label="알림" aria-haspopup="dialog" aria-expanded="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg><span class="bdg" id="bellN" hidden></span></button><div class="ntf" id="ntf" role="dialog" aria-label="알림" hidden></div></div>
+  <div class="brand"><a href="./" class="brand-home" id="brandHome" title="홈으로 가서 새로고침"><span class="brand-mk" aria-hidden="true"></span><b>전주대학교</b><span>SNS 성과 보드</span></a><button type="button" class="bell" id="bell" aria-label="알림" aria-haspopup="dialog" aria-expanded="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg><span class="bdg" id="bellN" hidden></span></button><div class="ntf" id="ntf" role="dialog" aria-label="알림" hidden></div></div>
   <nav class="top" role="tablist" id="tabs" aria-label="채널"></nav>
   <div class="status">
     <div class="st"><span id="st1">데이터 불러오는 중</span><span id="st2"></span></div>
@@ -1004,6 +1007,8 @@ details.adv[open] > summary { border-bottom: 1px solid var(--line); }
   const periodPhrase = () => S.range === 'all' ? '전체 기간' : '최근 ' + rangeLabel();
   const rangeOn = () => ({ brief: false, strategy: true, maker: S.ch !== '타 대학', season: false, ads: false, explore: true, export: false })[S.view];
   function buildChrome() {
+    // 왼쪽 위 제목: 홈(전체)으로 돌아가며 새로고침(최신 데이터 다시 받기)
+    if ($('brandHome') && !$('brandHome').__w) { $('brandHome').__w = 1; $('brandHome').addEventListener('click', e => { e.preventDefault(); S.view = 'brief'; S.ch = '전체'; save(); location.reload(); }); }
     $('tabs').innerHTML = TABS.map(t => '<button class="tt" role="tab" type="button" data-t="' + esc(t) + '">' + esc(t === 'hong._.video' ? 'hong' : t) + '</button>').join('');
     $('tabs').querySelectorAll('.tt').forEach(b => b.addEventListener('click', () => {
       S.ch = b.dataset.t; S.g = null; S.mx = null; S.person = null; S.rankShown = 10; S.tblShown = 30; CS.sel = null;
