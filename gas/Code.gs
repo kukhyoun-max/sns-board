@@ -196,6 +196,7 @@ function onOpen() {
     .addItem('대시보드 데이터 새로 고침(캐시 비우기)', 'clearDashboardCache')
     .addItem('메타 광고 과거 채우기(API, 처음 한 번)', 'backfillMeta')
     .addItem('유튜브 분석 승인(브랜드 계정, 처음 한 번)', 'ytAuthorize')
+    .addItem('유튜브 분석 승인 마무리(YT_AUTH_CODE 넣은 뒤)', 'ytAuthFinish')
     .addSeparator()
     .addItem('최초 설정(탭·트리거)', 'setup')
     .addToUi();
@@ -2607,57 +2608,61 @@ function testInstagramApi() {
 // ───────── 유튜브 분석 API: 「전주대학교」 브랜드 계정으로 한 번 승인받기 ─────────
 // 채널이 브랜드 계정이라 Apps Script 기본 권한(개인 계정)으로는 분석 API가 Forbidden이다.
 // 구글 클라우드에서 만든 OAuth 클라이언트로 브랜드 계정을 골라 승인받고, 갱신 토큰을 스크립트 속성에 둔다.
+// 승인 뒤 돌아오는 곳은 http://localhost(열리지 않는 주소)다. 브랜드 계정을 고르면 브라우저가 브랜드 계정으로 바뀌어
+// 스크립트 전용 콜백(…/usercallback)은 「인증이 필요합니다」로 막히기 때문 — 대신 주소창의 코드를 붙여 넣어 마무리한다.
 //  · 스크립트 속성: YT_OAUTH_ID(클라이언트 ID) · YT_OAUTH_SECRET(클라이언트 보안 비밀) — 사람이 넣음
-//                   YT_REFRESH(갱신 토큰) — ytAuthorize 승인 뒤 자동 저장. 코드·저장소·로그에 값을 쓰지 않음
-//  · 승인 주소의 돌아오는 곳은 이 스크립트 전용 콜백(…/usercallback)이고, 이번 실행이 만든 상태 토큰이 있어야만 동작한다(공개 쓰기 주소 아님)
-//  · 처음 한 번: 편집기에서 ytAuthorize 실행 → 실행 로그의 주소를 열어 「전주대학교」 채널(브랜드 계정) 선택 → 허용
+//                   YT_AUTH_CODE — 승인 뒤 열리지 않는 페이지의 주소창 주소 전체를 사람이 붙여 넣음(마무리 후 자동 삭제)
+//                   YT_REFRESH(갱신 토큰) — 마무리 때 자동 저장. 코드·저장소·로그에 값을 쓰지 않음
+//  · 클라우드 콘솔 OAuth 클라이언트의 「승인된 리디렉션 URI」에 http://localhost 가 있어야 한다
+//  · 순서: 메뉴 「유튜브 분석 승인」 → 「실행 로그」 탭 링크 → 「전주대학교」 채널 허용 → 주소창 주소를 YT_AUTH_CODE에 → 메뉴 「유튜브 분석 승인 마무리」(10분 안)
 const YT_SCOPES = 'https://www.googleapis.com/auth/yt-analytics.readonly https://www.googleapis.com/auth/youtube.readonly';
-
-function ytRedirect_() { return 'https://script.google.com/macros/d/' + ScriptApp.getScriptId() + '/usercallback'; }
+const YT_REDIRECT = 'http://localhost';
 
 function ytAuthorize() {
   const p = PropertiesService.getScriptProperties();
   const id = p.getProperty('YT_OAUTH_ID');
   if (!id || !p.getProperty('YT_OAUTH_SECRET')) throw new Error('스크립트 속성 YT_OAUTH_ID·YT_OAUTH_SECRET을 먼저 넣으세요');
-  const state = ScriptApp.newStateToken().withMethod('ytAuthCallback').withTimeout(3600).createToken();
   const url = 'https://accounts.google.com/o/oauth2/v2/auth?' + [
-    ['client_id', id], ['redirect_uri', ytRedirect_()], ['response_type', 'code'], ['scope', YT_SCOPES],
-    ['access_type', 'offline'], ['prompt', 'consent select_account'], ['state', state],
+    ['client_id', id], ['redirect_uri', YT_REDIRECT], ['response_type', 'code'], ['scope', YT_SCOPES],
+    ['access_type', 'offline'], ['prompt', 'consent select_account'],
   ].map(x => x[0] + '=' + encodeURIComponent(x[1])).join('&');
-  // 누를 수 있는 링크를 「실행 로그」 탭 맨 아래에 씀(로그 창의 긴 주소는 복사하다 끊기기 쉬움. 창 띄우기는 별도 권한이 필요해 쓰지 않음)
+  // 누를 수 있는 링크를 「실행 로그」 탭 맨 아래에 씀(로그 창의 긴 주소는 복사하다 끊기기 쉬움)
   const ss = SpreadsheetApp.getActive() || SpreadsheetApp.openById(SS_ID);
-  logRows_(ss, [[new Date(), '유튜브 분석 승인', 0, '아래 줄 링크를 눌러 「전주대학교」 채널을 골라 허용(1시간 안)']]);
+  logRows_(ss, [[new Date(), '유튜브 분석 승인', 0, '아래 링크 → 「전주대학교」 채널 허용 → 열리지 않는 페이지의 주소창 주소 전체를 스크립트 속성 YT_AUTH_CODE에 → 메뉴 「유튜브 분석 승인 마무리」(10분 안)']]);
   const log = ss.getSheetByName(LOG), row = log.getLastRow() + 1;
   log.getRange(row, 1, 1, 4).setValues([[new Date(), '유튜브 분석 승인', 0, '']]);
   log.getRange(row, 4).setRichTextValue(SpreadsheetApp.newRichTextValue().setText('▶ 유튜브 분석 승인하기 (클릭)').setLinkUrl(url).build());
   try { log.activate(); log.getRange(row, 4).activate(); } catch (e) {}
-  Logger.log('아래 주소를 열고 「전주대학교」 채널(브랜드 계정)을 골라 허용하세요. 1시간 안에 열어야 합니다. 주소가 끊기면 시트 메뉴 「📊 스냅샷 → 유튜브 분석 승인」을 쓰세요.');
   Logger.log(url);
-  Logger.log('클라우드 콘솔 OAuth 클라이언트의 「승인된 리디렉션 URI」에는 이 주소가 있어야 합니다: %s', ytRedirect_());
 }
 
-function ytAuthCallback(req) {
-  const html = s => HtmlService.createHtmlOutput('<div style="font:16px sans-serif;padding:24px">' + s + '</div>');
-  try {
-    if (req.parameter.error) return html('승인하지 않았어요: ' + req.parameter.error);
-    const p = PropertiesService.getScriptProperties();
-    const res = UrlFetchApp.fetch('https://oauth2.googleapis.com/token', { method: 'post', muteHttpExceptions: true, payload: {
-      code: req.parameter.code, client_id: p.getProperty('YT_OAUTH_ID'), client_secret: p.getProperty('YT_OAUTH_SECRET'),
-      redirect_uri: ytRedirect_(), grant_type: 'authorization_code' } });
-    const j = JSON.parse(res.getContentText() || '{}');
-    if (!j.refresh_token) return html('토큰을 받지 못했어요: ' + (j.error_description || j.error || ('HTTP ' + res.getResponseCode())));
-    p.setProperty('YT_REFRESH', j.refresh_token);
-    CacheService.getScriptCache().remove('ytBrandToken');
-    // 어느 채널로 승인됐는지 확인
-    let ch = '';
-    try {
-      const c = JSON.parse(UrlFetchApp.fetch('https://www.googleapis.com/youtube/v3/channels?part=snippet&mine=true', { headers: { Authorization: 'Bearer ' + j.access_token } }).getContentText());
-      ch = c.items && c.items[0] ? c.items[0].snippet.title : '';
-    } catch (e) {}
-    return html('승인 완료' + (ch ? ' — 채널: <b>' + ch + '</b>' : '') + '. 이 창을 닫고 편집기에서 testYouTubeApi를 실행해 「분석 값 있음」이 0보다 큰지 확인하세요.');
-  } catch (e) {
-    return html('오류: ' + e.message);
+// 승인 마무리: YT_AUTH_CODE(주소창 주소 전체 또는 코드만) → 갱신 토큰 저장
+function ytAuthFinish() {
+  const p = PropertiesService.getScriptProperties();
+  const raw = String(p.getProperty('YT_AUTH_CODE') || '').trim();
+  const m = raw.match(/[?&]code=([^&#\s]+)/);
+  const code = m ? decodeURIComponent(m[1]) : raw;
+  if (!code) throw new Error('스크립트 속성 YT_AUTH_CODE에 승인 후 주소창 주소를 먼저 넣으세요');
+  const res = UrlFetchApp.fetch('https://oauth2.googleapis.com/token', { method: 'post', muteHttpExceptions: true, payload: {
+    code: code, client_id: p.getProperty('YT_OAUTH_ID'), client_secret: p.getProperty('YT_OAUTH_SECRET'),
+    redirect_uri: YT_REDIRECT, grant_type: 'authorization_code' } });
+  p.deleteProperty('YT_AUTH_CODE'); // 한 번만 쓰는 코드라 성공·실패와 관계없이 지움
+  const j = JSON.parse(res.getContentText() || '{}');
+  const ss = SpreadsheetApp.getActive() || SpreadsheetApp.openById(SS_ID);
+  if (!j.refresh_token) {
+    const msg = '실패: ' + (j.error_description || j.error || ('HTTP ' + res.getResponseCode())) + ' — 코드는 10분 안에 한 번만 쓸 수 있어요. 메뉴 「유튜브 분석 승인」부터 다시';
+    logRows_(ss, [[new Date(), '유튜브 분석 승인 마무리', 0, msg]]);
+    throw new Error(msg);
   }
+  p.setProperty('YT_REFRESH', j.refresh_token);
+  CacheService.getScriptCache().remove('ytBrandToken');
+  let ch = '';
+  try {
+    const c = JSON.parse(UrlFetchApp.fetch('https://www.googleapis.com/youtube/v3/channels?part=snippet&mine=true', { headers: { Authorization: 'Bearer ' + j.access_token } }).getContentText());
+    ch = c.items && c.items[0] ? c.items[0].snippet.title : '';
+  } catch (e) {}
+  logRows_(ss, [[new Date(), '유튜브 분석 승인 마무리', 1, '승인 완료 — 채널: ' + (ch || '확인 못 함') + ' · testYouTubeApi로 「분석 값 있음」 확인']]);
+  Logger.log('승인 완료 — 채널: %s', ch || '확인 못 함');
 }
 
 // 갱신 토큰 → 접근 토큰(50분 캐시). 승인 전이면 ''
