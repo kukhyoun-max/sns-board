@@ -413,7 +413,7 @@ function loadFresh_() {
 }
 
 // ───────── 기록 뒤 단계 (시간 초과 시 다음 실행에서 이어 받음) ─────────
-const SNAP_STEPS = ['acct', 'meta', 'igx', 'yta', 'igm', 'tags', 'daily', 'age', 'build', 'cache'];
+const SNAP_STEPS = ['acct', 'meta', 'igx', 'yta', 'igm', 'hong', 'tags', 'daily', 'age', 'build', 'cache'];
 const STEP_FN = {
   acct: x => {
     try { accountSnapshot_(x.ss, x.today, x.logs); } catch (e) { x.logs.push([new Date(), '계정 지표', 0, '오류: ' + e.message]); }
@@ -429,6 +429,9 @@ const STEP_FN = {
   },
   igm: x => {
     try { igmStep_(x.ss, x.today, x.logs); } catch (e) { x.logs.push([new Date(), '인스타 게시물 추가', 0, '오류: ' + e.message]); }
+  },
+  hong: x => {
+    try { hongPostsStep_(x.ss, x.logs); } catch (e) { x.logs.push([new Date(), HONG_POSTS, 0, '오류: ' + e.message]); }
   },
   tags: x => {
     try { const b = stepBySrc_(x, true); saveTags_(x.ss, b, x.today); x.logs.push([new Date(), '태그', b.length, '정상']); }
@@ -2614,6 +2617,30 @@ function igMedia_(conf, user, fields, limit, from) {
     url = !old && j.paging && j.paging.next || '';
   }
   return out;
+}
+
+// ───────── 「hong 게시물」 탭: hong 게시물의 캡션 전문·주소·지표 (JJ 스튜디오 자동매칭·조회수 패치가 읽음) ─────────
+// 스냅샷의 제목은 앞 80자뿐이라 캡션 끝 「🎬 by 아이디」가 잘림 → 전문을 따로 둔다. 미디어 ID 기준으로 갱신(지워진 게시물 줄은 남음)
+//  · 열: 미디어 ID · 게시일 · 형식 · 캡션 · 게시물 주소 · 조회 · 좋아요 · 댓글 · 공유 · 저장 · 도달 · 기록 시각. 열을 바꾸면 JJ 스튜디오도 같이 고쳐야 함
+//  · HONG_API = on일 때만. 매일 기록의 hong 단계
+const HONG_POSTS = 'hong 게시물';
+function hongPostsStep_(ss, logs) {
+  const ch = 'hong._.video';
+  if (PropertiesService.getScriptProperties().getProperty(IG_CH[ch].on) !== 'on') { logs.push([new Date(), HONG_POSTS, 0, '건너뜀: HONG_API 꺼짐']); return; }
+  const api = IG_API_[ch] || (IG_API_[ch] = fetchInstagram_(ch));
+  const now = Utilities.formatDate(new Date(), TZ, 'yyyy-MM-dd HH:mm');
+  const rows = api.media.filter(x => x.product !== 'STORY')
+    .map(x => [x.id, x.date, typeLabel_(x.product, x.mediaType), x.caption, x.url, x.views, x.likes, x.comments, x.shares, x.saves, x.reach, now]);
+  const r = igxUpsert_(ss, HONG_POSTS, ['미디어 ID', '게시일', '형식', '캡션', '게시물 주소', '조회', '좋아요', '댓글', '공유', '저장', '도달', '기록 시각'], [0], rows);
+  logs.push([new Date(), HONG_POSTS, rows.length, '정상 (갱신 ' + r.updated + ' · 새 게시물 ' + r.added + ')']);
+}
+// 편집기에서 실행: 매일 기록을 기다리지 않고 「hong 게시물」 탭만 지금 채움(결과는 「실행 로그」 탭)
+function hongPostsNow() {
+  const ss = SpreadsheetApp.getActive() || SpreadsheetApp.openById(SS_ID);
+  const logs = [];
+  try { hongPostsStep_(ss, logs); } catch (e) { logs.push([new Date(), HONG_POSTS, 0, '오류: ' + e.message]); }
+  logRows_(ss, logs);
+  Logger.log(JSON.stringify(logs));
 }
 
 // 편집기에서 실행: 원본 시트 값과 API 값 비교 (시트에 쓰지 않음, 결과는 실행 로그에 출력)
