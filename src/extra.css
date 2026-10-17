@@ -524,3 +524,5 @@ details.adv[open] > summary { border-bottom: 1px solid var(--line); }
 .kpi-t.best:hover { border-color: var(--jj); }
 .kpi-t.best .bt { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; color: var(--sub); }
 .kpi-t.best .chb { margin-right: 5px; }
+/* 카드 설명: 숫자(1.5배 등) 가운데서 줄이 끊기지 않게 */
+.kpi-s { overflow-wrap: break-word; word-break: keep-all; }
