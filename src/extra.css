@@ -559,3 +559,18 @@ small { line-height: 1.6; }
 .c3t i { display: block; height: 100%; border-radius: 999px; }
 .c3r b { color: var(--fg); font-weight: 700; min-width: 2.6em; text-align: right; }
 .c3r:first-child b { color: var(--up); }
+/* 홈 요약: 덩어리 카드(머리 숫자 · 내역 칩 · 누르면 상세로 가는 게시물 줄) */
+.sum2 { margin-top: 16px; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+@media (max-width: 760px) { .sum2 { grid-template-columns: minmax(0, 1fr); } }
+.s2 { background: var(--bg); border: 1px solid var(--line); border-radius: var(--r-lg); padding: 16px 18px; display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+.s2-h { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; font-size: var(--fs-sm); font-weight: 700; color: var(--sub); }
+.s2-h b { font-size: var(--fs-xl); color: var(--fg); letter-spacing: -0.02em; }
+.s2-f { display: flex; flex-wrap: wrap; gap: 6px; }
+.s2-f span { background: var(--tile); border-radius: 999px; padding: 4px 10px; font-size: var(--fs-xs); color: var(--sub); line-height: 1.5; }
+.s2-f b { color: var(--fg); margin-left: 2px; }
+.s2-r { display: grid; grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: "l v" "t v"; column-gap: 12px; row-gap: 2px; align-items: center; text-align: left; width: 100%; border: 0; border-top: 1px solid var(--line); background: none; padding: 10px 0 0; font: inherit; cursor: pointer; color: inherit; }
+.s2-l { grid-area: l; font-size: var(--fs-tag); color: var(--muted); font-weight: 600; }
+.s2-t { grid-area: t; min-width: 0; font-size: var(--fs-sm); font-weight: 600; color: var(--fg); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; line-height: 1.5; }
+.s2-t .chb { margin-right: 6px; }
+.s2-r b { grid-area: v; font-size: var(--fs-md); white-space: nowrap; }
+@media (hover: hover) { .s2-r:hover .s2-t { color: var(--jj); } }

@@ -471,22 +471,26 @@
     if (t.length % 2 && best) { window.__best = best; t.push('<div class="kpi-t best" role="button" tabindex="0" aria-label="최근 30일 가장 잘 된 게시물 상세 보기"><div class="kpi-l">30일 최고 게시물</div><div class="kpi-v num up">' + xf(ratio(best)) + '</div><div class="kpi-s"><span class="bt">' + badge(best.c) + esc(title(best.n)) + '</span></div>' + bestCmp(best) + '</div>'); }
     return '<div class="kpi-row n' + t.length + '">' + t.join('') + '</div>';
   }
+  // 홈 요약: 문장 대신 덩어리 2개(조회 흐름 / 최근 30일 1위·꼴찌). 숫자는 오른쪽에 모아 괄호 없이
   function homeSummary(chs) {
-    const w = weekModel(chs), p = w && w.cur, out = [];
+    const w = weekModel(chs), p = w && w.cur, B = [];
+    window.__sum = [];
+    const row = (lab, it, val, cls) => { const i = window.__sum.push(it) - 1; return '<button type="button" class="s2-r" data-si="' + i + '"><span class="s2-l">' + lab + '</span><span class="s2-t">' + badge(it.c) + esc(title(it.n)) + '</span><b class="num ' + (cls || '') + '">' + val + '</b></button>'; };
     if (p) {
       const old = p.old.filter(it => p.inc0(it) > 0).sort((a, b) => p.inc0(b) - p.inc0(a));
-      let s = mdLabel(p.d0) + '부터 ' + p.days + '일 동안 조회가 <b>' + fmtK(p.v) + '</b> 늘었어요';
-      s += p.nw.length ? '(새로 올린 ' + p.nw.length + '개 +' + fmtK(p.vn) + ' · 예전 게시물 +' + fmtK(p.vo) + ').' : '. 새 게시물 없이 예전 콘텐츠에서만 늘었어요.';
-      if (w.prev && w.prev.v > 0) { const d = (p.v / p.days) / (w.prev.v / w.prev.days) - 1; s += ' 하루 평균으로는 그 전 ' + w.prev.days + (Math.abs(d) < FLAT ? '일과 비슷해요.' : d >= 1 ? '일의 ' + (1 + d).toFixed(1) + '배예요.' : '일보다 ' + Math.round(Math.abs(d) * 100) + '% ' + (d > 0 ? '많아요.' : '적어요.')); }
-      if (old[0]) s += ' 가장 많이 늘어난 건 「' + esc(title(old[0].n)) + '」(+' + fmtK(p.inc0(old[0])) + ')예요.';
-      out.push(s);
+      let d = null; if (w.prev && w.prev.v > 0) d = (p.v / p.days) / (w.prev.v / w.prev.days) - 1;
+      B.push('<div class="s2"><div class="s2-h"><span>최근 ' + p.days + '일 늘어난 조회</span><b class="num">+' + fmtK(p.v) + '</b></div>' +
+        '<div class="s2-f">' + (p.nw.length ? '<span>새 게시물 ' + p.nw.length + '개 <b class="num">+' + fmtK(p.vn) + '</b></span><span>예전 게시물 <b class="num">+' + fmtK(p.vo) + '</b></span>' : '<span>새 게시물 없이 예전 게시물에서만 늘었어요</span>') +
+        (d == null ? '' : '<span>하루 평균 직전 ' + w.prev.days + '일 대비 <b class="num ' + dCls(d) + '">' + dTxt(d, 1) + '</b></span>') + '</div>' +
+        (old[0] ? row('가장 많이 늘어난 게시물', old[0], '+' + fmtK(p.inc0(old[0])), 'up') : '') + '</div>');
     }
     const c30 = pool({ channels: chs, since: addDays(D.updated, -30) }).filter(judged).sort((a, b) => ratio(b) - ratio(a));
     if (c30.length) {
       const top = c30[0], low = c30[c30.length - 1];
-      out.push('최근 30일 가장 잘 된 콘텐츠는 ' + chName(top.c) + ' 「' + esc(title(top.n)) + '」(평소의 <b>' + xf(ratio(top)) + '</b>)' + (c30.length > 1 ? ', 가장 처진 건 ' + chName(low.c) + ' 「' + esc(title(low.n)) + '」(평소의 ' + xf(ratio(low)) + ')' : '') + '예요.');
+      B.push('<div class="s2"><div class="s2-h"><span>최근 30일 게시물 ' + c30.length + '개 중</span></div>' +
+        row('가장 잘 된', top, '평소의 ' + xf(ratio(top)), 'up') + (c30.length > 1 ? row('가장 처진', low, '평소의 ' + xf(ratio(low)), 'down') : '') + '</div>');
     }
-    return out.length ? '<ul class="sumry">' + out.map(s => '<li>' + s + '</li>').join('') + '</ul>' : '';
+    return B.length ? '<div class="sum2">' + B.join('') + '</div>' : '';
   }
   function topHtml(chs) {
     return '<section class="sec top-sec"><div class="sh"><div><h2>' + (S.ch === '전체' ? '이번 주 한눈에' : chName(S.ch) + ' 이번 주') + '</h2><p>' + mdLabel(D.updated) + ' 기록 기준 · ' + adWord() + '</p></div>' +
@@ -556,6 +560,7 @@
   }
   function wireTop(chs) {
     wireRace();
+    document.querySelectorAll('.s2-r[data-si]').forEach(b => b.addEventListener('click', () => { const it = (window.__sum || [])[+b.dataset.si]; if (it) openDetail(it); }));
     const bt = document.querySelector('.kpi-t.best'); if (bt && window.__best) { const go = () => openDetail(window.__best); bt.addEventListener('click', go); bt.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); go(); } }); }
     const c = $('repCopy'), p = $('repPrint');
     if (c) c.addEventListener('click', () => copyText(reportText(chs)));
