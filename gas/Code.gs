@@ -197,6 +197,7 @@ function onOpen() {
     .addItem('메타 광고 과거 채우기(API, 처음 한 번)', 'backfillMeta')
     .addItem('유튜브 분석 승인(브랜드 계정, 처음 한 번)', 'ytAuthorize')
     .addItem('유튜브 분석 승인 마무리(YT_AUTH_CODE 넣은 뒤)', 'ytAuthFinish')
+    .addItem('인스타 스토리·계정 일별·팔로워 분포 지금 받기', 'collectInstagramExtras')
     .addSeparator()
     .addItem('최초 설정(탭·트리거)', 'setup')
     .addToUi();
@@ -409,13 +410,16 @@ function loadFresh_() {
 }
 
 // ───────── 기록 뒤 단계 (시간 초과 시 다음 실행에서 이어 받음) ─────────
-const SNAP_STEPS = ['acct', 'meta', 'tags', 'daily', 'age', 'build', 'cache'];
+const SNAP_STEPS = ['acct', 'meta', 'igx', 'tags', 'daily', 'age', 'build', 'cache'];
 const STEP_FN = {
   acct: x => {
     try { accountSnapshot_(x.ss, x.today, x.logs); } catch (e) { x.logs.push([new Date(), '계정 지표', 0, '오류: ' + e.message]); }
   },
   meta: x => {
     try { metaStep_(x.ss, x.today, x.logs); } catch (e) { x.logs.push([new Date(), '메타 광고 API', 0, '오류: ' + e.message]); }
+  },
+  igx: x => {
+    try { igxStep_(x.ss, x.today, x.logs); } catch (e) { x.logs.push([new Date(), '인스타 추가 수집', 0, '오류: ' + e.message]); }
   },
   tags: x => {
     try { const b = stepBySrc_(x, true); saveTags_(x.ss, b, x.today); x.logs.push([new Date(), '태그', b.length, '정상']); }
@@ -2692,4 +2696,201 @@ function ytBrandToken_() {
   if (!j.access_token) throw new Error('유튜브 브랜드 계정 토큰 갱신 실패(' + (j.error || res.getResponseCode()) + ') — ytAuthorize로 다시 승인');
   cache.put('ytBrandToken', j.access_token, 3000);
   return j.access_token;
+}
+
+// ───────── 인스타: 지나면 다시 받을 수 없는 데이터 쌓기 ─────────
+// API가 과거를 돌려주지 않아 매일(스토리는 2시간마다) 받아 두어야 하는 것만 모은다. 채널은 IG_CH 중 켜진 것(IG_API·HONG_API = on).
+//  · 「인스타 스토리」      : 스토리는 게시 24시간 뒤 사라지면 지표도 못 받음 → storySnapshot(2시간마다)이 살아 있는 스토리의 최신 값을 덮어씀
+//  · 「인스타 계정 일별」   : 팔로워 수(그날 값만 줌)·하루 새 팔로워·도달·프로필 방문·링크 클릭(API는 최근 30일 정도만 줌)
+//  · 「인스타 팔로워 분포」 : 팔로워 연령·성별·도시(지금 시점 값만 줌) → 월요일마다 한 번 기록
+// 지표 이름은 메타가 자주 바꾼다. 받을 수 없는 지표는 빈칸으로 두고 「실행 로그」에 남김(나머지는 계속 받음).
+const IGX_STORY_SHEET = '인스타 스토리', IGX_DAY_SHEET = '인스타 계정 일별', IGX_DEMO_SHEET = '인스타 팔로워 분포';
+const IGX_STORY_HEAD = ['채널', '스토리 ID', '게시 시각', '유형', '링크', '조회', '도달', '답장', '공유', '상호작용', '팔로우', '프로필 방문', '탭 다음', '탭 이전', '나가기', '다음 스토리', '마지막 수집'];
+const IGX_STORY_M = ['views', 'reach', 'replies', 'shares', 'total_interactions', 'follows', 'profile_visits'];
+const IGX_DAY_HEAD = ['채널', '날짜', '팔로워', '팔로잉', '게시물 수', '새 팔로워', '도달', '조회', '프로필 방문', '링크 클릭', '참여 계정', '기록 시각'];
+const IGX_DAY_M = ['reach', 'views', 'profile_views', 'website_clicks', 'accounts_engaged'];
+const IGX_DEMO_HEAD = ['기록일', '채널', '구분', '항목', '팔로워 수'];
+
+let IGX_CH_ = null;
+function igxChannels_() {
+  if (IGX_CH_) return IGX_CH_;
+  const p = PropertiesService.getScriptProperties();
+  const token = p.getProperty('META_TOKEN');
+  if (!token) return [];
+  // 계정을 못 찾는 채널(예: 아직 연결 안 된 hong)은 빼고 나머지로 진행
+  return (IGX_CH_ = Object.keys(IG_CH).filter(ch => p.getProperty(IG_CH[ch].on) === 'on').map(ch => {
+    try { return { ch: ch, conf: { token: token }, user: igUserId_(ch, { token: token }) }; } catch (e) { return null; }
+  }).filter(Boolean));
+}
+// 인스타 계정 ID: 속성(IG_USER 등)에 있으면 그것, 없으면 토큰에 연결된 페이지에서 찾음
+function igUserId_(chName, conf) {
+  const cf = IG_CH[chName];
+  const fixed = String(PropertiesService.getScriptProperties().getProperty(cf.prop) || '').trim();
+  if (fixed) return fixed;
+  const igs = metaGet_(conf, 'me/accounts', { fields: 'instagram_business_account{id,username}', limit: 100 }).map(x => x.instagram_business_account).filter(Boolean);
+  const pick = igs.filter(x => x.username === cf.user)[0];
+  if (!pick) throw new Error(cf.user + ' 계정을 토큰에서 찾지 못함');
+  return pick.id;
+}
+// GET 한 번(쪽 넘김 없음). 오류는 메타 메시지만
+function igxGet_(conf, path, params) {
+  const q = Object.keys(params).map(k => k + '=' + encodeURIComponent(params[k])).join('&');
+  const res = UrlFetchApp.fetch(META_API + path + '?' + q + '&access_token=' + encodeURIComponent(conf.token), { muteHttpExceptions: true });
+  let j;
+  try { j = JSON.parse(res.getContentText()); } catch (e) { throw new Error('메타 응답을 읽지 못함(HTTP ' + res.getResponseCode() + ')'); }
+  if (j.error) throw new Error('code ' + j.error.code + ': ' + String(j.error.message || '').replace(/access_token=[^&\s]+/g, 'access_token=…').slice(0, 160));
+  return j;
+}
+// 인사이트 값 → {지표: 값}. 한꺼번에 실패하면 지표마다 따로 받아 되는 것만 씀. 안 되는 지표는 miss에 모음
+function igxInsights_(conf, id, metrics, extra, miss) {
+  const read = data => {
+    const o = {};
+    (data || []).forEach(d => {
+      const v = d.total_value ? d.total_value.value : (d.values && d.values.length ? d.values[d.values.length - 1].value : '');
+      o[d.name] = typeof v === 'number' ? v : (v === '' || v == null ? '' : Number(v) || 0);
+    });
+    return o;
+  };
+  try { return read(igxGet_(conf, id + '/insights', Object.assign({ metric: metrics.join(',') }, extra || {})).data); }
+  catch (e) {
+    const o = {};
+    metrics.forEach(m => {
+      try { Object.assign(o, read(igxGet_(conf, id + '/insights', Object.assign({ metric: m }, extra || {})).data)); }
+      catch (e2) { if (miss && miss.indexOf(m) < 0) miss.push(m); }
+    });
+    return o;
+  }
+}
+// 행 머리글이 있는 탭을 키(열 번호들)로 덮어쓰거나 덧붙임
+function igxUpsert_(ss, name, head, keyCols, rows) {
+  const sh = ss.getSheetByName(name) || ss.insertSheet(name);
+  if (sh.getLastRow() === 0) { sh.getRange(1, 1, 1, head.length).setValues([head]).setFontWeight('bold'); sh.setFrozenRows(1); }
+  const n = sh.getLastRow() - 1;
+  const old = n > 0 ? sh.getRange(2, 1, n, head.length).getValues() : [];
+  const key = r => keyCols.map(i => String(r[i] instanceof Date ? fmtDate_(r[i]) : r[i])).join('§');
+  const at = {};
+  old.forEach((r, i) => { at[key(r)] = i; });
+  const add = [];
+  rows.forEach(r => { const k = key(r); if (k in at) old[at[k]] = r; else { at[k] = old.length + add.length; add.push(r); } });
+  const all = old.concat(add);
+  if (all.length) {
+    keyCols.forEach(i => sh.getRange(2, i + 1, all.length, 1).setNumberFormat('@')); // 채널·ID·날짜는 글자로(긴 ID가 숫자로 바뀌지 않게), 지표는 숫자 그대로
+    sh.getRange(2, 1, all.length, head.length).setValues(all.map(r => r.map((v, i) => v == null ? '' : keyCols.indexOf(i) >= 0 ? String(v instanceof Date ? fmtDate_(v) : v) : v)));
+  }
+  return { updated: rows.length - add.length, added: add.length };
+}
+
+// 스토리: 지금 살아 있는 스토리의 지표를 받아 「인스타 스토리」에 덮어씀(2시간마다 + 매일 기록 때)
+function igxStories_(ss) {
+  const now = Utilities.formatDate(new Date(), TZ, 'yyyy-MM-dd HH:mm');
+  const rows = [], miss = [];
+  igxChannels_().forEach(c => {
+    const list = igxGet_(c.conf, c.user + '/stories', { fields: 'id,timestamp,media_type,media_product_type,permalink', limit: 100 }).data || [];
+    list.forEach(s => {
+      const v = igxInsights_(c.conf, s.id, IGX_STORY_M, null, miss);
+      let nav = {};
+      try {
+        const d = igxGet_(c.conf, s.id + '/insights', { metric: 'navigation', breakdown: 'story_navigation_action_type' }).data || [];
+        ((d[0] && d[0].total_value && d[0].total_value.breakdowns && d[0].total_value.breakdowns[0].results) || [])
+          .forEach(x => { nav[String(x.dimension_values[0]).toUpperCase()] = x.value; });
+      } catch (e) { if (miss.indexOf('navigation') < 0) miss.push('navigation'); }
+      rows.push([c.ch, String(s.id), Utilities.formatDate(new Date(s.timestamp), TZ, 'yyyy-MM-dd HH:mm'), s.media_type || '', s.permalink || '']
+        .concat(IGX_STORY_M.map(m => v[m] === undefined ? '' : v[m]))
+        .concat(['TAP_FORWARD', 'TAP_BACK', 'TAP_EXIT', 'SWIPE_FORWARD'].map(k => nav[k] === undefined ? '' : nav[k]))
+        .concat([now]));
+    });
+  });
+  const r = rows.length ? igxUpsert_(ss, IGX_STORY_SHEET, IGX_STORY_HEAD, [0, 1], rows) : { updated: 0, added: 0 };
+  return { n: rows.length, added: r.added, miss: miss };
+}
+
+// 계정 일별: 오늘 기준 팔로워 수 + 어제 하루 지표. 탭이 비어 있으면 받을 수 있는 과거(새 팔로워 30일)를 함께 채움
+function igxAccountDay_(ss, today) {
+  const now = Utilities.formatDate(new Date(), TZ, 'yyyy-MM-dd HH:mm');
+  const yday = shiftDate_(today, -1);
+  const unix = d => Math.floor(new Date(d + 'T00:00:00+09:00').getTime() / 1000);
+  const sh = ss.getSheetByName(IGX_DAY_SHEET);
+  const first = !sh || sh.getLastRow() < 2;
+  const rows = [], miss = [];
+  igxChannels_().forEach(c => {
+    const u = igxGet_(c.conf, c.user, { fields: 'followers_count,follows_count,media_count' });
+    const day = igxInsights_(c.conf, c.user, IGX_DAY_M, { period: 'day', metric_type: 'total_value', since: unix(yday), until: unix(today) }, miss);
+    // 새 팔로워(하루씩): 처음이면 최근 30일, 아니면 어제 하루
+    const nf = {};
+    try {
+      const d = igxGet_(c.conf, c.user + '/insights', { metric: 'follower_count', period: 'day', since: unix(first ? shiftDate_(today, -29) : yday), until: unix(today) }).data || [];
+      ((d[0] && d[0].values) || []).forEach(x => { nf[shiftDate_(Utilities.formatDate(new Date(x.end_time), TZ, 'yyyy-MM-dd'), -1)] = x.value; });
+    } catch (e) { miss.push('follower_count'); }
+    Object.keys(nf).filter(d => d !== yday).forEach(d => rows.push([c.ch, d, '', '', '', nf[d], '', '', '', '', '', now]));
+    rows.push([c.ch, yday, '', '', '', nf[yday] === undefined ? '' : nf[yday]].concat(IGX_DAY_M.map(m => day[m] === undefined ? '' : day[m])).concat([now]));
+    rows.push([c.ch, today, u.followers_count, u.follows_count, u.media_count, '', '', '', '', '', '', now]);
+  });
+  // 같은 날짜 줄이 둘(어제 지표 / 오늘 팔로워 수)로 나뉘므로 기존 값과 합쳐 씀
+  const sh2 = ss.getSheetByName(IGX_DAY_SHEET);
+  const old = {};
+  if (sh2 && sh2.getLastRow() > 1) sh2.getRange(2, 1, sh2.getLastRow() - 1, IGX_DAY_HEAD.length).getValues().forEach(r => { old[r[0] + '§' + fmtDate_(r[1])] = r; });
+  const merged = {};
+  rows.forEach(r => {
+    const k = r[0] + '§' + r[1];
+    const base = merged[k] || old[k] || r.map(() => '');
+    merged[k] = r.map((v, i) => (v === '' || v == null) ? (base[i] instanceof Date ? fmtDate_(base[i]) : base[i]) : v);
+  });
+  const out = Object.keys(merged).map(k => merged[k]).sort((a, b) => (a[0] + a[1] < b[0] + b[1] ? -1 : 1));
+  igxUpsert_(ss, IGX_DAY_SHEET, IGX_DAY_HEAD, [0, 1], out);
+  return { n: out.length, miss: miss };
+}
+
+// 팔로워 분포(연령·성별·도시): 월요일 또는 탭이 비어 있을 때 한 번
+function igxDemographics_(ss, today) {
+  const sh = ss.getSheetByName(IGX_DEMO_SHEET);
+  if (sh && sh.getLastRow() > 1 && !isMonday_(today)) return { n: 0, skip: true, miss: [] };
+  const rows = [], miss = [];
+  igxChannels_().forEach(c => {
+    ['age', 'gender', 'city'].forEach(b => {
+      try {
+        const d = igxGet_(c.conf, c.user + '/insights', { metric: 'follower_demographics', period: 'lifetime', metric_type: 'total_value', breakdown: b }).data || [];
+        ((d[0] && d[0].total_value && d[0].total_value.breakdowns && d[0].total_value.breakdowns[0].results) || [])
+          .forEach(x => rows.push([today, c.ch, b === 'age' ? '연령' : b === 'gender' ? '성별' : '도시', String(x.dimension_values[0]), x.value]));
+      } catch (e) { miss.push('follower_demographics/' + b); }
+    });
+  });
+  if (rows.length) igxUpsert_(ss, IGX_DEMO_SHEET, IGX_DEMO_HEAD, [0, 1, 2, 3], rows);
+  return { n: rows.length, miss: miss };
+}
+
+// 매일 기록 단계(igx): 스토리 + 계정 일별 + (월요일) 팔로워 분포. 스토리 2시간 트리거도 여기서 챙김
+function igxStep_(ss, today, logs) {
+  if (!igxChannels_().length) { logs.push([new Date(), '인스타 추가 수집', 0, '건너뜀: META_TOKEN 또는 IG_API 꺼짐']); return; }
+  ensureStoryTrigger_();
+  const parts = [], miss = [];
+  try { const s = igxStories_(ss); parts.push('스토리 ' + s.n + '개(새 ' + s.added + ')'); miss.push.apply(miss, s.miss); } catch (e) { parts.push('스토리 오류: ' + e.message); }
+  try { const a = igxAccountDay_(ss, today); parts.push('계정 일별 ' + a.n + '줄'); miss.push.apply(miss, a.miss); } catch (e) { parts.push('계정 일별 오류: ' + e.message); }
+  try { const d = igxDemographics_(ss, today); parts.push(d.skip ? '분포는 월요일' : '분포 ' + d.n + '줄'); miss.push.apply(miss, d.miss); } catch (e) { parts.push('분포 오류: ' + e.message); }
+  logs.push([new Date(), '인스타 추가 수집', 0, parts.join(' · ') + (miss.length ? ' · 받지 못한 지표: ' + Array.from(new Set(miss)).join(', ') : '')]);
+}
+
+// 2시간마다(트리거): 스토리만. 새 스토리가 있거나 오류일 때만 로그를 남김(로그 탭이 넘치지 않게)
+function storySnapshot() {
+  const ss = SpreadsheetApp.getActive() || SpreadsheetApp.openById(SS_ID);
+  try {
+    if (!igxChannels_().length) return;
+    const s = igxStories_(ss);
+    if (s.added || s.miss.length) logRows_(ss, [[new Date(), '인스타 스토리', s.n, '정상 — 새 스토리 ' + s.added + '개' + (s.miss.length ? ' · 받지 못한 지표: ' + s.miss.join(', ') : '')]]);
+  } catch (e) {
+    logRows_(ss, [[new Date(), '인스타 스토리', 0, '오류: ' + e.message]]);
+  }
+}
+function ensureStoryTrigger_() {
+  if (ScriptApp.getProjectTriggers().some(t => t.getHandlerFunction() === 'storySnapshot')) return;
+  ScriptApp.newTrigger('storySnapshot').timeBased().everyHours(2).create();
+}
+
+// 편집기·메뉴에서 바로 한 번: 오늘 몫을 지금 받음(처음 켤 때)
+function collectInstagramExtras() {
+  const ss = SpreadsheetApp.getActive() || SpreadsheetApp.openById(SS_ID);
+  const today = Utilities.formatDate(new Date(), TZ, 'yyyy-MM-dd');
+  const logs = [];
+  igxStep_(ss, today, logs);
+  logRows_(ss, logs);
+  logs.forEach(l => Logger.log(l[3]));
 }
