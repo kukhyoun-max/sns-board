@@ -1589,6 +1589,7 @@ function loadRoster_(ss) {
   const ih = ss.getSheetByName(ID_SHEET);
   if (ih && ih.getLastRow() > 1) ih.getRange(2, 1, ih.getLastRow() - 1, 3).getValues().forEach(r => {
     const nm = String(r[0]).trim(); if (!/^[가-힣]{2,4}$/.test(nm)) return;
+    if (!inRoster_(nm)) AMBASSADORS.push(nm); // 명단에 없으면 hong 제작자 = 홍보대사로 본다
     String(r[1] || '').split(/[,\s]+/).map(x => x.replace(/^@/, '').trim().toLowerCase()).filter(Boolean).forEach(id => { HANDLES[id] = nm; });
     String(r[2] || '').split(',').map(x => x.trim()).filter(Boolean).forEach(k => SERIES.push([k, nm]));
   });
