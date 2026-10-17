@@ -2552,8 +2552,14 @@ function fetchInstagram_(chName) {
     const pages = metaGet_(conf, 'me/accounts', { fields: 'name,instagram_business_account{id,username}', limit: 100 });
     const igs = pages.map(x => x.instagram_business_account).filter(Boolean);
     const pick = igs.filter(x => x.username === cf.user)[0];
-    if (!pick) throw new Error('토큰에 연결된 페이지에서 ' + cf.user + '을 찾지 못함(보이는 계정: ' + (igs.map(x => x.username).join(', ') || '없음') + ' — 페이지 연결·시스템 사용자 자산 할당 확인)');
-    user = pick.id;
+    if (pick) user = pick.id;
+    else if (igs.length) {
+      // 페이지 없이 포트폴리오에만 있는 계정(hong): 페이지에 연결된 다른 계정의 business_discovery로 ID를 찾음 — 게시물 조회는 시스템 사용자 자산 할당이 있어야 됨
+      const res = UrlFetchApp.fetch(META_API + igs[0].id + '?fields=' + encodeURIComponent('business_discovery.username(' + cf.user + '){id}') + '&access_token=' + encodeURIComponent(token), { muteHttpExceptions: true });
+      const j = JSON.parse(res.getContentText() || '{}');
+      user = j.business_discovery && j.business_discovery.id || '';
+    }
+    if (!user) throw new Error('토큰에 연결된 페이지에서 ' + cf.user + '을 찾지 못함(보이는 계정: ' + (igs.map(x => x.username).join(', ') || '없음') + ' — 페이지 연결·시스템 사용자 자산 할당 확인)');
   }
   const base = 'id,caption,timestamp,permalink,media_type,media_product_type,like_count,comments_count';
   let note = '', list;
