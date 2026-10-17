@@ -51,6 +51,7 @@
   const save = () => { try { localStorage.setItem(STORE, JSON.stringify({ view: S.view, ch: S.ch, range: S.range, trendCh: S.trendCh, ads: S.ads })); } catch (e) {} };
   const load = () => { try { return JSON.parse(localStorage.getItem(STORE) || 'null'); } catch (e) { return null; } };
   const mdLabel = d => (+d.slice(5, 7)) + '월 ' + (+d.slice(8, 10)) + '일';
+  const md2 = d => (+d.slice(5, 7)) + '/' + (+d.slice(8, 10));
   const dot = d => d.slice(2).replace(/-/g, '.');
   const toast = msg => { const t = document.createElement('div'); t.className = 'toast'; t.textContent = msg; document.body.appendChild(t); setTimeout(() => t.remove(), 2200); };
 
@@ -212,15 +213,15 @@
   function syncChrome() {
     $('tabs').querySelectorAll('.tt').forEach(b => b.setAttribute('aria-selected', b.dataset.t === S.ch));
     $('bnav').querySelectorAll('button').forEach(b => { if (b.dataset.v === S.view) b.setAttribute('aria-current', 'page'); else b.removeAttribute('aria-current'); });
-    $('st1').textContent = mdLabel(D.updated) + ' 기록 기준';
+    $('st1').textContent = md2(D.updated) + ' 기준'; $('st1').title = mdLabel(D.updated) + ' 기록 기준';
     $('st1').className = 'live';
-    $('st2').textContent = weekly() ? '주간 비교 ' + mdLabel(D.dates[D.dates.length - 2]) + ' → ' + mdLabel(D.updated) : '다음 기록: 매주 월요일 7시';
+    $('st2').textContent = weekly() ? '지난 기록 ' + md2(D.dates[D.dates.length - 2]) : '매주 월요일 7시 기록'; $('st2').title = weekly() ? '증가는 ' + mdLabel(D.dates[D.dates.length - 2]) + ' → ' + mdLabel(D.updated) + ' 기록 사이 값이에요' : '';
     if (!TABS.includes(S.ch)) S.ch = '전체';
     $('rangeSeg').hidden = !rangeOn();
     const adOn = !['season', 'export', 'ads'].includes(S.view) && S.ch !== '타 대학' && S.ch !== 'hong._.video' && (S.ch !== '인스타그램' || D.items.some(it => it.c === '인스타그램' && it.ad));
     $('adTg').hidden = !adOn;
     $('adTg').setAttribute('aria-pressed', S.ads);
-    $('adTg').textContent = S.ads ? '광고 포함' : '광고 제외';
+    $('adTg').textContent = '광고 포함'; $('adTg').title = S.ads ? '광고 영상까지 포함해서 보는 중' : '광고 영상은 빼고 보는 중';
     $('rangeSeg').innerHTML = RANGES.map(([v, l]) => '<button type="button" data-v="' + v + '" aria-pressed="' + (S.range === v) + '">' + l + '</button>').join('');
     $('rangeSeg').querySelectorAll('button').forEach(b => b.addEventListener('click', () => { S.range = b.dataset.v; S.rankShown = 10; S.mx = null; render(); }));
   }
