@@ -195,6 +195,7 @@ function onOpen() {
     .addItem('일별 합계 다시 채우기(스냅샷 기록으로)', 'backfillDailyTotals')
     .addItem('대시보드 데이터 새로 고침(캐시 비우기)', 'clearDashboardCache')
     .addItem('메타 광고 과거 채우기(API, 처음 한 번)', 'backfillMeta')
+    .addItem('유튜브 분석 승인(브랜드 계정, 처음 한 번)', 'ytAuthorize')
     .addSeparator()
     .addItem('최초 설정(탭·트리거)', 'setup')
     .addToUi();
@@ -2623,7 +2624,14 @@ function ytAuthorize() {
     ['client_id', id], ['redirect_uri', ytRedirect_()], ['response_type', 'code'], ['scope', YT_SCOPES],
     ['access_type', 'offline'], ['prompt', 'consent select_account'], ['state', state],
   ].map(x => x[0] + '=' + encodeURIComponent(x[1])).join('&');
-  Logger.log('아래 주소를 열고 「전주대학교」 채널(브랜드 계정)을 골라 허용하세요. 1시간 안에 열어야 합니다.');
+  // 시트 메뉴에서 실행하면 누를 수 있는 링크 창을 띄움(로그의 긴 주소는 복사하다 끊기기 쉬움)
+  try {
+    SpreadsheetApp.getUi().showModalDialog(HtmlService.createHtmlOutput(
+      '<div style="font:15px sans-serif;line-height:1.6">아래 버튼을 눌러 <b>「전주대학교」 채널(브랜드 계정)</b>을 골라 허용하세요. 1시간 안에 눌러야 합니다.<br><br>' +
+      '<a href="' + url + '" target="_blank" style="display:inline-block;padding:10px 16px;background:#1a73e8;color:#fff;border-radius:6px;text-decoration:none">유튜브 분석 승인하기</a></div>'
+    ).setWidth(420).setHeight(170), '유튜브 분석 승인');
+  } catch (e) { /* 편집기에서 실행하면 창을 띄울 수 없음 → 아래 로그 주소 사용 */ }
+  Logger.log('아래 주소를 열고 「전주대학교」 채널(브랜드 계정)을 골라 허용하세요. 1시간 안에 열어야 합니다. 주소가 끊기면 시트 메뉴 「📊 스냅샷 → 유튜브 분석 승인」을 쓰세요.');
   Logger.log(url);
   Logger.log('클라우드 콘솔 OAuth 클라이언트의 「승인된 리디렉션 URI」에는 이 주소가 있어야 합니다: %s', ytRedirect_());
 }
