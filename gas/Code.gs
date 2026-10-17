@@ -2520,13 +2520,14 @@ function igOverlay_(out, today, chName) {
   }
 }
 
-// 원본 시트 게시물 ↔ API 게시물: 캡션 앞 40자(공백 제거)가 같고 날짜 차이 1일 이내. 후보가 여럿이면 날짜가 같은 쪽, 그래도 여럿이면 연결하지 않음
+// 원본 시트 게시물 ↔ API 게시물: 캡션 앞 30자(글자·숫자만 — 이모지·공백·특수 공백 차이 무시)가 같고 날짜 차이 1일 이내. 후보가 여럿이면 날짜가 같은 쪽, 그래도 여럿이면 연결하지 않음
+// 남은 것: 같은 날짜에 시트·API 양쪽 모두 연결 안 된 게시물이 하나씩뿐이면 짝으로 봄(dateOnly)
 function igMatch_(ch, media) {
-  const norm = t => String(t || '').replace(/\s+/g, '').slice(0, 40);
+  const norm = t => String(t || '').replace(/[^0-9A-Za-z가-힣ㄱ-ㅎㅏ-ㅣ]/g, '').slice(0, 30);
   const idx = {};
   Object.keys(ch).forEach(k => { const c = norm(ch[k].full || ch[k].title); (idx[c] = idx[c] || []).push(k); });
   const byId = {}, used = {};
-  let amb = 0, sameDay = 0, offDay = 0;
+  let amb = 0, sameDay = 0, offDay = 0, dateOnly = 0;
   media.forEach(x => {
     let c = (idx[norm(x.caption)] || []).filter(k => !used[k] && Math.abs(dayDiff_(ch[k].date, x.date)) <= 1);
     if (c.length > 1) c = c.filter(k => ch[k].date === x.date);
@@ -2534,7 +2535,13 @@ function igMatch_(ch, media) {
     byId[x.id] = c[0]; used[c[0]] = 1;
     if (ch[c[0]].date === x.date) sameDay++; else offDay++;
   });
-  return { byId: byId, amb: amb, sameDay: sameDay, offDay: offDay };
+  const sDay = {}, aDay = {};
+  Object.keys(ch).forEach(k => { if (!used[k]) (sDay[ch[k].date] = sDay[ch[k].date] || []).push(k); });
+  media.forEach(x => { if (!byId[x.id] && x.product !== 'STORY') (aDay[x.date] = aDay[x.date] || []).push(x); });
+  Object.keys(aDay).forEach(d => {
+    if (aDay[d].length === 1 && sDay[d] && sDay[d].length === 1) { byId[aDay[d][0].id] = sDay[d][0]; used[sDay[d][0]] = 1; dateOnly++; }
+  });
+  return { byId: byId, amb: amb, sameDay: sameDay, offDay: offDay, dateOnly: dateOnly };
 }
 function dayDiff_(a, b) {
   if (!a || !b) return 99;
@@ -2630,7 +2637,15 @@ function testIgApi_(chName) {
   });
   const med = a => { a.sort((x, y) => x - y); return a.length ? a[Math.floor((a.length - 1) / 2)].toFixed(3) + '(' + a.length + '개)' : '-'; };
   const fresh = api.media.filter(x => !m.byId[x.id] && x.date >= shiftDate_(today, -IG_NEW_DAYS));
-  Logger.log('API 게시물 %s개 · 원본 시트 %s개 · 연결 %s개(날짜 같음 %s · 하루 차이 %s) · 캡션 겹침 %s', api.media.length, Object.keys(sheet).length, Object.keys(m.byId).length, m.sameDay, m.offDay, m.amb);
+  Logger.log('API 게시물 %s개 · 원본 시트 %s개 · 연결 %s개(날짜 같음 %s · 하루 차이 %s · 날짜만 %s) · 캡션 겹침 %s', api.media.length, Object.keys(sheet).length, Object.keys(m.byId).length, m.sameDay, m.offDay, m.dateOnly, m.amb);
+  // 연결 안 된 게시물 진단: 시트 날짜 범위, API 쪽 몇 개와 같은 날짜(±1일) 시트 캡션 앞부분(숨은 문자가 보이게 JSON으로)
+  const sd = Object.keys(sheet).map(k => sheet[k].date).filter(Boolean).sort();
+  const usedK = {}; Object.keys(m.byId).forEach(id => { usedK[m.byId[id]] = 1; });
+  Logger.log('원본 시트 날짜 범위 %s ~ %s · 연결 안 된 시트 게시물 %s개', sd[0], sd[sd.length - 1], Object.keys(sheet).filter(k => !usedK[k]).length);
+  api.media.filter(x => !m.byId[x.id]).slice(0, 6).forEach(x => {
+    const near = Object.keys(sheet).filter(k => !usedK[k] && Math.abs(dayDiff_(sheet[k].date, x.date)) <= 1).map(k => sheet[k].date + ' ' + JSON.stringify(String(sheet[k].full || sheet[k].title).slice(0, 25)));
+    Logger.log('미연결 API %s %s ↔ 시트 후보: %s', x.date, JSON.stringify(x.caption.slice(0, 25)), near.join(' | ') || '없음');
+  });
   Logger.log('API÷시트 중앙값 — 조회 %s · 도달 %s · 좋아요 %s · 저장 %s (1.000~1.05면 같은 기준, 시트는 월요일 값)', med(r.views), med(r.reach), med(r.likes), med(r.saves));
   Logger.log('「하루 차이」가 많으면 원본 시트 날짜가 다른 시간대 기준 → IG_DATE_TZ를 바꿔야 새 게시물이 월요일에 중복되지 않음');
   Logger.log('시트에 없는 최근 %s일 게시물 %s개: %s', IG_NEW_DAYS, fresh.length, fresh.map(x => x.date + ' ' + x.caption.replace(/\s+/g, ' ').slice(0, 18)).join(' / '));
