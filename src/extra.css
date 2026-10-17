@@ -695,3 +695,9 @@ small { line-height: 1.6; }
 .adc .rk .t .tx { min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; color: var(--fg); }
 .rl li .cmpb .cl small { display: inline; margin: 0; }
 .rl li .cmpb .cv small { margin: 0; }
+/* 상태 줄과 첫 섹션 사이: 경계선 없애고 간격 좁힘(휴대폰) */
+@media (max-width: 860px) {
+  .top { border-bottom: 0; }
+  .status { padding-top: 6px; padding-bottom: 0; }
+  .status + main > .sec:first-child { padding-top: 10px; }
+}
