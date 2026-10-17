@@ -529,3 +529,26 @@ details.adv[open] > summary { border-bottom: 1px solid var(--line); }
 /* 홈 KPI: 카드 이름·설명은 무조건 한 줄(넘치면 …) */
 .kpi-row .kpi-l, .kpi-row .kpi-s { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .kpi-row .kpi-t.best .bt { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; -webkit-line-clamp: unset; }
+
+/* ───── 글줄 간격 다시 잡기(2026-10-18): 한글 본문 1.7, 보조 글 1.65, 덩어리 사이 간격 ───── */
+body { line-height: 1.7; }
+p, li, .note, .d, .sh p { line-height: 1.7; }
+h2, h3 { line-height: 1.35; }
+small { line-height: 1.6; }
+.note { margin-top: 10px; }
+.sumry { gap: 10px; }
+.sumry li { line-height: 1.75; }
+.callout, .wait { line-height: 1.75; }
+.callout small, .wait small { display: block; margin-top: 6px; line-height: 1.65; }
+/* 처방 카드: 본문·안내를 덩어리로 나눔 */
+.rx { gap: 8px; padding: 18px; }
+.rx-p { font-size: var(--fs-sm); color: var(--sub); line-height: 1.75; }
+.rx-p b { color: var(--fg); }
+.rx-n { display: block; margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--line); color: var(--muted); font-size: var(--fs-xs); line-height: 1.65; }
+.rx-l { list-style: none; margin: 4px 0 0; padding: 0; display: flex; flex-direction: column; gap: 12px; }
+.rx-l li { min-width: 0; }
+.rx-t { color: var(--fg); font-weight: 600; line-height: 1.6; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.rx-t .chb { margin-right: 6px; vertical-align: 1px; }
+.rx-m { margin-top: 3px; font-size: var(--fs-xs); color: var(--muted); }
+.rx-m b { color: var(--up); }
+.rule-l li, .rules li { line-height: 1.7; }
