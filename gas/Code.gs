@@ -1540,6 +1540,8 @@ function ensureTagSheets_(ss) {
     sh.getRange(1, 2).setNote('캡션 크레딧에 이름 대신 적히는 인스타 아이디(예: 🎬by. jarchiveo). @ 없이, 여러 개면 쉼표로.');
     sh.getRange(1, 3).setNote('크레딧이 없는 hong 게시물을 이 사람 것으로 볼 캡션 낱말(예: 복학생). 여러 개면 쉼표로.');
   }
+  // 첫 채움: 탭이 비어 있고 Apps Script 프로젝트에 idSeed_(실명이라 git 밖 IdSeed.gs)가 있으면 그 줄을 넣는다
+  if (sh.getLastRow() < 2 && typeof idSeed_ === 'function') { const seed = idSeed_(); if (seed && seed.length) sh.getRange(2, 1, seed.length, 3).setNumberFormat('@').setValues(seed); }
   sh = ss.getSheetByName(ADMAP_SHEET);
   if (!sh) {
     sh = ss.insertSheet(ADMAP_SHEET);
