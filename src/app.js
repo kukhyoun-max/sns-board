@@ -85,6 +85,10 @@
   };
   const benchNames = () => D.channels.filter(c => c.bench).map(c => c.name);
   const chName = ch => CH_BADGE[ch] || ch;
+  // 시안: 증감은 색 + 기호 + 숫자. ±3% 이내는 회색 "비슷해요"
+  const FLAT = 0.03;
+  const dCls = d => Math.abs(d) < FLAT ? 'flat' : d >= 0 ? 'up' : 'down';
+  const dTxt = (d, sp, dig) => Math.abs(d) < FLAT ? '비슷해요' : (d >= 0 ? '▲' : '▼') + (sp ? ' ' : '') + Math.abs(dig ? Math.round(d * 1000) / 10 : Math.round(d * 100)) + '%';
   const fmtType = t => t === '1분 이하' ? '쇼츠(1분 이하)' : t;
 
   // 채널 기준값(최근 1년 중앙값, 광고·스토리 제외) — 성과 지수 = 콘텐츠 값 ÷ 기준값
@@ -128,7 +132,7 @@
     const lines = String(s || '').split(/[⠀ㅤᅟ]|\n+|\s{3,}| - - /).map(x => x.replace(/[|｜【】\[\]#]/g, ' ').replace(/\s+/g, ' ').trim().replace(/^[^\p{L}\p{N}]+/u, '')).filter(Boolean);
     return lines[0] || '(캡션 없음)';
   }
-  function badge(ch) { return '<span class="chb" style="--c:' + chColor(ch) + '">' + esc(chName(ch)) + '</span>'; }
+  function badge(ch) { return '<span class="chb" style="--c:' + (ch === 'hong._.video' ? css('--chb-hong') : isBench(ch) ? css('--chb-bench') : chColor(ch)) + '">' + esc(chName(ch)) + '</span>'; }
   // 콘텐츠 표기: [채널] 유형 · 제목
   const TYPE_SHORT = { '릴스/영상': '릴스', '1분 이하': '쇼츠', '1~3분': '1~3분', '3~10분': '3~10분', '10분 초과': '10분+', '캐러셀': '캐러셀', '이미지': '이미지', '릴스': '릴스', '스토리': '스토리' };
   const typeShort = t => TYPE_SHORT[t] || t || '';
@@ -408,7 +412,7 @@
     const t = [];
     if (p) {
       let chg = '';
-      if (w.prev) { const a = p.v / p.days, b = w.prev.v / w.prev.days; if (b) { const d = (a - b) / b; chg = ' · <span class="' + (d >= 0 ? 'up' : 'down') + '">' + (d >= 0 ? '▲' : '▼') + Math.abs(Math.round(d * 100)) + '%</span>'; } }
+      if (w.prev) { const a = p.v / p.days, b = w.prev.v / w.prev.days; if (b) { const d = (a - b) / b; chg = ' · <span class="' + dCls(d) + '">' + dTxt(d) + '</span>'; } }
       t.push(kpiTile('이번 구간 조회 증가', '+' + fmtK(p.v), md(p.d0) + ' → ' + md(p.d1) + ' · ' + p.days + '일' + chg));
     }
     t.push(kpiTile('최근 30일 히트율', c30.length ? pct0(hitRate(c30)) : '–', c30.length ? '<span title="게시 ' + AGE_MIN + '일이 지나 판정할 수 있는 게시물 기준">히트 ' + hits.length + ' / ' + c30.length + '개</span>' : '판정할 게시물이 아직 없어요'));
@@ -481,7 +485,7 @@
     const a = w.cur.v / w.cur.days, b = w.prev.v / w.prev.days;
     if (!b) return '<span class="mu">지난 구간 0</span>';
     const d = (a - b) / b;
-    return '<b class="' + (d >= 0 ? 'up' : 'down') + '">' + (d >= 0 ? '▲ ' : '▼ ') + Math.abs(Math.round(d * 100)) + '%</b> <span class="mu">하루 평균, 지난 구간 대비</span>';
+    return '<b class="' + dCls(d) + '">' + dTxt(d, 1) + '</b> <span class="mu">하루 평균, 지난 구간 대비</span>';
   }
   function wkBar(p, col) {
     if (!p || !p.v) return '<div class="wk-bar"></div>';
@@ -554,7 +558,7 @@
     const box = document.querySelector('.dy'); if (!box) return;
     box.querySelectorAll('[data-dym]').forEach(b => b.addEventListener('click', () => { DY.m = +b.dataset.dym; box.outerHTML = dailyHtml(window.__dy ? window.__dy.chs : viewChannels()); wireDaily(); }));
     const M = window.__dy; if (!M || !$('dyC')) return;
-    draw('dyC', { type: 'bar', data: { labels: M.pts.map(p => (+p.d.slice(5, 7)) + '/' + (+p.d.slice(8, 10))), datasets: M.chs.map(c => ({ label: chName(c), data: M.pts.map(p => p.v[c]), backgroundColor: chColor(c), stack: 's', borderRadius: 2, maxBarThickness: 30 })) },
+    draw('dyC', { type: 'bar', data: { labels: M.pts.map(p => (+p.d.slice(5, 7)) + '/' + (+p.d.slice(8, 10))), datasets: M.chs.map(c => ({ label: chName(c), data: M.pts.map(p => p.v[c]), backgroundColor: chColor(c), stack: 's', borderRadius: 3, maxBarThickness: 30 })) },
       options: chartOpts({ layout: { padding: { top: 8 } }, plugins: { legend: { display: M.chs.length > 1, position: 'bottom' }, tooltip: { displayColors: true, callbacks: { title: c => { const p = M.pts[c[0].dataIndex]; return dot(p.from) + ' → ' + dot(p.d) + (p.gap > 1 ? ' (' + p.gap + '일)' : ''); }, label: c => c.dataset.label + ' +' + fmtK(c.raw) } } },
         scales: { x: { stacked: true, ticks: { maxRotation: 0, autoSkip: true, maxTicksLimit: 10, font: { size: 13 }, color: css('--muted') } }, y: { stacked: true, display: true, position: 'right', grid: { color: css('--line') }, border: { display: false }, ticks: { maxTicksLimit: 4, font: { size: 13 }, color: css('--muted'), callback: v => fmtK(v) } } } }) });
   }
@@ -659,7 +663,7 @@
       const cap = empty ? '이 채널은 ' + mName.replace('게시물당 ', '') + ' 데이터가 없어요' : s.kind === 'all' ? (trMetricP(s) === 'ratio' && TR.m !== 'ratio' ? '채널마다 조회 규모가 달라 평소 대비로 합쳐요' : TR_SUM.includes(TR.m) ? '세 채널 게시물 값의 합계' : '인스타 · 유튜브 · hong 합쳐서') + ' · 최근 끝난 ' + unitW + ' 기준'
         : s.kind === 'bench' ? (['share', 'save', 'reach'].includes(TR.m) ? '공유·저장·도달은 타 대학이 비공개라 우리 인스타만 보여요' : TR.m === 'cmt' || TR.m === 'posts' ? '큰 숫자는 우리 인스타' : '좋아요 기준(타 대학은 릴스만 조회 공개) · 큰 숫자는 우리 인스타') : '최근 끝난 ' + unitW + ' 기준 · 그 전 대비';
       h += '<div class="tr-card"><div class="tr-h">' + head + '<span class="tr-v num">' + trFmtP(s, s.last) + '</span>' +
-        (d == null ? '' : '<span class="tr-d ' + (d >= 0 ? 'up' : 'down') + '">' + (d >= 0 ? '▲' : '▼') + Math.abs(Math.round(d * 100)) + '%</span>') + '</div>' +
+        (d == null ? '' : '<span class="tr-d ' + dCls(d) + '">' + dTxt(d) + '</span>') + '</div>' +
         '<div class="tr-cap">' + cap + '</div>' +
         (s.kind === 'bench' ? '<div class="tr-lg">' + s.series.map(x => '<span><i style="background:' + chColor(x.ch) + '"></i>' + esc(chName(x.ch)) + (x.ch === '인스타그램' ? '(우리)' : '') + (likeHidden(x.ch) && TR.m !== 'posts' ? ' <small>비공개</small>' : '') + '</span>').join('') + '</div>' : '') +
         (empty ? '<div class="tr-chart tr-empty">데이터 없음</div>' : '<div class="tr-chart"><canvas id="trC' + i + '"></canvas></div>') +
@@ -681,7 +685,7 @@
       const multi = s.series.length > 1;
       const ds = s.series.map(x => {
         const col = s.kind === 'all' ? css('--fg') : chColor(x.ch || s.ch);
-        return { label: x.ch ? chName(x.ch) : s.label || chName(s.ch), data: x.data, backgroundColor: s.keys.map(k => k === s.curK ? col + '55' : col), borderRadius: multi ? 2 : 4, maxBarThickness: multi ? 12 : 34, minBarLength: 2, categoryPercentage: multi ? 0.8 : 0.8, barPercentage: multi ? 0.9 : 0.9 };
+        return { label: x.ch ? chName(x.ch) : s.label || chName(s.ch), data: x.data, backgroundColor: s.keys.map(k => k === s.curK ? col + '55' : col), borderRadius: 3, maxBarThickness: multi ? 12 : 34, minBarLength: 2, categoryPercentage: multi ? 0.8 : 0.8, barPercentage: multi ? 0.9 : 0.9 };
       });
       draw('trC' + i, { type: 'bar', data: { labels: s.keys.map(k => trLabel(k, u)), datasets: ds },
         options: chartOpts({ layout: { padding: { top: 8 } }, plugins: { tooltip: { displayColors: multi, callbacks: { title: c => trLabel(s.keys[c[0].dataIndex], u) + (s.keys[c[0].dataIndex] === s.curK ? ' (진행 중)' : ''), label: c => (multi ? c.dataset.label + ' ' : '') + trFmtP(s, c.raw) + ' · 게시 ' + ((s.series[c.datasetIndex].g[s.keys[c.dataIndex]] || []).length) + '개' } } },
@@ -828,7 +832,7 @@
     const canGrowth = weekly() && M.def[2] === 'sum';
     let h = '<section class="sec" id="chartSec"><div class="cs-head"><div><div class="cs-t">' + esc(ttl) + '</div>' +
       '<div class="cs-big num">' + mfmt(M.def, M.big) + '</div>' +
-      '<div class="cs-chg num ' + cls + '">' + (d == null ? '<span style="color:var(--muted);font-weight:600">' + (M.growth ? mdLabel(D.dates[0]) + ' 이후 합계' : '비교할 이전 기간 없음') + '</span>' : (d >= 0 ? '▲ ' : '▼ ') + Math.abs(Math.round(d * 1000) / 10) + '% <span style="color:var(--muted);font-weight:600">이전 같은 기간 대비</span>') + '</div>' +
+      '<div class="cs-chg num ' + cls + '">' + (d == null ? '<span style="color:var(--muted);font-weight:600">' + (M.growth ? mdLabel(D.dates[0]) + ' 이후 합계' : '비교할 이전 기간 없음') + '</span>' : '<span class="' + dCls(d) + '">' + dTxt(d, 1, 1) + '</span> <span style="color:var(--muted);font-weight:600">이전 같은 기간 대비</span>') + '</div>' +
       '<div class="cs-sub">' + esc(sub) + (M.growth ? '' : ' · 점선은 아직 끝나지 않은 구간') + (M.growth ? '' : (n => n ? '<br><span style="color:var(--coral)">⚠ ' + esc(n) + '</span>' : '')(covNote(M.chs, M.from))) + '</div></div>' +
       '<button type="button" class="btn sm" id="csXls">엑셀로 받기</button></div>' +
       '<div class="chips cs-m">' + M.defs.map(df => '<button class="chip" type="button" data-m="' + df[0] + '" aria-pressed="' + (CS.metric === df[0]) + '">' + df[1] + '</button>').join('') + '</div>' +
@@ -915,21 +919,22 @@
     const selI = CS.sel == null ? -1 : M.bk.findIndex(b => b.k === CS.sel);
     const ds = M.series.map(s => {
       const col = s.color || (s.ch ? chColor(s.ch) : main);
-      const o = { label: s.label || (s.ch ? chName(s.ch) + (benchMode() && s.ch === '인스타그램' ? '(우리)' : '') : M.def[1]), data: s.data, borderColor: col, spanGaps: true, order: s.id === 'sum' ? 0 : 1 };
+      const bi = s.ch && isBench(s.ch) ? benchNames().indexOf(s.ch) : s.id === 'bench' ? 0 : -1, dash = bi < 0 ? undefined : [undefined, [6, 3], [2, 2]][bi % 3];
+      const o = { label: s.label || (s.ch ? chName(s.ch) + (benchMode() && s.ch === '인스타그램' ? '(우리)' : '') : M.def[1]), data: s.data, borderColor: col, borderDash: dash, spanGaps: true, order: s.id === 'sum' ? 0 : bi >= 0 ? 2 : 1 };
       if (CS.type === 'bar') Object.assign(o, { backgroundColor: M.split ? col : s.data.map((v, i) => i === selI ? css('--fg') : col), borderRadius: 3, maxBarThickness: 28, stack: M.split && !M.hasSum && M.def[2] !== 'ratio' && M.def[2] !== 'hit' && M.def[2] !== 'med' ? 's' : undefined });
-      else Object.assign(o, { segment: { borderDash: c => !M.growth && c.p1DataIndex === labels.length - 1 ? [4, 4] : undefined }, borderWidth: s.id === 'sum' ? 3 : M.split ? 2 : 2.5, tension: 0.3, pointRadius: labels.length <= 14 ? 3 : 0, pointHoverRadius: 5, pointBackgroundColor: col,
+      else Object.assign(o, { segment: { borderDash: c => !M.growth && c.p1DataIndex === labels.length - 1 ? [4, 4] : dash }, borderWidth: s.id === 'sum' ? 3 : bi >= 0 ? 1.5 : 2, cubicInterpolationMode: 'monotone', pointRadius: labels.length <= 14 ? 3 : 0, pointHoverRadius: 5, pointBackgroundColor: col,
         fill: !M.split, backgroundColor: ctx => { const ch = ctx.chart; if (!ch.chartArea) return 'transparent'; const g = ch.ctx.createLinearGradient(0, ch.chartArea.top, 0, ch.chartArea.bottom); g.addColorStop(0, col + '40'); g.addColorStop(1, col + '00'); return g; } });
       return o;
     });
     const allV = M.series.length === 1 ? M.series[0].data.filter(v => v != null) : [];
     const avg = allV.length ? mean(allV) : null;
     draw('csCanvas', { type: CS.type === 'bar' ? 'bar' : 'line', data: { labels, datasets: ds },
-      options: chartOpts({ layout: { padding: { top: 12, right: 4 } }, interaction: { mode: 'index', intersect: false },
+      options: chartOpts({ layout: { padding: { top: 12, right: M.split && CS.type !== 'bar' ? 58 : 4 } }, interaction: { mode: 'index', intersect: false },
         onClick: (e, els, ch) => { const pts = ch.getElementsAtEventForMode(e, 'index', { intersect: false }, false); if (!pts.length || M.growth) return; const k = M.bk[pts[0].index].k; CS.sel = CS.sel === k ? null : k; $('csPick').innerHTML = pickHtml(M); if ($('csPickX')) { const b = M.bk.find(x => x.k === CS.sel); $('csPickX').addEventListener('click', () => toExport(b.from, b.to > M.to ? M.to : b.to, 'content', M.chs)); } if ($('csList')) wireRank($('csList'), uniq(M.series.flatMap(s => s.arrs[pts[0].index])).sort((x, y) => (mainVal(y) || 0) - (mainVal(x) || 0)).slice(0, 5)); if (CS.type === 'bar') rerenderChart(); },
-        plugins: { legend: { display: M.split && !multiMode(), position: 'bottom' }, tooltip: { displayColors: M.split, callbacks: { title: it => { const b = M.bk[it[0].dataIndex]; return b.from === b.to ? b.from : b.from + ' ~ ' + b.to; }, label: c => (M.split ? c.dataset.label + ' ' : '') + mfmt(M.def, c.raw) + (M.growth ? '/일 · 구간 합계 ' + mfmt(M.def, (M.series[c.datasetIndex].raw || [])[c.dataIndex]) : '') + (!M.growth && M.series[c.datasetIndex].arrs ? ' · 게시 ' + M.series[c.datasetIndex].arrs[c.dataIndex].length + '개' : '') } } },
+        plugins: { legend: { display: M.split && !multiMode() && CS.type === 'bar', position: 'bottom' }, tooltip: { displayColors: M.split, callbacks: { title: it => { const b = M.bk[it[0].dataIndex]; return b.from === b.to ? b.from : b.from + ' ~ ' + b.to; }, label: c => (M.split ? c.dataset.label + ' ' : '') + mfmt(M.def, c.raw) + (M.growth ? '/일 · 구간 합계 ' + mfmt(M.def, (M.series[c.datasetIndex].raw || [])[c.dataIndex]) : '') + (!M.growth && M.series[c.datasetIndex].arrs ? ' · 게시 ' + M.series[c.datasetIndex].arrs[c.dataIndex].length + '개' : '') } } },
         scales: { x: { stacked: CS.type === 'bar' && !!ds[0].stack, ticks: { maxTicksLimit: 7, maxRotation: 0, autoSkip: true, font: { size: 13, weight: '500' }, color: css('--muted') } },
           y: { stacked: CS.type === 'bar' && !!ds[0].stack, display: true, position: 'right', grid: { color: css('--line') }, border: { display: false }, ticks: { maxTicksLimit: 4, font: { size: 13 }, color: css('--muted'), callback: v => M.def[2] === 'ratio' ? v + '배' : M.def[2] === 'hit' ? Math.round(v * 100) + '%' : fmtK(v) }, beginAtZero: true } } }),
-      plugins: avg == null ? [] : [{ id: 'avg', afterDatasetsDraw(c) { const y = c.scales.y.getPixelForValue(avg), a = c.chartArea; if (y < a.top || y > a.bottom) return; const x = c.ctx; x.save(); x.setLineDash([4, 4]); x.strokeStyle = css('--muted'); x.lineWidth = 1; x.beginPath(); x.moveTo(a.left, y); x.lineTo(a.right, y); x.stroke(); x.setLineDash([]); x.font = '600 13px ' + css('--font'); x.fillStyle = css('--muted'); x.textAlign = 'left'; x.fillText('평균 ' + mfmt(M.def, avg), a.left + 4, y - 5); x.restore(); } }] });
+      plugins: (M.split && CS.type !== 'bar' ? [endLabels] : []).concat(avg == null ? [] : [{ id: 'avg', afterDatasetsDraw(c) { const y = c.scales.y.getPixelForValue(avg), a = c.chartArea; if (y < a.top || y > a.bottom) return; const x = c.ctx; x.save(); x.setLineDash([4, 4]); x.strokeStyle = css('--muted'); x.lineWidth = 1; x.beginPath(); x.moveTo(a.left, y); x.lineTo(a.right, y); x.stroke(); x.setLineDash([]); x.font = '600 13px ' + css('--font'); x.fillStyle = css('--muted'); x.textAlign = 'left'; x.fillText('평균 ' + mfmt(M.def, avg), a.left + 4, y - 5); x.restore(); } }]) });
   }
 
   // ═════════ 2. 콘텐츠 전략 ═════════
@@ -1228,7 +1233,7 @@
     const wd = [1, 2, 3, 4, 5, 6, 0].map(k => { const arr = L.filter(it => new Date(it.d + 'T00:00:00Z').getUTCDay() === k); return { k: WD[k], n: arr.length, idx: median(arr.map(ratio)) }; });
     const best = wd.filter(x => x.n >= MIN_N && x.idx != null).sort((a, b) => b.idx - a.idx)[0];
     $('wdNote').textContent = best ? best.k + '요일 게시물이 평소의 ' + best.idx.toFixed(1) + '배로 가장 좋았어요 (' + best.n + '개). 막대 위 숫자는 게시 수예요.' : '게시물이 적어 요일 비교가 어려워요.';
-    draw('wdChart', { type: 'bar', data: { labels: wd.map(x => x.k), datasets: [{ data: wd.map(x => x.idx), backgroundColor: wd.map(x => x.idx == null ? css('--line') : x.idx >= 1 ? css('--up') : css('--down')), borderRadius: 6, maxBarThickness: 36 }] },
+    draw('wdChart', { type: 'bar', data: { labels: wd.map(x => x.k), datasets: [{ data: wd.map(x => x.idx), backgroundColor: wd.map(x => x.idx == null ? css('--line') : x.idx >= 1 ? css('--up') : css('--down')), borderRadius: 3, maxBarThickness: 36 }] },
       options: chartOpts({ scales: { y: { display: false, beginAtZero: true } }, plugins: { tooltip: { callbacks: { label: c => xf(c.raw) + ' · ' + wd[c.dataIndex].n + '개' } } } }),
       plugins: [{ id: 'lb', afterDatasetsDraw(c) { const x = c.ctx; x.save(); x.font = '600 13px ' + css('--font'); x.fillStyle = css('--muted'); x.textAlign = 'center'; c.getDatasetMeta(0).data.forEach((b, i) => x.fillText(wd[i].n + '개', b.x, b.y - 6)); x.restore(); } }] });
     if (own) wireStrat(chs, RX, PLAN);
@@ -1250,7 +1255,7 @@
     const LC = lifeCurve(ownIn(chs));
     if (!LC.length) { $('lifeNote2').textContent = '아직 기록 간격이 짧아 수명 곡선을 그리기 어려워요.'; return; }
     const pal = [css('--ch-ig'), css('--ch-yt'), css('--ch-hong'), css('--ch-b1'), css('--ch-b2'), css('--ch-b3'), css('--jj')];
-    draw('lifeChart2', { type: 'line', data: { labels: LIFE_AGES.map(a => '게시 후 ' + a[1]), datasets: LC.map((r, i) => ({ label: r.k, data: r.med.map(v => v == null ? null : Math.round(v * 100)), borderColor: pal[i % pal.length], backgroundColor: pal[i % pal.length], borderWidth: 2.5, pointRadius: 4, tension: 0.25, spanGaps: true })) },
+    draw('lifeChart2', { type: 'line', data: { labels: LIFE_AGES.map(a => '게시 후 ' + a[1]), datasets: LC.map((r, i) => ({ label: r.k, data: r.med.map(v => v == null ? null : Math.round(v * 100)), borderColor: pal[i % pal.length], backgroundColor: pal[i % pal.length], borderWidth: 2, pointRadius: 3, cubicInterpolationMode: 'monotone', spanGaps: true })) },
       options: chartOpts({ plugins: { legend: { display: true, position: 'bottom' }, tooltip: { displayColors: true, callbacks: { label: c => c.dataset.label + ' ' + c.raw + '% (' + LC[c.datasetIndex].n[c.dataIndex] + '개)' } } }, scales: { y: { display: true, min: 0, max: 100, grid: { color: css('--line') }, ticks: { callback: v => v + '%' } } } }) });
     const at30 = LC.filter(r => r.med[0] != null).sort((a, b) => b.med[0] - a.med[0]);
     $('lifeNote2').textContent = at30.length >= 2 ? at30[0].k + ' — 게시 1달 만에 현재 조회의 ' + pct0(at30[0].med[0]) + '가 나와 초반에 승부가 나요. ' + at30[at30.length - 1].k + ' — 1달 시점에 ' + pct0(at30[at30.length - 1].med[0]) + '로 가장 오래 커요. 빨리 끝나는 형식은 게시 첫 주 홍보(스토리·공유)에, 오래 가는 형식은 검색되는 제목·설명에 힘을 주세요.' : '';
@@ -1405,8 +1410,8 @@
     const ad = weeks.map(x => sum(st.ad.filter(it => wk(it.d) === x).map(it => val(it, 0))));
     const cnt = weeks.map(x => st.org.filter(it => wk(it.d) === x).length);
     draw('seaChart', { type: 'bar', data: { labels: weeks.map(x => (+x.slice(5, 7)) + '/' + (+x.slice(8, 10))), datasets: [
-      { label: '자연 조회', data: org, backgroundColor: css('--jj'), borderRadius: 4, stack: 's' },
-      { label: '광고 조회', data: ad, backgroundColor: css('--coral'), borderRadius: 4, stack: 's' }] },
+      { label: '자연 조회', data: org, backgroundColor: css('--jj'), borderRadius: 3, stack: 's' },
+      { label: '광고 조회', data: ad, backgroundColor: css('--ad'), borderColor: css('--jj'), borderWidth: 1, borderRadius: 3, stack: 's' }] },
       options: chartOpts({ plugins: { legend: { display: true, position: 'bottom' }, tooltip: { displayColors: true, callbacks: { label: c => c.dataset.label + ' ' + fmt(c.raw), afterBody: it => '게시 ' + cnt[it[0].dataIndex] + '개' } } }, scales: { x: { stacked: true, ticks: { font: { size: 13 } } }, y: { stacked: true, display: true, grid: { color: css('--line') }, ticks: { callback: v => fmtK(v) } } } }) });
   }
 
@@ -1494,7 +1499,7 @@
     const months = []; if (ks.length) { let m = ks[0] + '-01'; while (m.slice(0, 7) <= ks[ks.length - 1]) { months.push(m.slice(0, 7)); m = monthStart(m, 1); } }
     const ms = {}, mi = {}; camps.forEach(c => (c.mo && c.mo.length ? c.mo : [[mk(c), c.spend, c.imp]]).forEach(([k, s, i]) => { ms[k] = (ms[k] || 0) + (s || 0); mi[k] = (mi[k] || 0) + (i || 0); }));
     draw('mChart', { type: 'bar', data: { labels: months.map(k => k.slice(2, 4) + '.' + k.slice(5, 7)), datasets: [
-      { type: 'bar', label: '광고비', data: months.map(k => ms[k] || 0), backgroundColor: css('--coral'), borderRadius: 3, yAxisID: 'y', order: 2 },
+      { type: 'bar', label: '광고비', data: months.map(k => ms[k] || 0), backgroundColor: css('--ad'), borderColor: css('--jj'), borderWidth: 1, borderRadius: 3, yAxisID: 'y', order: 2 },
       { type: 'line', label: '노출', data: months.map(k => mi[k] || 0), borderColor: css('--jj'), backgroundColor: css('--jj'), borderWidth: 2, pointRadius: 2, tension: 0.3, yAxisID: 'y2', order: 1 }] },
       options: chartOpts({ interaction: { mode: 'index', intersect: false }, plugins: { legend: { display: true, position: 'bottom' }, tooltip: { displayColors: true, callbacks: { label: c => c.dataset.label + ' ' + (c.datasetIndex === 0 ? usd(c.raw) : fmt(c.raw)) } } },
         scales: { x: { ticks: { maxTicksLimit: 12, maxRotation: 0, autoSkip: true, font: { size: 13 } } }, y: { display: true, position: 'left', grid: { color: css('--line') }, ticks: { callback: v => '$' + fmtK(v), font: { size: 13 } } }, y2: { display: true, position: 'right', grid: { display: false }, beginAtZero: true, ticks: { callback: v => fmtK(v), font: { size: 13 } } } } }) });
@@ -1581,7 +1586,7 @@
     rr.forEach(r => { const k = r[1].slice(0, 7); mc[k] = (mc[k] || 0) + r[2]; mi[k] = (mi[k] || 0) + r[3]; });
     if (!rr.length) (A.daily || []).forEach(x => { const k = x[0].slice(0, 7); mc[k] = (mc[k] || 0) + x[1]; mi[k] = (mi[k] || 0) + x[2]; });
     draw('adChart', { type: 'bar', data: { labels: months.map(k => k.slice(2, 4) + '.' + k.slice(5, 7)), datasets: [
-      { type: 'bar', label: '광고비', data: months.map(k => mc[k] || 0), backgroundColor: css('--coral'), borderRadius: 3, yAxisID: 'y', order: 2 },
+      { type: 'bar', label: '광고비', data: months.map(k => mc[k] || 0), backgroundColor: css('--ad'), borderColor: css('--jj'), borderWidth: 1, borderRadius: 3, yAxisID: 'y', order: 2 },
       { type: 'line', label: '노출', data: months.map(k => mi[k] || 0), borderColor: css('--jj'), backgroundColor: css('--jj'), borderWidth: 2, pointRadius: 0, tension: 0.3, yAxisID: 'y2', order: 1 }] },
       options: chartOpts({ interaction: { mode: 'index', intersect: false }, plugins: { legend: { display: true, position: 'bottom' }, tooltip: { displayColors: true, callbacks: { label: c => c.dataset.label + ' ' + (c.datasetIndex === 0 ? wonF(c.raw) : fmt(c.raw)) } } },
         scales: { x: { ticks: { maxTicksLimit: 12, maxRotation: 0, autoSkip: true, font: { size: 13 } } }, y: { display: true, position: 'left', grid: { color: css('--line') }, ticks: { callback: v => fmtK(v), font: { size: 13 } } }, y2: { display: true, position: 'right', grid: { display: false }, beginAtZero: true, ticks: { callback: v => fmtK(v), font: { size: 13 } } } } }) });
@@ -2158,14 +2163,14 @@
   function drawDetailChart(it) {
     const m = mainM(it.c), col = chColor(it.c);
     if (D.dates.length > 1) {
-      draw('dCanvas', { type: 'line', data: { labels: D.dates.map(mdLabel), datasets: [{ data: D.dates.map((d, i) => it.h[i] ? it.h[i][m] : null), borderColor: col, borderWidth: 2.5, pointRadius: 3, tension: 0.25, spanGaps: true }] }, options: chartOpts({ scales: { y: { beginAtZero: false } } }) });
+      draw('dCanvas', { type: 'line', data: { labels: D.dates.map(mdLabel), datasets: [{ data: D.dates.map((d, i) => it.h[i] ? it.h[i][m] : null), borderColor: col, borderWidth: 2, pointRadius: 0, pointHoverRadius: 4, cubicInterpolationMode: 'monotone', spanGaps: true }] }, options: chartOpts({ scales: { y: { beginAtZero: false } } }) });
       return;
     }
     const base = baseFor(it);
     const g = groupBy(D.items.filter(x => x.c === it.c && !x.ad && x.t !== '스토리'), 'g').find(x => x.k === it.g);
     const rows = [['이 콘텐츠', mainVal(it), col], ['「' + it.g + '」 중앙값', g ? g.v : null, css('--muted')], [base.by === '형식' ? typeShort(it.t) + ' 중앙값' : '채널 중앙값', base.v, css('--line')]];
     draw('dCanvas', {
-      type: 'bar', data: { labels: rows.map(r => r[0]), datasets: [{ data: rows.map(r => r[1]), backgroundColor: rows.map(r => r[2]), borderRadius: 8, maxBarThickness: 64 }] },
+      type: 'bar', data: { labels: rows.map(r => r[0]), datasets: [{ data: rows.map(r => r[1]), backgroundColor: rows.map(r => r[2]), borderRadius: 3, maxBarThickness: 64 }] },
       options: chartOpts({ plugins: { tooltip: { callbacks: { label: c => fmt(c.raw) } } } }),
       plugins: [{ id: 'vl', afterDatasetsDraw(ch) { const x = ch.ctx; x.save(); x.font = '700 14px ' + css('--font'); x.fillStyle = css('--fg'); x.textAlign = 'center'; ch.getDatasetMeta(0).data.forEach((b, i) => x.fillText(fmtK(rows[i][1]), b.x, b.y - 8)); x.restore(); } }],
     });
@@ -2185,6 +2190,14 @@
       scales: { x: { grid: { display: false }, border: { display: false }, ticks: { color: css('--sub'), font: { size: 13, weight: '600' } } }, y: { display: false, beginAtZero: true, border: { display: false } } } };
     return merge(o, extra || {});
   }
+  // 시안: 범례 대신 선 끝에 계열 이름(Datawrapper·Carbon). 겹치면 14px 간격으로 밀어낸다
+  const endLabels = { id: 'endLabels', afterDatasetsDraw(c) {
+    const x = c.ctx, a = c.chartArea, X = (c.scales.y && c.scales.y.position === 'right' ? c.scales.y.right : a.right) + 6, L = [];
+    c.data.datasets.forEach((d, i) => { const m = c.getDatasetMeta(i); if (m.hidden) return; let j = d.data.length - 1; while (j >= 0 && d.data[j] == null) j--; if (j < 0 || !m.data[j]) return; L.push({ y: m.data[j].y, t: d.label, col: d.borderColor }); });
+    L.sort((p, q) => p.y - q.y); for (let i = 1; i < L.length; i++) if (L[i].y - L[i - 1].y < 14) L[i].y = L[i - 1].y + 14;
+    x.save(); x.textAlign = 'left'; x.textBaseline = 'middle';
+    L.forEach(l => { x.font = '700 12px ' + css('--font'); x.fillStyle = typeof l.col === 'string' ? l.col : css('--sub'); x.fillText(l.t.length > 5 ? l.t.slice(0, 5) : l.t, X, Math.min(Math.max(l.y, a.top + 6), a.bottom)); });
+    x.restore(); } };
   function merge(a, b) { Object.keys(b).forEach(k => { if (b[k] && typeof b[k] === 'object' && !Array.isArray(b[k]) && typeof b[k] !== 'function' && a[k] && typeof a[k] === 'object') merge(a[k], b[k]); else a[k] = b[k]; }); return a; }
   // 차트 대체 텍스트: 화면 낭독기용으로 계열·마지막 값 요약을 붙인다
   function chartLabel(cfg) {
