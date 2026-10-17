@@ -3070,7 +3070,7 @@ function ytaComments_(vid, now) {
     const c = YouTube.CommentThreads.list('snippet', { videoId: vid, maxResults: 100, textFormat: 'plainText' });
     (c.items || []).forEach(t => { const s = t.snippet.topLevelComment.snippet;
       out.push([t.id, vid, Utilities.formatDate(new Date(s.publishedAt), TZ, 'yyyy-MM-dd HH:mm'), String(s.textDisplay || '').slice(0, 500), s.likeCount, t.snippet.totalReplyCount, now]); });
-  } catch (e) { if (!/disabled/i.test(String(e.message))) ytaFail_('댓글'); } // 댓글을 끈 영상은 실패로 세지 않음
+  } catch (e) { ytaFail_(/disabled/i.test(String(e.message)) ? '댓글 꺼진 영상' : '댓글(' + String(e.message).slice(0, 60) + ')'); } // 댓글을 끈 영상도 건수로 남김(원인 확인용)
   return out;
 }
 const YTA_TR_HEAD = ['영상 ID', '제목', '게시일', '유입 경로', '조회', '시청 시간(분)', '기록일'];
@@ -3327,18 +3327,18 @@ function backfillExtras() {
     } else { done.ig = 1; parts.push('인스타 건너뜀(IG_API 꺼짐)'); }
   }
   // ④ 유튜브 댓글: 2024-01 이후 모든 영상을 처음부터 한 번 더(예전 방식은 0개로 쌓였음). 진행은 BACKFILL_CM_I(다음 순번)
-  if (!done.cm && left() > 45 * 1000) {
+  if (!done.cm2 && left() > 45 * 1000) {
     const vids = ytaRecent_(1100, today).filter(v => v.date >= YT_PERIOD_START);
-    let i = Number(p.getProperty('BACKFILL_CM_I') || 0);
+    let i = Number(p.getProperty('BACKFILL_CM2_I') || 0); // 2차(원인 확인용으로 처음부터 다시)
     const cm = [];
     for (; i < vids.length && left() > 30 * 1000; i++) Array.prototype.push.apply(cm, ytaComments_(vids[i].id, today));
     if (cm.length) igxUpsert_(ss, '유튜브 댓글', YTA_CM_HEAD, [0], cm);
-    p.setProperty('BACKFILL_CM_I', String(i));
-    if (i >= vids.length) done.cm = 1;
-    parts.push('유튜브 댓글 ' + cm.length + '개' + (done.cm ? '(완료)' : '(영상 ' + (vids.length - i) + '개 남음)'));
+    p.setProperty('BACKFILL_CM2_I', String(i));
+    if (i >= vids.length) done.cm2 = 1;
+    parts.push('유튜브 댓글 ' + cm.length + '개' + (done.cm2 ? '(완료)' : '(영상 ' + (vids.length - i) + '개 남음)'));
   }
   p.setProperty('BACKFILL_DONE', JSON.stringify(done));
-  const all = done.aud && done.vid && done.ig && done.cm;
+  const all = done.aud && done.vid && done.ig && done.cm2;
   logRows_(ss, [[new Date(), '과거 채우기', 0, parts.join(' · ') + ytaFailText_() + ' — ' + Math.round((Date.now() - t0) / 1000) + '초' + (all ? ' · 전부 끝남' : ' · 1분 뒤 자동으로 이어서')]]);
   Logger.log(parts.join(' · ') + (all ? ' · 전부 끝남' : ' · 1분 뒤 자동으로 이어서'));
   // 끝나지 않았으면 1분 뒤 자기 자신을 다시 예약(한 번만 실행하면 끝까지 감). 끝났으면 예약을 지움
