@@ -8,7 +8,7 @@
 /* KPI */
 .kpis { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
 @media (max-width: 760px) { .kpis { grid-template-columns: minmax(0, 1fr); } }
-.kpi { background: var(--tile); border-radius: 18px; padding: 18px 18px 16px; min-width: 0; }
+.kpi { background: var(--tile); border-radius: var(--r-lg); padding: 18px 18px 16px; min-width: 0; }
 .kpi .l { font-size: var(--fs-sm); color: var(--sub); font-weight: 600; }
 .kpi .v { font-size: var(--fs-2xl); font-weight: 700; letter-spacing: -0.02em; margin-top: 4px; font-variant-numeric: tabular-nums; }
 .kpi .s { font-size: var(--fs-sm); color: var(--muted); margin-top: 2px; }
@@ -125,7 +125,7 @@
 .adtg { font: inherit; font-size: var(--fs-sm); font-weight: 700; border: 1px solid var(--line); background: var(--bg); color: var(--sub); border-radius: 10px; padding: 6px 12px 6px 30px; cursor: pointer; position: relative; }
 .adtg::before { content: ""; position: absolute; left: 10px; top: 50%; width: 14px; height: 14px; margin-top: -7px; border-radius: 4px; border: 2px solid var(--muted); box-sizing: border-box; }
 .adtg[aria-pressed="true"] { border-color: var(--coral); color: var(--coral); background: var(--coral-soft); }
-.adtg[aria-pressed="true"]::before { border-color: var(--coral); background: var(--coral); box-shadow: inset 0 0 0 2px var(--coral-soft); }
+.adtg[aria-pressed="true"]::before { border-color: var(--jj); background: var(--jj); box-shadow: inset 0 0 0 2px var(--up-soft); }
 .ctl { align-items: center; }
 
 /* 가로 스크롤 표: 첫 열(제목) 고정 */
@@ -231,7 +231,7 @@ h3 small { font-size: var(--fs-xs); color: var(--muted); font-weight: 600; margi
 /* ① 이번 주 현황 */
 .wk-grid { display: grid; grid-template-columns: minmax(0, 1fr); gap: 12px; }
 .wk-row { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
-.wk-card { background: var(--tile); border-radius: 18px; padding: 18px 18px 16px; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+.wk-card { background: var(--tile); border-radius: var(--r-lg); padding: 18px 18px 16px; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
 .wk-card.wide { grid-column: 1 / -1; display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); column-gap: 28px; align-items: center; }
 .wk-card.wide .wk-h, .wk-card.wide .wk-v, .wk-card.wide .wk-s { grid-column: 1; }
 .wk-card.wide .wk-bar, .wk-card.wide .wk-l, .wk-card.wide .wk-f { grid-column: 2; }
@@ -257,7 +257,7 @@ h3 small { font-size: var(--fs-xs); color: var(--muted); font-weight: 600; margi
 .tr-pu { display: flex; gap: 8px; flex-wrap: wrap; }
 .tr-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
 .tr-grid.one { grid-template-columns: minmax(0, 1fr); }
-.tr-card { border: 1px solid var(--line); border-radius: 18px; padding: 16px 16px 12px; min-width: 0; }
+.tr-card { border: 1px solid var(--line); border-radius: var(--r-lg); padding: 16px 16px 12px; min-width: 0; }
 .tr-h { display: flex; align-items: baseline; gap: 8px; }
 .tr-h .chb { align-self: center; }
 .tr-v { font-size: var(--fs-xl); font-weight: 700; letter-spacing: -0.02em; margin-left: auto; }
@@ -272,7 +272,7 @@ h3 small { font-size: var(--fs-xs); color: var(--muted); font-weight: 600; margi
 .tr-top button:hover { background: var(--line); }
 /* ③ 타 대학 비교 */
 .bc-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
-.bc-b { background: var(--tile); border-radius: 18px; padding: 16px 16px 10px; min-width: 0; }
+.bc-b { background: var(--tile); border-radius: var(--r-lg); padding: 16px 16px 10px; min-width: 0; }
 .bc-b h3 { margin: 0 0 8px; font-size: var(--fs-md); font-weight: 700; color: var(--sub); }
 .bc-r { display: grid; grid-template-columns: 52px minmax(0, 1fr) auto; align-items: center; gap: 8px; padding: 6px 0; }
 .bc-n { display: flex; align-items: center; gap: 4px; }
