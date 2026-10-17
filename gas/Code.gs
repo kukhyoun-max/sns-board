@@ -2123,8 +2123,21 @@ const META_STATUS = '["ACTIVE","PAUSED","ARCHIVED","CAMPAIGN_PAUSED","ADSET_PAUS
 
 function metaConf_() {
   const p = PropertiesService.getScriptProperties();
-  const token = p.getProperty('META_TOKEN'), acct = String(p.getProperty('META_ACCOUNT') || '').replace(/^act_/, '').trim();
-  return token && /^\d+$/.test(acct) ? { token: token, act: 'act_' + acct } : null;
+  // META_ACCOUNT: 광고 계정 ID 하나 또는 쉼표로 여러 개(예전 계정 + 지금 계정)
+  const token = p.getProperty('META_TOKEN');
+  const acts = String(p.getProperty('META_ACCOUNT') || '').split(/[,\s]+/).map(x => x.replace(/^act_/, '').trim()).filter(x => /^\d+$/.test(x)).map(x => 'act_' + x);
+  return token && acts.length ? { token: token, act: acts[0], acts: acts, warn: [] } : null;
+}
+// 모든 광고 계정에서 같은 요청 → 행을 합침. 일부 계정만 실패하면 conf.warn에 남기고 나머지로 진행, 전부 실패하면 오류
+function metaAll_(conf, edge, params) {
+  const out = [], errs = [];
+  conf.acts.forEach(act => {
+    try { Array.prototype.push.apply(out, metaGet_(conf, act + edge, params)); }
+    catch (e) { errs.push(act.slice(-4) + ': ' + e.message); }
+  });
+  if (errs.length === conf.acts.length) throw new Error(errs.join(' / '));
+  errs.forEach(x => { if (conf.warn.indexOf(x) < 0) conf.warn.push(x); });
+  return out;
 }
 // GET + 다음 쪽(paging.next)까지 모음. 오류에는 메타 메시지만 남김(토큰이 섞이지 않게)
 function metaGet_(conf, path, params) {
@@ -2147,7 +2160,7 @@ function metaAct_(r, type) {
 }
 // 일별 캠페인 실적 [from, to] → 「메타 일별」 행
 function metaDailyRows_(conf, from, to) {
-  return metaGet_(conf, conf.act + '/insights', {
+  return metaAll_(conf, '/insights', {
     level: 'campaign', time_increment: 1, limit: 500,
     time_range: JSON.stringify({ since: from, until: to }),
     fields: 'campaign_id,campaign_name,spend,impressions,inline_link_clicks,actions'
@@ -2174,15 +2187,15 @@ function metaMergeDaily_(ss, from, rows) {
 function metaRefreshInfo_(ss, conf) {
   const now = Utilities.formatDate(new Date(), TZ, 'yyyy-MM-dd HH:mm');
   const st = {};
-  metaGet_(conf, conf.act + '/campaigns', { fields: 'name,effective_status,objective', effective_status: META_STATUS, limit: 500 })
+  metaAll_(conf, '/campaigns', { fields: 'name,effective_status,objective', effective_status: META_STATUS, limit: 500 })
     .forEach(c => { st[c.id] = c; });
-  const camp = metaGet_(conf, conf.act + '/insights', {
+  const camp = metaAll_(conf, '/insights', {
     level: 'campaign', date_preset: 'maximum', limit: 500, fields: 'campaign_id,campaign_name,reach,objective,account_currency'
   }).map(r => {
     const c = st[r.campaign_id] || {};
     return [String(r.campaign_id), r.campaign_name, c.effective_status || '', r.objective || c.objective || '', Number(r.reach) || 0, r.account_currency || '', now];
   });
-  const ads = metaGet_(conf, conf.act + '/ads', {
+  const ads = metaAll_(conf, '/ads', {
     fields: 'name,campaign_id,campaign{name},creative{body,instagram_permalink_url}', effective_status: META_STATUS, limit: 200
   }).map(a => [String(a.campaign_id || ''), (a.campaign && a.campaign.name) || '', String(a.id), a.name || '',
     (a.creative && a.creative.body) || '', (a.creative && a.creative.instagram_permalink_url) || '']);
@@ -2231,7 +2244,7 @@ function backfillMeta() {
     }
     const n = metaMergeDaily_(ss, start, rows);
     const r = metaRefreshInfo_(ss, conf);
-    logRows_(ss, [[new Date(), '메타 과거 채우기', n, '정상 — ' + start + '~' + end + (skipped.length ? ' (기간 한도로 건너뜀: ' + skipped.join(', ') + ')' : '') + ' · 캠페인 ' + r.camps + '개 · 소재 ' + r.ads + '개']]);
+    logRows_(ss, [[new Date(), '메타 과거 채우기', n, '정상 — ' + start + '~' + end + (skipped.length ? ' (기간 한도로 건너뜀: ' + skipped.join(', ') + ')' : '') + ' · 캠페인 ' + r.camps + '개 · 소재 ' + r.ads + '개' + (conf.warn.length ? ' · 일부 계정 실패: ' + conf.warn.join(' / ').slice(0, 200) : '')]]);
     dropCache_();
     return n;
   });
