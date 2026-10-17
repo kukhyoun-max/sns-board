@@ -311,6 +311,7 @@ function runSnapshot_() {
         bySrc.push(byCh);
         Array.prototype.push.apply(rows, part);
         logs.push([new Date(), src.channel, total, src.bench ? '정상 (계정 ' + chs.length + '개)' : '정상']);
+        if (src.channel === '유튜브' && YT_API_LOG_) logs.push([new Date(), '유튜브 API', YT_API_LOG_.n, YT_API_LOG_.msg]);
       } catch (e) {
         failed.push({ src: src, msg: e.message });
         logs.push([new Date(), src.channel, 0, '오류: ' + e.message]);
@@ -588,6 +589,7 @@ function readSource_(src, today) {
       if (!prev.type && item.type) prev.type = item.type;
     }
   });
+  if (src.channel === '유튜브' && !src.sheet) ytOverlay_(out, today);
   return out;
 }
 
@@ -2258,4 +2260,139 @@ function loadMetaApi_(ss) {
     return { n: o.n, st: st, res: res == null ? null : Math.round(res), rt: rt, reach: c.reach || null, budget: null, spend: r2(o.spend), cur: c.cur || 'USD',
       end: o.end, from: o.from, imp: o.imp, clk: o.clk, lpv: o.lpv, api: 1, mo: Object.keys(o.mo).sort().map(k => [k, r2(o.mo[k][0]), o.mo[k][1]]) };
   });
+}
+
+// ───────── 유튜브 API: 매일 기록 때 유튜브에서 직접 받음 (Supermetrics 원본 시트는 월요일에만 갱신) ─────────
+// 원본 시트(「유튜브 데이터 수집」)를 읽은 뒤 같은 영상(yt:영상ID)의 값을 API 값으로 덮어쓰고, 시트에 아직 없는 새 영상을 더한다.
+//  · 조회·좋아요·댓글·참여 조회·평균 시청은 유튜브 분석 API, 기간은 YT_PERIOD_START ~ 오늘 — 원본 시트(Supermetrics)와 같은 기준이라 기록이 이어진다
+//  · 제목·게시일·설명·길이는 유튜브 데이터 API
+//  · 켜기: 스크립트 속성 YT_API = on. 끄거나 API가 실패하면 지금처럼 원본 시트 값만 쓴다
+//  · 처음 한 번: 편집기에서 testYouTubeApi 실행(유튜브 읽기 권한 승인 + 원본 시트와 숫자 비교, 시트에는 쓰지 않음)
+const YT_PERIOD_START = '2024-01-01';         // 원본 시트 쿼리의 시작일(이 날 이후 게시 영상은 조회 = 전체 기간 조회)
+const YT_NEW_DAYS = 60;                        // 원본 시트에 없는 영상은 최근 N일 안에 올라온 것만 더함
+let YT_API_ = null, YT_API_LOG_ = null;
+
+function ytOverlay_(out, today) {
+  if (PropertiesService.getScriptProperties().getProperty('YT_API') !== 'on') return;
+  const ch = out['유튜브'] = out['유튜브'] || {};
+  try {
+    const api = YT_API_ || (YT_API_ = fetchYouTube_(Object.keys(ch).filter(k => k.indexOf('yt:') === 0).map(k => k.slice(3)), today));
+    let upd = 0, add = 0;
+    Object.keys(api.videos).forEach(id => {
+      const v = api.videos[id], a = api.stats[id], k = 'yt:' + id, it = ch[k];
+      if (it) {
+        if (!a) return; // 분석 값이 없으면(집계 지연·권한 없음) 원본 시트 값을 그대로 둠
+        it.views = a.views; it.likes = a.likes; it.comments = a.comments;
+        if (a.engaged !== '') it.engaged = a.engaged;
+        if (a.avgSec !== '') it.avgSec = a.avgSec;
+        if (!it.lengthSec && v.lengthSec) { it.lengthSec = v.lengthSec; it.type = lengthBucket_(v.lengthSec); }
+        upd++;
+      } else if (v.date >= shiftDate_(today, -YT_NEW_DAYS) && v.date >= YT_PERIOD_START) {
+        // 새 영상: 분석 값이 아직 없으면(게시 1~2일) 데이터 API의 공개 수치 — 이 기간 영상은 전체 조회 = 기간 조회
+        const s = a || { views: v.views, likes: v.likes, comments: v.comments, engaged: '', avgSec: '' };
+        ch[k] = { date: v.date, title: cut_(v.title.replace(/\s+/g, ' ').trim(), 80), url: 'https://www.youtube.com/watch?v=' + id, full: v.title, desc: v.desc,
+          views: s.views, likes: s.likes, comments: s.comments, shares: '', saves: '', reach: '', engaged: s.engaged, avgSec: s.avgSec,
+          lengthSec: v.lengthSec, type: lengthBucket_(v.lengthSec) };
+        add++;
+      }
+    });
+    YT_API_LOG_ = { n: upd + add, msg: '정상 (갱신 ' + upd + ' · 새 영상 ' + add + (api.note ? ' · ' + api.note : '') + ')' };
+  } catch (e) {
+    YT_API_LOG_ = { n: 0, msg: '오류(원본 시트 값 사용): ' + e.message };
+  }
+}
+
+// 반환: { videos: {id: {date, title, desc, lengthSec, views, likes, comments}}, stats: {id: {views, likes, comments, engaged, avgSec}}, chId, note }
+function fetchYouTube_(seedIds, today) {
+  if (!seedIds.length) throw new Error('원본 시트에 영상이 없어 채널을 찾을 수 없음');
+  // 채널 ID: 원본 시트에 있는 영상들의 채널(브랜드 계정이어도 ID로 찾음)
+  const v0 = YouTube.Videos.list('snippet', { id: seedIds.slice(0, 50).join(',') });
+  if (!v0.items || !v0.items.length) throw new Error('영상 정보를 받지 못함');
+  const cnt = {};
+  v0.items.forEach(x => { cnt[x.snippet.channelId] = (cnt[x.snippet.channelId] || 0) + 1; });
+  const chId = Object.keys(cnt).sort((a, b) => cnt[b] - cnt[a])[0];
+  const uploads = YouTube.Channels.list('contentDetails', { id: chId }).items[0].contentDetails.relatedPlaylists.uploads;
+  const ids = [];
+  let tok = '';
+  do {
+    const r = YouTube.PlaylistItems.list('contentDetails', { playlistId: uploads, maxResults: 50, pageToken: tok });
+    (r.items || []).forEach(x => ids.push(x.contentDetails.videoId));
+    tok = r.nextPageToken || '';
+  } while (tok);
+  const videos = {};
+  for (let i = 0; i < ids.length; i += 50) {
+    const r = YouTube.Videos.list('snippet,statistics,contentDetails', { id: ids.slice(i, i + 50).join(','), maxResults: 50 });
+    (r.items || []).forEach(x => {
+      const st = x.statistics || {};
+      videos[x.id] = {
+        date: Utilities.formatDate(new Date(x.snippet.publishedAt), TZ, 'yyyy-MM-dd'),
+        title: String(x.snippet.title || ''), desc: String(x.snippet.description || ''),
+        lengthSec: isoDur_(x.contentDetails && x.contentDetails.duration),
+        views: Number(st.viewCount) || 0, likes: Number(st.likeCount) || 0, comments: Number(st.commentCount) || 0,
+      };
+    });
+  }
+  // 분석 API: 원본 시트와 같은 기간 값. 채널 관리 권한이 없으면 실패 → 기존 영상은 원본 시트 값 유지
+  const stats = {};
+  let note = '';
+  const want = Object.keys(videos).filter(id => videos[id].date >= YT_PERIOD_START || seedIds.indexOf(id) >= 0);
+  let metrics = 'views,likes,comments,engagedViews,averageViewDuration';
+  try {
+    for (let i = 0; i < want.length; i += 200) {
+      const q = m => YouTubeAnalytics.Reports.query({ ids: 'channel==' + chId, startDate: YT_PERIOD_START, endDate: today, metrics: m, dimensions: 'video', filters: 'video==' + want.slice(i, i + 200).join(','), maxResults: 200 });
+      let r;
+      try { r = q(metrics); }
+      catch (e) {
+        if (metrics.indexOf('engagedViews') < 0) throw e;
+        metrics = 'views,likes,comments,averageViewDuration'; note = '참여 조회 지표 없음';
+        r = q(metrics);
+      }
+      const head = (r.columnHeaders || []).map(h => h.name);
+      const at = n => head.indexOf(n);
+      (r.rows || []).forEach(row => {
+        stats[row[at('video')]] = {
+          views: row[at('views')], likes: row[at('likes')], comments: row[at('comments')],
+          engaged: at('engagedViews') >= 0 ? row[at('engagedViews')] : '',
+          avgSec: at('averageViewDuration') >= 0 ? row[at('averageViewDuration')] : '',
+        };
+      });
+    }
+  } catch (e) {
+    note = '분석 API 실패(채널 권한 확인): ' + String(e.message).slice(0, 80);
+  }
+  return { videos: videos, stats: stats, chId: chId, note: note };
+}
+
+// ISO 8601 길이(PT1H2M3S) → 초
+function isoDur_(s) {
+  const m = String(s || '').match(/^P(?:(\d+)D)?T?(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?$/);
+  if (!m) return '';
+  return Number(m[1] || 0) * 86400 + Number(m[2] || 0) * 3600 + Number(m[3] || 0) * 60 + Number(m[4] || 0);
+}
+
+// 편집기에서 실행: 권한 승인 + 원본 시트 값과 API 값 비교 (시트에 쓰지 않음, 결과는 실행 로그에 출력)
+function testYouTubeApi() {
+  const today = Utilities.formatDate(new Date(), TZ, 'yyyy-MM-dd');
+  const props = PropertiesService.getScriptProperties();
+  const was = props.getProperty('YT_API');
+  props.deleteProperty('YT_API'); // 원본 시트 값만 읽기
+  let sheet;
+  try { sheet = readSource_(SOURCES.filter(s => s.channel === '유튜브')[0], today)['유튜브'] || {}; }
+  finally { if (was) props.setProperty('YT_API', was); }
+  const ids = Object.keys(sheet).filter(k => k.indexOf('yt:') === 0).map(k => k.slice(3));
+  const api = fetchYouTube_(ids, today);
+  const ratios = [];
+  let miss = 0;
+  ids.forEach(id => {
+    const a = api.stats[id], s = sheet['yt:' + id];
+    if (!a) { miss++; return; }
+    if (s.views > 100) ratios.push(a.views / s.views);
+  });
+  ratios.sort((a, b) => a - b);
+  const q = p => ratios.length ? ratios[Math.floor((ratios.length - 1) * p)].toFixed(3) : '-';
+  const fresh = Object.keys(api.videos).filter(id => !sheet['yt:' + id] && api.videos[id].date >= shiftDate_(today, -YT_NEW_DAYS));
+  Logger.log('채널 영상 %s개 · 원본 시트 %s개 · 분석 값 있음 %s개 · 분석 값 없음 %s개', Object.keys(api.videos).length, ids.length, Object.keys(api.stats).length, miss);
+  Logger.log('조회 API÷시트 비율(조회 100 초과 %s개): 하위10%% %s · 중앙 %s · 상위10%% %s — 1.000 근처(조금 큼)면 같은 기준', ratios.length, q(0.1), q(0.5), q(0.9));
+  Logger.log('시트에 없는 최근 %s일 새 영상 %s개: %s', YT_NEW_DAYS, fresh.length, fresh.map(id => api.videos[id].date + ' ' + api.videos[id].title.slice(0, 20)).join(' / '));
+  if (api.note) Logger.log('참고: %s', api.note);
 }
