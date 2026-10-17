@@ -2099,7 +2099,7 @@ details.adv[open] > summary { border-bottom: 1px solid var(--line); }
     $('view').querySelectorAll('[data-pf]').forEach(b => b.addEventListener('click', () => { if (S.adPf === b.dataset.pf) return; S.adPf = b.dataset.pf; S.adYear = 'all'; S.adOpen = null; viewAds(); window.scrollTo({ top: 0 }); }));
   }
   const usd = v => v == null || isNaN(v) ? '–' : '$' + (Math.abs(v) >= 100 ? fmt(Math.round(v)) : (+v).toFixed(2));
-  const META_RT = { link_click: '링크 클릭', visit_instagram_profile: '프로필 방문', video_view: '영상 조회', landing_page_view: '랜딩 페이지 조회', reach: '도달' };
+  const META_RT = { post_engagement: '게시물 참여', link_click: '링크 클릭', visit_instagram_profile: '프로필 방문', video_view: '영상 조회', landing_page_view: '랜딩 페이지 조회', reach: '도달' };
   function viewMeta(seg) {
     const M = D.ads.meta;
     const yr = c => /^\d{4}/.test(c.end) ? c.end.slice(0, 4) : D.updated.slice(0, 4);
@@ -2112,7 +2112,9 @@ details.adv[open] > summary { border-bottom: 1px solid var(--line); }
     const ends = M.map(c => c.end).filter(e => /^\d{4}/.test(e)).sort();
     const yChips = '<div class="chips">' + ['all'].concat(years).map(y => '<button class="chip" type="button" data-y="' + y + '" aria-pressed="' + (S.adYear === y) + '">' + (y === 'all' ? '전체' : y + '년') + '</button>').join('') + '</div>';
     let html = seg + '<section class="sec"><div class="sh"><div><h2>광고 성과</h2><p>메타 광고 관리자 캠페인 보고서 · 캠페인 종료일 ' + dot(ends[0]) + ' ~ ' + dot(ends[ends.length - 1]) + (M.some(c => !/^\d{4}/.test(c.end)) ? ' · 진행 중 포함' : '') + ' · 금액은 달러(USD) 기준이에요</p></div></div>' +
-      '<div class="callout">보고서는 캠페인별 <b>전체 기간 합계</b>라서 월별 추이는 <b>종료월</b> 기준으로 묶었어요.<small>새 보고서는 광고 관리자에서 같은 형식으로 내보내 스냅샷 시트 「메타 광고」 탭에 붙여넣으면 다음 갱신 때 반영돼요.</small></div>' +
+      (M.some(c => c.api)
+        ? '<div class="callout">메타 광고 API로 <b>매일 자동</b>으로 받아요(어제까지). 월별 추이는 <b>실제로 집행한 달</b>에 나눠 넣었어요' + (M.some(c => !c.api) ? ' · API 이전 캠페인은 종료월 기준이에요' : '') + '.<small>도달은 캠페인 전체 기간 값이에요. 날짜별 도달은 같은 사람이 겹쳐서 더할 수 없어요.</small></div>'
+        : '<div class="callout">보고서는 캠페인별 <b>전체 기간 합계</b>라서 월별 추이는 <b>종료월</b> 기준으로 묶었어요.<small>새 보고서는 광고 관리자에서 같은 형식으로 내보내 스냅샷 시트 「메타 광고」 탭에 붙여넣으면 다음 갱신 때 반영돼요.</small></div>') +
       yChips +
       '<div class="kpis k6">' +
         '<div class="kpi"><div class="l">광고비</div><div class="v">' + usd(T.spend) + '</div><div class="s">집행 캠페인 ' + paid.length + '개</div></div>' +
@@ -2120,7 +2122,7 @@ details.adv[open] > summary { border-bottom: 1px solid var(--line); }
         '<div class="kpi"><div class="l">도달 (캠페인 합)</div><div class="v">' + fmtK(T.reach) + '</div><div class="s">캠페인끼리 겹치는 사람도 따로 셌어요</div></div>' +
         '<div class="kpi"><div class="l">링크 클릭</div><div class="v">' + fmtK(T.clk) + '</div><div class="s">클릭률 <b>' + pct(T.imp ? T.clk / T.imp : null) + '</b> · 클릭당 <b>' + usd(T.clk ? T.spend / T.clk : null) + '</b></div></div>' +
       '</div></section>';
-    html += secOpen('월별 집행', '종료월 기준 · 막대는 광고비, 선은 노출이에요') + '<div class="chart tall"><canvas id="mChart"></canvas></div>' + secClose;
+    html += secOpen('월별 집행', (M.some(c => c.api) ? '집행한 달 기준' : '종료월 기준') + ' · 막대는 광고비, 선은 노출이에요') + '<div class="chart tall"><canvas id="mChart"></canvas></div>' + secClose;
     const sk = S.mSort || 'spend';
     const rows = camps.map(c => ({ c, ctr: c.imp ? (c.clk || 0) / c.imp : null, cpc: c.clk ? c.spend / c.clk : null, views: sum((c.posts || []).map(it => val(it, 0))) }));
     const key = { spend: r => r.c.spend || 0, imp: r => r.c.imp || 0, reach: r => r.c.reach || 0, clk: r => r.c.clk || 0, ctr: r => r.ctr || 0, cpc: r => -(r.cpc || 1e12), end: r => r.c.end }[sk];
@@ -2142,9 +2144,10 @@ details.adv[open] > summary { border-bottom: 1px solid var(--line); }
     $('view').querySelectorAll('#mTbl tr[data-mi]').forEach(tr => tr.addEventListener('click', () => { const n = rows[+tr.dataset.mi].c.n; S.adOpen = S.adOpen === n ? null : n; viewAds(); }));
     if (S.adOpen && $('mPosts')) { const r = rows.find(x => x.c.n === S.adOpen); if (r) wireRank($('mPosts'), r.c.posts); }
     const mk = c => /^\d{4}-\d{2}/.test(c.end) ? c.end.slice(0, 7) : D.updated.slice(0, 7);
-    const ks = camps.map(mk).sort();
+    // API 캠페인은 mo(월별 [YYYY-MM, 지출, 노출])로 실제 집행한 달에, 수동 보고서 캠페인은 종료월에
+    const ks = camps.flatMap(c => c.mo && c.mo.length ? c.mo.map(x => x[0]) : [mk(c)]).sort();
     const months = []; if (ks.length) { let m = ks[0] + '-01'; while (m.slice(0, 7) <= ks[ks.length - 1]) { months.push(m.slice(0, 7)); m = monthStart(m, 1); } }
-    const ms = {}, mi = {}; camps.forEach(c => { const k = mk(c); ms[k] = (ms[k] || 0) + (c.spend || 0); mi[k] = (mi[k] || 0) + (c.imp || 0); });
+    const ms = {}, mi = {}; camps.forEach(c => (c.mo && c.mo.length ? c.mo : [[mk(c), c.spend, c.imp]]).forEach(([k, s, i]) => { ms[k] = (ms[k] || 0) + (s || 0); mi[k] = (mi[k] || 0) + (i || 0); }));
     draw('mChart', { type: 'bar', data: { labels: months.map(k => k.slice(2, 4) + '.' + k.slice(5, 7)), datasets: [
       { type: 'bar', label: '광고비', data: months.map(k => ms[k] || 0), backgroundColor: css('--coral'), borderRadius: 3, yAxisID: 'y', order: 2 },
       { type: 'line', label: '노출', data: months.map(k => mi[k] || 0), borderColor: css('--jj'), backgroundColor: css('--jj'), borderWidth: 2, pointRadius: 2, tension: 0.3, yAxisID: 'y2', order: 1 }] },
@@ -2897,6 +2900,7 @@ details.adv[open] > summary { border-bottom: 1px solid var(--line); }
     // 서버가 기록 때 계산한 원본 갱신 정보(fresh: {채널: {changed, total, latest, prev, d}})가 있으면 그것을 우선
     if (D.fresh && typeof D.fresh === 'object') Object.entries(D.fresh).forEach(([c, f]) => {
       if (!f || f.total == null) return;
+      if (f.prev && D.dates.indexOf(f.prev) < 0) return; // 비교 상대가 지워진 임시 기록(화~일)이면 남아 있는 직전 기록과 직접 비교한 결과를 씀
       if (f.total >= 5 && !f.changed) D.stale[c] = { n: f.total, d0: f.prev || D.dates[ni - 1], d1: f.d || D.dates[ni] };
       else delete D.stale[c];
     });
