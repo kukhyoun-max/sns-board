@@ -194,6 +194,7 @@ function onOpen() {
     .addItem('게시 후 조회 다시 채우기(스냅샷 기록으로)', 'backfillAgeViews')
     .addItem('일별 합계 다시 채우기(스냅샷 기록으로)', 'backfillDailyTotals')
     .addItem('대시보드 데이터 새로 고침(캐시 비우기)', 'clearDashboardCache')
+    .addItem('메타 광고 과거 채우기(API, 처음 한 번)', 'backfillMeta')
     .addSeparator()
     .addItem('최초 설정(탭·트리거)', 'setup')
     .addToUi();
@@ -404,10 +405,13 @@ function loadFresh_() {
 }
 
 // ───────── 기록 뒤 단계 (시간 초과 시 다음 실행에서 이어 받음) ─────────
-const SNAP_STEPS = ['acct', 'tags', 'daily', 'age', 'build', 'cache'];
+const SNAP_STEPS = ['acct', 'meta', 'tags', 'daily', 'age', 'build', 'cache'];
 const STEP_FN = {
   acct: x => {
     try { accountSnapshot_(x.ss, x.today, x.logs); } catch (e) { x.logs.push([new Date(), '계정 지표', 0, '오류: ' + e.message]); }
+  },
+  meta: x => {
+    try { metaStep_(x.ss, x.today, x.logs); } catch (e) { x.logs.push([new Date(), '메타 광고 API', 0, '오류: ' + e.message]); }
   },
   tags: x => {
     try { const b = stepBySrc_(x, true); saveTags_(x.ss, b, x.today); x.logs.push([new Date(), '태그', b.length, '정상']); }
@@ -1680,6 +1684,21 @@ function loadAdLinks_(ss) {
       });
     }
   } catch (e) {}
+  // API로 받은 「메타 소재」(캠페인 ID·이름·광고 ID·광고 이름·본문·게시물 링크) — 종료일은 「메타 일별」의 캠페인 마지막 날
+  try {
+    const sh = ss.getSheetByName(META_CR_SHEET);
+    if (sh && sh.getLastRow() > 1) {
+      const last = {};
+      const ds = ss.getSheetByName(META_DAILY_SHEET);
+      if (ds && ds.getLastRow() > 1) ds.getRange(2, 1, ds.getLastRow() - 1, 2).getValues().forEach(r => {
+        const d = fmtDate_(r[0]), id = String(r[1]); if (!last[id] || d > last[id]) last[id] = d;
+      });
+      sh.getRange(2, 1, sh.getLastRow() - 1, META_CR_HEAD.length).getValues().forEach(r => {
+        const c = s_(r[1]); if (!c || !last[String(r[0])]) return; // 한 번도 노출되지 않은 캠페인의 광고는 빼고
+        out.m.push({ c: c, ad: s_(r[3]), body: s_(r[4]), link: s_(r[5]), end: last[String(r[0])] || '' });
+      });
+    }
+  } catch (e) {}
   return out;
 }
 // 머리글 행을 찾아(안내 줄·보고서 제목 줄 건너뜀) 일·캠페인·노출·비용·클릭 열 위치를 돌려준다
@@ -2007,7 +2026,10 @@ function loadAdExtra_(ss) {
 }
 function loadMeta_(ss) {
   // 메타 탭은 내보내기 전체를 통째로 바꿔 붙이는 방식(같은 이름의 서로 다른 캠페인이 있어 중복 제거는 하지 않음)
-  const out = loadMetaTab_(ss);
+  // API로 받은 캠페인(「메타 일별」)이 있으면 그것을 쓰고, 수동 탭에서는 같은 이름·겹치는 기간의 캠페인을 뺌(API 이전 과거분만 남음)
+  let api = [];
+  try { api = loadMetaApi_(ss); } catch (e) {}
+  const out = loadMetaTab_(ss).filter(c => !api.some(a => a.n === c.n && (!c.end || a.from <= c.end) && (!c.from || a.end >= c.from))).concat(api);
   // 「광고 추가 입력」의 메타 캠페인 합계 — 같은 이름의 캠페인이 그 기간에 메타 탭에 있으면 건너뜀
   loadAdExtra_(ss).filter(x => x.pf === '메타').forEach(x => {
     if (out.some(c => c.n === x.n && (!c.end || c.end >= x.from))) return;
@@ -2074,4 +2096,166 @@ function loadGoals_(ss) {
       .filter(r => s_(r[1]) && s_(r[2]) && r[3] !== '' && !isNaN(Number(String(r[3]).replace(/[,%]/g, ''))))
       .map(r => ({ ym: s_(r[0]).slice(0, 7), ch: s_(r[1]), metric: s_(r[2]), target: Number(String(r[3]).replace(/[,%]/g, '')), memo: s_(r[4]) }));
   } catch (e) { return []; }
+}
+
+// ───────── 메타 광고 API: 매일 기록 때 광고 관리자 데이터를 직접 받음 (02_광고/2026-10-17_광고데이터_자동화_설계안.md 3장) ─────────
+// 스크립트 속성(프로젝트 설정 → 스크립트 속성)에만 둠 — 코드·저장소·로그에 값을 쓰지 않음
+//  · META_TOKEN   : 비즈니스 설정 → 시스템 사용자 토큰(ads_read 권한만, 만료 없음)
+//  · META_ACCOUNT : 광고 계정 ID(숫자만 또는 act_숫자)
+// 쓰는 탭(스크립트가 채움, 손으로 고치지 않음)
+//  · 「메타 일별」  : 날짜 × 캠페인 지출·노출·링크 클릭·랜딩 페이지 조회 (매일 최근 META_DAYS일만 다시 씀)
+//  · 「메타 캠페인」: 캠페인별 상태·목표·전체 기간 도달(도달은 날짜별 값을 더하면 안 돼서 기간 단위로 따로 받음)
+//  · 「메타 소재」  : 광고별 인스타 게시물 링크·본문 → 인스타 게시물에 광고 「확인」 표시
+// 처음 한 번: 편집기에서 backfillMeta 실행(외부 요청 권한 승인 + 36개월치 일별 채우기). 그 뒤는 매일 08:00 기록의 meta 단계.
+// 토큰이 없으면 meta 단계는 건너뛰고 지금처럼 「메타 광고」 수동 탭·「광고 추가 입력」만 써요.
+const META_API = 'https://graph.facebook.com/v24.0/';   // 그래프 API 버전 — 지원 종료(약 2년) 전에 올림
+const META_DAILY_SHEET = '메타 일별', META_CAMP_SHEET = '메타 캠페인', META_CR_SHEET = '메타 소재';
+const META_DAILY_HEAD = ['날짜', '캠페인 ID', '캠페인 이름', '지출', '노출', '링크 클릭', '랜딩 페이지 조회', '게시물 참여', '영상 조회'];
+const META_CAMP_HEAD = ['캠페인 ID', '캠페인 이름', '상태', '목표', '도달(전체 기간)', '통화', '받은 시각'];
+const META_CR_HEAD = ['캠페인 ID', '캠페인 이름', '광고 ID', '광고 이름', '본문', '인스타그램 게시물 링크'];
+const META_DAYS = 37;        // 매일 다시 받는 기간(늦게 잡히는 지출·전환 보정 포함)
+const META_MONTHS = 36;      // 처음 채울 때 거슬러 올라가는 개월 수(메타 보관 한도 37개월 안쪽)
+const META_STATUS = '["ACTIVE","PAUSED","ARCHIVED","CAMPAIGN_PAUSED","ADSET_PAUSED","IN_PROCESS","WITH_ISSUES"]';
+
+function metaConf_() {
+  const p = PropertiesService.getScriptProperties();
+  const token = p.getProperty('META_TOKEN'), acct = String(p.getProperty('META_ACCOUNT') || '').replace(/^act_/, '').trim();
+  return token && /^\d+$/.test(acct) ? { token: token, act: 'act_' + acct } : null;
+}
+// GET + 다음 쪽(paging.next)까지 모음. 오류에는 메타 메시지만 남김(토큰이 섞이지 않게)
+function metaGet_(conf, path, params) {
+  const q = Object.keys(params).map(k => k + '=' + encodeURIComponent(params[k])).join('&');
+  let url = META_API + path + '?' + q + '&access_token=' + encodeURIComponent(conf.token);
+  const out = [];
+  for (let page = 0; url && page < 200; page++) {
+    const res = UrlFetchApp.fetch(url, { muteHttpExceptions: true });
+    let j;
+    try { j = JSON.parse(res.getContentText()); } catch (e) { throw new Error('메타 응답을 읽지 못함(HTTP ' + res.getResponseCode() + ')'); }
+    if (j.error) throw new Error((j.error.code === 190 ? '토큰 만료·무효 — ' : '') + 'code ' + j.error.code + ': ' + String(j.error.message || '').replace(/access_token=[^&\s]+/g, 'access_token=…'));
+    Array.prototype.push.apply(out, j.data || []);
+    url = j.paging && j.paging.next || '';
+  }
+  return out;
+}
+function metaAct_(r, type) {
+  const a = (r.actions || []).filter(x => x.action_type === type)[0];
+  return a ? Number(a.value) || 0 : 0;
+}
+// 일별 캠페인 실적 [from, to] → 「메타 일별」 행
+function metaDailyRows_(conf, from, to) {
+  return metaGet_(conf, conf.act + '/insights', {
+    level: 'campaign', time_increment: 1, limit: 500,
+    time_range: JSON.stringify({ since: from, until: to }),
+    fields: 'campaign_id,campaign_name,spend,impressions,inline_link_clicks,actions'
+  }).filter(r => Number(r.spend) || Number(r.impressions))
+    .map(r => [r.date_start, String(r.campaign_id), r.campaign_name, Number(r.spend) || 0, Number(r.impressions) || 0,
+      Number(r.inline_link_clicks) || 0, metaAct_(r, 'landing_page_view'), metaAct_(r, 'post_engagement'), metaAct_(r, 'video_view')]);
+}
+// 「메타 일별」에서 from 이후 행만 새 값으로 바꿔 씀(그 이전 행은 그대로)
+function metaMergeDaily_(ss, from, rows) {
+  const sh = ss.getSheetByName(META_DAILY_SHEET) || ss.insertSheet(META_DAILY_SHEET);
+  const old = sh.getLastRow() > 1 ? sh.getRange(2, 1, sh.getLastRow() - 1, META_DAILY_HEAD.length).getValues() : [];
+  const keep = old.map(r => [fmtDate_(r[0]), String(r[1]), String(r[2])].concat(r.slice(3))).filter(r => /^\d{4}-\d{2}-\d{2}$/.test(r[0]) && r[0] < from);
+  const all = keep.concat(rows).sort((a, b) => a[0] < b[0] ? -1 : a[0] > b[0] ? 1 : a[2] < b[2] ? -1 : 1);
+  sh.clearContents();
+  sh.getRange(1, 1, 1, META_DAILY_HEAD.length).setValues([META_DAILY_HEAD]).setFontWeight('bold');
+  if (all.length) {
+    sh.getRange(2, 1, all.length, 3).setNumberFormat('@'); // 날짜·ID가 숫자·날짜로 바뀌지 않게
+    sh.getRange(2, 1, all.length, META_DAILY_HEAD.length).setValues(all);
+  }
+  sh.setFrozenRows(1);
+  return all.length;
+}
+// 캠페인 상태·목표·전체 기간 도달과 광고 소재 → 두 탭을 통째로 다시 씀
+function metaRefreshInfo_(ss, conf) {
+  const now = Utilities.formatDate(new Date(), TZ, 'yyyy-MM-dd HH:mm');
+  const st = {};
+  metaGet_(conf, conf.act + '/campaigns', { fields: 'name,effective_status,objective', effective_status: META_STATUS, limit: 500 })
+    .forEach(c => { st[c.id] = c; });
+  const camp = metaGet_(conf, conf.act + '/insights', {
+    level: 'campaign', date_preset: 'maximum', limit: 500, fields: 'campaign_id,campaign_name,reach,objective,account_currency'
+  }).map(r => {
+    const c = st[r.campaign_id] || {};
+    return [String(r.campaign_id), r.campaign_name, c.effective_status || '', r.objective || c.objective || '', Number(r.reach) || 0, r.account_currency || '', now];
+  });
+  const ads = metaGet_(conf, conf.act + '/ads', {
+    fields: 'name,campaign_id,campaign{name},creative{body,instagram_permalink_url}', effective_status: META_STATUS, limit: 200
+  }).map(a => [String(a.campaign_id || ''), (a.campaign && a.campaign.name) || '', String(a.id), a.name || '',
+    (a.creative && a.creative.body) || '', (a.creative && a.creative.instagram_permalink_url) || '']);
+  [[META_CAMP_SHEET, META_CAMP_HEAD, camp], [META_CR_SHEET, META_CR_HEAD, ads]].forEach(([name, head, rows]) => {
+    const sh = ss.getSheetByName(name) || ss.insertSheet(name);
+    sh.clearContents();
+    sh.getRange(1, 1, 1, head.length).setValues([head]).setFontWeight('bold');
+    if (rows.length) {
+      sh.getRange(2, 1, rows.length, head.length).setNumberFormat('@');
+      sh.getRange(2, 1, rows.length, head.length).setValues(rows.map(r => r.map(String)));
+    }
+    sh.setFrozenRows(1);
+  });
+  return { camps: camp.length, ads: ads.length };
+}
+// 매일 기록 단계: 최근 META_DAYS일 일별 + 캠페인·소재 갱신
+function metaStep_(ss, today, logs) {
+  const conf = metaConf_();
+  if (!conf) { logs.push([new Date(), '메타 광고 API', 0, '건너뜀: 스크립트 속성 META_TOKEN·META_ACCOUNT 없음']); return; }
+  const ds = ss.getSheetByName(META_DAILY_SHEET);
+  if (!ds || ds.getLastRow() < 2) logs.push([new Date(), '메타 광고 API', 0, '경고: 「' + META_DAILY_SHEET + '」 탭이 비어 있음 — 편집기에서 backfillMeta를 한 번 실행하세요']);
+  const to = shiftDate_(today, -1), from = shiftDate_(today, -META_DAYS);
+  const rows = metaDailyRows_(conf, from, to);
+  const n = metaMergeDaily_(ss, from, rows);
+  const r = metaRefreshInfo_(ss, conf);
+  logs.push([new Date(), '메타 광고 API', rows.length, '정상 — ' + from + '~' + to + ' 일별 ' + rows.length + '행(탭 전체 ' + n + '행) · 캠페인 ' + r.camps + '개 · 소재 ' + r.ads + '개']);
+}
+// 처음 한 번(편집기에서 실행): META_MONTHS개월 전 1일부터 어제까지 한 달씩 받아 「메타 일별」을 새로 채움
+function backfillMeta() {
+  return withLock_('메타 과거 채우기', () => {
+    const ss = SpreadsheetApp.getActive() || SpreadsheetApp.openById(SS_ID);
+    const conf = metaConf_();
+    if (!conf) throw new Error('스크립트 속성 META_TOKEN·META_ACCOUNT를 먼저 넣으세요');
+    const today = Utilities.formatDate(new Date(), TZ, 'yyyy-MM-dd'), end = shiftDate_(today, -1);
+    const ym = (y, m) => { const d = new Date(Date.UTC(y, m, 1)); return d.toISOString().slice(0, 10); };
+    const Y = Number(today.slice(0, 4)), Mo = Number(today.slice(5, 7)) - 1;
+    const start = ym(Y, Mo - META_MONTHS), rows = [];
+    for (let i = META_MONTHS; i >= 0; i--) {
+      const a = ym(Y, Mo - i), b0 = shiftDate_(ym(Y, Mo - i + 1), -1), b = b0 < end ? b0 : end;
+      if (a > end) break;
+      Array.prototype.push.apply(rows, metaDailyRows_(conf, a, b));
+    }
+    const n = metaMergeDaily_(ss, start, rows);
+    const r = metaRefreshInfo_(ss, conf);
+    logRows_(ss, [[new Date(), '메타 과거 채우기', n, '정상 — ' + start + '~' + end + ' · 캠페인 ' + r.camps + '개 · 소재 ' + r.ads + '개']]);
+    dropCache_();
+    return n;
+  });
+}
+// 대시보드용: 「메타 일별」 + 「메타 캠페인」 → loadMetaTab_와 같은 모양의 캠페인 목록 (+ api: 1, mo: 월별 [YYYY-MM, 지출, 노출])
+function loadMetaApi_(ss) {
+  const ds = ss.getSheetByName(META_DAILY_SHEET), cs = ss.getSheetByName(META_CAMP_SHEET);
+  if (!ds || ds.getLastRow() < 2) return [];
+  const info = {};
+  if (cs && cs.getLastRow() > 1) cs.getRange(2, 1, cs.getLastRow() - 1, META_CAMP_HEAD.length).getValues()
+    .forEach(r => { info[String(r[0])] = { st: String(r[2]), obj: String(r[3]), reach: Number(r[4]) || null, cur: String(r[5] || '') }; });
+  const by = {};
+  ds.getRange(2, 1, ds.getLastRow() - 1, META_DAILY_HEAD.length).getValues().forEach(r => {
+    const d = fmtDate_(r[0]), id = String(r[1]);
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(d) || !id) return;
+    const o = by[id] = by[id] || { n: String(r[2]), from: d, end: d, spend: 0, imp: 0, clk: 0, lpv: 0, eng: 0, vv: 0, mo: {} };
+    if (d < o.from) o.from = d;
+    if (d >= o.end) { o.end = d; o.n = String(r[2]); } // 이름을 바꾼 캠페인은 마지막 이름
+    o.spend += Number(r[3]) || 0; o.imp += Number(r[4]) || 0; o.clk += Number(r[5]) || 0;
+    o.lpv += Number(r[6]) || 0; o.eng += Number(r[7]) || 0; o.vv += Number(r[8]) || 0;
+    const x = o.mo[d.slice(0, 7)] = o.mo[d.slice(0, 7)] || [0, 0]; x[0] += Number(r[3]) || 0; x[1] += Number(r[4]) || 0;
+  });
+  const recent = shiftDate_(Utilities.formatDate(new Date(), TZ, 'yyyy-MM-dd'), -3);
+  const r2 = v => Math.round(v * 100) / 100;
+  return Object.keys(by).map(id => {
+    const o = by[id], c = info[id] || {}, obj = c.obj || '';
+    // 목표별 결과: 트래픽 = 랜딩 페이지 조회(없으면 링크 클릭), 참여 = 게시물 참여, 인지도 = 도달, 동영상 = 영상 조회
+    const rt = /TRAFFIC|LINK_CLICKS/.test(obj) ? (o.lpv ? 'landing_page_view' : 'link_click')
+      : /ENGAGEMENT|PAGE_LIKES/.test(obj) ? 'post_engagement' : /AWARENESS|REACH/.test(obj) ? 'reach' : /VIDEO_VIEWS/.test(obj) ? 'video_view' : 'link_click';
+    const res = { landing_page_view: o.lpv, link_click: o.clk, post_engagement: o.eng, reach: c.reach, video_view: o.vv }[rt];
+    const st = c.st === 'ACTIVE' && o.end >= recent ? 'active' : c.st === 'ARCHIVED' ? 'archived' : /PAUSED/.test(c.st || '') ? 'inactive' : 'completed';
+    return { n: o.n, st: st, res: res == null ? null : Math.round(res), rt: rt, reach: c.reach || null, budget: null, spend: r2(o.spend), cur: c.cur || 'USD',
+      end: o.end, from: o.from, imp: o.imp, clk: o.clk, lpv: o.lpv, api: 1, mo: Object.keys(o.mo).sort().map(k => [k, r2(o.mo[k][0]), o.mo[k][1]]) };
+  });
 }
