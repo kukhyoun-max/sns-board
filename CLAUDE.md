@@ -93,3 +93,4 @@ Apps Script (gas/Code.gs, 스냅샷 시트에 연결)  ──월 07:00 트리거
 - Claude가 PowerShell에서 실행할 때는 PATH에 `C:\Program Files\nodejs`와 `%APPDATA%\npm`을 앞에 붙이고 `clasp.cmd`로 호출해요.
 - 구글애즈 보고서가 26.01.30에서 멈춰 있어요 (kukhyoun5 계정).
 - 메타 광고 API(2026-10-17 코드 추가): 매일 기록의 `meta` 단계가 「메타 일별」·「메타 캠페인」·「메타 소재」 탭을 채워요. 스크립트 속성 `META_TOKEN`(시스템 사용자 토큰, ads_read)·`META_ACCOUNT`가 없으면 건너뛰어요. `UrlFetchApp`을 쓰므로 처음 `clasp push`한 뒤에는 바로 편집기에서 `backfillMeta`를 실행해 외부 요청 권한을 승인해야 08:00 트리거가 멈추지 않아요.
+- `gas/IdSeed.gs`(git 밖, `.gitignore`): 「아이디 매칭」 탭 첫 채움용 실명·인스타 아이디 표. `.claspignore`에서 `!IdSeed.gs`로 Apps Script 프로젝트에만 올려요. 탭이 비어 있을 때만 쓰이고, 그 뒤 수정은 시트 탭에서 해요. clasp로 편집기 코드를 비교할 때 이 파일이 있는 게 정상이에요.
