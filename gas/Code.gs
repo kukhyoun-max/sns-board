@@ -2292,6 +2292,7 @@ function loadMetaApi_(ss) {
 //  · 켜기: 스크립트 속성 YT_API = on. 끄거나 API가 실패하면 지금처럼 원본 시트 값만 쓴다
 //  · 처음 한 번: 편집기에서 testYouTubeApi 실행(유튜브 읽기 권한 승인 + 원본 시트와 숫자 비교, 시트에는 쓰지 않음)
 const YT_PERIOD_START = '2024-01-01';         // 원본 시트 쿼리의 시작일(이 날 이후 게시 영상은 조회 = 전체 기간 조회)
+const YT_BATCH = 80;                           // 분석 API 한 번에 묻는 영상 수 — 주소 길이 한도(약 2,000자) 때문에 200개는 넘침
 const YT_NEW_DAYS = 60;                        // 원본 시트에 없는 영상은 최근 N일 안에 올라온 것만 더함
 let YT_API_ = null, YT_API_LOG_ = null;
 
@@ -2374,9 +2375,9 @@ function fetchYouTube_(seedIds, today) {
   // 브랜드 계정으로 승인받은 토큰(ytAuthorize)이 있으면 그것으로, 없으면 스크립트 소유 계정으로(브랜드 채널이면 Forbidden)
   try {
     const bearer = ytBrandToken_(); // 토큰 갱신이 실패하면 분석 값 없이 차이 방식으로 넘어감
-    for (let i = 0; i < want.length; i += 200) {
+    for (let i = 0; i < want.length; i += YT_BATCH) {
       const q = m => {
-        const prm = { ids: 'channel==' + chId, startDate: YT_PERIOD_START, endDate: today, metrics: m, dimensions: 'video', filters: 'video==' + want.slice(i, i + 200).join(','), maxResults: 200 };
+        const prm = { ids: 'channel==' + chId, startDate: YT_PERIOD_START, endDate: today, metrics: m, dimensions: 'video', filters: 'video==' + want.slice(i, i + YT_BATCH).join(','), maxResults: 200 };
         if (!bearer) return YouTubeAnalytics.Reports.query(prm);
         const res = UrlFetchApp.fetch('https://youtubeanalytics.googleapis.com/v2/reports?' + Object.keys(prm).map(k => k + '=' + encodeURIComponent(prm[k])).join('&'),
           { headers: { Authorization: 'Bearer ' + bearer }, muteHttpExceptions: true });
