@@ -459,10 +459,11 @@ details.adv[open] > summary { border-bottom: 1px solid var(--line); }
   .race-l li:nth-child(2) { border-top: 1px solid var(--line); }
 }
 /* KPI 카드: 정사각형(내용이 넘치면 세로로만 늘어남), 스파크라인은 바닥에 */
+.kpi-row { grid-auto-rows: 1fr; } /* 모든 줄을 같은 높이로 */
 .kpi-row .kpi-t { aspect-ratio: 1 / 1; }
 .kpi-row .kpi-t .kspark { margin-top: auto; padding-top: 10px; box-sizing: content-box; }
 .kpi-v small { font-size: .55em; font-weight: 600; margin-left: 2px; letter-spacing: 0; }
 .kpi-s { line-height: 1.5; }
 .bl i.base { background: var(--muted); opacity: .45; }
-@media (max-width: 560px) { .kpi-row .kpi-t { padding: 14px 14px 12px; } }
+@media (max-width: 560px) { .kpi-row .kpi-t { padding: 14px 14px 12px; } .kpi-row .kpi-s { font-size: var(--fs-tag); } .kpi-row .kspark { height: 24px; padding-top: 8px; } }
 @media (max-width: 560px) { .kpi-row .kpi-t:last-child:nth-child(odd) { grid-column: 1 / -1; aspect-ratio: auto; } }
