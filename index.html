@@ -953,7 +953,8 @@ small { line-height: 1.6; }
   // it.P: 「인스타_과거기록」 탭의 한 번짜리 기록값 (기록일 없음, it.x = 1)
   const last0 = it => { for (let i = it.h.length - 1; i >= 0; i--) if (it.h[i]) return it.h[i]; return it.P || null; };
   // 유튜브는 전체 기간 값(it.L: 조회·좋아요·댓글·공유)이 있으면 그걸 누적 수치로 사용
-  const last = it => { const b = last0(it); if (!it.L) return b; return [it.L[0], it.L[1] != null ? it.L[1] : b && b[1], it.L[2] != null ? it.L[2] : b && b[2], it.L[3] != null ? it.L[3] : b && b[3], b ? b[4] : null]; };
+  const mx2 = (a, b) => a == null ? b : b == null ? a : Math.max(a, b);
+  const last = it => { const b = last0(it); if (!it.L) return b; return [mx2(it.L[0], b && b[0]), mx2(it.L[1], b && b[1]), mx2(it.L[2], b && b[2]), mx2(it.L[3], b && b[3]), b ? b[4] : null]; };
   const val = (it, m) => { const v = last(it); return v ? v[m] : null; };
   const weekly = () => D.dates.length > 1;
   const incAt = (it, i, m) => {
@@ -1056,14 +1057,17 @@ small { line-height: 1.6; }
   // ───────── 공통 조각 ─────────
   const secOpen = (h, p, right) => '<div class="gap"></div><section class="sec"><div class="sh"><div><h2>' + h + '</h2>' + (p ? '<p>' + p + '</p>' : '') + '</div>' + (right || '') + '</div>';
   const secClose = '</section>';
+  const mName = it => mainM(it.c) === 1 ? '좋아요' : '조회';
+  // 올린 날: 오늘 · 어제 · N일 전(30일까지) · 그 뒤로는 날짜
+  const whenTxt = d => { const a = daysBetween(d, D.updated); return a <= 0 ? '오늘 올림' : a === 1 ? '어제 올림' : a <= 30 ? a + '일 전 올림' : dot(d); };
   function rankRows(L, opt) {
     opt = opt || {};
     return L.map((it, i) => {
       const r = it.ad ? null : ratio(it), d = r == null ? null : r - 1;
       const yg = !it.ad && r != null && young(it);
-      const right = opt.right ? opt.right(it) : '<span class="num">' + fmtK(mainVal(it)) + '</span> <em class="' + (it.ad || yg ? 'flat' : d >= 0 ? 'up' : 'down') + '"' + (yg ? ' title="올린 지 ' + AGE_MIN + '일이 안 돼 조회가 아직 쌓이는 중이에요"' : '') + '>' + (it.ad ? '광고' : r == null ? '' : yg ? '조회 모이는 중' : xf(r)) + '</em>';
+      const right = opt.right ? opt.right(it) : mName(it) + ' <span class="num">' + fmtK(mainVal(it)) + '</span> · <em class="' + (it.ad || yg ? 'flat' : d >= 0 ? 'up' : 'down') + '"' + (yg ? ' title="올린 지 ' + AGE_MIN + '일이 안 돼 조회가 아직 쌓이는 중이에요"' : '') + '>' + (it.ad ? '광고' : r == null ? '' : yg ? '조회 모이는 중' : '평소의 ' + xf(r)) + '</em>';
       return '<li class="rk" tabindex="0" data-i="' + i + '"><span class="no">' + (i + 1) + '</span>' +
-        '<span class="t"><b>' + line(it) + '</b><span>' + right + ' · ' + esc(dot(it.d)) + '</span></span>' +
+        '<span class="t"><b>' + line(it) + '</b><span>' + right + ' · <span title="' + esc(dot(it.d)) + '">' + whenTxt(it.d) + '</span></span></span>' +
         '<span class="tg"><span class="tag">' + esc(glab(it)) + '</span>' + ptag(it.p) + adtag(it) + histTag(it) + '</span></li>';
     }).join('') || '<li class="empty">조건에 맞는 콘텐츠가 없어요.</li>';
   }
@@ -1297,15 +1301,15 @@ small { line-height: 1.6; }
   }
   function ageLine(it) {
     const age = daysBetween(it.d, D.updated);
-    let s = '올린 지 ' + (age <= 0 ? '오늘' : age + '일째');
+    let s = '';
     for (let j = 2; j >= 0; j--) {
       if (!it.ag || !it.ag[j] || !(it.ag[j][0] > 0)) continue; // 0은 아직 수집 전으로 보고 비교하지 않음
       const b = agMed(it.c, j, it.t), r = b && b.m > 0 ? it.ag[j][0] / b.m : null;
       if (r == null) break;
-      s += ' · <em class="' + (r >= 1 ? 'up' : 'down') + '" title="같은 형식 게시물이 ' + AG_NAME[j] + ' 받은 조회 중간값 ' + fmtK(b.m) + ' 대비">' + AG_NAME[j] + ' 조회 평소의 ' + xf(r) + '</em>';
+      s += '<em class="' + (r >= 1 ? 'up' : 'down') + '" title="같은 형식 게시물이 ' + AG_NAME[j] + ' 받은 조회 중간값 ' + fmtK(b.m) + ' 대비">' + AG_NAME[j] + ' 조회 평소의 ' + xf(r) + '</em>';
       break;
     }
-    return s;
+    return s; // 비교할 자료가 없으면 빈 칸(줄에서 빠짐)
   }
   // ═════════ 홈 맨 위 — 핵심 숫자 한 줄 + 자동 요약 ═════════
   // 개편 1단계: KPI 카드 스파크라인(축·격자 없는 단색 선 + 옅은 면, Stripe·Apple 트렌드 방식)
@@ -1529,7 +1533,7 @@ small { line-height: 1.6; }
     const oldBox = '<div><h3>' + (nw.length ? '기존 콘텐츠 중 많이 늘어난 것' : '이번 주 많이 늘어난 콘텐츠') + '</h3><p class="d">' + (nw.length ? '예전에 올렸는데 이번 주에도 조회가 늘어난 콘텐츠' : '이번 기간에 새로 올린 콘텐츠는 없어요 · 예전 콘텐츠 중 조회가 많이 늘어난 순') + '</p><ol class="rank' + (nw.length ? '' : ' wide') + '" id="wkOld">' +
       (old.length ? rankRows(old, { right: it => '<em class="up">+' + fmtK(p.inc0(it)) + '</em> 이번 주' }) : '<li class="empty">이번 기간에 늘어난 콘텐츠가 없어요</li>') + '</ol></div>';
     h += nw.length ? '<div class="two wk-lists"><div><h3>이번 주 올린 콘텐츠 <small>' + nw.length + '개</small></h3><p class="d">첫날·3일간·1주일 조회를 같은 형식 게시물의 같은 기간 조회와 견줘요</p><ol class="rank" id="wkNew">' +
-      rankRows(nw.slice(0, 8), { right: it => '<span class="num">' + fmtK(mainVal(it)) + '</span> · ' + ageLine(it) }) + '</ol></div>' + oldBox + '</div>' : '<div class="wk-lists">' + oldBox + '</div>';
+      rankRows(nw.slice(0, 8), { right: it => [mName(it) + ' <span class="num">' + fmtK(mainVal(it)) + '</span>', ageLine(it)].filter(Boolean).join(' · ') }) + '</ol></div>' + oldBox + '</div>' : '<div class="wk-lists">' + oldBox + '</div>';
     w.lists = { nw: nw.slice(0, 8), old };
     window.__wk = w;
     return h + '</section>';
