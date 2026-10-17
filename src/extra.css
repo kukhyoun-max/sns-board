@@ -1,6 +1,6 @@
 
 /* ───── v4 추가 ───── */
-.tag.p-ws { background: var(--down-soft); color: var(--down); }
+.tag.p-ws { background: var(--ws-soft); color: var(--ws); } /* 근로장학생: 하락 주황 대신 분류색 */
 .tag.p-col { background: var(--plane); color: var(--sub); }
 .ctl { display: flex; gap: 8px; flex-wrap: wrap; }
 .view-sub { padding: 2px clamp(16px, 4vw, 32px) 0; background: var(--bg); color: var(--muted); font-size: var(--fs-sm); }
@@ -124,7 +124,7 @@
 /* 광고 포함 토글 */
 .adtg { font: inherit; font-size: var(--fs-sm); font-weight: 700; border: 1px solid var(--line); background: var(--bg); color: var(--sub); border-radius: 10px; padding: 6px 12px 6px 30px; cursor: pointer; position: relative; }
 .adtg::before { content: ""; position: absolute; left: 10px; top: 50%; width: 14px; height: 14px; margin-top: -7px; border-radius: 4px; border: 2px solid var(--muted); box-sizing: border-box; }
-.adtg[aria-pressed="true"] { border-color: var(--coral); color: var(--coral); background: var(--coral-soft); }
+.adtg[aria-pressed="true"] { border-color: var(--jj); color: var(--jj); background: var(--up-soft); }
 .adtg[aria-pressed="true"]::before { border-color: var(--jj); background: var(--jj); box-shadow: inset 0 0 0 2px var(--up-soft); }
 .ctl { align-items: center; }
 
@@ -154,7 +154,7 @@
 .kpis.k6 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
 @media (max-width: 900px) { .kpis.k6 { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 @media (max-width: 420px) { .kpis.k6 .kpi .v { font-size: var(--fs-xl); } }
-.callout.warn { background: var(--coral-soft); }
+.callout.warn { background: var(--plane); }
 .pbar { height: 8px; width: 110px; background: var(--plane); border-radius: 4px; overflow: hidden; display: inline-block; vertical-align: middle; margin-right: 6px; }
 .pbar i { display: block; height: 100%; background: var(--jj); }
 @media (max-width: 420px) { .bnav button { font-size: var(--fs-tag); } .bnav button svg { width: 23px; height: 23px; } }
@@ -169,11 +169,11 @@ sup.pt{font-size: var(--fs-tag);color:var(--muted,#8b95a1);margin-left:3px;font-
 .pfseg button { flex: 1; border: 0; background: transparent; padding: 10px 8px; border-radius: 9px; font: inherit; font-weight: 700; font-size: var(--fs-sm); color: var(--muted); cursor: pointer; }
 .pfseg button[aria-selected="true"] { background: var(--bg); color: var(--fg); box-shadow: 0 1px 3px rgba(0,0,0,.08); }
 /* 전략: 처방 카드 */
-.rxs { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 12px; }
+.rxs { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 12px; }
 .rx { background: var(--tile); border-radius: 16px; padding: 16px; display: flex; flex-direction: column; gap: 6px; border-left: 4px solid var(--muted); }
-.rx.more { border-left-color: var(--jj); } .rx.less { border-left-color: var(--coral); } .rx.again { border-left-color: var(--ok); }
+.rx.more { border-left-color: var(--jj); } .rx.less { border-left-color: var(--down); } .rx.again { border-left-color: var(--ok); }
 .rx-k { font-size: var(--fs-tag); font-weight: 700; letter-spacing: .02em; color: var(--muted); }
-.rx.more .rx-k { color: var(--jj); } .rx.less .rx-k { color: var(--coral); } .rx.again .rx-k { color: var(--ok); }
+.rx.more .rx-k { color: var(--jj); } .rx.less .rx-k { color: var(--down); } .rx.again .rx-k { color: var(--ok); }
 .rx-h { font-size: var(--fs-md); font-weight: 700; display: flex; align-items: center; flex-wrap: wrap; gap: 2px; }
 .rx p { margin: 0; font-size: var(--fs-sm); color: var(--sub); line-height: 1.55; }
 .rx p small { color: var(--muted); }
@@ -216,7 +216,7 @@ sup.pt{font-size: var(--fs-tag);color:var(--muted,#8b95a1);margin-left:3px;font-
 .cs-tbl td small { display: block; font-size: var(--fs-tag); color: var(--muted); font-weight: 400; }
 .cs-tbl .mu { color: var(--muted); }
 .cs-tbl .dotc { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 6px; vertical-align: 1px; }
-.cs-tbl sup.pt { font-size: var(--fs-tag); color: var(--coral); margin-left: 2px; }
+.cs-tbl sup.pt { font-size: var(--fs-tag); color: var(--muted); margin-left: 2px; }
 .cs-tn { margin: 6px 2px 0; }
 /* 분류 칩: 세부 분류 줄 */
 #gchips .gsep { flex: 0 0 1px; align-self: stretch; background: var(--line); margin: 4px 4px; }
@@ -225,7 +225,7 @@ sup.pt{font-size: var(--fs-tag);color:var(--muted,#8b95a1);margin-left:3px;font-
 
 /* ── 홈 개편 (2026-10) ── */
 .mu { color: var(--muted); }
-.warn { color: var(--coral); }
+.warn { color: var(--sub); } /* 데이터 상태 안내: 하락색 대신 중립 + 선 아이콘 */
 .sh h2 + p, .sh p { line-height: 1.55; }
 h3 small { font-size: var(--fs-xs); color: var(--muted); font-weight: 600; margin-left: 4px; }
 /* ① 이번 주 현황 */
@@ -603,3 +603,95 @@ small { line-height: 1.6; }
 .lg { display: inline-flex; align-items: center; gap: 5px; margin-right: 10px; font-size: var(--fs-tag); color: var(--sub); }
 .lg i { width: 10px; height: 10px; border-radius: 3px; display: inline-block; }
 .tw + .defs, table + .defs { margin-top: 14px; margin-bottom: 0; }
+
+/* ───── 2026-10-18 점검 반영 ───── */
+/* 본문 선 아이콘(이모지·✦·⚠ 대신) */
+.lic { display: inline-block; vertical-align: -3px; flex: none; }
+.warn .lic { vertical-align: -2px; }
+/* 칩 색: 광고 = 블루 외곽선(head.html) · 불확실(추정·일부·광고 의심·비공개로 보임) = 회색 점선 · 데이터 경보 = 빨강 · 나쁨 판정 = 하락 주황 */
+.tag.p-guess, .tag.p-ad.p-guess { background: var(--tile); color: var(--muted); box-shadow: none; border: 1px dashed var(--line); padding: 2px 7px; }
+.tag.st-warn { background: var(--st-danger-soft); color: var(--st-danger); }
+.tag.st-bad { background: var(--down-soft); color: var(--down); }
+/* 30일 최고 게시물 비교 막대 머리 */
+.c3h { font-size: var(--fs-tag); color: var(--muted); font-weight: 600; }
+.cmp3 .c3h + .c3r b { color: var(--up); }
+.kpi-v small { font-weight: 600; }
+/* 연도별 표: 「진행 중」은 연도 아래 줄 */
+.yl { display: block; font-size: var(--fs-tag); color: var(--muted); line-height: 1.3; font-weight: 600; }
+/* 넓은 표: 오른쪽에 더 있으면 끝을 흐리게(옆으로 밀 수 있다는 표시) */
+.tw:not(.end) { -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 28px), transparent); mask-image: linear-gradient(to right, #000 calc(100% - 28px), transparent); }
+.chips.fade { -webkit-mask-image: linear-gradient(to right, #000 85%, transparent); mask-image: linear-gradient(to right, #000 85%, transparent); }
+#rankTabs { flex-wrap: wrap; }
+@media (max-width: 560px) {
+  .bcat td { white-space: normal; min-width: 8em; line-height: 1.5; }
+  /* 「이 기간 잘 된 게시물」 칩: 한 줄에 하나씩 전체 폭, 배수는 오른쪽 */
+  .tr-top { flex-direction: column; align-items: stretch; gap: 6px; flex-wrap: nowrap; }
+  .tr-top > span { margin: 0 0 2px; }
+  .tr-top button { flex: none; max-width: 100%; text-align: left; display: flex; justify-content: space-between; gap: 8px; }
+}
+/* 벤치마킹 기회: 기회 하나에 한 줄 + 게시 비중 막대 2개 */
+.op-r { display: flex; justify-content: space-between; gap: 8px; margin-top: 10px; }
+.op-s { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 4px 8px; align-items: center; font-size: var(--fs-xs); color: var(--sub); font-weight: 400; margin-top: 4px; }
+.op-s > span { grid-row: span 2; }
+.op-s i { height: 6px; background: var(--line); border-radius: 3px; overflow: hidden; display: block; }
+.op-s em { display: block; height: 100%; background: var(--ch-b2); }
+.op-s em.o { background: var(--ch-ig); }
+.op-s small { margin: 0; font-size: var(--fs-tag); white-space: nowrap; }
+/* 처방 카드 숫자 행 */
+.rx-rows { display: flex; flex-direction: column; gap: 4px; }
+.rx-rows > div { display: flex; justify-content: space-between; gap: 10px; }
+.rx-rows b { white-space: nowrap; }
+/* 잘 되는 조건: 이 조건 / 나머지 미니 막대 */
+.rl-s { display: block; color: var(--muted); font-size: var(--fs-tag); }
+.cmps { display: flex; flex-direction: column; gap: 4px; margin-top: 6px; }
+.cmpb { display: grid; grid-template-columns: 84px minmax(0, 1fr) 92px; gap: 8px; align-items: center; font-size: var(--fs-tag); }
+.cmpb .cl { color: var(--sub); white-space: nowrap; } .cmpb .cl small { color: var(--muted); }
+.cmpb .ct { height: 8px; background: var(--tile); border-radius: 4px; overflow: hidden; }
+.cmpb .ct i { display: block; height: 100%; background: var(--line); border-radius: 4px; }
+.cmpb .ct i.up { background: var(--up); } .cmpb .ct i.down { background: var(--down-bar); }
+.cmpb .cv { text-align: right; font-weight: 700; color: var(--fg); } .cmpb .cv small { display: block; font-weight: 400; color: var(--muted); }
+.rl li em { white-space: nowrap; }
+/* 편성 제안: 형식마다 한 줄(형식 · 판정 칩 · 월평균 → 권장) */
+.plr-h { display: flex; justify-content: space-between; font-size: var(--fs-tag); color: var(--muted); font-weight: 600; padding: 6px 0; border-bottom: 1px solid var(--line); }
+.plr { padding: 8px 0; border-bottom: 1px solid var(--line); }
+.plr-m { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; gap: 8px; align-items: center; font-size: var(--fs-sm); }
+.plr-m b { font-weight: 700; }
+.plr .vd { font-size: var(--fs-tag); font-weight: 700; padding: 2px 8px; border-radius: 6px; background: var(--plane); color: var(--sub); white-space: nowrap; }
+.plr .vd.up { background: var(--up-soft); color: var(--up); } .plr .vd.down { background: var(--down-soft); color: var(--down); }
+.plr small { display: block; color: var(--muted); font-size: var(--fs-tag); margin-top: 2px; }
+/* 오래돼도 크는 콘텐츠: 비율 막대 */
+.lt-s2 { margin: 0 0 8px; }
+.mbar { height: 8px; background: var(--tile); border-radius: 4px; overflow: hidden; margin-top: 8px; }
+.mbar i { display: block; height: 100%; background: var(--jj); border-radius: 4px; }
+/* 전체 탭 콘텐츠 역할: 채널 바로가기 칩 */
+.go-ch { flex-wrap: wrap; }
+.go-ch .chip { background: var(--tile); display: inline-flex; align-items: center; gap: 2px; }
+.go-ch .chip small { color: var(--muted); font-weight: 400; }
+/* 시즌별 비교 첫 칸: 이름 / 기간 두 줄 */
+.tbl td.sn { white-space: normal; min-width: 128px; line-height: 1.45; }
+.tbl td.sn small { display: block; color: var(--muted); font-size: var(--fs-tag); }
+.tbl th { line-height: 1.35; }
+/* 트리맵: 좁은 네모는 숫자 두 줄, 아주 작은 네모는 색만 · 밝은 주황 위 글자는 진하게 */
+.tm.narrow .b .r { display: block; }
+.tm.xxs .a, .tm.xxs .b { display: none; }
+.tm.lt { color: var(--fg); }
+.lg-c { display: inline-flex; gap: 4px; flex-wrap: wrap; }
+.lg-c .chip { padding: 4px 10px; font-size: var(--fs-tag); cursor: default; }
+/* 추출 칩 둘째 줄 */
+.tg2 small.cs { display: block; font-size: var(--fs-tag); color: var(--muted); font-weight: 400; line-height: 1.2; }
+/* 광고 카드 목록(좁은 화면) · 단가 칩 */
+.adc .rk { grid-template-columns: 22px minmax(0, 1fr) auto; }
+.adc .rk .tg { grid-column: 2 / -1; }
+.adc .rv { text-align: right; display: flex; flex-direction: column; align-items: flex-end; }
+.adc .rv small { font-size: var(--fs-tag); color: var(--muted); white-space: nowrap; }
+.adc-open { list-style: none; padding: 0 0 8px 32px; }
+.ad-chips { margin: 10px 0 0; flex-wrap: wrap; }
+.ad-chips .chip { cursor: default; font-size: var(--fs-sm); padding: 6px 12px; }
+/* 콘텐츠 역할 표: 좁게 */
+.tbl.rt td small { font-size: var(--fs-tag); }
+/* PC: 하단 탭을 가운데로 모음 */
+@media (min-width: 861px) { .bnav .in { max-width: 640px; } }
+.adc .rk .t b.ln { display: flex; min-width: 0; }
+.adc .rk .t .tx { min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; color: var(--fg); }
+.rl li .cmpb .cl small { display: inline; margin: 0; }
+.rl li .cmpb .cv small { margin: 0; }
