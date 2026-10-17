@@ -88,7 +88,7 @@
   // 시안: 증감은 색 + 기호 + 숫자. ±3% 이내는 회색 "비슷해요"
   const FLAT = 0.03;
   const dCls = d => Math.abs(d) < FLAT ? 'flat' : d >= 0 ? 'up' : 'down';
-  const dTxt = (d, sp, dig) => Math.abs(d) < FLAT ? '비슷해요' : (d >= 0 ? '▲' : '▼') + (sp ? ' ' : '') + Math.abs(dig ? Math.round(d * 1000) / 10 : Math.round(d * 100)) + '%';
+  const dTxt = (d, sp, dig) => Math.abs(d) < FLAT ? '비슷해요' : d >= 1 ? '▲' + (sp ? ' ' : '') + (1 + d).toFixed(1) + '배' : (d >= 0 ? '▲' : '▼') + (sp ? ' ' : '') + Math.abs(dig ? Math.round(d * 1000) / 10 : Math.round(d * 100)) + '%';
   const fmtType = t => t === '1분 이하' ? '쇼츠(1분 이하)' : t;
 
   // 채널 기준값(최근 1년 중앙값, 광고·스토리 제외) — 성과 지수 = 콘텐츠 값 ÷ 기준값
@@ -165,7 +165,7 @@
     return L.map((it, i) => {
       const r = it.ad ? null : ratio(it), d = r == null ? null : r - 1;
       const yg = !it.ad && r != null && young(it);
-      const right = opt.right ? opt.right(it) : '<span class="num">' + fmtK(mainVal(it)) + '</span> <em class="' + (it.ad || yg ? 'flat' : d >= 0 ? 'up' : 'down') + '"' + (yg ? ' title="게시 ' + AGE_MIN + '일 전이라 조회가 아직 쌓이는 중이에요"' : '') + '>' + (it.ad ? '광고' : r == null ? '' : yg ? '집계 중' : xf(r)) + '</em>';
+      const right = opt.right ? opt.right(it) : '<span class="num">' + fmtK(mainVal(it)) + '</span> <em class="' + (it.ad || yg ? 'flat' : d >= 0 ? 'up' : 'down') + '"' + (yg ? ' title="게시 ' + AGE_MIN + '일 전이라 조회가 아직 쌓이는 중이에요"' : '') + '>' + (it.ad ? '광고' : r == null ? '' : yg ? '조회 모이는 중' : xf(r)) + '</em>';
       return '<li class="rk" tabindex="0" data-i="' + i + '"><span class="no">' + (i + 1) + '</span>' +
         '<span class="t"><b>' + line(it) + '</b><span>' + right + ' · ' + esc(dot(it.d)) + '</span></span>' +
         '<span class="tg"><span class="tag">' + esc(glab(it)) + '</span>' + ptag(it.p) + adtag(it) + histTag(it) + '</span></li>';
@@ -187,7 +187,7 @@
     box.innerHTML = rows.map(r => {
       const na = r.idx == null, few = na || r.few || (r.n != null && r.n < MIN_N);
       const d = na ? 0 : r.idx - 1, col = few ? css('--line') : d >= 0 ? css('--up') : css('--down');
-      return '<button class="br' + (few ? ' few' : '') + '" type="button" data-k="' + esc(r.k) + '"><span class="l">' + esc(r.k) + '<small>' + fmtSub(r) + (few && !na ? ' · 표본 적음' : '') + '</small></span>' +
+      return '<button class="br' + (few ? ' few' : '') + '" type="button" data-k="' + esc(r.k) + '"><span class="l">' + esc(r.k) + '<small>' + fmtSub(r) + (few && !na ? ' · 게시물 적음(참고용)' : '') + '</small></span>' +
         '<span class="tr"><i style="width:' + (na ? 0 : Math.min(100, r.idx / mx * 100)) + '%;background:' + col + '"></i><span class="mid" style="left:' + (1 / mx * 100) + '%"></span></span>' +
         '<span class="v num ' + (few ? 'mu' : d >= 0 ? 'up' : 'down') + '">' + (na ? '–' : xf(r.idx)) + '</span></button>';
     }).join('') || '<div class="empty">데이터가 없어요.</div>';
@@ -258,16 +258,16 @@
     const low = cur.filter(it => judged(it) && ratio(it) < 0.5).sort((a, b) => ratio(a) - ratio(b)).slice(0, 3);
     let html = topHtml(chs) + '<div class="gap"></div>' + weekHtml(chs) + '<div class="gap"></div>' + trendHtml(chs);
     html += '<div class="gap"></div><section class="sec"><div class="sh"><div><h2>점검할 것</h2><p>최근 3달 요약과 평소보다 처진 콘텐츠</p></div></div>' +
-      '<p class="note" style="margin:0 0 14px">용어 · <b>평소</b> = 같은 채널·같은 형식의 최근 1년 게시물 중앙값(형식 게시물이 ' + BASE_T_MIN + '개 미만이면 채널 중앙값, 광고·스토리 제외) · <b>1.5배</b> 이상이면 <b>히트</b> · 게시 ' + AGE_MIN + '일 전은 <b>집계 중</b> · 게시물이 ' + MIN_N + '개 미만인 분류·묶음은 <b>표본 적음</b></p>' + briefText(chs).replace('style="padding:18px 0 0"', 'style="padding:0 0 18px"') +
-      '<h3 class="sub">평소보다 처진 콘텐츠</h3><p class="d">최근 30일 게시물 중 게시 ' + AGE_MIN + '일이 지났는데도 평소(같은 형식 중앙값)의 절반에 못 미친 콘텐츠</p><ol class="rank" id="bLow">' + (low.length ? rankRows(low) : '<li class="empty">처진 콘텐츠가 없어요 👍</li>') + '</ol>' + secClose;
-    if (S.ch !== '전체') html += secOpen('최근 3달 분류별 성과', '게시물이 평소의 몇 배였는지(중앙값) · 누르면 그 분류 콘텐츠를 볼 수 있어요') + '<div class="bars" id="bCat"></div>' + secClose;
+      '<p class="note" style="margin:0 0 14px">용어 · <b>평소</b> = 같은 채널·같은 형식의 최근 1년 게시물 중간값(형식 게시물이 ' + BASE_T_MIN + '개 미만이면 채널 중간값, 광고·스토리 제외) · <b>1.5배</b> 이상이면 <b>잘 된 게시물</b> · 게시 ' + AGE_MIN + '일 전은 <b>조회 모이는 중</b> · 게시물이 ' + MIN_N + '개 미만인 분류·묶음은 <b>게시물 적음(참고용)</b></p>' + briefText(chs).replace('style="padding:18px 0 0"', 'style="padding:0 0 18px"') +
+      '<h3 class="sub">평소보다 처진 콘텐츠</h3><p class="d">최근 30일 게시물 중 게시 ' + AGE_MIN + '일이 지났는데도 평소(같은 형식 중간값)의 절반에 못 미친 콘텐츠</p><ol class="rank" id="bLow">' + (low.length ? rankRows(low) : '<li class="empty">처진 콘텐츠가 없어요 👍</li>') + '</ol>' + secClose;
+    if (S.ch !== '전체') html += secOpen('최근 3달 분류별 성과', '게시물이 평소의 몇 배였는지(중간값) · 누르면 그 분류 콘텐츠를 볼 수 있어요') + '<div class="bars" id="bCat"></div>' + secClose;
     html += yearlyHtml(S.ch === '전체' ? OWN : chs);
     if (S.ch === '전체' && benchNames().length) html += '<div class="gap"></div>' + benchCmpHtml();
     html += advHtml();
     $('view').innerHTML = html;
     wireWeek(); wireTrend(); wireBenchCmp(); wireAdv(); wireTop(chs);
     wireRank($('bLow'), low);
-    if (S.ch !== '전체') bars('bCat', groupBy(pool({ channels: chs, since: addDays(D.updated, -90) }), 'g').filter(r => r.n >= 2).sort(byIdx), r => r.n + '개 · 히트율 ' + pct0(r.hit), k => { S.view = 'explore'; S.g = k; render(); window.scrollTo({ top: 0 }); });
+    if (S.ch !== '전체') bars('bCat', groupBy(pool({ channels: chs, since: addDays(D.updated, -90) }), 'g').filter(r => r.n >= 2).sort(byIdx), r => r.n + '개 · 잘 된 비율 ' + pct0(r.hit), k => { S.view = 'explore'; S.g = k; render(); window.scrollTo({ top: 0 }); });
     wireBrief();
   }
   // 연도별 추이 — 게시일 기준 연간 요약. 인스타 과거 기록(엑셀 기록 시기)까지 포함
@@ -296,7 +296,7 @@
           '<td>' + share(a, it => typeShort(it.t), 2) + '</td><td>' + share(a, it => it.g, 2) + '</td>' + (ig ? '<td>' + src(a) + '</td>' : '') + '</tr>';
       });
     }
-    const notes = ['게시일 기준 · 게시물당 값은 중앙값(조회 0은 기록 없음으로 보고 제외)', adWord()];
+    const notes = ['게시일 기준 · 게시물당 값은 중간값(조회 0은 기록 없음으로 보고 제외)', adWord()];
     if (chs.includes('인스타그램') && histOf('인스타그램')) notes.push(histNote());
     if (chs.includes('유튜브')) notes.push('유튜브는 전체 기간 누적 조회');
     return secOpen('연도별 추이', esc(notes.join(' · '))) + '<div class="tw"><table class="tbl"><thead><tr>' + head + '</tr></thead><tbody>' + rows.join('') + '</tbody></table></div>' + secClose;
@@ -319,7 +319,7 @@
       if (!L.length) return;
       const g = groupBy(L, 'g').filter(r => r.n >= MIN_N && r.idx != null).sort(byIdx);
       if (!g.length) { out.push(chName(ch) + ': 최근 3달 게시물 ' + L.length + '개 · 분류별로 비교할 만큼(' + MIN_N + '개 이상) 쌓인 분류가 없어요.'); return; }
-      const t = g[0], cnt = ' (' + t.n + '개, 히트율 ' + pct0(t.hit) + ')';
+      const t = g[0], cnt = ' (' + t.n + '개, 잘 된 비율 ' + pct0(t.hit) + ')';
       let s = chName(ch) + ': ' + (t.idx >= 1 ? '「' + t.k + '」 분류가 평소의 ' + t.idx.toFixed(1) + '배로 가장 잘 됐어요' + cnt : '평소보다 잘 된 분류는 없어요. 그나마 「' + t.k + '」 ' + t.idx.toFixed(1) + '배' + cnt);
       if (g.length > 1) { const w = g[g.length - 1]; s += ' · 가장 약한 건 「' + w.k + '」 ' + w.idx.toFixed(1) + '배 (' + w.n + '개)'; }
       out.push(s + '.');
@@ -327,7 +327,7 @@
     const ig = pool({ channels: ['인스타그램'], since: addDays(D.updated, -90) }).filter(it => ratio(it) != null);
     // 인스타 형식 비교는 도달 기준 — 캐러셀 조회는 슬라이드 넘김이 중복 집계되어 조회로 비교하면 캐러셀이 부풀려진다
     const ft = own.includes('인스타그램') ? groupBy(ig.filter(it => it.r > 0), 't').map(r => ({ k: r.k, n: r.n, rv: median(r.arr.map(it => it.r)) })).filter(r => r.n >= 5 && r.rv > 0).sort((a, b) => b.rv - a.rv) : [];
-    if (ft.length >= 2) out.push('인스타 형식(도달 기준): ' + ft[0].k + ' 도달 중앙값이 ' + ft[ft.length - 1].k + '의 ' + (ft[0].rv / ft[ft.length - 1].rv).toFixed(1) + '배예요 (' + ft.map(r => r.k + ' ' + fmtK(r.rv) + '·' + r.n + '개').join(', ') + '). 캐러셀 조회는 슬라이드 넘김이 중복 집계돼 조회로는 비교하지 않아요.');
+    if (ft.length >= 2) out.push('인스타 형식(도달 기준): ' + ft[0].k + ' 도달 중간값이 ' + ft[ft.length - 1].k + '의 ' + (ft[0].rv / ft[ft.length - 1].rv).toFixed(1) + '배예요 (' + ft.map(r => r.k + ' ' + fmtK(r.rv) + '·' + r.n + '개').join(', ') + '). 캐러셀 조회는 슬라이드 넘김이 중복 집계돼 조회로는 비교하지 않아요.');
     if (!out.length) out.push('최근 3달 게시물이 없어요.');
     return out;
   }
@@ -382,7 +382,7 @@
       if (!it.ag || !it.ag[j] || !(it.ag[j][0] > 0)) continue; // 0은 아직 수집 전으로 보고 비교하지 않음
       const b = agMed(it.c, j, it.t), r = b && b.m > 0 ? it.ag[j][0] / b.m : null;
       if (r == null) break;
-      s += ' · <em class="' + (r >= 1 ? 'up' : 'down') + '" title="같은 형식 게시물의 게시 ' + AG_DAYS[j] + '일 뒤 조회 중앙값 ' + fmtK(b.m) + ' 대비">' + AG_DAYS[j] + '일 뒤 기준 평소의 ' + xf(r) + '</em>';
+      s += ' · <em class="' + (r >= 1 ? 'up' : 'down') + '" title="같은 형식 게시물의 게시 ' + AG_DAYS[j] + '일 뒤 조회 중간값 ' + fmtK(b.m) + ' 대비">' + AG_DAYS[j] + '일 뒤 기준 평소의 ' + xf(r) + '</em>';
       break;
     }
     return s;
@@ -417,12 +417,12 @@
     if (ch === '인스타그램') {
       const f = a.cur && a.cur.m['Profile followers']; if (f == null) return '';
       const p = a.prev && a.prev.m['Profile followers'];
-      return kpiTile('인스타 팔로워', fmt(f), stale ? '<span class="warn">계정 지표 미갱신</span>' : p != null && p !== f ? '<span class="' + (f > p ? 'up' : 'down') + '">' + sgn(f - p) + fmt(f - p) + '</span> 지난 기록 대비' : '');
+      return kpiTile('인스타 팔로워', fmt(f) + '<small>명</small>', stale ? '<span class="warn">팔로워 수가 아직 새로 안 들어왔어요</span>' : p != null && p !== f ? '지난 기록보다 <span class="' + (f > p ? 'up' : 'down') + '">' + fmt(Math.abs(f - p)) + '명 ' + (f > p ? '늘었어요' : '줄었어요') + '</span>' : '지난 기록과 같아요');
     }
     if (ch === '유튜브') {
       const g = a.cur && a.cur.m['Gained subscribers']; if (g == null) return '';
       const n = g - (a.cur.m['Lost subscribers'] || 0);
-      return kpiTile('유튜브 구독 순증', sgn(n) + fmt(n), stale ? '<span class="warn">계정 지표 미갱신</span>' : '지난주 · 늘어난 ' + fmt(g) + ' − 줄어든 ' + fmt(g - n), n >= 0 ? 'up' : 'down');
+      return kpiTile('유튜브 구독자 증감', sgn(n) + fmt(n) + '<small>명</small>', stale ? '<span class="warn">구독자 수가 아직 새로 안 들어왔어요</span>' : '지난주 새로 구독 ' + fmt(g) + '명 · 구독 취소 ' + fmt(g - n) + '명', n >= 0 ? 'up' : 'down');
     }
     return '';
   }
@@ -433,13 +433,13 @@
     const t = [];
     if (p) {
       let chg = '';
-      if (w.prev) { const a = p.v / p.days, b = w.prev.v / w.prev.days; if (b) { const d = (a - b) / b; chg = ' · <span class="' + dCls(d) + '">' + dTxt(d) + '</span>'; } }
-      t.push(kpiTile('이번 구간 조회 증가', '+' + fmtK(p.v), md(p.d0) + ' → ' + md(p.d1) + ' · ' + p.days + '일' + chg, '', spark(viewSeries(chs), '최근 기록 구간별 하루 평균 조회 증가')));
+      if (w.prev) { const a = p.v / p.days, b = w.prev.v / w.prev.days; if (b) { const d = (a - b) / b; chg = '<br>하루 평균, 그 전 ' + w.prev.days + '일보다 <span class="' + dCls(d) + '">' + dTxt(d, 1) + '</span>'; } }
+      t.push(kpiTile('최근 ' + p.days + '일 늘어난 조회', '+' + fmtK(p.v), md(p.d0) + '–' + md(p.d1) + chg, '', spark(viewSeries(chs), '최근 기록 기간별 하루 평균 조회 증가')));
     }
-    t.push(kpiTile('최근 30일 히트율', c30.length ? pct0(hitRate(c30)) : '–', c30.length ? '<span title="게시 ' + AGE_MIN + '일이 지나 판정할 수 있는 게시물 기준">히트 ' + hits.length + ' / ' + c30.length + '개</span>' : '판정할 게시물이 아직 없어요', '', spark(monthly(chs, 'hit'), '최근 6달 월별 히트율')));
+    t.push(kpiTile('최근 30일 잘 된 비율', c30.length ? pct0(hitRate(c30)) : '–', c30.length ? '<span title="올린 지 ' + AGE_MIN + '일이 지난 게시물만 셌어요">' + c30.length + '개 중 ' + hits.length + '개가 평소의 1.5배 이상</span>' : '아직 셀 만큼 지난 게시물이 없어요', '', spark(monthly(chs, 'hit'), '최근 6달 월별 잘 된 비율')));
     chs.filter(c => c === '인스타그램' || c === '유튜브').forEach(c => { const x = acctTile(c); if (x) t.push(x); });
     const by = chs.length > 1 ? chs.map(c => chName(c) + ' ' + c30all.filter(it => it.c === c).length).join(' · ') : '';
-    t.push(kpiTile('최근 30일 게시', c30all.length + '개', by, '', spark(monthly(chs, 'n'), '최근 6달 월별 게시 수')));
+    t.push(kpiTile('최근 30일 올린 게시물', c30all.length + '개', by, '', spark(monthly(chs, 'n'), '최근 6달 월별 게시 수')));
     return '<div class="kpi-row">' + t.join('') + '</div>';
   }
   function homeSummary(chs) {
@@ -472,7 +472,7 @@
     L.push('');
     if (p) L.push('■ 조회 증가 +' + fmtK(p.v) + ' (' + dot(p.d0) + ' → ' + dot(p.d1) + ', ' + p.days + '일' + (p.nw.length ? ', 새 게시물 ' + p.nw.length + '개' : '') + ')');
     const c30 = pool({ channels: chs, since: addDays(D.updated, -30) }), cj = c30.filter(judged);
-    if (cj.length) L.push('■ 최근 30일 히트율 ' + pct0(hitRate(cj)) + ' (히트 ' + cj.filter(isHit).length + ' / ' + cj.length + '개)');
+    if (cj.length) L.push('■ 최근 30일 잘 된 비율 ' + pct0(hitRate(cj)) + ' (잘 된 게시물 ' + cj.filter(isHit).length + ' / ' + cj.length + '개)');
     L.push('■ 최근 30일 게시 ' + c30.length + '개' + (chs.length > 1 ? ' (' + chs.map(c => chName(c) + ' ' + c30.filter(it => it.c === c).length).join(', ') + ')' : ''));
     chs.forEach(c => {
       if (D.acctStale && D.acctStale[c]) return;
@@ -489,7 +489,7 @@
     const st = chs.concat(S.ch === '전체' ? benchNames() : []).filter(c => D.stale && D.stale[c]);
     const as = chs.filter(c => D.acctStale && D.acctStale[c]);
     if (st.length || as.length) { L.push(''); L.push('※ 원본 미갱신: ' + st.concat(as.map(c => chName(c) + ' 계정 지표')).map(c => c.indexOf(' ') > 0 ? c : chName(c)).join(', ') + ' — 이번 집계에서 제외'); }
-    L.push('※ 평소 = 같은 채널·같은 형식 최근 1년 중앙값, 히트 = 평소의 1.5배 이상');
+    L.push('※ 평소 = 같은 채널·같은 형식 최근 1년 중간값, 잘 된 게시물 = 평소의 1.5배 이상');
     return L.join('\n');
   }
   function copyText(s) {
@@ -503,21 +503,23 @@
       const b = agMed(it.c, j, it.t);
       if (b && b.m > 0) return { r: it.ag[j][0] / b.m, day: AG_DAYS[j] };
     }
-    return null;
+    // 같은 날짜 비교 자료가 아직 적으면: 지금까지 조회 ÷ 같은 형식 평소 게시물의 최종 조회
+    const b = baseFor(it), v = mainVal(it);
+    return b && b.v > 0 && v != null ? { r: v / b.v, base: 1 } : null;
   }
   function raceHtml(chs) {
     const L = D.items.filter(it => chs.includes(it.c) && OWN.includes(it.c) && it.t !== '스토리' && (S.ads || !it.ad) && daysBetween(it.d, D.updated) <= 14).sort((a, b) => a.d < b.d ? 1 : a.d > b.d ? -1 : 0).slice(0, 4);
     window.__race = L;
     if (!L.length) return '';
     const MX = 3;
-    return '<div class="race"><div class="race-h"><h3>최근 게시물, 평소보다 빠른가요?</h3><span>게시 1·3·7일 뒤 조회 ÷ 같은 형식의 같은 시점 중앙값</span></div><ol class="race-l">' + L.map((it, i) => {
+    return '<div class="race"><div class="race-h"><h3>최근 게시물, 평소보다 잘 크고 있나요?</h3><span>올린 지 1·3·7일째 조회를 같은 형식 게시물의 같은 날과 비교했어요</span></div><ol class="race-l">' + L.map((it, i) => {
       const p = paceOf(it), r = p ? p.r : null, age = daysBetween(it.d, D.updated);
-      const cls = r == null ? 'na' : r >= HIT ? 'hit' : r >= 1 ? 'up' : 'down';
+      const cls = r == null ? 'na' : p.base ? 'base' : r >= HIT ? 'hit' : r >= 1 ? 'up' : 'down';
       return '<li data-r="' + i + '" tabindex="0" role="button" aria-label="' + esc(title(it.n)) + ' 상세 보기"><div class="race-t">' + badge(it.c) + '<span>' + esc(title(it.n)) + '</span></div>' +
         '<div class="race-b"><span class="bl"><i class="' + cls + '" style="width:' + (r == null ? 0 : Math.min(100, r / MX * 100)) + '%"></i><em style="left:' + (100 / MX) + '%"></em><em class="h" style="left:' + (HIT / MX * 100) + '%"></em></span>' +
-        '<b class="num ' + (r == null ? 'flat' : r >= 1 ? 'up' : 'down') + '">' + (r == null ? (age < 1 ? '집계 전' : '기준 없음') : xf(r)) + '</b></div>' +
-        '<small>' + (age <= 0 ? '오늘' : age + '일째') + (p ? ' · ' + p.day + '일 뒤 기준' : '') + ' · 조회 ' + fmtK(mainVal(it)) + '</small></li>';
-    }).join('') + '</ol><div class="race-k"><span><em></em>평소(1배)</span><span><em class="h"></em>히트(1.5배)</span><span>막대 끝 = 3배</span></div></div>';
+        '<b class="num ' + (r == null || p.base ? 'flat' : r >= 1 ? 'up' : 'down') + '">' + (r == null ? '비교 전' : '평소의 ' + (p.base ? pct0(r) : xf(r))) + '</b></div>' +
+        '<small>올린 지 ' + (age <= 0 ? '오늘' : age + '일째') + ' · 조회 ' + fmtK(mainVal(it)) + (r == null ? '' : p.base ? ' · 평소 게시물의 최종 조회와 비교' : ' · 평소 게시물의 ' + p.day + '일째와 비교') + '</small></li>';
+    }).join('') + '</ol><div class="race-k"><span><em></em>평소만큼</span><span><em class="h"></em>평소의 1.5배(잘 된 게시물)</span><span>막대 끝 = 3배</span></div></div>';
   }
   function wireRace() {
     const L = window.__race || [];
@@ -532,9 +534,9 @@
   function dayChg(w) {
     if (!w.prev || !w.cur) return '';
     const a = w.cur.v / w.cur.days, b = w.prev.v / w.prev.days;
-    if (!b) return '<span class="mu">지난 구간 0</span>';
+    if (!b) return '<span class="mu">그 전 기간 0</span>';
     const d = (a - b) / b;
-    return '<b class="' + dCls(d) + '">' + dTxt(d, 1) + '</b> <span class="mu">하루 평균, 지난 구간 대비</span>';
+    return '<b class="' + dCls(d) + '">' + dTxt(d, 1) + '</b> <span class="mu">하루 평균, 그 전 기간 대비</span>';
   }
   function wkBar(p, col) {
     if (!p || !p.v) return '<div class="wk-bar"></div>';
@@ -542,7 +544,7 @@
   }
   function wkCard(label, chs, col, foot, wide) {
     const w = weekModel(chs);
-    if (!w || !w.cur) return '<div class="wk-card' + (wide ? ' wide' : '') + '"><div class="wk-h">' + label + '</div><div class="wk-v mu">–</div><div class="wk-s mu">' + (chs.every(c => staleAt(c, D.dates.length - 1)) ? '원본이 갱신되지 않아 이번 구간 증가를 셀 수 없어요' : '두 기록 모두 있는 데이터가 아직 없어요') + '</div>' + (foot ? '<div class="wk-f">' + foot + '</div>' : '') + '</div>';
+    if (!w || !w.cur) return '<div class="wk-card' + (wide ? ' wide' : '') + '"><div class="wk-h">' + label + '</div><div class="wk-v mu">–</div><div class="wk-s mu">' + (chs.every(c => staleAt(c, D.dates.length - 1)) ? '원본이 갱신되지 않아 이번 기간 증가를 셀 수 없어요' : '두 기록 모두 있는 데이터가 아직 없어요') + '</div>' + (foot ? '<div class="wk-f">' + foot + '</div>' : '') + '</div>';
     const p = w.cur;
     return '<div class="wk-card' + (wide ? ' wide' : '') + '" style="--c:' + col + '"><div class="wk-h">' + label + '</div>' +
       '<div class="wk-v num">+' + fmtK(p.v) + '<small>조회</small></div>' + (w.prev ? '<div class="wk-s">' + dayChg(w) + '</div>' : '') +
@@ -560,19 +562,19 @@
     if (!w || !w.cur) return '<section class="sec"><div class="sh"><div><h2>이번 주 현황</h2><p>기록이 2번 이상 쌓이면 기록 사이에 늘어난 조회가 나와요.</p></div></div></section>';
     const p = w.cur;
     const c30 = pool({ channels: chs, since: addDays(D.updated, -30) }).filter(judged), hits = c30.filter(isHit);
-    let h = '<section class="sec" id="wkSec"><div class="sh"><div><h2>' + (chs.length > 1 ? '채널별 증가' : '이번 주 증가') + '</h2><p>' + mdLabel(p.d0) + ' → ' + mdLabel(p.d1) + ' 기록 사이에 실제로 늘어난 조회 · ' + adWord() + (chs.some(c => staleAt(c, D.dates.length - 1)) ? ' · 원본 미갱신 채널(' + chs.filter(c => staleAt(c, D.dates.length - 1)).map(chName).join('·') + ') 제외' : '') + (w.prev ? ' · 지난 구간 ' + mdLabel(w.prev.d0) + ' → ' + mdLabel(w.prev.d1) : '') + '</p></div></div>';
+    let h = '<section class="sec" id="wkSec"><div class="sh"><div><h2>' + (chs.length > 1 ? '채널별 증가' : '이번 주 증가') + '</h2><p>' + mdLabel(p.d0) + ' → ' + mdLabel(p.d1) + ' 기록 사이에 실제로 늘어난 조회 · ' + adWord() + (chs.some(c => staleAt(c, D.dates.length - 1)) ? ' · 원본 미갱신 채널(' + chs.filter(c => staleAt(c, D.dates.length - 1)).map(chName).join('·') + ') 제외' : '') + (w.prev ? ' · 그 전 기간 ' + mdLabel(w.prev.d0) + ' → ' + mdLabel(w.prev.d1) : '') + '</p></div></div>';
     if (chs.length > 1) {
       // 우리 채널 합계는 맨 위 핵심 숫자에 있으니 채널 카드만
       h += '<div class="wk-grid"><div class="wk-row">' + chs.map(ch => wkCard(badge(ch), [ch], chColor(ch), chFoot(ch))).join('') + '</div></div>';
     } else {
-      h += '<div class="wk-grid one">' + wkCard(badge(chs[0]), chs, chColor(chs[0]), chFoot(chs[0]) + ' · 최근 30일 히트 <b>' + hits.length + '</b> / ' + c30.length + '개(게시 ' + AGE_MIN + '일 지난 것)', true) + '</div>';
+      h += '<div class="wk-grid one">' + wkCard(badge(chs[0]), chs, chColor(chs[0]), chFoot(chs[0]) + ' · 최근 30일 잘 된 게시물 <b>' + hits.length + '</b> / ' + c30.length + '개(게시 ' + AGE_MIN + '일 지난 것)', true) + '</div>';
     }
     h += dailyHtml(chs);
     const nw = p.nw.slice().sort((a, b) => (mainVal(b) || 0) - (mainVal(a) || 0));
     const old = p.old.filter(it => p.inc0(it) > 0).sort((a, b) => p.inc0(b) - p.inc0(a)).slice(0, 5);
     // 새로 올린 콘텐츠가 없으면 빈 칸을 두지 않고 '많이 큰 것' 하나만 넓게
-    const oldBox = '<div><h3>' + (nw.length ? '기존 콘텐츠 중 많이 늘어난 것' : '이번 주 많이 늘어난 콘텐츠') + '</h3><p class="d">' + (nw.length ? '예전에 올렸는데 이번 주에도 조회가 늘어난 콘텐츠' : '이번 구간에 새로 올린 콘텐츠는 없어요 · 예전 콘텐츠 중 조회가 많이 늘어난 순') + '</p><ol class="rank' + (nw.length ? '' : ' wide') + '" id="wkOld">' +
-      (old.length ? rankRows(old, { right: it => '<em class="up">+' + fmtK(p.inc0(it)) + '</em> 이번 주' }) : '<li class="empty">이번 구간에 늘어난 콘텐츠가 없어요</li>') + '</ol></div>';
+    const oldBox = '<div><h3>' + (nw.length ? '기존 콘텐츠 중 많이 늘어난 것' : '이번 주 많이 늘어난 콘텐츠') + '</h3><p class="d">' + (nw.length ? '예전에 올렸는데 이번 주에도 조회가 늘어난 콘텐츠' : '이번 기간에 새로 올린 콘텐츠는 없어요 · 예전 콘텐츠 중 조회가 많이 늘어난 순') + '</p><ol class="rank' + (nw.length ? '' : ' wide') + '" id="wkOld">' +
+      (old.length ? rankRows(old, { right: it => '<em class="up">+' + fmtK(p.inc0(it)) + '</em> 이번 주' }) : '<li class="empty">이번 기간에 늘어난 콘텐츠가 없어요</li>') + '</ol></div>';
     h += nw.length ? '<div class="two wk-lists"><div><h3>이번 주 올린 콘텐츠 <small>' + nw.length + '개</small></h3><p class="d">게시 1·3·7일 뒤 조회를 같은 형식 게시물의 같은 시점 평소와 비교해요</p><ol class="rank" id="wkNew">' +
       rankRows(nw.slice(0, 8), { right: it => '<span class="num">' + fmtK(mainVal(it)) + '</span> · ' + ageLine(it) }) + '</ol></div>' + oldBox + '</div>' : '<div class="wk-lists">' + oldBox + '</div>';
     w.lists = { nw: nw.slice(0, 8), old };
@@ -616,7 +618,7 @@
   // ═════════ 홈 ② 콘텐츠 성적 추이 — 채널별로 따로, 중앙값 ═════════
   const TR = { m: 'per', p: '1y', u: 'auto', more: false };
   const TR_CORE = 4; // 지표 버튼은 앞의 4개만 보이고 나머지는 '더보기'
-  const TR_M = [['per', '게시물당 조회'], ['ratio', '평소 대비'], ['hit', '히트율'], ['posts', '게시 수'], ['like', '게시물당 좋아요'], ['cmt', '게시물당 댓글'], ['share', '게시물당 공유'], ['save', '게시물당 저장'], ['reach', '게시물당 도달']];
+  const TR_M = [['per', '게시물당 조회'], ['ratio', '평소 대비'], ['hit', '잘 된 비율'], ['posts', '게시 수'], ['like', '게시물당 좋아요'], ['cmt', '게시물당 댓글'], ['share', '게시물당 공유'], ['save', '게시물당 저장'], ['reach', '게시물당 도달']];
   // 게시물 값 꺼내기: 조회·좋아요·댓글·공유·저장(누적 기록) · 도달(it.r, 인스타)
   const TR_GET = { per: it => mainVal(it), like: it => val(it, 1), cmt: it => val(it, 2), share: it => val(it, 3), save: it => val(it, 4), reach: it => it.r };
   const TR_SUM = ['like', 'cmt', 'share', 'save', 'reach']; // 「우리 채널 전체」 칸에서는 이 지표를 합계로
@@ -693,7 +695,7 @@
   function trendHtml(chs) {
     const M = trModel(chs); window.__tr = M; window.__trChs = chs;
     const u = trUnit(), mName = TR_M.find(m => m[0] === TR.m)[1];
-    const notes = [mName + (TR_GET[TR.m] || TR.m === 'ratio' ? ((mName.charCodeAt(mName.length - 1) - 0xAC00) % 28 ? '은' : '는') + ' 중앙값이라 히트 한두 개에 흔들리지 않아요' : ''), adWord(), '흐린 막대는 아직 끝나지 않은 구간'];
+    const notes = [mName + (TR_GET[TR.m] || TR.m === 'ratio' ? ((mName.charCodeAt(mName.length - 1) - 0xAC00) % 28 ? '은' : '는') + ' 중간값이라 잘 된 게시물 한두 개에 흔들리지 않아요' : ''), adWord(), '흐린 막대는 아직 끝나지 않은 기간'];
     const per = TR_P.find(p => p[0] === TR.p);
     const ownChs = uniq(M.filter(p => p.kind !== 'bench').flatMap(p => p.chs));
     const cn = covNote(ownChs, per[2] ? addDays(D.updated, -per[2] + 1) : '0000');
@@ -716,7 +718,7 @@
         '<div class="tr-cap">' + cap + '</div>' +
         (s.kind === 'bench' ? '<div class="tr-lg">' + s.series.map(x => '<span><i style="background:' + chColor(x.ch) + '"></i>' + esc(chName(x.ch)) + (x.ch === '인스타그램' ? '(우리)' : '') + (likeHidden(x.ch) && TR.m !== 'posts' ? ' <small>비공개</small>' : '') + '</span>').join('') + '</div>' : '') +
         (empty ? '<div class="tr-chart tr-empty">데이터 없음</div>' : '<div class="tr-chart"><canvas id="trC' + i + '"></canvas></div>') +
-        (s.top.length ? '<div class="tr-top"><span>이 기간 히트</span>' + s.top.map((it, j) => '<button type="button" data-trt="' + i + ':' + j + '">' + (s.kind === 'own' ? '' : esc(chName(it.c)) + ' · ') + esc(title(it.n)) + ' <b>' + xf(s.rf(it)) + '</b></button>').join('') + '</div>' : '') +
+        (s.top.length ? '<div class="tr-top"><span>이 기간 잘 된 게시물</span>' + s.top.map((it, j) => '<button type="button" data-trt="' + i + ':' + j + '">' + (s.kind === 'own' ? '' : esc(chName(it.c)) + ' · ') + esc(title(it.n)) + ' <b>' + xf(s.rf(it)) + '</b></button>').join('') + '</div>' : '') +
         '</div>';
     });
     return h + '</div></section>';
@@ -767,7 +769,7 @@
         '<span class="bc-t">' + (r[key] == null ? '' : '<i style="width:' + Math.max(2, r[key] / mx * 100) + '%;background:' + chColor(r.ch) + '"></i>') + '</span>' +
         '<span class="bc-v num">' + (r[key] == null ? '<span class="mu">' + why(r) + '</span>' : f(r)) + '</span></div>').join('') + '</div>';
     };
-    return '<section class="sec" id="bcSec"><div class="sh"><div><h2>타 대학 비교</h2><p>인스타그램 · 최근 ' + ({ 91: 3, 182: 6, 365: 12 })[BC.p] + '개월 게시물 · 게시물당 값은 중앙값' + (firstB ? ' · 타 대학 데이터는 ' + dot(firstB) + '부터' : '') + '</p></div>' +
+    return '<section class="sec" id="bcSec"><div class="sh"><div><h2>타 대학 비교</h2><p>인스타그램 · 최근 ' + ({ 91: 3, 182: 6, 365: 12 })[BC.p] + '개월 게시물 · 게시물당 값은 중간값' + (firstB ? ' · 타 대학 데이터는 ' + dot(firstB) + '부터' : '') + '</p></div>' +
       '<div class="seg">' + [[91, '3개월'], [182, '6개월'], [365, '12개월']].map(p => '<button type="button" data-bcp="' + p[0] + '" aria-pressed="' + (BC.p === p[0]) + '">' + p[1] + '</button>').join('') + '</div></div>' +
       '<div class="bc-grid">' + blk('게시물당 좋아요', 'like', r => fmtK(r.like), r => r.hidden ? '비공개' : '데이터 없음') +
       blk('릴스 조회', 'reel', r => fmtK(r.reel), () => '데이터 없음') +
@@ -806,7 +808,7 @@
     if (!b) L.push(['views', '조회', 'sum', 0]);
     L.push(['likes', '좋아요', 'sum', 1], ['comments', '댓글', 'sum', 2]);
     if (!b && chs.includes('인스타그램')) L.push(['shares', '공유', 'sum', 3], ['saves', '저장', 'sum', 4]);
-    L.push(['posts', '게시 수', 'count'], ['per', b ? '게시물당 좋아요' : '게시물당 조회', 'med'], ['ratio', '평소 대비', 'ratio'], ['hit', '히트율', 'hit']);
+    L.push(['posts', '게시 수', 'count'], ['per', b ? '게시물당 좋아요' : '게시물당 조회', 'med'], ['ratio', '평소 대비', 'ratio'], ['hit', '잘 된 비율', 'hit']);
     if (b) { const i = L.findIndex(x => x[0] === 'per'); L.unshift(L.splice(i, 1)[0]); }
     return L;
   }
@@ -877,12 +879,12 @@
     const ttl = SD ? (M.hasSum ? '우리 채널 전체 현황' : SD.map(x => x.label).join(' · ') + (SD.length > 1 ? ' 합산' : ' 현황')) : (S.ch === '타 대학' ? '타 대학 비교' : chName(S.ch)) + ' 현황';
     const benchNote = SD && SD.some(x => x.id === 'bench') && !M.hasSum && ['views', 'per'].includes(M.def[0]) ? ' · 타 대학 조회는 릴스만 공개돼 릴스 기준' : SD && SD.some(x => x.id === 'bench') && ['views', 'per'].includes(M.def[0]) ? ' · 큰 숫자는 우리 채널 합계 · 타 대학 조회는 릴스 기준' : SD && M.hasSum && SD.length > 1 ? ' · 큰 숫자는 우리 채널 합계' : '';
     const pl = (PERIODS.find(p => p[0] === CS.period) || PERIODS[3]);
-    const sub = M.growth ? '기록 사이에 늘어난 ' + M.def[1] + '(막대는 하루 평균 · 괄호는 구간 일수) · ' + adWord() : (pl[0] === 'all' ? '전체' : '최근 ' + pl[1]) + ' 게시물의 ' + (M.def[2] === 'sum' ? '현재 누적 ' : '') + M.def[1] + ' · ' + adWord() + (benchMode() ? ' · 큰 숫자는 우리 인스타 기준' : '') + (benchNote || '');
+    const sub = M.growth ? '기록 사이에 늘어난 ' + M.def[1] + '(막대는 하루 평균 · 괄호는 기간 일수) · ' + adWord() : (pl[0] === 'all' ? '전체' : '최근 ' + pl[1]) + ' 게시물의 ' + (M.def[2] === 'sum' ? '현재 누적 ' : '') + M.def[1] + ' · ' + adWord() + (benchMode() ? ' · 큰 숫자는 우리 인스타 기준' : '') + (benchNote || '');
     const canGrowth = weekly() && M.def[2] === 'sum';
     let h = '<section class="sec" id="chartSec"><div class="cs-head"><div><div class="cs-t">' + esc(ttl) + '</div>' +
       '<div class="cs-big num">' + mfmt(M.def, M.big) + '</div>' +
       '<div class="cs-chg num ' + cls + '">' + (d == null ? '<span style="color:var(--muted);font-weight:600">' + (M.growth ? mdLabel(D.dates[0]) + ' 이후 합계' : '비교할 이전 기간 없음') + '</span>' : '<span class="' + dCls(d) + '">' + dTxt(d, 1, 1) + '</span> <span style="color:var(--muted);font-weight:600">이전 같은 기간 대비</span>') + '</div>' +
-      '<div class="cs-sub">' + esc(sub) + (M.growth ? '' : ' · 점선은 아직 끝나지 않은 구간') + (M.growth ? '' : (n => n ? '<br><span style="color:var(--coral)">⚠ ' + esc(n) + '</span>' : '')(covNote(M.chs, M.from))) + '</div></div>' +
+      '<div class="cs-sub">' + esc(sub) + (M.growth ? '' : ' · 점선은 아직 끝나지 않은 기간') + (M.growth ? '' : (n => n ? '<br><span style="color:var(--coral)">⚠ ' + esc(n) + '</span>' : '')(covNote(M.chs, M.from))) + '</div></div>' +
       '<button type="button" class="btn sm" id="csXls">엑셀로 받기</button></div>' +
       '<div class="chips cs-m">' + M.defs.map(df => '<button class="chip" type="button" data-m="' + df[0] + '" aria-pressed="' + (CS.metric === df[0]) + '">' + df[1] + '</button>').join('') + '</div>' +
       (SD ? '<div class="cs-ser" role="group" aria-label="그래프에 표시할 계열">' + serDefs().map(x => '<button type="button" class="tg2 ser" data-ser="' + esc(x.id) + '" aria-pressed="' + CS.series.includes(x.id) + '" style="--c:' + x.color + '"><i></i>' + esc(x.label) + '</button>').join('') + '<span class="hint">눌러서 켜고 끄기</span></div>' : '') +
@@ -921,9 +923,9 @@
     });
     h += '</tbody></table></div>';
     const notes = [];
-    if (st) notes.push('최근 ' + TBL_MAX + '개 구간만 보여요 · 전체는 「엑셀로 받기」');
+    if (st) notes.push('최근 ' + TBL_MAX + '개 기간만 보여요 · 전체는 「엑셀로 받기」');
     if (M.def[2] === 'sum' && !M.growth) notes.push('각 칸은 그 기간에 올린 게시물의 현재 누적값');
-    if (M.growth) notes.push('표는 구간 전체 증가, 그래프는 하루 평균 증가');
+    if (M.growth) notes.push('표는 기간 전체 증가, 그래프는 하루 평균 증가');
     return h + (notes.length ? '<p class="note cs-tn">' + esc(notes.join(' · ')) + '</p>' : '');
   }
   function pickHtml(M) {
@@ -933,8 +935,8 @@
     const b = M.bk[i];
     const arr = uniq(M.series.flatMap(s => s.arrs[i])).sort((x, y) => (mainVal(y) || 0) - (mainVal(x) || 0));
     const rng = b.from === b.to ? dot(b.from) : dot(b.from) + ' ~ ' + dot(b.to > M.to ? M.to : b.to);
-    return '<div class="cpick"><div><b>' + rng + '</b> · 게시 ' + arr.length + '개 · ' + M.def[1] + ' ' + mfmt(M.def, mval(M.def, arr)) + '</div><button type="button" class="btn" id="csPickX">이 구간 엑셀로</button></div>' +
-      '<ol class="rank" id="csList">' + rankRows(arr.slice(0, 5)) + '</ol>' + (arr.length > 5 ? '<p class="note">상위 5개만 보여요 · 전체는 「이 구간 엑셀로」</p>' : '');
+    return '<div class="cpick"><div><b>' + rng + '</b> · 게시 ' + arr.length + '개 · ' + M.def[1] + ' ' + mfmt(M.def, mval(M.def, arr)) + '</div><button type="button" class="btn" id="csPickX">이 기간 엑셀로</button></div>' +
+      '<ol class="rank" id="csList">' + rankRows(arr.slice(0, 5)) + '</ol>' + (arr.length > 5 ? '<p class="note">상위 5개만 보여요 · 전체는 「이 기간 엑셀로」</p>' : '');
   }
   function rerenderChart() { const el = $('chartSec'); if (!el) return; el.outerHTML = chartHtml(); wireChart(); }
   function toExport(from, to, group, chs) {
@@ -988,7 +990,7 @@
     draw('csCanvas', { type: CS.type === 'bar' ? 'bar' : 'line', data: { labels, datasets: ds },
       options: chartOpts({ layout: { padding: { top: 12, right: M.split && CS.type !== 'bar' ? 58 : 4 } }, interaction: { mode: 'index', intersect: false },
         onClick: (e, els, ch) => { const pts = ch.getElementsAtEventForMode(e, 'index', { intersect: false }, false); if (!pts.length || M.growth) return; const k = M.bk[pts[0].index].k; CS.sel = CS.sel === k ? null : k; $('csPick').innerHTML = pickHtml(M); if ($('csPickX')) { const b = M.bk.find(x => x.k === CS.sel); $('csPickX').addEventListener('click', () => toExport(b.from, b.to > M.to ? M.to : b.to, 'content', M.chs)); } if ($('csList')) wireRank($('csList'), uniq(M.series.flatMap(s => s.arrs[pts[0].index])).sort((x, y) => (mainVal(y) || 0) - (mainVal(x) || 0)).slice(0, 5)); if (CS.type === 'bar') rerenderChart(); },
-        plugins: { legend: { display: M.split && !multiMode() && CS.type === 'bar', position: 'bottom' }, tooltip: { displayColors: M.split, callbacks: { title: it => { const b = M.bk[it[0].dataIndex]; return b.from === b.to ? b.from : b.from + ' ~ ' + b.to; }, label: c => (M.split ? c.dataset.label + ' ' : '') + mfmt(M.def, c.raw) + (M.growth ? '/일 · 구간 합계 ' + mfmt(M.def, (M.series[c.datasetIndex].raw || [])[c.dataIndex]) : '') + (!M.growth && M.series[c.datasetIndex].arrs ? ' · 게시 ' + M.series[c.datasetIndex].arrs[c.dataIndex].length + '개' : '') } } },
+        plugins: { legend: { display: M.split && !multiMode() && CS.type === 'bar', position: 'bottom' }, tooltip: { displayColors: M.split, callbacks: { title: it => { const b = M.bk[it[0].dataIndex]; return b.from === b.to ? b.from : b.from + ' ~ ' + b.to; }, label: c => (M.split ? c.dataset.label + ' ' : '') + mfmt(M.def, c.raw) + (M.growth ? '/일 · 기간 합계 ' + mfmt(M.def, (M.series[c.datasetIndex].raw || [])[c.dataIndex]) : '') + (!M.growth && M.series[c.datasetIndex].arrs ? ' · 게시 ' + M.series[c.datasetIndex].arrs[c.dataIndex].length + '개' : '') } } },
         scales: { x: { stacked: CS.type === 'bar' && !!ds[0].stack, ticks: { maxTicksLimit: 7, maxRotation: 0, autoSkip: true, font: { size: 13, weight: '500' }, color: css('--muted') } },
           y: { stacked: CS.type === 'bar' && !!ds[0].stack, display: true, position: 'right', grid: { color: css('--line') }, border: { display: false }, ticks: { maxTicksLimit: 4, font: { size: 13 }, color: css('--muted'), callback: v => M.def[2] === 'ratio' ? v + '배' : M.def[2] === 'hit' ? Math.round(v * 100) + '%' : fmtK(v) }, beginAtZero: true } } }),
       plugins: [breaks].concat(M.split && CS.type !== 'bar' ? [endLabels] : []).concat(avg == null ? [] : [{ id: 'avg', afterDatasetsDraw(c) { const y = c.scales.y.getPixelForValue(avg), a = c.chartArea; if (y < a.top || y > a.bottom) return; const x = c.ctx; x.save(); x.setLineDash([4, 4]); x.strokeStyle = css('--muted'); x.lineWidth = 1; x.beginPath(); x.moveTo(a.left, y); x.lineTo(a.right, y); x.stroke(); x.setLineDash([]); x.font = '600 13px ' + css('--font'); x.fillStyle = css('--muted'); x.textAlign = 'left'; x.fillText('평균 ' + mfmt(M.def, avg), a.left + 4, y - 5); x.restore(); } }]) });
@@ -1019,7 +1021,7 @@
     const card = (kind, lab, head, body, key) => '<div class="rx ' + kind + '"><div class="rx-k">' + lab + '</div><div class="rx-h">' + head + '</div><p>' + body + '</p>' + (key ? '<button type="button" class="rx-b" data-rx="' + esc(key) + '">콘텐츠 보기</button>' : '') + '</div>';
     const combo = r => badge(r.c) + '<span>' + esc(r.g) + ' × ' + esc(fmtType(r.t)) + '</span>';
     const cards = [];
-    P.more.forEach(r => cards.push(card('more', '더 만들기', combo(r), '평소의 <b>' + xf(r.idx) + '</b> · 히트율 <b>' + pct0(r.hit) + '</b>(채널 평균 ' + pct0(r.hb) + ') · 최근 1년 ' + r.n + '개 중 <b>최근 2달 ' + r.recent + '개</b>뿐이에요', 'c:' + r.k)));
+    P.more.forEach(r => cards.push(card('more', '더 만들기', combo(r), '평소의 <b>' + xf(r.idx) + '</b> · 잘 된 비율 <b>' + pct0(r.hit) + '</b>(채널 평균 ' + pct0(r.hb) + ') · 최근 1년 ' + r.n + '개 중 <b>최근 2달 ' + r.recent + '개</b>뿐이에요', 'c:' + r.k)));
     P.less.forEach(r => cards.push(card('less', '줄이거나 바꾸기', combo(r), '최근 2달 ' + r.recent + '개 올렸는데 평소의 <b>' + xf(r.idx) + '</b>에 그쳤어요' + (r.alt ? ' · 같은 주제는 <b>' + esc(fmtType(r.alt.t)) + '</b>일 때 평소의 ' + xf(r.alt.idx) + '(' + r.alt.n + '개)' : ''), 'c:' + r.k)));
     if (P.again.length) cards.push(card('again', '작년 이맘때 잘 된 것', '<span>올해 버전 만들기 후보</span>', P.again.map(it => badge(it.c) + esc(title(it.n)) + ' <b>' + xf(ratio(it)) + '</b> <small>' + dot(it.d) + '</small>').join('<br>'), 'a:again'));
     if (!cards.length) return '<div class="wait">아직 뚜렷한 처방이 없어요. 분류·형식별 게시물이 ' + MIN_N + '개 이상 쌓이면 나와요.</div>';
@@ -1067,9 +1069,9 @@
     const blocks = ownIn(chs).map(ch => {
       const R = rulesFor(ch);
       if (!R.length) return '<div class="rl"><div class="rl-h">' + badge(ch) + '</div><p class="note">게시물이 적거나 뚜렷한 차이가 없어요.</p></div>';
-      return '<div class="rl"><div class="rl-h">' + badge(ch) + '<small>최근 2년 · 평소 대비(중앙값)</small></div><ul>' + R.map(r => {
+      return '<div class="rl"><div class="rl-h">' + badge(ch) + '<small>최근 2년 · 평소 대비(중간값)</small></div><ul>' + R.map(r => {
         const up = r.eff >= 1;
-        return '<li class="' + (up ? 'up' : 'down') + '"><span class="ic2">' + (up ? '▲' : '▼') + '</span><span><b>' + esc(r.label) + '</b> <em class="' + (up ? 'up' : 'down') + '">' + (up ? '잘 됨' : '약함') + '</em><small>평소의 ' + xf(r.ma) + ' (' + r.na + '개) vs 그 외 ' + xf(r.mb) + ' (' + r.nb + '개) · 히트율 ' + pct0(r.ha) + ' vs ' + pct0(r.hb) + '</small></span></li>';
+        return '<li class="' + (up ? 'up' : 'down') + '"><span class="ic2">' + (up ? '▲' : '▼') + '</span><span><b>' + esc(r.label) + '</b> <em class="' + (up ? 'up' : 'down') + '">' + (up ? '잘 됨' : '약함') + '</em><small>평소의 ' + xf(r.ma) + ' (' + r.na + '개) vs 그 외 ' + xf(r.mb) + ' (' + r.nb + '개) · 잘 된 비율 ' + pct0(r.ha) + ' vs ' + pct0(r.hb) + '</small></span></li>';
       }).join('') + '</ul></div>';
     });
     return '<div class="rls">' + blocks.join('') + '</div><p class="note">함께 나타난 경향이라 원인이라고 단정할 수는 없어요. 다음 달 기획에서 시험해 보고 「전략 기록」으로 확인해 보세요.</p>';
@@ -1092,7 +1094,7 @@
         const idx = igR ? (rr && rr.length >= 5 && rBase ? median(rr) / rBase : null) : (r && r.n >= 5 ? r.idx : null);
         const basis = igR ? '도달 기준 평소의 ' : '평소의 ';
         let rec = Math.round(per);
-        let why = '최근 6달 월평균 유지' + (r && r.n < 5 ? ' (표본 적음)' : '');
+        let why = '최근 6달 월평균 유지' + (r && r.n < 5 ? ' (게시물이 적어 참고용)' : '');
         if (idx != null && idx >= 1.2) { rec = Math.max(rec + 1, Math.round(per * 1.3)); why = basis + xf(idx) + ' · 늘리기'; }
         else if (idx != null && idx <= 0.8 && rec > 0) { rec = Math.max(0, Math.min(rec - 1, Math.round(per * 0.7))); why = basis + xf(idx) + ' · 줄이기'; }
         return { t, per, rec, why, idx };
@@ -1143,11 +1145,11 @@
       const r = scoreStrat(s);
       return '<tr class="click" data-si="' + i + '"><td class="w"><b>' + esc(s.what) + '</b><br><small class="hint">' + [s.ch ? chName(chKey(s.ch) || s.ch) : '전체', s.g, s.t, s.kw ? '“' + s.kw + '”' : ''].filter(Boolean).map(esc).join(' · ') + '</small></td><td>' + dot(s.from) + ' ~ ' + (s.to ? dot(s.to) : '') + (r.running ? ' <span class="tag p-own">진행 중</span>' : '') + '</td><td class="n">' + r.L.length + '</td><td class="n"><b>' + xf(r.m) + '</b></td><td class="n">' + xf(r.mb) + '</td><td class="n">' + pct0(r.hit) + '</td><td><span class="tag ' + (r.v[0] === 'good' ? 'p-own' : r.v[0] === 'bad' ? 'p-ad' : '') + '">' + esc(r.v[1]) + '</span></td></tr>';
     });
-    return '<div class="tw"><table class="tbl" id="stTbl"><thead><tr><th>시도</th><th>기간</th><th class="n">게시</th><th class="n">평소 대비</th><th class="n">직전 같은 기간</th><th class="n">히트율</th><th>판정</th></tr></thead><tbody>' + rows.join('') + '</tbody></table></div><p class="note">조건(채널·분류·형식·키워드)에 맞는 게시물만 모아 평소 대비(중앙값)를 봐요 · 3개 이상 쌓이면 판정해요 · 줄을 누르면 해당 게시물이 나와요</p><div id="stList"></div>';
+    return '<div class="tw"><table class="tbl" id="stTbl"><thead><tr><th>시도</th><th>기간</th><th class="n">게시</th><th class="n">평소 대비</th><th class="n">직전 같은 기간</th><th class="n">잘 된 비율</th><th>판정</th></tr></thead><tbody>' + rows.join('') + '</tbody></table></div><p class="note">조건(채널·분류·형식·키워드)에 맞는 게시물만 모아 평소 대비(중간값)를 봐요 · 3개 이상 쌓이면 판정해요 · 줄을 누르면 해당 게시물이 나와요</p><div id="stList"></div>';
   }
 
   // 5) 이번 달 목표 (스냅샷 시트 「채널 목표」)
-  const GOAL_M = { '게시 수': 'n', '게시물': 'n', '조회수': 'views', '조회': 'views', '히트율': 'hit', '평균 조회': 'avg', '팔로워 순증': 'fol', '구독 순증': 'fol', '팔로워': 'fol' };
+  const GOAL_M = { '게시 수': 'n', '게시물': 'n', '조회수': 'views', '조회': 'views', '히트율': 'hit', '잘 된 비율': 'hit', '평균 조회': 'avg', '팔로워 순증': 'fol', '구독 순증': 'fol', '팔로워': 'fol' };
   function goalActual(ch, metric, ym) {
     const L = D.items.filter(it => it.c === ch && it.t !== '스토리' && it.d.slice(0, 7) === ym && (S.ads || !it.ad));
     if (metric === 'n') return L.length;
@@ -1250,7 +1252,7 @@
         '<td class="tot"><b>' + pct0(r.hit) + '</b><small>' + r.n + '개</small></td></tr>';
     });
     mx += '<tr><th class="r">전체</th>' + types.map(t => { const arr = L.filter(it => it.t === t); return '<td class="tot"><b>' + pct0(hitRate(arr)) + '</b><small>' + arr.length + '개</small></td>'; }).join('') + '<td class="tot"><b>' + pct0(hb) + '</b><small>' + L.length + '개</small></td></tr></tbody></table></div>' +
-      '<div class="mxleg"><span><i style="background:rgba(0,120,173,.9)"></i>히트율 높음</span><span><i style="background:rgba(0,120,173,.15)"></i>낮음</span><span><i style="background:var(--tile)"></i>게시물 ' + MIN_N + '개 미만(참고용)</span><span>칸을 누르면 해당 콘텐츠가 아래에 나와요</span></div>';
+      '<div class="mxleg"><span><i style="background:rgba(0,120,173,.9)"></i>잘 된 비율 높음</span><span><i style="background:rgba(0,120,173,.15)"></i>낮음</span><span><i style="background:var(--tile)"></i>게시물 ' + MIN_N + '개 미만(참고용)</span><span>칸을 누르면 해당 콘텐츠가 아래에 나와요</span></div>';
     let sel = '';
     if (S.mx) {
       const [g, t] = S.mx.split('|');
@@ -1262,32 +1264,32 @@
     let top = '';
     if (own) {
       const gh = goalsHtml();
-      top += secOpen('이번 달 목표', gh ? '목표 대비 진행률 · 막대의 세로선은 오늘까지 기대 진행률이에요' : '') + (gh || '<div class="wait"><b>채널별 월 목표를 정하면 진행률을 보여줘요.</b><br>스냅샷 시트 <b>「채널 목표」</b> 탭에 채널 · 지표(게시 수 / 조회 / 히트율 / 평균 조회 / 팔로워 순증) · 목표값을 적어 주세요. 월을 비우면 매달 같은 목표로 봐요.</div>') + secClose;
+      top += secOpen('이번 달 목표', gh ? '목표 대비 진행률 · 막대의 세로선은 오늘까지 기대 진행률이에요' : '') + (gh || '<div class="wait"><b>채널별 월 목표를 정하면 진행률을 보여줘요.</b><br>스냅샷 시트 <b>「채널 목표」</b> 탭에 채널 · 지표(게시 수 / 조회 / 잘 된 비율 / 평균 조회 / 팔로워 순증) · 목표값을 적어 주세요. 월을 비우면 매달 같은 목표로 봐요.</div>') + secClose;
       top += secOpen('이번 주 처방', (ch ? badge(ch) : esc(scopeLabel())) + ' 최근 1년 성과와 최근 2달 제작량을 비교해 뽑았어요') + rxHtml(RX) + secClose;
       top += secOpen('시도한 전략 채점', '「전략 기록」에 적은 시도가 실제로 효과가 있었는지') + stratHtml() + secClose;
       top += secOpen('잘 되는 조건', '데이터에서 차이가 뚜렷한 것만 골랐어요 (평소 대비 1.25배 이상 차이)') + rulesHtml(chs) + secClose;
       top += secOpen((+monthStart(D.updated, 1).slice(5, 7)) + '월 편성 제안', '최근 6달 제작량 + 형식별 성과 + 지난해 같은 달에 잘 된 주제') + planHtml(PLAN) + secClose;
     }
-    let html = top + secOpen('무엇을 만들면 잘 되나', (ch ? badge(ch) : esc(scopeLabel())) + ' ' + periodPhrase() + ' 게시물 · 칸의 숫자는 <b>히트율</b>, 평소의 1.5배 이상 나온 게시물 비율이에요', '<div class="seg" id="mxBy" aria-label="행 기준">' + [['g', '형식 × 분류'], ['p', '형식 × 제작']].map(o => '<button type="button" data-v="' + o[0] + '" aria-pressed="' + (MXB === o[0]) + '">' + o[1] + '</button>').join('') + '</div>') + mx + sel + secClose;
+    let html = top + secOpen('무엇을 만들면 잘 되나', (ch ? badge(ch) : esc(scopeLabel())) + ' ' + periodPhrase() + ' 게시물 · 칸의 숫자는 <b>잘 된 비율</b>, 평소의 1.5배 이상 나온 게시물 비율이에요', '<div class="seg" id="mxBy" aria-label="행 기준">' + [['g', '형식 × 분류'], ['p', '형식 × 제작']].map(o => '<button type="button" data-v="' + o[0] + '" aria-pressed="' + (MXB === o[0]) + '">' + o[1] + '</button>').join('') + '</div>') + mx + sel + secClose;
 
     // 반응의 종류
     if (ch && OWN.includes(ch)) html += secOpen('콘텐츠 역할 — 반응의 종류', reactNote(ch)) + reactTable(ch, cats) + secClose;
     else if (S.ch === '전체') html += secOpen('콘텐츠 역할 — 반응의 종류', '채널마다 반응 지표가 달라서 위에서 채널을 고르면 보여요 (인스타: 저장·공유·댓글 / 유튜브: 시청 완료 / hong: 좋아요·댓글)') + secClose;
 
     // 분류별 + 요일별
-    html += secOpen('분류별 · 요일별 성과', '게시물이 평소의 몇 배였는지(중앙값) · 세로선이 평소 수준이에요') +
+    html += secOpen('분류별 · 요일별 성과', '게시물이 평소의 몇 배였는지(중간값) · 세로선이 평소 수준이에요') +
       '<div class="two"><div><h3>분류별</h3><div class="bars" id="byCat"></div></div><div><h3>게시 요일별</h3><div class="chart" id="wdBox"><canvas id="wdChart"></canvas></div><p class="note" id="wdNote"></p></div></div>' + secClose;
 
     // 수명
     if (own) {
       html += secOpen('롱테일 — 오래돼도 계속 크는 콘텐츠', '과거 기록 사이에 늘어난 조회 기준 · 게시 1년이 넘은 콘텐츠') + longtailHtml(chs) + secClose;
-      html += secOpen('콘텐츠 수명 — 언제까지 조회가 붙나', '게시 후 1달·3달·6달에 현재 누적의 몇 %까지 왔는지(중앙값) · 낮을수록 오래 꾸준히 커요') + '<div class="chart tall"><canvas id="lifeChart2"></canvas></div><p class="note" id="lifeNote2"></p>' + secClose;
+      html += secOpen('콘텐츠 수명 — 언제까지 조회가 붙나', '게시 후 1달·3달·6달에 현재 누적의 몇 %까지 왔는지(중간값) · 낮을수록 오래 꾸준히 커요') + '<div class="chart tall"><canvas id="lifeChart2"></canvas></div><p class="note" id="lifeNote2"></p>' + secClose;
     }
     $('view').innerHTML = html.replace(/^<div class="gap"><\/div>/, '');
     if ($('mxBy')) $('mxBy').querySelectorAll('button').forEach(b => b.addEventListener('click', () => { S.mxBy = b.dataset.v; S.mx = null; viewStrategy(); }));
     $('view').querySelectorAll('.mx td[data-k]').forEach(td => { if (td.classList.contains('none')) return; td.addEventListener('click', () => { S.mx = S.mx === td.dataset.k ? null : td.dataset.k; viewStrategy(); if (S.mx) setTimeout(() => { const el = $('mxList'); if (el) el.scrollIntoView({ behavior: 'smooth', block: 'nearest' }); }, 30); }); });
     if (S.mx) { const [g, t] = S.mx.split('|'); wireRank($('mxList'), L.filter(it => it[MXB] === g && it.t === t).sort((a, b) => (ratio(b) || 0) - (ratio(a) || 0)).slice(0, 20)); }
-    bars('byCat', cats.filter(r => r.n >= 2).sort(byIdx), r => r.n + '개 · 히트율 ' + pct0(r.hit), k => { S.view = 'explore'; S.g = k; render(); window.scrollTo({ top: 0 }); });
+    bars('byCat', cats.filter(r => r.n >= 2).sort(byIdx), r => r.n + '개 · 잘 된 비율 ' + pct0(r.hit), k => { S.view = 'explore'; S.g = k; render(); window.scrollTo({ top: 0 }); });
     // 요일
     const wd = [1, 2, 3, 4, 5, 6, 0].map(k => { const arr = L.filter(it => new Date(it.d + 'T00:00:00Z').getUTCDay() === k); return { k: WD[k], n: arr.length, idx: median(arr.map(ratio)) }; });
     const best = wd.filter(x => x.n >= MIN_N && x.idx != null).sort((a, b) => b.idx - a.idx)[0];
@@ -1376,10 +1378,10 @@
     const own = prod.find(r => r.k === '자체 제작'), amb = prod.find(r => r.k === '홍보대사'), ws = prod.find(r => r.k === '근로장학생');
     let call = '';
     if (own && amb) call = '홍보대사 제작물은 게시물당 평소의 <b>' + xf(amb.idx) + '</b>, 자체 제작은 <b>' + xf(own.idx) + '</b>' + (ws ? ', 근로장학생은 <b>' + xf(ws.idx) + '</b>' : '') + '예요.' +
-      '<small>' + periodPhrase() + ' · 홍보대사 ' + amb.n + '개(히트율 ' + pct0(amb.hit) + ') · 자체 제작 ' + own.n + '개(히트율 ' + pct0(own.hit) + ')' + (ws ? ' · 근로장학생 ' + ws.n + '개(히트율 ' + pct0(ws.hit) + ')' : '') + '</small>';
-    let html = secOpen('제작 주체별 효율', '게시물이 평소의 몇 배였는지(중앙값) · 광고 영상은 조회가 부풀려져 따로 표시해요') +
+      '<small>' + periodPhrase() + ' · 홍보대사 ' + amb.n + '개(잘 된 비율 ' + pct0(amb.hit) + ') · 자체 제작 ' + own.n + '개(잘 된 비율 ' + pct0(own.hit) + ')' + (ws ? ' · 근로장학생 ' + ws.n + '개(잘 된 비율 ' + pct0(ws.hit) + ')' : '') + '</small>';
+    let html = secOpen('제작 주체별 효율', '게시물이 평소의 몇 배였는지(중간값) · 광고 영상은 조회가 부풀려져 따로 표시해요') +
       '<div class="two"><div><div class="bars" id="byProd"></div>' + (call ? '<div class="callout">' + call + '</div>' : '') + '</div><div>' +
-      '<div class="tw"><table class="tbl compact"><thead><tr><th>제작</th><th class="n">게시</th><th class="n">히트율</th><th class="n">조회 합</th><th class="n">게시물당 조회</th></tr></thead><tbody>' +
+      '<div class="tw"><table class="tbl compact"><thead><tr><th>제작</th><th class="n">게시</th><th class="n">잘 된 비율</th><th class="n">조회 합</th><th class="n">게시물당 조회</th></tr></thead><tbody>' +
       prod.concat(ads.length ? [{ k: '광고 영상', n: ads.length, hit: null, arr: ads, v: median(ads.map(mainVal)) }] : []).map(r => '<tr><td>' + ptag(r.k) + '</td><td class="n">' + r.n + '</td><td class="n">' + pct0(r.hit) + '</td><td class="n">' + fmtK(sum(r.arr.map(mainVal))) + '</td><td class="n">' + fmtK(r.v) + '</td></tr>').join('') +
       '</tbody></table></div><p class="note">자체 제작: 캡션에 제작자 이름이 없는 홍보실 제작물 · 근로장학생: 크레딧 이름 중 홍보대사 명단에 없는 사람 · 광고 영상: 구글애즈 캠페인과 연결된 유튜브 영상(비교에서 빼고 따로 표시)</p></div></div>' + secClose;
     // 사람별
@@ -1392,19 +1394,19 @@
     html += secOpen('사람별 성과', '캡션 제작 크레딧에 적힌 이름 기준이에요 · 팀 콘텐츠는 참여자 모두에게 똑같이 집계해요 · 등급 점수는 상벌점표의 조회 기준이에요(100만 +10 · 50만 +5 · 10만 +1 · 1만 +0.1 · 1만 미만 −0.1)',
       '<button class="btn" type="button" id="pXls">엑셀로 받기</button>') +
       '<div class="chips">' + roleChips + '</div>' +
-      '<div class="tw"><table class="tbl" id="pTbl"><thead><tr><th>이름</th><th>역할</th>' + th('n', '참여') + th('views', '조회 합') + th('idx', '평소 대비') + th('hits', '히트') + th('score', '등급 점수') + '<th>최고 콘텐츠</th></tr></thead><tbody>' +
+      '<div class="tw"><table class="tbl" id="pTbl"><thead><tr><th>이름</th><th>역할</th>' + th('n', '참여') + th('views', '조회 합') + th('idx', '평소 대비') + th('hits', '잘 된 게시물') + th('score', '등급 점수') + '<th>최고 콘텐츠</th></tr></thead><tbody>' +
       ps.map(p => '<tr class="click' + (S.person === p.n ? ' on' : '') + '" data-n="' + esc(p.n) + '"><td><b>' + esc(p.n) + '</b></td><td>' + ptag(p.role) + '</td><td class="n">' + p.k + '</td><td class="n">' + fmtK(p.views) + '</td><td class="n">' + xf(p.idx) + '</td><td class="n">' + p.hits + '</td><td class="n ' + (p.score >= 0 ? 'up' : 'down') + '">' + (p.score > 0 ? '+' : '') + p.score + '</td><td><div class="ellip">' + line(p.best) + '</div></td></tr>' +
         (S.person === p.n ? '<tr><td colspan="8" style="padding:0 0 10px;white-space:normal"><ol class="rank" id="pList">' + rankRows(p.arr.slice().sort((a, b) => b.d < a.d ? -1 : 1).slice(0, 10)) + '</ol>' + (p.arr.length > 10 ? '<p class="note">최근 10개만 보여요. 전체 목록은 「엑셀로 받기」나 「데이터 추출 → 사람」에서 받을 수 있어요.</p>' : '') + '</td></tr>' : '')).join('') +
       (ps.length ? '' : '<tr><td colspan="8" class="empty">' + periodPhrase() + ' 동안 크레딧에 이름이 있는 콘텐츠가 없어요.</td></tr>') +
       '</tbody></table></div><p class="note">이름을 누르면 그 사람이 참여한 콘텐츠가 펼쳐져요. 역할이 틀렸다면 스냅샷 시트 「명단」 탭에서 고칠 수 있어요.</p>' + secClose;
     $('view').innerHTML = html.replace(/^<div class="gap"><\/div>/, '');
-    bars('byProd', prod, r => r.n + '개 · 히트율 ' + pct0(r.hit));
+    bars('byProd', prod, r => r.n + '개 · 잘 된 비율 ' + pct0(r.hit));
     $('view').querySelectorAll('.chips [data-r]').forEach(b => b.addEventListener('click', () => { S.roleF = b.dataset.r; S.person = null; viewMaker(); }));
     $('view').querySelectorAll('#pTbl th button').forEach(b => b.addEventListener('click', () => { S.psort = b.dataset.s; viewMaker(); }));
     $('view').querySelectorAll('#pTbl tr[data-n]').forEach(tr => tr.addEventListener('click', () => { S.person = S.person === tr.dataset.n ? null : tr.dataset.n; viewMaker(); }));
     if (S.person) { const p = ps.find(x => x.n === S.person); if (p) wireRank($('pList'), p.arr.slice().sort((a, b) => b.d < a.d ? -1 : 1).slice(0, 10)); }
     $('pXls').addEventListener('click', () => {
-      const head = ['이름', '역할', '참여 콘텐츠', '조회 합', '평소 대비(중앙값, 배)', '히트 수', '등급 점수', '최고 콘텐츠', '최고 콘텐츠 조회'];
+      const head = ['이름', '역할', '참여 콘텐츠', '조회 합', '평소 대비(중간값, 배)', '잘 된 게시물 수', '등급 점수', '최고 콘텐츠', '최고 콘텐츠 조회'];
       const rows = ps.map(p => [p.n, p.role, p.k, p.views, p.idx == null ? null : +p.idx.toFixed(2), p.hits, p.score, title(p.best.n), val(p.best, 0)]);
       const detail = [['이름', '역할', '게시일', '채널', '형식', '분류', '제목', '조회', '좋아요', '댓글', '평소 대비(배)', '등급 점수']];
       ps.forEach(p => p.arr.forEach(it => { const v = last(it) || []; detail.push([p.n, p.role, it.d, chName(it.c), fmtType(it.t), it.g, title(it.n), v[0], v[1], v[2], ratio(it) == null ? null : +ratio(it).toFixed(2), SCORE(v[0])]); }));
@@ -1445,7 +1447,7 @@
     let html = '<section class="sec"><div class="sh"><div><h2>입시 시즌 리포트</h2><p>수시 8~9월 · 정시 12~1월 · ' + esc(scopeLabel()) + ' · 수치는 ' + mdLabel(D.updated) + ' 기준 누적</p></div>' + selHtml + '</div>' +
       '<div class="kpis">' +
       '<div class="kpi"><div class="l">시즌 게시물</div><div class="v">' + st.org.length + '<small style="font-size:var(--fs-lg);color:var(--muted);font-weight:700">개</small></div><div class="s">입시·모집 콘텐츠 <b>' + st.adm.length + '개</b>' + (st.admIdx == null ? '' : ' · 평소의 ' + xf(st.admIdx)) + '</div></div>' +
-      '<div class="kpi"><div class="l">자연 조회 (광고 제외)</div><div class="v">' + fmtK(st.orgV) + '</div><div class="s">게시물당 평소의 <b>' + xf(st.idx) + '</b> · 히트율 ' + pct0(st.hit) + '</div></div>' +
+      '<div class="kpi"><div class="l">자연 조회 (광고 제외)</div><div class="v">' + fmtK(st.orgV) + '</div><div class="s">게시물당 평소의 <b>' + xf(st.idx) + '</b> · 잘 된 비율 ' + pct0(st.hit) + '</div></div>' +
       '<div class="kpi"><div class="l">광고 (구글애즈 계정 전체)</div><div class="v">' + (st.covered ? fmtK(st.cost) + '<small style="font-size:var(--fs-lg);color:var(--muted);font-weight:700">원</small>' : '–') + '</div><div class="s">' + (st.covered ? '캠페인 ' + st.camps.length + '개 · ' + (st.ad.length ? '광고 영상 <b>' + st.ad.length + '개</b> 조회 ' + fmtK(st.adV) : '연결된 광고 영상 없음') + (st.adV ? ' · 조회 1회당 <b>' + fmt(st.cost / st.adV) + '원</b>' : '') : '광고 리포트가 ' + dot(D.ads ? D.ads.end : '') + '까지라 이 시즌 광고비는 아직 없어요 · 광고 영상 ' + st.ad.length + '개(조회 패턴 추정) 조회 ' + fmtK(st.adV)) + '</div></div>' +
       '</div></section>';
     html += secOpen('주별 게시 콘텐츠 조회', '주마다 올린 콘텐츠의 현재 누적 조회 · 광고 영상과 나머지를 나눠 보여줘요') + '<div class="chart tall"><canvas id="seaChart"></canvas></div>' + secClose;
@@ -1455,7 +1457,7 @@
       '<div><h3>시즌 중 가장 잘 된 콘텐츠</h3><p class="d">분류와 관계없이 · 광고 제외</p><ol class="rank" id="sTop">' + rankRows(topSorted) + '</ol></div></div>' + secClose;
     // 시즌 비교
     html += secOpen('시즌별 비교', '최근 시즌은 조회가 쌓인 기간이 짧아 적게 보일 수 있어요') +
-      '<div class="tw"><table class="tbl"><thead><tr><th>시즌</th><th class="n">게시</th><th class="n">입시 콘텐츠</th><th class="n">자연 조회</th><th class="n">광고 조회</th><th class="n">광고비</th><th class="n">게시물당 평소 대비</th><th class="n">히트율</th></tr></thead><tbody>' +
+      '<div class="tw"><table class="tbl"><thead><tr><th>시즌</th><th class="n">게시</th><th class="n">입시 콘텐츠</th><th class="n">자연 조회</th><th class="n">광고 조회</th><th class="n">광고비</th><th class="n">게시물당 평소 대비</th><th class="n">잘 된 비율</th></tr></thead><tbody>' +
       ss.map(x => { const t = seasonStats(x); const cn = covNote(viewChannels(), x.from); return '<tr class="click' + (x.id === s.id ? ' on' : '') + '" data-s="' + x.id + '"><td>' + esc(x.label) + (cn ? ' <span class="tag p-ad" title="' + esc(cn) + '">일부</span>' : '') + '</td><td class="n">' + t.org.length + '</td><td class="n">' + t.adm.length + '</td><td class="n">' + fmtK(t.orgV) + '</td><td class="n">' + fmtK(t.adV) + '</td><td class="n">' + (t.covered ? fmtK(t.cost) : '–') + '</td><td class="n">' + xf(t.idx) + '</td><td class="n">' + pct0(t.hit) + '</td></tr>'; }).join('') +
       '</tbody></table></div><p class="note">「일부」는 원본 수집 범위 밖 기간이 섞인 시즌이에요(유튜브는 ' + dot(covFrom('유튜브') || '') + ' 이후 조회만, 인스타는 ' + dot(covFrom('인스타그램') || '') + ' 이후 게시물만) · 광고비 = 구글애즈 리포트의 그 기간 집행 비용(동영상·디스플레이 전체, ' + dot(D.ads ? D.ads.end : '') + '까지) · 광고 조회 = 캠페인에 연결된 유튜브 영상의 조회</p>' + secClose;
     $('view').innerHTML = html;
@@ -1688,7 +1690,7 @@
       if (!o || ourShare < theirShare || (o && o.idx < 1)) opp.push({ ch: d.ch, k: c.k, idx: c.idx, ourShare, theirShare, ourIdx: o ? o.idx : null });
     }));
     opp.sort((a, b) => b.idx - a.idx);
-    html += secOpen('타 대학에서 잘 되는 분류', '각 계정의 평소 좋아요 대비 몇 배였는지(중앙값) · 게시물 3개 이상인 분류만') +
+    html += secOpen('타 대학에서 잘 되는 분류', '각 계정의 평소 좋아요 대비 몇 배였는지(중간값) · 게시물 3개 이상인 분류만') +
       '<div class="tw"><table class="tbl"><thead><tr><th>계정</th><th>1위</th><th>2위</th><th>3위</th></tr></thead><tbody>' +
       data.map(d => { if (d.hidden) return '<tr><td>' + badge(d.ch) + '</td><td colspan="3" style="color:var(--muted)">좋아요 수가 비공개라 비교할 수 없어요 (게시 구성만 참고)</td></tr>'; const t = d.cats.filter(c => c.n >= 3).sort((a, b) => b.idx - a.idx).slice(0, 3); return '<tr><td>' + badge(d.ch) + '</td>' + [0, 1, 2].map(i => '<td>' + (t[i] ? esc(t[i].k) + ' <b class="' + (t[i].idx >= 1 ? 'up' : 'down') + '">' + xf(t[i].idx) + '</b> <span style="color:var(--muted)">' + t[i].n + '개</span>' : '–') + '</td>').join('') + '</tr>'; }).join('') +
       '</tbody></table></div>' +
@@ -1792,8 +1794,8 @@
       { k: 'g', l: '분류', v: glab },
       { k: 'p', l: '제작', v: it => it.p },
       { k: 'm', l: own ? '조회' : '좋아요', v: mainVal, n: 1 },
-      { k: 'r', l: '평소 대비', v: it => !!it.ad ? null : ratio(it), n: 1, f: (v, it) => v != null && young(it) ? '집계 중' : xf(v) },
-      { k: 'q', l: S.ch === '인스타그램' ? '도달 ER' : '반응', tip: S.ch === '인스타그램' ? '(좋아요+댓글+공유+저장) ÷ 도달' : '인스타 참여율 · 유튜브 시청 완료율 · hong 좋아요율', v: quality, n: 1, f: pct },
+      { k: 'r', l: '평소 대비', v: it => !!it.ad ? null : ratio(it), n: 1, f: (v, it) => v != null && young(it) ? '조회 모이는 중' : xf(v) },
+      { k: 'q', l: S.ch === '인스타그램' ? '도달 대비 반응' : '반응', tip: S.ch === '인스타그램' ? '(좋아요+댓글+공유+저장) ÷ 도달' : '인스타 참여율 · 유튜브 시청 완료율 · hong 좋아요율', v: quality, n: 1, f: pct },
     ];
     if (S.ch === '인스타그램') {
       // 개편 1단계: 형식을 넘나드는 비교는 도달 분모(캐러셀 조회는 장마다 세서 부풀려짐)
@@ -1801,7 +1803,7 @@
       const per = k => it => { const x = last(it); return x && it.r > 0 ? (x[k] || 0) / it.r : null; };
       c.push({ k: 'sv', l: '저장률', tip: '저장 ÷ 도달', v: per(4), n: 1, f: pct },
         { k: 'sh', l: '공유율', tip: '공유 ÷ 도달', v: per(3), n: 1, f: pct },
-        { k: 'rf', l: '확산도', tip: '도달 ÷ 현재 팔로워' + (fl ? '(' + fmt(fl) + '명)' : ''), v: it => fl > 0 && it.r > 0 ? it.r / fl : null, n: 1, f: pct0 });
+        { k: 'rf', l: '팔로워 대비 도달', tip: '도달 ÷ 현재 팔로워' + (fl ? '(' + fmt(fl) + '명)' : ''), v: it => fl > 0 && it.r > 0 ? it.r / fl : null, n: 1, f: pct0 });
     }
     if (weekly()) c.push({ k: 'w', l: '주간 증가', v: it => inc(it, mainM(it.c)), n: 1, f: v => v == null ? '–' : sgn(v) + fmt(v) });
     return c;
@@ -1851,13 +1853,13 @@
     ['w', '참여자', it => (it.w || []).join(', '), 's'],
     ['views', '조회', it => xv(it, 0), 'n'], ['likes', '좋아요', it => xv(it, 1), 'n'], ['comments', '댓글', it => xv(it, 2), 'n'], ['shares', '공유', it => xv(it, 3), 'n'], ['saves', '저장', it => xv(it, 4), 'n'],
     ['reach', '도달', it => it.r, 'n'], ['eng', '참여율', engagement, 'p'], ['comp', '시청 완료율', completion, 'p'], ['ratio', '평소 대비(배)', it => !!it.ad ? null : ratio(it), 'x'],
-    ['hit', '히트', it => isHit(it) && !it.ad ? 'O' : '', 's'], ['ad', '광고', it => it.ad ? (it.ad.s === '패턴' ? '추정(조회 패턴)' : it.ad.s) : '', 's'], ['camp', '광고 캠페인', it => it.ad ? it.ad.k.concat((it.ad.mk || []).map(n => '메타: ' + metaLabel(n))).join(' / ') : '', 's'], ['url', '링크', it => it.u || '', 's'],
+    ['hit', '잘 된 게시물', it => isHit(it) && !it.ad ? 'O' : '', 's'], ['ad', '광고', it => it.ad ? (it.ad.s === '패턴' ? '추정(조회 패턴)' : it.ad.s) : '', 's'], ['camp', '광고 캠페인', it => it.ad ? it.ad.k.concat((it.ad.mk || []).map(n => '메타: ' + metaLabel(n))).join(' / ') : '', 's'], ['url', '링크', it => it.u || '', 's'],
   ];
   const GCOLS = [
-    ['n', '게시물 수', a => a.length, 'n'], ['vSum', '조회 합', a => sum(a.map(it => xv(it, 0))), 'n'], ['vAvg', '조회 평균', a => mean(a.map(it => xv(it, 0))), 'n'], ['vMed', '조회 중앙값', a => median(a.map(it => xv(it, 0))), 'n'],
+    ['n', '게시물 수', a => a.length, 'n'], ['vSum', '조회 합', a => sum(a.map(it => xv(it, 0))), 'n'], ['vAvg', '조회 평균', a => mean(a.map(it => xv(it, 0))), 'n'], ['vMed', '조회 중간값', a => median(a.map(it => xv(it, 0))), 'n'],
     ['lSum', '좋아요 합', a => sum(a.map(it => xv(it, 1))), 'n'], ['cSum', '댓글 합', a => sum(a.map(it => xv(it, 2))), 'n'], ['sSum', '공유 합', a => sum(a.map(it => xv(it, 3))), 'n'], ['svSum', '저장 합', a => sum(a.map(it => xv(it, 4))), 'n'],
     ['rSum', '도달 합', a => sum(a.map(it => it.r)), 'n'], ['eng', '참여율(평균)', a => mean(a.map(engagement)), 'p'], ['comp', '시청 완료율(평균)', a => mean(a.map(completion)), 'p'],
-    ['rMed', '평소 대비(중앙값, 배)', a => median(a.filter(it => !it.ad).map(ratio)), 'x'], ['hits', '히트 수', a => a.filter(it => !it.ad && isHit(it)).length, 'n'], ['hitRate', '히트율', a => hitRate(a.filter(it => !it.ad)), 'p'],
+    ['rMed', '평소 대비(중간값, 배)', a => median(a.filter(it => !it.ad).map(ratio)), 'x'], ['hits', '잘 된 게시물 수', a => a.filter(it => !it.ad && isHit(it)).length, 'n'], ['hitRate', '잘 된 비율', a => hitRate(a.filter(it => !it.ad)), 'p'],
     ['top', '최고 콘텐츠', a => { const b = a.slice().sort((x, y) => (xv(y, mainM(y.c)) || 0) - (xv(x, mainM(x.c)) || 0))[0]; return b ? title(b.n) : ''; }, 's'],
   ];
   const CDEF = ['title', 'd', 'c', 't', 'g', 'p', 'w', 'views', 'likes', 'comments', 'shares', 'saves', 'ratio'];
@@ -2063,7 +2065,7 @@
       const inc = R.items.map(it => { const v = [0, 1, 2, 3, 4].map(m => xv(it, m)); return [it.d, chName(it.c), fmtType(it.t), it.g, it.p, (it.w || []).join(', '), title(it.n), v[0], v[1], v[2], v[3], v[4], it.r == null ? null : it.r, ratio(it) == null || !!it.ad ? null : +ratio(it).toFixed(2), it.ad ? (it.ad.s === '패턴' ? '추정(조회 패턴)' : it.ad.s) : '', it.ad ? it.ad.k.concat((it.ad.mk || []).map(n => '메타: ' + metaLabel(n))).join(' / ') : '', it.u || '']; });
       const cond = [['항목', '값'], ['기간', E.from + ' ~ ' + E.to + (E.q ? ' (' + E.q + ')' : '')], ['채널', E.chs.map(chName).join(', ')]].concat(xcondText().map(t => { const i = t.indexOf(': '); return i > 0 ? [t.slice(0, i), t.slice(i + 2)] : ['옵션', t]; })).concat([
         ['기준 데이터', D.updated + ' 기록'], ['만든 날', new Date(Date.now() + 9 * 36e5).toISOString().slice(0, 10)], [],
-        ['정의', ''], ['평소 대비', '같은 채널·같은 형식 최근 1년 게시물 중앙값 대비 배수(형식 게시물이 ' + BASE_T_MIN + '개 미만이면 채널 중앙값, 광고·스토리 제외). 1.0 = 평소 · 게시 ' + AGE_MIN + '일 전은 집계 중'], ['히트', '평소 대비 1.5배 이상'], ['참여율', '(좋아요+댓글+공유+저장) ÷ 도달'], ['시청 완료율', '평균 시청 시간 ÷ 영상 길이'],
+        ['정의', ''], ['평소 대비', '같은 채널·같은 형식 최근 1년 게시물 중간값 대비 배수(형식 게시물이 ' + BASE_T_MIN + '개 미만이면 채널 중간값, 광고·스토리 제외). 1.0 = 평소 · 게시 ' + AGE_MIN + '일 전은 조회 모이는 중'], ['잘 된 게시물', '평소 대비 1.5배 이상'], ['참여율', '(좋아요+댓글+공유+저장) ÷ 도달'], ['시청 완료율', '평균 시청 시간 ÷ 영상 길이'],
         ['자체 제작', '캡션에 제작자 이름이 없는 홍보실 제작물'], ['근로장학생', '크레딧 이름이 근로장학생이거나 「명단」에 없는 이름(서포터즈로 적힌 크레딧은 학과·기관 협업)'], ['광고', '구글애즈 캠페인에 연결된 유튜브 영상(확인 = 제목·게시일 일치, 추정 = 시기·조회 패턴). 광고 리포트 이후 영상은 조회 10만 이상 & 1만 조회당 좋아요 3개 미만이면 추정'], ['타 대학', '릴스 외에는 조회가 공개되지 않아 좋아요 기준']]);
       const fname = '전주대SNS_' + E.from.replace(/-/g, '') + '-' + E.to.replace(/-/g, '') + '_' + GROUPS.find(g => g[0] === E.group)[1];
       writeXlsx(fname, [['결과', [head].concat(body), fmts], ['포함 콘텐츠', [['게시일', '채널', '형식', '분류', '제작', '참여자', '제목', '조회', '좋아요', '댓글', '공유', '저장', '도달', '평소 대비(배)', '광고', '광고 캠페인', '링크']].concat(inc)], ['조건·정의', cond]]);
@@ -2131,10 +2133,10 @@
     const peers = D.items.filter(x => x.c === it.c && x.t !== '스토리' && !x.ad && !x.x === !it.x);
     const rankPct = fn => { const vals = peers.map(fn).filter(x => x != null).sort((a, b) => b - a); const me = fn(it); if (me == null || !vals.length) return null; return (vals.findIndex(x => x <= me) + 1) / vals.length; };
     if (r != null) {
-      if (young(it)) out.push(['info', '참고', '게시 ' + AGE_MIN + '일 전이라 아직 집계 중이에요.', '지금까지 평소의 ' + xf(r)]);
-      else if (r >= HIT) out.push(['good', '강점', MN[mainM(it.c)] + '가 평소의 ' + r.toFixed(1) + '배예요.', (base.by === '형식' ? '같은 형식(' + typeShort(it.t) + ') 최근 1년 중앙값 ' : '채널 중앙값 ') + fmtK(base.v)]);
-      else if (r < 0.5) out.push(['bad', '보완', MN[mainM(it.c)] + '가 평소의 ' + xf(r) + '예요.', (base.by === '형식' ? '같은 형식(' + typeShort(it.t) + ') 최근 1년 중앙값 ' : '채널 중앙값 ') + fmtK(base.v)]);
-      else out.push(['info', '참고', MN[mainM(it.c)] + '가 평소 수준이에요.', (base.by === '형식' ? '같은 형식(' + typeShort(it.t) + ') 최근 1년 중앙값 ' : '채널 중앙값 ') + fmtK(base.v)]);
+      if (young(it)) out.push(['info', '참고', '게시 ' + AGE_MIN + '일 전이라 조회가 아직 모이는 중이에요.', '지금까지 평소의 ' + xf(r)]);
+      else if (r >= HIT) out.push(['good', '강점', MN[mainM(it.c)] + '가 평소의 ' + r.toFixed(1) + '배예요.', (base.by === '형식' ? '같은 형식(' + typeShort(it.t) + ') 최근 1년 중간값 ' : '채널 중간값 ') + fmtK(base.v)]);
+      else if (r < 0.5) out.push(['bad', '보완', MN[mainM(it.c)] + '가 평소의 ' + xf(r) + '예요.', (base.by === '형식' ? '같은 형식(' + typeShort(it.t) + ') 최근 1년 중간값 ' : '채널 중간값 ') + fmtK(base.v)]);
+      else out.push(['info', '참고', MN[mainM(it.c)] + '가 평소 수준이에요.', (base.by === '형식' ? '같은 형식(' + typeShort(it.t) + ') 최근 1년 중간값 ' : '채널 중간값 ') + fmtK(base.v)]);
     }
     const pr = rankPct(mainVal);
     if (pr != null && pr <= 0.1) out.push(['good', '강점', '채널 전체 게시물 중 상위 ' + Math.max(1, Math.round(pr * 100)) + '%예요.', peers.length + '개 중 ' + Math.max(1, Math.round(pr * peers.length)) + '위']);
@@ -2172,12 +2174,12 @@
       const yr = it.d.slice(0, 4), same = D.items.filter(x => x.x && x.c === it.c && x.t !== '스토리' && x.d.slice(0, 4) === yr);
       const ml = median(same.map(x => val(x, 1))), v = last(it) || [];
       return '엑셀로 기록하던 시기(' + dot(IG_AUTO) + ' 이전)의 게시물이라 기록 당시 수치예요. 지금 게시물과 평소 대비로 비교하지 않아요.' +
-        (ml ? ' 같은 해(' + yr + '년) 게시물의 좋아요 중앙값은 ' + fmtK(ml) + '개인데, 이 게시물은 ' + fmt(v[1]) + '개예요.' : '') +
+        (ml ? ' 같은 해(' + yr + '년) 게시물의 좋아요 중간값은 ' + fmtK(ml) + '개인데, 이 게시물은 ' + fmt(v[1]) + '개예요.' : '') +
         (it.r > 0 ? ' 도달 ' + fmtK(it.r) + '.' : '');
     }
     const r = ratio(it), g = groupBy(D.items.filter(x => x.c === it.c && !x.ad && !x.x && x.t !== '스토리'), 'g').find(x => x.k === it.g);
     const parts = [];
-    if (r != null) parts.push((young(it) ? '게시 ' + AGE_MIN + '일 전이라 아직 집계 중이에요. 지금까지 ' : '') + '평소의 ' + xf(r) + (r >= HIT ? '로 히트한 콘텐츠예요.' : r >= 1 ? '로 평소보다 조금 잘 됐어요.' : '예요.'));
+    if (r != null) parts.push((young(it) ? '게시 ' + AGE_MIN + '일 전이라 조회가 아직 모이는 중이에요. 지금까지 ' : '') + '평소의 ' + xf(r) + (r >= HIT ? '로 잘 된 콘텐츠예요.' : r >= 1 ? '로 평소보다 조금 잘 됐어요.' : '예요.'));
     if (g && g.idx != null) parts.push('같은 「' + it.g + '」 분류는 보통 평소의 ' + g.idx.toFixed(1) + '배인데, 이 콘텐츠는 ' + (r != null && r > g.idx ? '그보다 높아요.' : '그보다 낮아요.'));
     if (it.c === '인스타그램' && it.r > 0) parts.push('도달 ' + fmtK(it.r) + ' 중 ' + pct(engagement(it)) + '가 반응했어요.');
     if (it.w && it.w.length) parts.push('만든 사람: ' + it.w.join(', ') + '(' + it.p + ').');
@@ -2202,10 +2204,10 @@
     const sim = D.items.filter(x => x !== it && x.c === it.c && x.g === it.g && x.t !== '스토리').sort((a, b) => (mainVal(b) || 0) - (mainVal(a) || 0)).slice(0, 5);
     const el = $('detail');
     el.innerHTML = '<div class="dwrap">' +
-      '<div class="dh"><button type="button" id="dClose" aria-label="뒤로">‹</button><div class="ctr"><small>' + esc(chName(it.c)) + ' · ' + esc(glab(it)) + '</small><b class="num ' + cls + '">' + fmtK(mainVal(it)) + ' ' + (d == null ? '' : young(it) ? '집계 중' : '평소의 ' + xf(d + 1)) + '</b></div><span></span></div>' +
+      '<div class="dh"><button type="button" id="dClose" aria-label="뒤로">‹</button><div class="ctr"><small>' + esc(chName(it.c)) + ' · ' + esc(glab(it)) + '</small><b class="num ' + cls + '">' + fmtK(mainVal(it)) + ' ' + (d == null ? '' : young(it) ? '조회 모이는 중' : '평소의 ' + xf(d + 1)) + '</b></div><span></span></div>' +
       '<div class="dtabs" role="tablist"><button type="button" role="tab" aria-selected="true" data-s="dChart">성과</button><button type="button" role="tab" aria-selected="false" data-s="dSig">성과 진단</button><button type="button" role="tab" aria-selected="false" data-s="dMet">지표</button><button type="button" role="tab" aria-selected="false" data-s="dSim">비슷한 콘텐츠</button></div>' +
       '<section class="dsec" id="dChart"><h1 class="dtitle">' + line(it) + '</h1>' +
-        '<div class="dbig num">' + fmt(mainVal(it)) + '<small class="' + cls + '">' + (it.ad ? '광고 영상이라 평소 대비는 계산하지 않아요' : d == null ? '' : (young(it) ? '게시 ' + AGE_MIN + '일 전이라 집계 중 · 지금까지 평소의 ' + xf(d + 1) : '평소의 ' + xf(d + 1))) + '</small></div>' +
+        '<div class="dbig num">' + fmt(mainVal(it)) + '<small class="' + cls + '">' + (it.ad ? '광고 영상이라 평소 대비는 계산하지 않아요' : d == null ? '' : (young(it) ? '게시 ' + AGE_MIN + '일 전이라 조회 모이는 중 · 지금까지 평소의 ' + xf(d + 1) : '평소의 ' + xf(d + 1))) + '</small></div>' +
         (wk != null ? '<div class="num ' + (wk >= 0 ? 'up' : 'down') + '" style="font-weight:700;margin-top:2px">이번 주 ' + sgn(wk) + fmt(wk) + '</div>' : '') +
         '<div class="dtags"><span class="tag">' + esc(glab(it)) + '</span>' + ptag(it.p) + adtag(it) + histTag(it) + '<span class="tag">' + esc(fmtType(it.t)) + '</span>' + (it.w || []).map(n => '<span class="tag">' + esc(n) + '</span>').join('') + '</div>' +
         '<div class="cmp"><canvas id="dCanvas"></canvas></div>' +
@@ -2235,7 +2237,7 @@
     }
     const base = baseFor(it);
     const g = groupBy(D.items.filter(x => x.c === it.c && !x.ad && x.t !== '스토리'), 'g').find(x => x.k === it.g);
-    const rows = [['이 콘텐츠', mainVal(it), col], ['「' + it.g + '」 중앙값', g ? g.v : null, css('--muted')], [base.by === '형식' ? typeShort(it.t) + ' 중앙값' : '채널 중앙값', base.v, css('--line')]];
+    const rows = [['이 콘텐츠', mainVal(it), col], ['「' + it.g + '」 중간값', g ? g.v : null, css('--muted')], [base.by === '형식' ? typeShort(it.t) + ' 중간값' : '채널 중간값', base.v, css('--line')]];
     draw('dCanvas', {
       type: 'bar', data: { labels: rows.map(r => r[0]), datasets: [{ data: rows.map(r => r[1]), backgroundColor: rows.map(r => r[2]), borderRadius: 3, maxBarThickness: 64 }] },
       options: chartOpts({ plugins: { tooltip: { callbacks: { label: c => fmt(c.raw) } } } }),
@@ -2302,7 +2304,7 @@
     const d = (D.stale[s[0]] || D.acctStale[a[0]]);
     return '<div class="callout warn">원본 데이터가 갱신되지 않은 채널이 있어요: ' +
       (s.length ? '<b>' + s.map(chName).join(' · ') + '</b> 게시물 값' : '') + (s.length && a.length ? ', ' : '') + (a.length ? '<b>' + a.map(chName).join(' · ') + '</b> 계정 지표' : '') +
-      '<small>' + mdLabel(d.d0) + ' → ' + mdLabel(d.d1) + ' 두 기록의 값이 모두 같아요. 이 구간 증가는 0이 아니라 셀 수 없어서 합계에서 뺐어요. Supermetrics 예약 갱신을 확인해 주세요.</small></div>';
+      '<small>' + mdLabel(d.d0) + ' → ' + mdLabel(d.d1) + ' 두 기록의 값이 모두 같아요. 이 기간 증가는 0이 아니라 셀 수 없어서 합계에서 뺐어요. Supermetrics 예약 갱신을 확인해 주세요.</small></div>';
   }
   const nz = x => String(x || '').replace(/(\.\.\.|…)\s*$/, '').replace(/[\s⠀.]+/g, '');
   const metaLabel = n => { const m = /^(?:Instagram (?:게시물|post)|게시물):\s*"?([\s\S]*?)"?$/i.exec(n || ''); return (m ? m[1] : n || '').split('\n')[0].replace(/(\.\.\.|…)$/, '').trim() || n; };
