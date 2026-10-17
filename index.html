@@ -2694,10 +2694,11 @@ small { line-height: 1.6; }
     const A = D.ads || {};
     const hasG = !!(A.camps && A.camps.length), hasM = !!(A.meta && A.meta.length);
     if (!hasG && !hasM) return msgView('광고 데이터가 아직 없어요.', '구글애즈 리포트 시트나 「메타 광고」 탭이 연결되면 여기서 광고비·노출·클릭과 광고 콘텐츠 성과를 볼 수 있어요.');
-    if (!S.adPf || (S.adPf === 'meta' && !hasM) || (S.adPf === 'google' && !hasG)) S.adPf = hasG ? 'google' : 'meta';
-    const seg = hasG && hasM ? '<div class="sec pf-sec"><div class="pfseg" role="tablist" aria-label="광고 매체">' + [['google', '구글애즈 (유튜브)'], ['meta', '메타 (인스타)']].map(p => '<button type="button" role="tab" data-pf="' + p[0] + '" aria-selected="' + (S.adPf === p[0]) + '">' + p[1] + '</button>').join('') + '</div></div>' : '';
-    if (S.adPf === 'meta') viewMeta(seg); else viewGoogle(seg);
-    $('view').querySelectorAll('[data-pf]').forEach(b => b.addEventListener('click', () => { if (S.adPf === b.dataset.pf) return; S.adPf = b.dataset.pf; S.adYear = 'all'; S.adOpen = null; viewAds(); window.scrollTo({ top: 0 }); }));
+    // 매체는 위 채널 탭으로 정함: 인스타그램 = 메타, 유튜브 = 구글애즈(전체·hong·타 대학도 구글애즈, 한쪽만 있으면 그쪽)
+    const pf = !hasG ? 'meta' : !hasM ? 'google' : S.ch === '인스타그램' ? 'meta' : 'google';
+    if (S.adPf !== pf) { S.adPf = pf; S.adYear = 'all'; S.adOpen = null; }
+    const seg = ''; // 매체 안내는 「계정」 칩에
+    if (pf === 'meta') viewMeta(seg); else viewGoogle(seg);
   }
   const usd = v => v == null || isNaN(v) ? '–' : '$' + (Math.abs(v) >= 100 ? fmt(Math.round(v)) : (+v).toFixed(2));
   // 월별 집행: 이중 축 대신 x축을 같이 쓰는 막대 차트 두 개(위 광고비 · 아래 노출). 36달이 넘으면 분기로 묶음
@@ -2800,7 +2801,7 @@ small { line-height: 1.6; }
     if (!rr.length) (A.daily || []).forEach(x => { const k = x[0].slice(0, 7); mc[k] = (mc[k] || 0) + x[1]; mi[k] = (mi[k] || 0) + x[2]; });
     const GB = Object.assign(adBuckets(months, mc, mi), { money: wonF }), GK = adBuckets(months, mk2, mi);
     let html = seg + '<section class="sec"><div class="sh"><div><h2>광고 성과</h2><p>구글애즈 계정 전체 · ' + dot(A.camps[0].from) + ' ~ ' + dot(A.end) + '</p></div></div>' +
-      '<dl class="defs"><div><dt>범위</dt><dd>동영상 · 디스플레이 광고</dd></div><div><dt>채널 탭</dt><dd>위 탭과 관계없이 계정 전체</dd></div></dl>' +
+      '<dl class="defs"><div><dt>범위</dt><dd>동영상 · 디스플레이 광고</dd></div><div><dt>계정</dt><dd>구글애즈 계정 전체 · 메타는 인스타그램 탭</dd></div></dl>' +
       (manual.length ? '<div class="callout">일별 리포트는 <b>' + dot(daily) + '</b>까지예요. 그 뒤 광고 ' + manual.length + '개는 결과 보고 수치를 <b>캠페인 합계</b>로 넣었어요(「광고 추가 입력」 탭).<small>합계 입력분은 월별 그래프에서 종료월에 모여 보여요. 스냅샷 시트 「구글애즈 리포트」 탭에 일별 보고서를 붙여 넣으면 같은 캠페인은 자동으로 일별 값으로 바뀌어요.</small></div>' : '') +
       
       yChips +
