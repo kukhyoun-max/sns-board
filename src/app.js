@@ -422,7 +422,7 @@
     if (ch === '유튜브') {
       const g = a.cur && a.cur.m['Gained subscribers']; if (g == null) return '';
       const n = g - (a.cur.m['Lost subscribers'] || 0);
-      return kpiTile('유튜브 구독자 증감', sgn(n) + fmt(n) + '<small>명</small>', stale ? '<span class="warn">구독자 수가 아직 새로 안 들어왔어요</span>' : '지난주 새로 구독 ' + fmt(g) + '명 · 구독 취소 ' + fmt(g - n) + '명', n >= 0 ? 'up' : 'down');
+      return kpiTile('유튜브 구독자 증감', sgn(n) + fmt(n) + '<small>명</small>', stale ? '<span class="warn">구독자 수가 아직 새로 안 들어왔어요</span>' : '지난주 새 구독 ' + fmt(g) + '명, 취소 ' + fmt(g - n) + '명', n >= 0 ? 'up' : 'down');
     }
     return '';
   }
@@ -433,8 +433,8 @@
     const t = [];
     if (p) {
       let chg = '';
-      if (w.prev) { const a = p.v / p.days, b = w.prev.v / w.prev.days; if (b) { const d = (a - b) / b; chg = '<br>하루 평균, 그 전 ' + w.prev.days + '일보다 <span class="' + dCls(d) + '">' + dTxt(d, 1) + '</span>'; } }
-      t.push(kpiTile('최근 ' + p.days + '일 늘어난 조회', '+' + fmtK(p.v), md(p.d0) + '–' + md(p.d1) + chg, '', spark(viewSeries(chs), '최근 기록 기간별 하루 평균 조회 증가')));
+      if (w.prev) { const a = p.v / p.days, b = w.prev.v / w.prev.days; if (b) { const d = (a - b) / b; chg = '하루 평균, 그 전보다 <span class="' + dCls(d) + '" title="' + w.prev.days + '일 전 기간과 비교">' + dTxt(d, 1) + '</span>'; } }
+      t.push(kpiTile('최근 ' + p.days + '일 늘어난 조회', '+' + fmtK(p.v), (chg || md(p.d0) + '–' + md(p.d1)), '', spark(viewSeries(chs), '최근 기록 기간별 하루 평균 조회 증가')));
     }
     t.push(kpiTile('최근 30일 잘 된 비율', c30.length ? pct0(hitRate(c30)) : '–', c30.length ? '<span title="올린 지 ' + AGE_MIN + '일이 지난 게시물만 셌어요">' + c30.length + '개 중 ' + hits.length + '개가 평소의 1.5배 이상</span>' : '아직 셀 만큼 지난 게시물이 없어요', '', spark(monthly(chs, 'hit'), '최근 6달 월별 잘 된 비율')));
     chs.filter(c => c === '인스타그램' || c === '유튜브').forEach(c => { const x = acctTile(c); if (x) t.push(x); });
