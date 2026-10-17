@@ -701,3 +701,8 @@ small { line-height: 1.6; }
   .status { padding-top: 6px; padding-bottom: 0; }
   .status + main > .sec:first-child { padding-top: 10px; }
 }
+/* 성과 진단: 근거 줄 + 비교 막대 */
+.sg > div > span { display: block; font-size: var(--fs-sm); color: var(--muted); }
+.sg .cmps { margin-top: 8px; }
+.sg .cmpb { grid-template-columns: 120px minmax(0, 1fr) 56px; }
+.sig > .note { margin-top: 10px; }
