@@ -2227,7 +2227,7 @@
     const igMin = D.items.filter(it => it.c === '인스타그램').map(it => it.d).sort()[0];
     if (igMin && D.coverage && D.coverage['인스타그램'] && igMin < D.coverage['인스타그램']) D.coverage['인스타그램'] = igMin.slice(0, 7) + '-01';
     // 제목을 잘라 저장하면서 반쪽 난 이모지(짝 없는 서로게이트)와 대체 문자 정리
-    D.items.forEach(it => { if (typeof it.n === 'string') it.n = it.n.replace(/[\uD800-\uDBFF](?![\uDC00-\uDFFF])|(?<![\uD800-\uDBFF])[\uDC00-\uDFFF]|�/g, ''); });
+    D.items.forEach(it => { if (typeof it.n === 'string') it.n = it.n.replace(/[\uD800-\uDBFF](?![\uDC00-\uDFFF])|(?<![\uD800-\uDBFF])[\uDC00-\uDFFF]|\uFFFD/g, ''); });
     D.rec = {};
     D.items.forEach(it => { const r = D.rec[it.c] = D.rec[it.c] || D.dates.map(() => false); it.h.forEach((x, i) => { if (x) r[i] = true; }); });
     // 원본 미갱신 감지: 최근 두 기록에 모두 있는 게시물(5개 이상)의 조회·좋아요가 하나도 안 바뀌었으면 원본이 갱신되지 않은 것
