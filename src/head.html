@@ -17,29 +17,29 @@
   --navy: #005494;
   --up: #0078ad;
   --up-soft: #e4f1f8;
-  --down: #7a5c14; /* 시안: 배지(--down-soft) 위 4.5:1 이상 */
-  --down-soft: #f6f0de;
-  --ok: #357850;
-  --ok-soft: #e8f3ec;
+  --down: #c2410c; /* 시안: 선명한 주황(흰 바탕 5.2:1) */
+  --down-soft: #fff1ea;
+  --ok: #087f5b;
+  --ok-soft: #e6f7f0;
   --ai: #6f5f9e;
   --ai-soft: #efecf6;
-  --coral: #a8562e;
-  --coral-soft: #fbeee6;
+  --coral: #c2410c;
+  --coral-soft: #fff1ea;
   /* 시안: 상태색은 계열색과 다른 hex. 빨강은 수집 실패 같은 경보에만 */
   --st-danger: #da1e28;
   --st-danger-soft: #fdecee;
   --ad: rgba(0, 120, 173, .4); /* 광고 계열 = 브랜드 블루 40% + 외곽선(인스타 색과 분리) */
   --r-lg: 16px; --r-md: 12px; --r-sm: 6px;
   /* 채널 배지의 흰 글자 대비 4.5:1 이상이 되도록 UI 컬러를 한 단계 진하게 */
-  --ch-ig: #a8562e;
-  --ch-yt: #005494;
-  --ch-hong: #2e9466; /* 시안: 인스타와 명도 차(1.02 → 1.37) */
+  --ch-ig: #d6336c; /* 시안: 인스타 로즈 */
+  --ch-yt: #1864ab;
+  --ch-hong: #0ca678; /* 시안: 인스타와 명도 차 1.48 */
   /* 시안: 타 대학은 맥락이라 회색 단계 + 선 모양(실선·[6,3]·[2,2])으로 구분 */
   --ch-b1: #4e5968;
   --ch-b2: #6b7684;
   --ch-b3: #8b95a1;
   /* 흰 글자 배지는 선보다 진한 값(4.5:1) */
-  --chb-hong: #237550;
+  --chb-hong: #087f5b;
   --chb-bench: #4e5968;
   --font: "Noto Sans KR", "Apple SD Gothic Neo", "Malgun Gothic", system-ui, sans-serif;
   /* 글자 크기 단계 — 화면의 모든 글자는 이 8단계만 쓴다(최소 13px, 본문 16px) */
@@ -55,16 +55,16 @@
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
     --bg: #17171c; --plane: #101013; --tile: #202027; --fg: #f2f3f5; --sub: #c3c8cf; --muted: #8b929c; --line: #2c2c35;
-    --up: #4fb0dd; --up-soft: #12293a; --down: #d8b55a; --down-soft: #2f2915; --ok: #6fbf8d; --ok-soft: #15301f; --ai: #ab9dd6; --ai-soft: #252036; --coral: #e39a72; --coral-soft: #35221a; --jj: #4fb0dd; --navy: #6fa3d6;
-    --ch-ig: #e39a72; --ch-yt: #6fa3d6; --ch-hong: #4cc28a; --ch-b1: #c3c8cf; --ch-b2: #9aa4b1; --ch-b3: #7d8590; --chb-hong: #6fbf8d; --chb-bench: #9aa4b1; --st-danger: #ff6b72; --st-danger-soft: #3a1a1d; --ad: rgba(79, 176, 221, .4);
+    --up: #4fb0dd; --up-soft: #12293a; --down: #ff8a5c; --down-soft: #3a2118; --ok: #38d9a9; --ok-soft: #12302a; --ai: #ab9dd6; --ai-soft: #252036; --coral: #ff8a5c; --coral-soft: #3a2118; --jj: #4fb0dd; --navy: #6fa3d6;
+    --ch-ig: #f06595; --ch-yt: #74a9e8; --ch-hong: #38d9a9; --ch-b1: #c3c8cf; --ch-b2: #9aa4b1; --ch-b3: #7d8590; --chb-hong: #38d9a9; --chb-bench: #9aa4b1; --st-danger: #ff6b72; --st-danger-soft: #3a1a1d; --ad: rgba(79, 176, 221, .4);
     color-scheme: dark;
     --badge-fg: #17171c;
   }
 }
 :root[data-theme="dark"] {
   --bg: #17171c; --plane: #101013; --tile: #202027; --fg: #f2f3f5; --sub: #c3c8cf; --muted: #8b929c; --line: #2c2c35;
-  --up: #4fb0dd; --up-soft: #12293a; --down: #d8b55a; --down-soft: #2f2915; --ok: #6fbf8d; --ok-soft: #15301f; --ai: #ab9dd6; --ai-soft: #252036; --coral: #e39a72; --coral-soft: #35221a; --jj: #4fb0dd; --navy: #6fa3d6;
-  --ch-ig: #e39a72; --ch-yt: #6fa3d6; --ch-hong: #4cc28a; --ch-b1: #c3c8cf; --ch-b2: #9aa4b1; --ch-b3: #7d8590; --chb-hong: #6fbf8d; --chb-bench: #9aa4b1; --st-danger: #ff6b72; --st-danger-soft: #3a1a1d; --ad: rgba(79, 176, 221, .4);
+  --up: #4fb0dd; --up-soft: #12293a; --down: #ff8a5c; --down-soft: #3a2118; --ok: #38d9a9; --ok-soft: #12302a; --ai: #ab9dd6; --ai-soft: #252036; --coral: #ff8a5c; --coral-soft: #3a2118; --jj: #4fb0dd; --navy: #6fa3d6;
+  --ch-ig: #f06595; --ch-yt: #74a9e8; --ch-hong: #38d9a9; --ch-b1: #c3c8cf; --ch-b2: #9aa4b1; --ch-b3: #7d8590; --chb-hong: #38d9a9; --chb-bench: #9aa4b1; --st-danger: #ff6b72; --st-danger-soft: #3a1a1d; --ad: rgba(79, 176, 221, .4);
   color-scheme: dark;
   --badge-fg: #17171c;
 }

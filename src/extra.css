@@ -377,3 +377,47 @@ details.adv[open] > summary { border-bottom: 1px solid var(--line); }
 }
 .tr-top > span { flex: none; white-space: nowrap; }
 .tr-top button { flex: 1 1 0; max-width: max-content; }
+
+/* ───── 시안: 미감 다듬기 ───── */
+/* 회색 바탕 위에 흰 섹션이 떠 있는 구조(TDS). PC에서는 섹션을 둥근 판으로 */
+.app { background: transparent; }
+.brand { display: flex; align-items: center; gap: 8px; padding: 18px clamp(16px, 4vw, 32px) 0; background: var(--bg); font-size: var(--fs-sm); color: var(--muted); letter-spacing: -0.01em; }
+.brand b { color: var(--fg); font-weight: 800; }
+.brand-mk { width: 18px; height: 18px; border-radius: 6px; background: var(--jj); box-shadow: inset -6px -6px 0 var(--navy); flex: none; }
+.top { background: color-mix(in srgb, var(--bg) 88%, transparent); -webkit-backdrop-filter: saturate(1.6) blur(14px); backdrop-filter: saturate(1.6) blur(14px); padding-top: 10px; }
+.tt { color: var(--muted); transition: color .15s; }
+.tt:hover { color: var(--sub); }
+.tt[aria-selected="true"]::after { background: var(--jj); }
+.sh h2 { font-weight: 800; letter-spacing: -0.03em; }
+@media (min-width: 861px) {
+  .app { padding: 0 16px; }
+  .brand, .top, .status { border-radius: 0; }
+  .brand { border-radius: 20px 20px 0 0; margin-top: 16px; }
+  .status { border-radius: 0 0 20px 20px; padding-bottom: 16px; }
+  .sec { border-radius: 20px; }
+  .gap { background: transparent; height: 16px; }
+}
+/* 첫 KPI 하나만 브랜드 면으로 강조(강조는 한 군데) */
+.kpi-t:first-child { background: linear-gradient(135deg, #0a86bf 0%, var(--navy) 100%); border-color: transparent; color: #fff; box-shadow: 0 10px 24px -12px rgba(0, 84, 148, .55); }
+.kpi-t:first-child .kpi-l, .kpi-t:first-child .kpi-s, .kpi-t:first-child .kpi-s .up, .kpi-t:first-child .kpi-s .down, .kpi-t:first-child .kpi-s .flat { color: rgba(255, 255, 255, .88); }
+.kpi-t:first-child .kpi-v { color: #fff; }
+.kpi-v, .wk-v { letter-spacing: -0.03em; }
+/* 카드: 옅은 테두리 + 손을 올리면 살짝 떠오름 */
+.kpi-t, .wk-card, .tr-card, .bc-b { transition: box-shadow .2s, transform .2s, border-color .2s; }
+.wk-card:hover, .tr-card:hover { border-color: transparent; box-shadow: 0 8px 28px -10px rgba(25, 31, 40, .18); }
+/* 채널 카드: 채널색을 옅게 깐 머리 */
+.wk-card[style*="--c"] { background: linear-gradient(180deg, color-mix(in srgb, var(--c) 7%, var(--bg)) 0, var(--bg) 96px); }
+.wk-bar { height: 8px; border-radius: 999px; }
+.wk-l i { border-radius: 50%; }
+/* 칩·세그먼트: 둥근 알약 */
+.chip, .tr-ctl .chip { border-radius: 999px; }
+.chip[aria-pressed="true"] { background: var(--fg); color: var(--bg); }
+.seg { border-radius: 999px; padding: 4px; }
+.seg button { border-radius: 999px; }
+.seg button[aria-pressed="true"] { box-shadow: 0 1px 2px rgba(0, 0, 0, .06), 0 2px 8px -2px rgba(0, 0, 0, .08); }
+/* 요약 글머리: 브랜드 점 */
+.sumry li::before { width: 7px; height: 7px; top: 10px; background: linear-gradient(135deg, var(--jj), var(--navy)); }
+.callout { border-radius: var(--r-lg); }
+/* 하단 탭: 반투명 + 선택 색 */
+.bnav { background: color-mix(in srgb, var(--bg) 90%, transparent); -webkit-backdrop-filter: saturate(1.6) blur(14px); backdrop-filter: saturate(1.6) blur(14px); }
+@media (prefers-reduced-motion: reduce) { .kpi-t, .wk-card, .tr-card, .bc-b, .tt { transition: none; } }
