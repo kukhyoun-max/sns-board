@@ -73,7 +73,7 @@ Apps Script (gas/Code.gs, 스냅샷 시트에 연결)  ──월 07:00 트리거
 - 과거 기록은 월 단위라 간격이 일정하지 않아요.
 
 ## 스냅샷 시트 주요 탭
-스냅샷 · 유튜브_전체기간 · 광고 계획 · 광고 매핑 · 메타 광고 · 명단 · 태그 · 태그 수정 · 전략 기록 · 채널 목표 · 계정 지표 · 주간 증가_* · 유형별 요약 · 벤치마크 · 실행 로그
+스냅샷 · 유튜브_전체기간 · 광고 계획 · 광고 매핑 · 메타 광고 · 메타 일별 · 메타 캠페인 · 메타 소재 · 명단 · 태그 · 태그 수정 · 전략 기록 · 채널 목표 · 계정 지표 · 주간 증가_* · 유형별 요약 · 벤치마크 · 실행 로그
 - 사람이 직접 적는 탭: 광고 계획, 광고 매핑, 명단, 태그 수정, 전략 기록, 채널 목표
 - 나머지는 스크립트·Supermetrics가 채우는 탭이에요. 손으로 고치지 않아요.
 
@@ -81,3 +81,4 @@ Apps Script (gas/Code.gs, 스냅샷 시트에 연결)  ──월 07:00 트리거
 - 이 PC(Windows)에 Node·clasp 2.4.2 설치됨(2026-10-16). `gas/.clasp.json`(스크립트 ID, 커밋 안 함)·`gas/.claspignore`(Code.gs·appsscript.json만 올림)로 연결. 배포할 때만 `clasp login`(권한: Apps Script 프로젝트·배포·웹앱 게시 3개만) → `cd gas && clasp push` → `clasp deploy -i <배포ID>` → 끝나면 `clasp logout`.
 - Claude가 PowerShell에서 실행할 때는 PATH에 `C:\Program Files\nodejs`와 `%APPDATA%\npm`을 앞에 붙이고 `clasp.cmd`로 호출해요.
 - 구글애즈 보고서가 26.01.30에서 멈춰 있어요 (kukhyoun5 계정).
+- 메타 광고 API(2026-10-17 코드 추가): 매일 기록의 `meta` 단계가 「메타 일별」·「메타 캠페인」·「메타 소재」 탭을 채워요. 스크립트 속성 `META_TOKEN`(시스템 사용자 토큰, ads_read)·`META_ACCOUNT`가 없으면 건너뛰어요. `UrlFetchApp`을 쓰므로 처음 `clasp push`한 뒤에는 바로 편집기에서 `backfillMeta`를 실행해 외부 요청 권한을 승인해야 08:00 트리거가 멈추지 않아요.
