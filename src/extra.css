@@ -713,3 +713,6 @@ small { line-height: 1.6; }
 @media (hover: hover) { .kpi-t.go:hover { border-color: var(--jj); } .kpi-t.go:first-child:hover { border-color: transparent; box-shadow: 0 14px 28px -12px rgba(0, 84, 148, .7); } }
 #wkBy { margin-top: 4px; }
 .sg .k { text-align: center; line-height: 1.2; white-space: nowrap; }
+/* 30일 최고 칸: 옆 칸과 같은 정사각형 유지 */
+.kpi-row .kpi-t.best { min-height: 0; overflow: hidden; }
+.kpi-t.best .cmp3 { gap: 3px; padding-top: 6px; }
