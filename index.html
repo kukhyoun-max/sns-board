@@ -986,6 +986,7 @@ small { line-height: 1.6; }
 .kpi-t.go .kgo { float: right; margin-left: 6px; font-size: 1.2em; line-height: 1; opacity: .5; }
 @media (hover: hover) { .kpi-t.go:hover { border-color: var(--jj); } .kpi-t.go:first-child:hover { border-color: transparent; box-shadow: 0 14px 28px -12px rgba(0, 84, 148, .7); } }
 #wkBy { margin-top: 4px; }
+.sg .k { text-align: center; line-height: 1.2; white-space: nowrap; }
 </style>
 
 <div class="app" id="app">
@@ -3718,13 +3719,13 @@ small { line-height: 1.6; }
       const w = weekModel(chs, 0), p = w && w.cur; if (!p) return null;
       const P = []; for (let i = 1; i < D.dates.length; i++) { const x = weekPart(chs, i); if (x && x.days <= OKGAP && x.d1 >= addDays(D.updated, -120)) P.push(x); } // 최근 4달 기록만
       const S12 = P.slice(-12), day = p.v / p.days;
-      if (w.cmp) A.push(kRow(upDn(w.cmp.d), '비교', '하루 평균 +' + fmtK(day) + ' · 직전 ' + w.cmp.days + '일 대비 ' + dTxt(w.cmp.d, 1), '직전 기간 ' + md2(w.prev.d0) + ' → ' + md2(w.prev.d1)));
-      if (p.v) A.push(kRow('info', '나눠 보기', '새 게시물 ' + p.nw.length + '개가 ' + pct0(p.vn / p.v) + ' · 예전 게시물이 ' + pct0(p.vo / p.v), p.vn >= p.vo ? '이번 기간 증가는 새로 올린 게시물이 끌었어요' : '예전 게시물이 계속 보이며 증가를 받쳤어요'));
+      if (w.cmp) A.push(kRow(upDn(w.cmp.d), '비교', '하루 평균 <span class="num">+' + fmtK(day) + '</span> · 직전 ' + w.cmp.days + '일 대비 <span class="num">' + dTxt(w.cmp.d, 1) + '</span>', '직전 기간 ' + md2(w.prev.d0) + ' → ' + md2(w.prev.d1)));
+      if (p.v) A.push(kRow('info', '구성', '새 게시물 ' + p.nw.length + '개가 ' + pct0(p.vn / p.v) + ' · 예전 게시물이 ' + pct0(p.vo / p.v), p.vn >= p.vo ? '이번 기간 증가는 새로 올린 게시물이 끌었어요' : '예전 게시물이 계속 보이며 증가를 받쳤어요'));
       const avgs = P.map(x => x.v / x.days).sort((a, b) => b - a), rk = avgs.filter(v => v > day).length + 1;
-      if (avgs.length >= 3) A.push(kRow(rk <= Math.ceil(avgs.length / 3) ? 'good' : rk > avgs.length * 2 / 3 ? 'bad' : 'info', '기록 중 순위', '하루 평균이 기록된 ' + avgs.length + '개 기간 중 ' + rk + '번째예요', '최근 4달 · 기간 = 기록과 기록 사이'));
-      if (!one) { const by = chs.map(c => [c, sum(p.nw.concat(p.old).filter(it => it.c === c).map(p.inc0))]).sort((a, b) => b[1] - a[1]); A.push(kRow('info', '채널별', by.map(x => chName(x[0]) + ' +' + fmtK(x[1])).join(' · '), p.v ? chName(by[0][0]) + ' 몫 ' + pct0(by[0][1] / p.v) : '')); }
+      if (avgs.length >= 3) A.push(kRow(rk <= Math.ceil(avgs.length / 3) ? 'good' : rk > avgs.length * 2 / 3 ? 'bad' : 'info', '순위', '하루 평균이 기록된 ' + avgs.length + '개 기간 중 ' + rk + '번째예요', '최근 4달 · 기간 = 기록과 기록 사이'));
+      if (!one) { const by = chs.map(c => [c, sum(p.nw.concat(p.old).filter(it => it.c === c).map(p.inc0))]).sort((a, b) => b[1] - a[1]); A.push(kRow('info', '채널', by.map(x => chName(x[0]) + ' +' + fmtK(x[1])).join(' · '), p.v ? chName(by[0][0]) + ' 몫 ' + pct0(by[0][1] / p.v) : '')); }
       const top = p.nw.concat(p.old).filter(it => p.inc0(it) > 0).sort((a, b) => p.inc0(b) - p.inc0(a)).slice(0, 8);
-      if (top[0] && p.v) A.push(kRow('info', '가장 큰 몫', esc(title(top[0].n)) + ' 하나가 ' + pct0(p.inc0(top[0]) / p.v), '+' + fmtK(p.inc0(top[0])) + ' 조회'));
+      if (top[0] && p.v) A.push(kRow('info', '1위', '「' + esc((t => t.length > 18 ? t.slice(0, 18) + '…' : t)(title(top[0].n))) + '」 하나가 ' + pct0(p.inc0(top[0]) / p.v), '+' + fmtK(p.inc0(top[0])) + ' 조회'));
       return { scope, title: wLab(p) + ' 늘어난 조회', big: '+' + fmt(p.v), sub: md2(p.d0) + ' → ' + md2(p.d1) + ' · ' + p.days + '일 · 광고 제외', A,
         note: '기록 사이 하루 평균 늘어난 조회 · 진한 색 = 새 게시물, 연한 색 = 예전 게시물',
         chart: { type: 'bar', data: { labels: S12.map(x => md2(x.d1)), datasets: [{ label: '새 게시물', data: S12.map(x => x.vn / x.days), backgroundColor: col, stack: 's', borderRadius: 3, maxBarThickness: 30 }, { label: '예전 게시물', data: S12.map(x => x.vo / x.days), backgroundColor: col + '55', stack: 's', borderRadius: 3, maxBarThickness: 30 }] },
@@ -3736,13 +3737,13 @@ small { line-height: 1.6; }
       const M = lastMonths(12).map(k => { const j = D.items.filter(it => chs.includes(it.c) && it.t !== '스토리' && !it.ad && it.d.slice(0, 7) === k).filter(judged), h = j.filter(isHit).length; return { k, n: j.length, h, r: j.length ? h / j.length : null }; });
       const yr = pool({ channels: chs, since: addDays(D.updated, -365) }).filter(it => !it.ad), yrR = hitRate(yr);
       const c30a = pool({ channels: chs, since: addDays(D.updated, -30) }).filter(it => !it.ad), c30 = c30a.filter(judged), r30 = hitRate(c30);
-      if (r30 != null && yrR != null) A.push(kRow(upDn(r30 - yrR), '1년과 비교', '최근 30일 ' + pct0(r30) + ' · 최근 1년 ' + pct0(yrR), c30.length < MIN_N ? '최근 30일 판정 게시물이 ' + c30.length + '개라 참고만 해요' : ''));
-      const yet = c30a.length - c30.length; if (yet > 0) A.push(kRow('info', '판정 전', yet + '개는 아직 판정 전이에요', '올린 지 ' + AGE_MIN + '일이 지나면 잘 됐는지 판정해요'));
+      if (r30 != null && yrR != null) A.push(kRow(upDn(r30 - yrR), '1년', '최근 30일 ' + pct0(r30) + ' · 최근 1년 ' + pct0(yrR), c30.length < MIN_N ? '최근 30일 판정 게시물이 ' + c30.length + '개라 참고만 해요' : ''));
+      const yet = c30a.length - c30.length; if (yet > 0) A.push(kRow('info', '판정', yet + '개는 아직 판정 전이에요', '올린 지 ' + AGE_MIN + '일이 지나면 잘 됐는지 판정해요'));
       const q = pool({ channels: chs, since: addDays(D.updated, -90) }).filter(it => !it.ad && judged(it));
       const ft = groupBy(q, it => fmtType(it.t)).filter(r => r.n >= MIN_N && r.hit != null).sort((a, b) => b.hit - a.hit);
-      if (ft.length >= 2) A.push(kRow('info', '형식별', ft.map(r => r.k + ' ' + pct0(r.hit)).join(' · '), '최근 3달 · 형식마다 ' + MIN_N + '개 이상'));
+      if (ft.length >= 2) A.push(kRow('info', '형식', ft.map(r => r.k + ' ' + pct0(r.hit)).join(' · '), '최근 3달 · 형식마다 ' + MIN_N + '개 이상'));
       const gt = groupBy(q, 'g').filter(r => r.k && r.k !== 'undefined' && r.n >= MIN_N && r.hit != null).sort((a, b) => b.hit - a.hit);
-      if (gt.length >= 2) A.push(kRow('good', '잘 되는 분류', gt[0].k + ' ' + pct0(gt[0].hit) + ' · ' + gt[0].n + '개', '가장 낮은 분류 ' + gt[gt.length - 1].k + ' ' + pct0(gt[gt.length - 1].hit) + ' · 최근 3달'));
+      if (gt.length >= 2) A.push(kRow('good', '분류', gt[0].k + ' ' + pct0(gt[0].hit) + ' · ' + gt[0].n + '개', '가장 낮은 분류 ' + gt[gt.length - 1].k + ' ' + pct0(gt[gt.length - 1].hit) + ' · 최근 3달'));
       return { scope, title: '최근 30일 잘 된 비율', big: pct0(r30), sub: c30.length + '개 중 ' + c30.filter(isHit).length + '개 잘 됨', A,
         note: '월별 잘 된 비율 · 파란 막대 = 최근 1년 비율 이상 · 잘 된 = 조회 평소의 1.5배 이상',
         chart: { type: 'bar', data: { labels: M.map(r => monLab(r.k)), datasets: [{ data: M.map(r => r.r == null ? null : r.r * 100), backgroundColor: M.map(r => r.r != null && yrR != null && r.r >= yrR ? css('--up') : css('--muted') + '88'), borderRadius: 3, maxBarThickness: 30 }] },
@@ -3754,11 +3755,11 @@ small { line-height: 1.6; }
       const ms = lastMonths(12), cnt = (c, k) => D.items.filter(it => it.c === c && it.t !== '스토리' && (S.ads || !it.ad) && it.d.slice(0, 7) === k).length;
       const c30 = pool({ channels: chs, since: addDays(D.updated, -30) }), p30 = pool({ channels: chs, since: addDays(D.updated, -60), until: addDays(D.updated, -31) });
       const mAvg = median(ms.slice(0, -1).map(k => sum(chs.map(c => cnt(c, k)))));
-      A.push(kRow(upDn(p30.length ? c30.length / p30.length - 1 : null), '직전 30일', c30.length + '개 · 직전 30일 ' + p30.length + '개', mAvg != null ? '지난 11달 월 중간값 ' + Math.round(mAvg) + '개' : ''));
+      A.push(kRow(upDn(p30.length ? c30.length / p30.length - 1 : null), '직전', c30.length + '개 · 직전 30일 ' + p30.length + '개', mAvg != null ? '지난 11달 월 중간값 ' + Math.round(mAvg) + '개' : ''));
       const ft = groupBy(c30, it => fmtType(it.t)).sort((a, b) => b.n - a.n);
       if (ft.length) A.push(kRow('info', '형식', ft.map(r => r.k + ' ' + r.n + '개').join(' · '), '최근 30일'));
       const gt = groupBy(c30, 'g').filter(r => r.k && r.k !== 'undefined').sort((a, b) => b.n - a.n).slice(0, 3);
-      if (gt.length) A.push(kRow('info', '많이 올린 분류', gt.map(r => r.k + ' ' + r.n + '개').join(' · '), '최근 30일'));
+      if (gt.length) A.push(kRow('info', '분류', gt.map(r => r.k + ' ' + r.n + '개').join(' · '), '최근 30일'));
       const q = pool({ channels: chs, since: addDays(D.updated, -90) }), wd = [1, 2, 3, 4, 5, 6, 0].map(k => [WD[k], q.filter(it => new Date(it.d + 'T00:00:00Z').getUTCDay() === k).length]).sort((a, b) => b[1] - a[1]);
       if (q.length >= MIN_N) A.push(kRow('info', '요일', '많이 올린 요일 ' + wd.slice(0, 2).map(x => x[0] + ' ' + x[1] + '개').join(' · '), '최근 3달 ' + q.length + '개 · 가장 적은 요일 ' + wd[wd.length - 1][0] + ' ' + wd[wd.length - 1][1] + '개'));
       return { scope, title: '최근 30일 올린 게시물', big: c30.length + '<small>개</small>', sub: p30.length ? '직전 30일 대비 ' + sgn(c30.length - p30.length) + (c30.length - p30.length) + '개' : '', A,
@@ -3773,11 +3774,11 @@ small { line-height: 1.6; }
       const R = F.length >= 2 ? F : (D.acct || []).filter(x => x.ch === '인스타그램' && x.m['Profile followers'] != null).sort((a, b) => a.d < b.d ? -1 : 1).map(x => ({ d: x.d, v: x.m['Profile followers'], nf: x.m['New followers'] }));
       if (!R.length) return null;
       const cur = R[R.length - 1], prv = R[R.length - 2], fst = R[0];
-      if (prv) A.push(kRow(cur.v > prv.v ? 'good' : cur.v < prv.v ? 'bad' : 'info', '직전 기록', md2(prv.d) + ' → ' + md2(cur.d) + ' ' + sgn(cur.v - prv.v) + fmt(cur.v - prv.v) + '명', daysBetween(prv.d, cur.d) + '일 사이'));
-      if (fst !== cur && fst !== prv) A.push(kRow(cur.v > fst.v ? 'good' : cur.v < fst.v ? 'bad' : 'info', '기록 전체', dot(fst.d) + ' 이후 ' + sgn(cur.v - fst.v) + fmt(cur.v - fst.v) + '명', '하루 평균 ' + sgn(cur.v - fst.v) + (Math.round((cur.v - fst.v) / Math.max(1, daysBetween(fst.d, cur.d)) * 10) / 10) + '명'));
+      if (prv) A.push(kRow(cur.v > prv.v ? 'good' : cur.v < prv.v ? 'bad' : 'info', '직전', md2(prv.d) + ' → ' + md2(cur.d) + ' ' + sgn(cur.v - prv.v) + fmt(cur.v - prv.v) + '명', daysBetween(prv.d, cur.d) + '일 사이'));
+      if (fst !== cur && fst !== prv) A.push(kRow(cur.v > fst.v ? 'good' : cur.v < fst.v ? 'bad' : 'info', '전체', dot(fst.d) + ' 이후 ' + sgn(cur.v - fst.v) + fmt(cur.v - fst.v) + '명', '하루 평균 ' + sgn(cur.v - fst.v) + (Math.round((cur.v - fst.v) / Math.max(1, daysBetween(fst.d, cur.d)) * 10) / 10) + '명'));
       const iv = R.slice(1).map((x, i) => ({ a: R[i], b: x, d: x.v - R[i].v })).filter(x => x.d !== 0).sort((a, b) => a.d - b.d);
-      if (iv.length) { const lo = iv[0], hi = iv[iv.length - 1]; if (lo.d < 0) A.push(kRow('bad', '가장 많이 준 때', md2(lo.a.d) + ' → ' + md2(lo.b.d) + ' ' + fmt(lo.d) + '명', '')); if (hi.d > 0) A.push(kRow('good', '가장 많이 는 때', md2(hi.a.d) + ' → ' + md2(hi.b.d) + ' +' + fmt(hi.d) + '명', '')); }
-      if (cur.nf != null) A.push(kRow('info', '새 팔로워', '마지막 기록 새 팔로워 ' + fmt(cur.nf) + '명', '인스타가 알려 준 기간 값이라 순증과 다를 수 있어요'));
+      if (iv.length) { const lo = iv[0], hi = iv[iv.length - 1]; if (lo.d < 0) A.push(kRow('bad', '감소', md2(lo.a.d) + ' → ' + md2(lo.b.d) + ' ' + fmt(lo.d) + '명', '')); if (hi.d > 0) A.push(kRow('good', '증가', md2(hi.a.d) + ' → ' + md2(hi.b.d) + ' +' + fmt(hi.d) + '명', '')); }
+      if (cur.nf != null) A.push(kRow('info', '신규', '마지막 기록 새 팔로워 ' + fmt(cur.nf) + '명', '인스타가 알려 준 기간 값이라 순증과 다를 수 있어요'));
       const L = prv ? D.items.filter(it => it.c === '인스타그램' && it.t !== '스토리' && it.d > prv.d && it.d <= cur.d).sort((a, b) => (mainVal(b) || 0) - (mainVal(a) || 0)) : [];
       const hasNf = R.some(x => x.nf != null);
       return { scope: '인스타그램', title: '인스타 팔로워', big: fmt(cur.v) + '<small>명</small>', sub: prv ? md2(prv.d) + ' 대비 ' + sgn(cur.v - prv.v) + fmt(cur.v - prv.v) + '명' : '', A,
@@ -3791,9 +3792,9 @@ small { line-height: 1.6; }
       const R = (D.acct || []).filter(x => x.ch === '유튜브' && x.m['Gained subscribers'] != null).sort((a, b) => a.d < b.d ? -1 : 1).map(x => ({ d: x.d, g: x.m['Gained subscribers'], l: x.m['Lost subscribers'] || 0, vv: x.m['Video views'] })).map(x => Object.assign(x, { n: x.g - x.l }));
       if (!R.length) return null;
       const cur = R[R.length - 1], md0 = median(R.map(x => x.n)), best = R.slice().sort((a, b) => b.n - a.n)[0];
-      A.push(kRow(cur.n > 0 ? 'good' : cur.n < 0 ? 'bad' : 'info', '마지막 기록', '새 구독 ' + fmt(cur.g) + ' · 취소 ' + fmt(cur.l) + ' · 순증 ' + sgn(cur.n) + fmt(cur.n) + '명', dot(cur.d) + ' 기록'));
-      if (R.length >= 3) A.push(kRow('info', '기록 중간값', '순증 중간값 ' + sgn(md0) + fmt(Math.round(md0)) + '명 · 가장 많은 기록 ' + md2(best.d) + ' ' + sgn(best.n) + fmt(best.n) + '명', R.length + '번 기록'));
-      if (cur.g) A.push(kRow(cur.l / cur.g > 0.7 ? 'bad' : 'info', '취소 비율', '새 구독 대비 취소 ' + pct0(cur.l / cur.g), '취소가 많으면 기대와 다른 영상이 노출됐는지 살펴봐요'));
+      A.push(kRow(cur.n > 0 ? 'good' : cur.n < 0 ? 'bad' : 'info', '최근', '새 구독 ' + fmt(cur.g) + ' · 취소 ' + fmt(cur.l) + ' · 순증 ' + sgn(cur.n) + fmt(cur.n) + '명', dot(cur.d) + ' 기록'));
+      if (R.length >= 3) A.push(kRow('info', '보통', '순증 중간값 ' + sgn(md0) + fmt(Math.round(md0)) + '명 · 가장 많은 기록 ' + md2(best.d) + ' ' + sgn(best.n) + fmt(best.n) + '명', R.length + '번 기록'));
+      if (cur.g) A.push(kRow(cur.l / cur.g > 0.7 ? 'bad' : 'info', '취소', '새 구독 대비 취소 ' + pct0(cur.l / cur.g), '취소가 많으면 기대와 다른 영상이 노출됐는지 살펴봐요'));
       const L = pool({ channels: ['유튜브'], since: addDays(D.updated, -30) }).sort((a, b) => (mainVal(b) || 0) - (mainVal(a) || 0)).slice(0, 8);
       return { scope: '유튜브', title: '유튜브 구독자 증감', big: sgn(cur.n) + fmt(cur.n) + '<small>명</small>', sub: '새 구독 ' + fmt(cur.g) + ' · 취소 ' + fmt(cur.l), A,
         note: '기록별 구독자 순증 · 유튜브 분석이 알려 준 기간 값',
