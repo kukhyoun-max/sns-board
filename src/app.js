@@ -914,8 +914,17 @@
     sec.querySelectorAll('[data-bcp]').forEach(b => b.addEventListener('click', () => { BC.p = +b.dataset.bcp; sec.outerHTML = benchCmpHtml(); wireBenchCmp(); }));
   }
   // 예전 「현황」 차트는 「직접 골라 보기」로 접어 둠
-  const advHtml = () => '<div class="gap"></div><details class="adv" id="advBox"' + (S.adv ? ' open' : '') + '><summary><span><b>직접 골라 보기</b><small>지표 · 계열 · 기간 · 단위를 바꿔 가며 보는 차트와 표</small></span><span class="chev">›</span></summary>' + chartHtml() + '</details>';
-  function wireAdv() { const d = $('advBox'); if (!d) return; const go = () => { if (d.open && !d.dataset.w) { d.dataset.w = '1'; wireChart(); } }; d.addEventListener('toggle', () => { S.adv = d.open; go(); }); go(); }
+  const advHtml = () => '<div class="gap"></div><div class="adv' + (S.adv ? ' open' : '') + '" id="advBox"><button type="button" class="adv-h" aria-expanded="' + !!S.adv + '" aria-controls="advBody"><span><b>직접 골라 보기</b><small>지표 · 계열 · 기간 · 단위를 바꿔 가며 보는 차트와 표</small></span><span class="chev">›</span></button><div id="advBody"' + (S.adv ? '' : ' hidden') + '>' + chartHtml() + '</div></div>';
+  function wireAdv() {
+    const d = $('advBox'); if (!d) return;
+    const h = d.querySelector('.adv-h'), body = $('advBody');
+    const go = () => { if (S.adv && !d.dataset.w) { d.dataset.w = '1'; wireChart(); } };
+    h.addEventListener('click', () => {
+      S.adv = !S.adv; d.classList.toggle('open', S.adv); body.hidden = !S.adv; h.setAttribute('aria-expanded', S.adv); go();
+      if (S.adv) setTimeout(() => h.scrollIntoView({ behavior: 'smooth', block: 'start' }), 50);
+    });
+    go();
+  }
 
   // ═════════ 채널 현황 차트 (토스형) ═════════
   const CS = { metric: 'views', period: '1y', unit: 'auto', type: 'line', split: false, mode: 'post', sel: null, series: ['sum', '인스타그램', '유튜브', 'hong._.video', 'bench'] };

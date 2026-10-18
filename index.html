@@ -558,13 +558,12 @@ h3 small { font-size: var(--fs-xs); color: var(--muted); font-weight: 600; margi
 .bc-r.ours .bc-v { color: var(--fg); }
 .bc-r:not(.ours) { opacity: .92; }
 /* 직접 골라 보기 */
-details.adv { background: var(--bg); }
-details.adv > summary { list-style: none; cursor: pointer; display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 20px clamp(16px, 4vw, 32px); }
-details.adv > summary::-webkit-details-marker { display: none; }
-details.adv > summary b { display: block; font-size: var(--fs-lg); font-weight: 700; }
-details.adv > summary small { font-size: var(--fs-xs); color: var(--muted); }
-details.adv[open] > summary .chev { transform: rotate(90deg); }
-details.adv[open] > summary { border-bottom: 1px solid var(--line); }
+.adv { background: var(--bg); }
+.adv > .adv-h { width: 100%; border: 0; background: none; font: inherit; color: inherit; text-align: left; -webkit-tap-highlight-color: transparent; touch-action: manipulation; scroll-margin-top: 110px; cursor: pointer; display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 20px clamp(16px, 4vw, 32px); }
+.adv > .adv-h b { display: block; font-size: var(--fs-lg); font-weight: 700; }
+.adv > .adv-h small { font-size: var(--fs-xs); color: var(--muted); }
+.adv.open > .adv-h .chev { transform: rotate(90deg); }
+.adv.open > .adv-h { border-bottom: 1px solid var(--line); }
 @media (max-width: 760px) {
   .tr-grid, .bc-grid { grid-template-columns: minmax(0, 1fr); }
   .wk-card.wide { display: flex; align-items: stretch; }
@@ -1937,8 +1936,17 @@ small { line-height: 1.6; }
     sec.querySelectorAll('[data-bcp]').forEach(b => b.addEventListener('click', () => { BC.p = +b.dataset.bcp; sec.outerHTML = benchCmpHtml(); wireBenchCmp(); }));
   }
   // 예전 「현황」 차트는 「직접 골라 보기」로 접어 둠
-  const advHtml = () => '<div class="gap"></div><details class="adv" id="advBox"' + (S.adv ? ' open' : '') + '><summary><span><b>직접 골라 보기</b><small>지표 · 계열 · 기간 · 단위를 바꿔 가며 보는 차트와 표</small></span><span class="chev">›</span></summary>' + chartHtml() + '</details>';
-  function wireAdv() { const d = $('advBox'); if (!d) return; const go = () => { if (d.open && !d.dataset.w) { d.dataset.w = '1'; wireChart(); } }; d.addEventListener('toggle', () => { S.adv = d.open; go(); }); go(); }
+  const advHtml = () => '<div class="gap"></div><div class="adv' + (S.adv ? ' open' : '') + '" id="advBox"><button type="button" class="adv-h" aria-expanded="' + !!S.adv + '" aria-controls="advBody"><span><b>직접 골라 보기</b><small>지표 · 계열 · 기간 · 단위를 바꿔 가며 보는 차트와 표</small></span><span class="chev">›</span></button><div id="advBody"' + (S.adv ? '' : ' hidden') + '>' + chartHtml() + '</div></div>';
+  function wireAdv() {
+    const d = $('advBox'); if (!d) return;
+    const h = d.querySelector('.adv-h'), body = $('advBody');
+    const go = () => { if (S.adv && !d.dataset.w) { d.dataset.w = '1'; wireChart(); } };
+    h.addEventListener('click', () => {
+      S.adv = !S.adv; d.classList.toggle('open', S.adv); body.hidden = !S.adv; h.setAttribute('aria-expanded', S.adv); go();
+      if (S.adv) setTimeout(() => h.scrollIntoView({ behavior: 'smooth', block: 'start' }), 50);
+    });
+    go();
+  }
 
   // ═════════ 채널 현황 차트 (토스형) ═════════
   const CS = { metric: 'views', period: '1y', unit: 'auto', type: 'line', split: false, mode: 'post', sel: null, series: ['sum', '인스타그램', '유튜브', 'hong._.video', 'bench'] };
