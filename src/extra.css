@@ -708,3 +708,7 @@ small { line-height: 1.6; }
 .sig > .note { margin-top: 10px; }
 .cmp3.s2-c { margin-top: -4px; padding: 0 0 4px; }
 .cmp3.dn .c3h + .c3r b { color: var(--down); }
+.kpi-t.go { cursor: pointer; }
+.kpi-t.go .kgo { float: right; margin-left: 6px; font-size: 1.2em; line-height: 1; opacity: .5; }
+@media (hover: hover) { .kpi-t.go:hover { border-color: var(--jj); } .kpi-t.go:first-child:hover { border-color: transparent; box-shadow: 0 14px 28px -12px rgba(0, 84, 148, .7); } }
+#wkBy { margin-top: 4px; }
