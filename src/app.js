@@ -524,12 +524,12 @@
     }
     return '';
   }
-  // 이 게시물 값 vs 평소(같은 형식 최근 1년 중간값) 가로 막대 — 「평소의 N배」가 무엇과 견준 건지 보이게
+  // 이 게시물 값 vs 평소(같은 형식 최근 1년 중간값) 막대 하나 — 채운 막대 = 이 게시물, 세로 눈금 = 평소
   function baseCmp(it, tile) {
     const v = mainVal(it), b = baseFor(it).v, w = mW(it.c);
     if (v == null || !b) return '';
-    const mx = Math.max(v, b) || 1, up = v >= b, bar = (lab, x, col) => '<div class="c3r"><span>' + lab + '</span><span class="c3t"><i style="width:' + Math.max(3, x / mx * 100) + '%;background:' + col + '"></i></span><b class="num">' + fmtK(x) + '</b></div>';
-    return '<div class="cmp3' + (tile ? '' : ' s2-c') + (up ? '' : ' dn') + '"' + (tile ? ' title="평소 = 같은 형식 최근 1년 중간값"' : '') + '><div class="c3h">' + (tile ? w + ' · 같은 형식 평소와' : w + ' · 평소 = 같은 형식 ' + typeShort(it.t) + ' 최근 1년 중간값') + '</div>' + bar('이 게시물', v, up ? css('--up') : css('--down-bar')) + bar('평소', b, css('--muted')) + '</div>';
+    const mx = Math.max(v, b) || 1, up = v >= b, pc = x => Math.max(1.5, x / mx * 100).toFixed(1) + '%';
+    return '<div class="cmp3' + (tile ? '' : ' s2-c') + (up ? '' : ' dn') + '"' + (tile ? ' title="평소 = 같은 형식 최근 1년 중간값"' : '') + '><div class="c3h">' + (tile ? w + ' · 같은 형식 평소와' : w + ' · 평소 = 같은 형식 ' + typeShort(it.t) + ' 최근 1년 중간값') + '</div><div class="c3k"><span>이 게시물 <b class="num">' + fmtK(v) + '</b></span><span class="c3mk">평소 <b class="num">' + fmtK(b) + '</b></span></div><div class="c3x"><i style="width:' + pc(v) + '"></i><s style="left:' + pc(b) + '"></s></div></div>';
   }
   function kpiHtml(chs) {
     const w = weekModel(chs), p = w && w.cur;

@@ -990,6 +990,16 @@ small { line-height: 1.6; }
 /* 30일 최고 칸: 옆 칸과 같은 정사각형 유지 */
 .kpi-row .kpi-t.best { min-height: 0; overflow: hidden; }
 .kpi-t.best .cmp3 { gap: 3px; padding-top: 6px; }
+/* 평소 비교 막대 하나: 채운 막대 = 이 게시물, 세로 눈금 = 평소 */
+.c3k { display: flex; justify-content: space-between; gap: 8px; font-size: var(--fs-tag); line-height: 1.3; color: var(--muted); white-space: nowrap; }
+.c3k b { font-weight: 700; color: var(--up); }
+.cmp3.dn .c3k b { color: var(--down); }
+.cmp3 .c3k .c3mk b { color: var(--fg); }
+.c3mk::before { content: ""; display: inline-block; width: 2px; height: 10px; margin-right: 4px; vertical-align: -1px; background: var(--fg); border-radius: 1px; }
+.c3x { position: relative; height: 8px; margin: 3px 0 4px; border-radius: 999px; background: var(--plane); }
+.c3x i { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 999px; background: var(--up); }
+.cmp3.dn .c3x i { background: var(--down-bar); }
+.c3x s { position: absolute; top: -4px; bottom: -4px; width: 2px; margin-left: -1px; background: var(--fg); border-radius: 1px; }
 </style>
 
 <div class="app" id="app">
@@ -1537,12 +1547,12 @@ small { line-height: 1.6; }
     }
     return '';
   }
-  // 이 게시물 값 vs 평소(같은 형식 최근 1년 중간값) 가로 막대 — 「평소의 N배」가 무엇과 견준 건지 보이게
+  // 이 게시물 값 vs 평소(같은 형식 최근 1년 중간값) 막대 하나 — 채운 막대 = 이 게시물, 세로 눈금 = 평소
   function baseCmp(it, tile) {
     const v = mainVal(it), b = baseFor(it).v, w = mW(it.c);
     if (v == null || !b) return '';
-    const mx = Math.max(v, b) || 1, up = v >= b, bar = (lab, x, col) => '<div class="c3r"><span>' + lab + '</span><span class="c3t"><i style="width:' + Math.max(3, x / mx * 100) + '%;background:' + col + '"></i></span><b class="num">' + fmtK(x) + '</b></div>';
-    return '<div class="cmp3' + (tile ? '' : ' s2-c') + (up ? '' : ' dn') + '"' + (tile ? ' title="평소 = 같은 형식 최근 1년 중간값"' : '') + '><div class="c3h">' + (tile ? w + ' · 같은 형식 평소와' : w + ' · 평소 = 같은 형식 ' + typeShort(it.t) + ' 최근 1년 중간값') + '</div>' + bar('이 게시물', v, up ? css('--up') : css('--down-bar')) + bar('평소', b, css('--muted')) + '</div>';
+    const mx = Math.max(v, b) || 1, up = v >= b, pc = x => Math.max(1.5, x / mx * 100).toFixed(1) + '%';
+    return '<div class="cmp3' + (tile ? '' : ' s2-c') + (up ? '' : ' dn') + '"' + (tile ? ' title="평소 = 같은 형식 최근 1년 중간값"' : '') + '><div class="c3h">' + (tile ? w + ' · 같은 형식 평소와' : w + ' · 평소 = 같은 형식 ' + typeShort(it.t) + ' 최근 1년 중간값') + '</div><div class="c3k"><span>이 게시물 <b class="num">' + fmtK(v) + '</b></span><span class="c3mk">평소 <b class="num">' + fmtK(b) + '</b></span></div><div class="c3x"><i style="width:' + pc(v) + '"></i><s style="left:' + pc(b) + '"></s></div></div>';
   }
   function kpiHtml(chs) {
     const w = weekModel(chs), p = w && w.cur;
