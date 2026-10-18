@@ -725,3 +725,7 @@ small { line-height: 1.6; }
 .c3x i { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 999px; background: var(--up); }
 .cmp3.dn .c3x i { background: var(--down-bar); }
 .c3x s { position: absolute; top: -4px; bottom: -4px; width: 2px; margin-left: -1px; background: var(--fg); border-radius: 1px; }
+/* 접속 키 입력 화면 */
+.gate-f { display: flex; gap: 8px; margin: 14px auto 6px; max-width: 420px; }
+.gate-f .inp { flex: 1; min-width: 0; font-size: 16px; }
+.gate small { display: block; min-height: 1.4em; }
