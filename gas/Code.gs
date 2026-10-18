@@ -2615,9 +2615,10 @@ function testYouTubeApi() {
 //  · 처음 한 번: 편집기에서 testInstagramApi / testHongApi 실행(시트에 쓰지 않음, 원본 시트와 숫자·날짜 기준 비교)
 const IG_CH = {
   '인스타그램':   { user: 'jjuniv',       prop: 'IG_USER',      on: 'IG_API',   from: '2024-12-27', log: '인스타 API' },
-  'hong._.video': { user: 'hong._.video', prop: 'IG_USER_HONG', on: 'HONG_API', from: '2021-01-01', log: 'hong API' },
+  'hong._.video': { user: 'hong._.video', prop: 'IG_USER_HONG', on: 'HONG_API', from: '2021-01-01', log: 'hong API', allNew: true },
 };
 const IG_NEW_DAYS = 60;                        // 원본 시트에 없는 게시물은 최근 N일 것만 더함
+// allNew(hong, 2026-10-18): 공개 원본에 hong 게시물이 일부만 있어 from 이후 전부 더함. 단 N일보다 오래된 것은 원본 시트에 연결 안 된 게시물이 ±1일 안에 있으면 같은 게시물일 수 있어 뺌
 const IG_DATE_TZ = TZ;                         // 원본 시트 「날짜」의 기준 시간대 — testInstagramApi 결과로 확인
 const IG_API_ = {}, IG_API_LOG_ = {};          // 채널별 API 결과·실행 로그
 const IG_EACH_MAX = 200;                      // 인사이트를 게시물마다 받을 때 최대 개수
@@ -2629,23 +2630,29 @@ function igOverlay_(out, today, chName) {
   try {
     const api = IG_API_[chName] || (IG_API_[chName] = fetchInstagram_(chName));
     const m = igMatch_(ch, api.media);
-    let upd = 0, add = 0;
+    let upd = 0, add = 0, held = 0;
+    const recent = shiftDate_(today, -IG_NEW_DAYS), newFrom = cf.allNew ? cf.from : recent;
+    const linked = {}, loose = {};
+    Object.keys(m.byId).forEach(id => { linked[m.byId[id]] = 1; });
+    Object.keys(ch).forEach(k => { if (!linked[k]) loose[ch[k].date] = 1; });
+    const nearLoose = d => [-1, 0, 1].some(i => loose[shiftDate_(d, i)]);
     api.media.forEach(x => {
       const k = m.byId[x.id], it = k ? ch[k] : null;
       if (it) {
         ['views', 'likes', 'comments', 'shares', 'saves', 'reach'].forEach(f => { if (x[f] !== '') it[f] = x[f]; });
         if (x.url) it.url = x.url;
         upd++;
-      } else if (x.date >= shiftDate_(today, -IG_NEW_DAYS) && x.product !== 'STORY') {
+      } else if (x.date >= newFrom && x.product !== 'STORY') {
         const key = capKey_(x.date, x.caption);
         if (!key || ch[key]) return;
+        if (x.date < recent && nearLoose(x.date)) { held++; return; }
         ch[key] = { date: x.date, title: cut_(x.caption.replace(/\s+/g, ' ').trim(), 80), url: x.url, full: x.caption, desc: '',
           views: x.views, likes: x.likes, comments: x.comments, shares: x.shares, saves: x.saves, reach: x.reach, engaged: '', avgSec: '',
           lengthSec: '', type: typeLabel_(x.product, x.mediaType) };
         add++;
       }
     });
-    IG_API_LOG_[chName] = { n: upd + add, msg: '정상 (갱신 ' + upd + ' · 새 게시물 ' + add + (m.amb ? ' · 캡션 겹침 ' + m.amb : '') + (api.note ? ' · ' + api.note : '') + ')' };
+    IG_API_LOG_[chName] = { n: upd + add, msg: '정상 (갱신 ' + upd + ' · 새 게시물 ' + add + (held ? ' · 겹칠 수 있어 뺌 ' + held : '') + (m.amb ? ' · 캡션 겹침 ' + m.amb : '') + (api.note ? ' · ' + api.note : '') + ')' };
   } catch (e) {
     IG_API_LOG_[chName] = { n: 0, msg: '오류(원본 시트 값 사용): ' + e.message };
   }
