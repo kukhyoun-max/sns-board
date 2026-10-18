@@ -990,8 +990,11 @@
       const ser = (cs) => bk.map(b => { const ok = cs.filter(c => hasRec(c, b.i) && hasRec(c, b.i - 1) && !staleAt(c, b.i)); return ok.length ? sum(its.filter(it => ok.includes(it.c)).map(it => Math.max(0, incAt(it, b.i, def[3]) || 0))) : null; });
       const perDay = cs => { const raw = ser(cs); return { raw, data: raw.map((v, j) => v == null ? null : v / bk[j].days) }; };
       const series = multi ? SD.map(s => Object.assign(tag(s), perDay(s.chs))) : split ? chs.map(c => Object.assign({ ch: c }, perDay([c]))) : [Object.assign({ ch: null }, perDay(chs))];
-      const tot = multi ? sum(ser(bigChs)) : sum(series.flatMap(s => s.data));
-      return { def, defs, chs, growth, split, hasSum, bk, series, big: tot, prev: null, from: D.dates[0], to: D.updated, items: [] };
+      // 늦게 기록을 시작한 채널(hong = 2026-10-08부터)은 값이 생긴 기간부터 그림
+      let j0 = bk.findIndex((b, j) => series.some(s => s.data[j] != null)); if (j0 < 0) j0 = 0;
+      const bk2 = bk.slice(j0); series.forEach(s => { s.data = s.data.slice(j0); s.raw = s.raw.slice(j0); });
+      const tot = multi ? sum(ser(bigChs).slice(j0)) : sum(series.flatMap(s => s.raw).filter(v => v != null));
+      return { def, defs, chs, growth, split, hasSum, bk: bk2, series, big: tot, prev: null, from: bk2.length ? bk2[0].from : D.dates[0], to: D.updated, items: [] };
     }
     const per = PERIODS.find(p => p[0] === CS.period) || PERIODS[3];
     const to = D.updated;
@@ -1025,17 +1028,17 @@
     const canGrowth = weekly() && M.def[2] === 'sum';
     let h = '<section class="sec" id="chartSec"><div class="cs-head"><div><div class="cs-t">' + esc(ttl) + '</div>' +
       '<div class="cs-big num">' + mfmt(M.def, M.big) + '</div>' +
-      '<div class="cs-chg num ' + cls + '">' + (d == null ? '<span style="color:var(--muted);font-weight:600">' + (M.growth ? mdLabel(D.dates[0]) + ' 이후 합계' : '비교할 이전 기간 없음') + '</span>' : '<span class="' + dCls(d) + '">' + dTxt(d, 1, 1) + '</span> <span style="color:var(--muted);font-weight:600">이전 같은 기간 대비</span>') + '</div>' +
+      '<div class="cs-chg num ' + cls + '">' + (d == null ? '<span style="color:var(--muted);font-weight:600">' + (M.growth ? mdLabel(M.from) + ' 이후 합계' : '비교할 이전 기간 없음') + '</span>' : '<span class="' + dCls(d) + '">' + dTxt(d, 1, 1) + '</span> <span style="color:var(--muted);font-weight:600">이전 같은 기간 대비</span>') + '</div>' +
       '<div class="cs-sub">' + esc(sub) + (M.growth ? '' : ' · 점선은 아직 끝나지 않은 기간') + (M.growth ? '' : (n => n ? '<br><span class="warn">' + ICO.warn + ' ' + esc(n) + '</span>' : '')(covNote(M.chs, M.from))) + '</div></div>' +
       '<button type="button" class="btn sm" id="csXls">엑셀로 받기</button></div>' +
       '<div class="chips cs-m">' + M.defs.map(df => '<button class="chip" type="button" data-m="' + df[0] + '" aria-pressed="' + (CS.metric === df[0]) + '">' + df[1] + '</button>').join('') + '</div>' +
       (SD ? '<div class="cs-ser" role="group" aria-label="그래프에 표시할 계열">' + serDefs().map(x => '<button type="button" class="tg2 ser" data-ser="' + esc(x.id) + '" aria-pressed="' + CS.series.includes(x.id) + '" style="--c:' + x.color + '"><i></i>' + esc(x.label) + '</button>').join('') + '<span class="hint">눌러서 켜고 끄기</span></div>' : '') +
       '<div class="cs-chart"><canvas id="csCanvas"></canvas></div>' +
       '<div class="cs-per">' +
-        (M.growth ? '<div class="pp"><span class="hint">기록 ' + D.dates.length + '회 · 과거 기록은 월 단위라 간격이 달라요</span></div>' : '<div class="pp">' + PERIODS.map(p => '<button type="button" data-p="' + p[0] + '" aria-pressed="' + (CS.period === p[0]) + '">' + p[1] + '</button>').join('') + '</div>') +
+        (M.growth ? '<div class="pp"><span class="hint">기록 ' + (M.bk.length + 1) + '회' + (M.from > D.dates[0] ? ' · ' + mdLabel(M.from) + '부터 셀 수 있어요' : '') + ' · 과거 기록은 월 단위라 간격이 달라요</span></div>' : '<div class="pp">' + PERIODS.map(p => '<button type="button" data-p="' + p[0] + '" aria-pressed="' + (CS.period === p[0]) + '">' + p[1] + '</button>').join('') + '</div>') +
         '<div class="pp">' +
           (M.growth ? '' : UNITS.map(u => '<button type="button" data-u="' + u[0] + '" aria-pressed="' + (M.unit === u[0]) + '">' + u[1] + '</button>').join('') + '<span class="sep"></span>') +
-          '<button type="button" data-ty="line" aria-pressed="' + (CS.type === 'line') + '">선</button><button type="button" data-ty="bar" aria-pressed="' + (CS.type === 'bar') + '">막대</button>' +
+          '<button type="button" data-ty="line" aria-pressed="' + (CS.type === 'line' && !(M.growth && M.bk.length < 3)) + '">선</button><button type="button" data-ty="bar" aria-pressed="' + (CS.type === 'bar' || (M.growth && M.bk.length < 3)) + '">막대</button>' +
         '</div></div>' +
       '<div class="cs-mode"><button type="button" class="tg2" data-mo="post" aria-pressed="' + !M.growth + '">게시일 기준</button>' +
         '<button type="button" class="tg2" data-mo="growth" aria-pressed="' + M.growth + '"' + (canGrowth ? '' : ' disabled') + '>기록 사이 증가</button>' +
@@ -1109,12 +1112,14 @@
     const d = M.prev ? (M.big - M.prev) / Math.abs(M.prev) : 0;
     const main = d >= 0 ? css('--up') : css('--down');
     const labels = M.bk.map(b => b.label);
+    // 기간이 1~2개뿐이면(늦게 기록을 시작한 채널) 선 대신 막대
+    const TY = M.growth && M.bk.length < 3 ? 'bar' : CS.type;
     const selI = CS.sel == null ? -1 : M.bk.findIndex(b => b.k === CS.sel);
     const ds = M.series.map(s => {
       const col = s.color || (s.ch ? chColor(s.ch) : main);
       const bi = s.ch && isBench(s.ch) ? benchNames().indexOf(s.ch) : s.id === 'bench' ? 0 : -1, dash = bi < 0 ? undefined : [undefined, [6, 3], [2, 2]][bi % 3];
       const o = { label: s.label || (s.ch ? chName(s.ch) + (benchMode() && s.ch === '인스타그램' ? '(우리)' : '') : M.def[1]), data: s.data, borderColor: col, borderDash: dash, spanGaps: true, order: s.id === 'sum' ? 0 : bi >= 0 ? 2 : 1 };
-      if (CS.type === 'bar') Object.assign(o, { backgroundColor: M.split ? col : s.data.map((v, i) => i === selI ? css('--fg') : col), borderRadius: 3, maxBarThickness: 28, stack: M.split && !M.hasSum && M.def[2] !== 'ratio' && M.def[2] !== 'hit' && M.def[2] !== 'med' ? 's' : undefined });
+      if (TY === 'bar') Object.assign(o, { backgroundColor: M.split ? col : s.data.map((v, i) => i === selI ? css('--fg') : col), borderRadius: 3, maxBarThickness: 28, stack: M.split && !M.hasSum && M.def[2] !== 'ratio' && M.def[2] !== 'hit' && M.def[2] !== 'med' ? 's' : undefined });
       else Object.assign(o, { segment: { borderDash: c => !M.growth && c.p1DataIndex === labels.length - 1 ? [4, 4] : dash }, borderWidth: s.id === 'sum' ? 3 : bi >= 0 ? 1.5 : 2, cubicInterpolationMode: 'monotone', pointRadius: labels.length <= 14 ? 3 : 0, pointHoverRadius: 5, pointBackgroundColor: col,
         fill: !M.split, backgroundColor: ctx => { const ch = ctx.chart; if (!ch.chartArea) return 'transparent'; const g = ch.ctx.createLinearGradient(0, ch.chartArea.top, 0, ch.chartArea.bottom); g.addColorStop(0, col + '40'); g.addColorStop(1, col + '00'); return g; } });
       return o;
@@ -1129,13 +1134,13 @@
       const x = c.ctx, a = c.chartArea; x.save();
       BRK.forEach((b, k) => { const px = c.scales.x.getPixelForValue(b.i); if (px < a.left || px > a.right) return; x.setLineDash([4, 4]); x.strokeStyle = css('--muted'); x.lineWidth = 1.5; x.beginPath(); x.moveTo(px, a.top); x.lineTo(px, a.bottom); x.stroke(); x.setLineDash([]); x.font = '600 12px ' + css('--font'); x.fillStyle = css('--muted'); const rt = px > (a.left + a.right) / 2; x.textAlign = rt ? 'right' : 'left'; x.fillText(b.t, px + (rt ? -4 : 4), a.top + 10 + k * 14); });
       x.restore(); } };
-    draw('csCanvas', { type: CS.type === 'bar' ? 'bar' : 'line', data: { labels, datasets: ds },
-      options: chartOpts({ layout: { padding: { top: 12, right: M.split && CS.type !== 'bar' ? 58 : 4 } }, interaction: { mode: 'index', intersect: false },
-        onClick: (e, els, ch) => { const pts = ch.getElementsAtEventForMode(e, 'index', { intersect: false }, false); if (!pts.length || M.growth) return; const k = M.bk[pts[0].index].k; CS.sel = CS.sel === k ? null : k; $('csPick').innerHTML = pickHtml(M); if ($('csPickX')) { const b = M.bk.find(x => x.k === CS.sel); $('csPickX').addEventListener('click', () => toExport(b.from, b.to > M.to ? M.to : b.to, 'content', M.chs)); } if ($('csList')) wireRank($('csList'), uniq(M.series.flatMap(s => s.arrs[pts[0].index])).sort((x, y) => (mainVal(y) || 0) - (mainVal(x) || 0)).slice(0, 5)); if (CS.type === 'bar') rerenderChart(); },
-        plugins: { legend: { display: M.split && !multiMode() && CS.type === 'bar', position: 'bottom' }, tooltip: { displayColors: M.split, callbacks: { title: it => { const b = M.bk[it[0].dataIndex]; return b.from === b.to ? b.from : b.from + ' ~ ' + b.to; }, label: c => (M.split ? c.dataset.label + ' ' : '') + mfmt(M.def, c.raw) + (M.growth ? '/일 · 기간 합계 ' + mfmt(M.def, (M.series[c.datasetIndex].raw || [])[c.dataIndex]) : '') + (!M.growth && M.series[c.datasetIndex].arrs ? ' · 게시 ' + M.series[c.datasetIndex].arrs[c.dataIndex].length + '개' : '') } } },
-        scales: { x: { stacked: CS.type === 'bar' && !!ds[0].stack, ticks: { maxTicksLimit: 7, maxRotation: 0, autoSkip: true, font: { size: 13, weight: '500' }, color: css('--muted') } },
-          y: { stacked: CS.type === 'bar' && !!ds[0].stack, display: true, position: 'right', grid: { color: css('--line') }, border: { display: false }, ticks: { maxTicksLimit: 4, font: { size: 13 }, color: css('--muted'), callback: v => M.def[2] === 'ratio' ? v + '배' : M.def[2] === 'hit' ? Math.round(v * 100) + '%' : fmtK(v) }, beginAtZero: true } } }),
-      plugins: [breaks].concat(M.split && CS.type !== 'bar' ? [endLabels] : []).concat(avg == null ? [] : [{ id: 'avg', afterDatasetsDraw(c) { const y = c.scales.y.getPixelForValue(avg), a = c.chartArea; if (y < a.top || y > a.bottom) return; const x = c.ctx; x.save(); x.setLineDash([4, 4]); x.strokeStyle = css('--muted'); x.lineWidth = 1; x.beginPath(); x.moveTo(a.left, y); x.lineTo(a.right, y); x.stroke(); x.setLineDash([]); x.font = '600 13px ' + css('--font'); x.fillStyle = css('--muted'); x.textAlign = 'left'; x.fillText('평균 ' + mfmt(M.def, avg), a.left + 4, y - 5); x.restore(); } }]) });
+    draw('csCanvas', { type: TY === 'bar' ? 'bar' : 'line', data: { labels, datasets: ds },
+      options: chartOpts({ layout: { padding: { top: 12, right: M.split && TY !== 'bar' ? 58 : 4 } }, interaction: { mode: 'index', intersect: false },
+        onClick: (e, els, ch) => { const pts = ch.getElementsAtEventForMode(e, 'index', { intersect: false }, false); if (!pts.length || M.growth) return; const k = M.bk[pts[0].index].k; CS.sel = CS.sel === k ? null : k; $('csPick').innerHTML = pickHtml(M); if ($('csPickX')) { const b = M.bk.find(x => x.k === CS.sel); $('csPickX').addEventListener('click', () => toExport(b.from, b.to > M.to ? M.to : b.to, 'content', M.chs)); } if ($('csList')) wireRank($('csList'), uniq(M.series.flatMap(s => s.arrs[pts[0].index])).sort((x, y) => (mainVal(y) || 0) - (mainVal(x) || 0)).slice(0, 5)); if (TY === 'bar') rerenderChart(); },
+        plugins: { legend: { display: M.split && !multiMode() && TY === 'bar', position: 'bottom' }, tooltip: { displayColors: M.split, callbacks: { title: it => { const b = M.bk[it[0].dataIndex]; return b.from === b.to ? b.from : b.from + ' ~ ' + b.to; }, label: c => (M.split ? c.dataset.label + ' ' : '') + mfmt(M.def, c.raw) + (M.growth ? '/일 · 기간 합계 ' + mfmt(M.def, (M.series[c.datasetIndex].raw || [])[c.dataIndex]) : '') + (!M.growth && M.series[c.datasetIndex].arrs ? ' · 게시 ' + M.series[c.datasetIndex].arrs[c.dataIndex].length + '개' : '') } } },
+        scales: { x: { stacked: TY === 'bar' && !!ds[0].stack, ticks: { maxTicksLimit: 7, maxRotation: 0, autoSkip: true, font: { size: 13, weight: '500' }, color: css('--muted') } },
+          y: { stacked: TY === 'bar' && !!ds[0].stack, display: true, position: 'right', grid: { color: css('--line') }, border: { display: false }, ticks: { maxTicksLimit: 4, font: { size: 13 }, color: css('--muted'), callback: v => M.def[2] === 'ratio' ? v + '배' : M.def[2] === 'hit' ? Math.round(v * 100) + '%' : fmtK(v) }, beginAtZero: true } } }),
+      plugins: [breaks].concat(M.split && TY !== 'bar' ? [endLabels] : []).concat(avg == null ? [] : [{ id: 'avg', afterDatasetsDraw(c) { const y = c.scales.y.getPixelForValue(avg), a = c.chartArea; if (y < a.top || y > a.bottom) return; const x = c.ctx; x.save(); x.setLineDash([4, 4]); x.strokeStyle = css('--muted'); x.lineWidth = 1; x.beginPath(); x.moveTo(a.left, y); x.lineTo(a.right, y); x.stroke(); x.setLineDash([]); x.font = '600 13px ' + css('--font'); x.fillStyle = css('--muted'); x.textAlign = 'left'; x.fillText('평균 ' + mfmt(M.def, avg), a.left + 4, y - 5); x.restore(); } }]) });
   }
 
   // ═════════ 2. 콘텐츠 전략 ═════════
