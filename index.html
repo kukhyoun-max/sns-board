@@ -999,6 +999,10 @@ small { line-height: 1.6; }
 .c3x i { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 999px; background: var(--up); }
 .cmp3.dn .c3x i { background: var(--down-bar); }
 .c3x s { position: absolute; top: -4px; bottom: -4px; width: 2px; margin-left: -1px; background: var(--fg); border-radius: 1px; }
+/* 접속 키 입력 화면 */
+.gate-f { display: flex; gap: 8px; margin: 14px auto 6px; max-width: 420px; }
+.gate-f .inp { flex: 1; min-width: 0; font-size: 16px; }
+.gate small { display: block; min-height: 1.4em; }
 </style>
 
 <div class="app" id="app">
@@ -4073,12 +4077,33 @@ small { line-height: 1.6; }
       why === 'chart' ? '학교 네트워크에서 외부 스크립트(cdn.jsdelivr.net)가 막혔을 수 있어요. 다른 네트워크에서 열거나 잠시 후 다시 시도해 주세요.' : why === 'slow' ? '데이터 응답이 30초 넘게 오지 않아요. 보통 15초 안팎 걸려요. 계속 기다리거나 다시 시도해 주세요.' : 'Apps Script 웹앱 응답에 문제가 있어요. 잠시 후 다시 시도해 주세요.',
       ['다시 시도', retry]);
   };
-  const start = d => { if (booted) return; clearTimeout(slowT); if (!window.Chart) { fail('chart'); return; } try { booted = true; boot(d); } catch (e) { booted = false; console.error(e); fail(); } };
+  // 접속 키(2026-10-18): 사람별 링크 …/#k=<키>로 한 번 열면 이 기기에 저장. 키가 없거나 막히면 데이터를 받지 않고 키 입력 화면
+  const KEY_STORE = 'sb-key';
+  const keyOf = t => { const m = /(?:^|[#?&])k=([A-Za-z0-9]{16,64})/.exec(t || ''); return m ? m[1] : /^[A-Za-z0-9]{16,64}$/.test(String(t || '').trim()) ? String(t).trim() : ''; };
+  let KEY = keyOf(location.hash) || keyOf(location.search);
+  if (KEY) { try { localStorage.setItem(KEY_STORE, KEY); } catch (e) {} try { history.replaceState(null, '', location.pathname); } catch (e) {} }
+  else { try { KEY = localStorage.getItem(KEY_STORE) || ''; } catch (e) {} }
+  const gate = msg => {
+    clearTimeout(slowT); $('st1').textContent = '접속 키가 필요해요';
+    $('view').innerHTML = '<section class="sec"><div class="wait gate"><b>' + esc(msg) + '</b><br>담당자에게 받은 접속 링크로 열거나, 링크·키를 아래에 붙여 넣어 주세요.<form id="keyF" class="gate-f"><input class="inp" id="keyIn" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="접속 링크 또는 키" aria-label="접속 링크 또는 키"><button type="submit" class="btn pri">열기</button></form><small id="keyE" class="mu"></small></div></section>';
+    $('keyF').addEventListener('submit', ev => {
+      ev.preventDefault(); const k = keyOf($('keyIn').value);
+      if (!k) { $('keyE').textContent = '링크나 키 모양이 아니에요. 받은 그대로 붙여 넣어 주세요.'; return; }
+      try { localStorage.setItem(KEY_STORE, k); } catch (e) {}
+      location.replace(location.pathname + '#k=' + k); location.reload();
+    });
+  };
+  const start = d => {
+    if (booted) return; clearTimeout(slowT);
+    if (d && d.error === 'auth') { try { localStorage.removeItem(KEY_STORE); } catch (e) {} gate(KEY ? '이 접속 키는 막혔거나 맞지 않아요' : '접속 키가 필요해요'); return; }
+    if (!window.Chart) { fail('chart'); return; } try { booted = true; boot(d); } catch (e) { booted = false; console.error(e); fail(); }
+  };
   msgView('데이터를 불러오는 중이에요', '보통 15초 안팎 걸려요. 전체 기록(약 1MB)을 받고 있어요.');
   slowT = setTimeout(() => fail('slow'), 30000);
+  // 키가 없어도 한 번은 요청(서버가 키를 요구할 때만 입력 화면)
   if (window.SNS_API_URL) {
     window.__sbData = start;
-    const sc = document.createElement('script'); sc.src = window.SNS_API_URL + '?callback=__sbData&t=' + Date.now(); sc.onerror = () => { clearTimeout(slowT); fail(); }; document.body.appendChild(sc);
+    const sc = document.createElement('script'); sc.src = window.SNS_API_URL + '?callback=__sbData' + (KEY ? '&key=' + encodeURIComponent(KEY) : '') + '&t=' + Date.now(); sc.onerror = () => { clearTimeout(slowT); fail(); }; document.body.appendChild(sc);
   } else {
     fetch('./data.json', { cache: 'no-store' }).then(r => r.json()).then(start).catch(e => { console.error(e); clearTimeout(slowT); fail(); });
   }

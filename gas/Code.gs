@@ -194,6 +194,7 @@ function onOpen() {
     .addItem('게시 후 조회 다시 채우기(스냅샷 기록으로)', 'backfillAgeViews')
     .addItem('일별 합계 다시 채우기(스냅샷 기록으로)', 'backfillDailyTotals')
     .addItem('대시보드 데이터 새로 고침(캐시 비우기)', 'clearDashboardCache')
+    .addItem('보드 접속 키 만들기(「보드 접근」 탭)', 'makeBoardKeys')
     .addItem('메타 광고 과거 채우기(API, 처음 한 번)', 'backfillMeta')
     .addItem('유튜브 분석 승인(브랜드 계정, 처음 한 번)', 'ytAuthorize')
     .addItem('유튜브 분석 승인 마무리(YT_AUTH_CODE 넣은 뒤)', 'ytAuthFinish')
@@ -1107,15 +1108,99 @@ function loadDailyTotals_(ss) {
 
 // ───────── 대시보드용 데이터 API (GitHub Pages에서 JSONP로 읽음) ─────────
 const SS_ID = '1WshbvV-foluKpVu79vdZ75BBfH-ycME_nPe0RcJuwr4';
+
+// ───────── 보드 접근: 사람별 접속 키 (2026-10-18) ─────────
+// 「보드 접근」 탭 [이름, 키, 사용, 메모, 만든 날, 마지막 접속, 접속 수, 접속 링크]
+//  · 이름만 적으면 키·접속 링크가 생김(탭을 고칠 때 바로, 또는 메뉴 「보드 접속 키 만들기」)
+//  · 줄을 지우거나 사용을 X로 바꾸면 그 사람만 막힘(탭을 고치면 바로, 늦어도 5분 안)
+//  · 키는 이 탭에만 있음(저장소·코드에 넣지 않음)
+const ACCESS_SHEET = '보드 접근';
+const ACCESS_HEAD = ['이름', '키', '사용', '메모', '만든 날', '마지막 접속', '접속 수', '접속 링크'];
+const BOARD_URL = 'https://kukhyoun-max.github.io/sns-board/';
+const ACCESS_CACHE = 'acc:keys';
+const accessSS_ = () => SpreadsheetApp.getActive() || SpreadsheetApp.openById(SS_ID);
+const newKey_ = () => (Utilities.getUuid() + Utilities.getUuid()).replace(/-/g, '').slice(0, 24);
+// 탭이 없으면 만들고(담당자·분석 스크립트 두 줄), 키가 빈 줄에 키·사용·만든 날·링크를 채움
+function accessFill_(ss) {
+  let sh = ss.getSheetByName(ACCESS_SHEET);
+  if (!sh) {
+    sh = ss.insertSheet(ACCESS_SHEET);
+    sh.getRange(1, 1, 1, ACCESS_HEAD.length).setValues([ACCESS_HEAD]).setFontWeight('bold');
+    sh.setFrozenRows(1);
+    sh.getRange(2, 1, 2, 4).setValues([['담당자', '', 'O', ''], ['분석 스크립트', '', 'O', 'run_all.sh가 성과 JSON을 받을 때 씀']]);
+  }
+  const n = sh.getLastRow() - 1;
+  if (n < 1) return 0;
+  const v = sh.getRange(2, 1, n, ACCESS_HEAD.length).getValues();
+  const today = Utilities.formatDate(new Date(), TZ, 'yyyy-MM-dd');
+  let made = 0;
+  v.forEach(r => {
+    if (!String(r[0]).trim()) return;
+    if (!String(r[1]).trim()) { r[1] = newKey_(); r[4] = today; made++; }
+    if (!String(r[2]).trim()) r[2] = 'O';
+    r[7] = BOARD_URL + '#k=' + String(r[1]).trim();
+  });
+  sh.getRange(2, 1, n, ACCESS_HEAD.length).setValues(v);
+  CacheService.getScriptCache().remove(ACCESS_CACHE);
+  return made;
+}
+// 메뉴: 보드 접속 키 만들기
+function makeBoardKeys() {
+  const ss = accessSS_();
+  const made = accessFill_(ss);
+  try { ss.toast(made ? '접속 키 ' + made + '개를 만들었어요. 「접속 링크」 열을 그 사람에게 보내 주세요.' : '새로 만들 키가 없어요. 이름을 적은 줄에만 키가 생겨요.', '보드 접근'); } catch (e) {}
+}
+// 허용된 키 → {이름, 줄}. 5분 캐시
+function accessKeys_() {
+  const c = CacheService.getScriptCache();
+  const hit = c.get(ACCESS_CACHE);
+  if (hit) return JSON.parse(hit);
+  const sh = accessSS_().getSheetByName(ACCESS_SHEET);
+  const o = {};
+  if (sh && sh.getLastRow() > 1) {
+    sh.getRange(2, 1, sh.getLastRow() - 1, 3).getValues().forEach((r, i) => {
+      const k = String(r[1]).trim();
+      if (String(r[0]).trim() && k.length >= 16 && String(r[2]).trim().toUpperCase() === 'O') o[k] = { n: String(r[0]).trim(), row: i + 2 };
+    });
+  }
+  c.put(ACCESS_CACHE, JSON.stringify(o), 300);
+  return o;
+}
+// 키 확인. 맞으면 이름, 아니면 null. 마지막 접속·접속 수는 키마다 30분에 한 번만 적음
+function accessCheck_(key) {
+  if (!key || key.length < 16) return null;
+  const hit = accessKeys_()[key];
+  if (!hit) return null;
+  const c = CacheService.getScriptCache(), tk = 'acc:t:' + key;
+  if (!c.get(tk)) {
+    c.put(tk, '1', 1800);
+    const lock = LockService.getScriptLock();
+    if (lock.tryLock(2000)) {
+      try {
+        const sh = accessSS_().getSheetByName(ACCESS_SHEET);
+        if (sh && String(sh.getRange(hit.row, 2).getValue()).trim() === key) {
+          const cnt = Number(sh.getRange(hit.row, 7).getValue()) || 0;
+          sh.getRange(hit.row, 6, 1, 2).setValues([[Utilities.formatDate(new Date(), TZ, 'yyyy-MM-dd HH:mm'), cnt + 1]]);
+        }
+      } catch (e) {} finally { lock.releaseLock(); }
+    }
+  }
+  return hit.n;
+}
 const OWN_CHANNELS = ['인스타그램', '유튜브', 'hong._.video'];
 const DASH_METRICS = ['조회수', '좋아요', '댓글', '공유', '저장'];
 
 // 읽기 전용. ?callback=__sbData 이면 JSONP, 그 밖의 callback 값이나 없으면 일반 JSON.
+// ?key=<접속 키>가 「보드 접근」 탭에 있고 사용 = O일 때만 데이터를 줌. 아니면 {error:'auth'}
 // 응답은 기록 때 CacheService에 미리 만들어 둔 것을 쓰고, 없으면 계산해서 캐시(기록 중이면 캐시에 넣지 않음).
 function doGet(e) {
   const cb = (e && e.parameter && e.parameter.callback) || '';
+  const key = String((e && e.parameter && e.parameter.key) || '').trim();
   let json = null;
-  try { json = cacheGet_(); } catch (err) { json = null; }
+  let who = null;
+  try { who = accessCheck_(key); } catch (err) { who = null; }
+  if (!who) json = JSON.stringify({ error: 'auth', msg: key ? '접속 키가 맞지 않거나 막혔어요' : '접속 키가 필요해요' });
+  if (!json) { try { json = cacheGet_(); } catch (err) { json = null; } }
   if (!json) {
     try {
       json = JSON.stringify(buildDashboardData_());
@@ -1175,6 +1260,7 @@ function clearDashboardCache() {
 function onEdit(e) {
   try {
     const name = e && e.range && e.range.getSheet().getName();
+    if (name === ACCESS_SHEET) { accessFill_(e.source); return; }
     if ([ROSTER_SHEET, ID_SHEET, ADMAP_SHEET, ADPLAN_SHEET, TAGFIX_SHEET, STRAT_SHEET, GOAL_SHEET, META_SHEET, IG_HIST_SHEET, AD_EXTRA_SHEET, GADS_SHEET].indexOf(name) >= 0) dropCache_();
   } catch (err) {}
 }
