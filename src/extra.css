@@ -706,3 +706,5 @@ small { line-height: 1.6; }
 .sg .cmps { margin-top: 8px; }
 .sg .cmpb { grid-template-columns: 120px minmax(0, 1fr) 56px; }
 .sig > .note { margin-top: 10px; }
+.cmp3.s2-c { margin-top: -4px; padding: 0 0 4px; }
+.cmp3.dn .c3h + .c3r b { color: var(--down); }
