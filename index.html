@@ -2425,6 +2425,10 @@ small { line-height: 1.6; }
     if (ch && OWN.includes(ch)) html += secOpen('콘텐츠 역할 — 반응의 종류', reactNote(ch)) + reactTable(ch, cats) + secClose;
     else if (S.ch === '전체') html += secOpen('콘텐츠 역할 — 반응의 종류', '채널을 고르면 분류별 반응을 볼 수 있어요') + '<div class="chips go-ch">' + [['인스타그램', '저장 · 공유 · 댓글'], ['유튜브', '끝까지 본 비율'], ['hong._.video', '좋아요 · 댓글']].map(c => '<button class="chip" type="button" data-goch="' + c[0] + '">' + badge(c[0]) + '<small>' + c[1] + '</small></button>').join('') + '</div>' + secClose;
 
+    // 저장·공유(타 대학은 좋아요)가 많은 형식·분류
+    const RXS = rxSec(chs, L);
+    if (RXS) html += RXS.html;
+
     // 분류별 + 요일별
     html += secOpen('분류별 · 요일별 성과', '평소 대비 중간값 · 세로선 1배보다 길면 평소보다 잘 됨') +
       '<div class="two"><div><h3>분류별</h3><div class="bars" id="byCat"></div></div><div><h3>게시 요일별</h3><div class="chart" id="wdBox"><canvas id="wdChart"></canvas></div><p class="note" id="wdNote"></p></div></div>' + secClose;
@@ -2440,6 +2444,12 @@ small { line-height: 1.6; }
     $('view').querySelectorAll('.mx td[data-k]').forEach(td => { if (td.classList.contains('none')) return; td.addEventListener('click', () => { S.mx = S.mx === td.dataset.k ? null : td.dataset.k; viewStrategy(); if (S.mx) setTimeout(() => { const el = $('mxList'); if (el) el.scrollIntoView({ behavior: 'smooth', block: 'nearest' }); }, 30); }); });
     if (S.mx) { const [g, t] = S.mx.split('|'); wireRank($('mxList'), L.filter(it => it[MXB] === g && it.t === t).sort((a, b) => (ratio(b) || 0) - (ratio(a) || 0)).slice(0, 20)); }
     bars('byCat', cats.filter(r => r.n >= MIN_N).sort(byIdx), subN, k => { S.view = 'explore'; S.g = k; render(); window.scrollTo({ top: 0 }); });
+    if (RXS) {
+      if ($('rxBy')) $('rxBy').querySelectorAll('button').forEach(b => b.addEventListener('click', () => { S.rxK = b.dataset.v; viewStrategy(); }));
+      bars('rxT', RXS.T, RXS.sub);
+      // 분류 막대를 누르면 탐색 화면에서 그 분류를 같은 기준 순위로
+      bars('rxG', RXS.G, RXS.subG, RXS.bench ? null : g => { S.view = 'explore'; S.g = g; S.gs = null; S.rankBy = RXS.k === 'save' || RXS.k === 'share' ? RXS.k : 'hot'; S.rankShown = 10; render(); window.scrollTo({ top: 0 }); });
+    }
     // 요일
     const wd = [1, 2, 3, 4, 5, 6, 0].map(k => { const arr = L.filter(it => new Date(it.d + 'T00:00:00Z').getUTCDay() === k); return { k: WD[k], n: arr.length, idx: median(arr.map(ratio)) }; });
     const wdOk = wd.filter(x => x.n >= MIN_N && x.idx != null).sort((a, b) => b.idx - a.idx), best = wdOk[0], worst = wdOk.length > 1 ? wdOk[wdOk.length - 1] : null;
@@ -2480,7 +2490,7 @@ small { line-height: 1.6; }
   }
   function reactNote(ch) {
     if (ch === '인스타그램') return '분류마다 어떤 반응이 많은지 봐요 · 비율은 도달한 사람 대비, 채널 평소보다 높으면 파란색 · 「역할」은 평소보다 1.2배 넘게 앞선 반응 중 가장 큰 것';
-    if (ch === '유튜브') return '분류마다 조회·끝까지 본 비율·좋아요율을 봐요 · 채널 평소보다 높으면 파란색 · 「역할」은 평소보다 1.2배 넘게 앞선 것 중 가장 큰 것';
+    if (ch === '유튜브') return '분류마다 조회·끝까지 본 비율·좋아요율·공유율을 봐요 · 채널 평소보다 높으면 파란색 · 「역할」은 평소보다 1.2배 넘게 앞선 것 중 가장 큰 것';
     return '분류마다 조회·좋아요율·댓글률을 봐요 · 채널 평소보다 높으면 파란색 · 「역할」은 평소보다 1.2배 넘게 앞선 것 중 가장 큰 것';
   }
   // 인스타 도달 배수: 도달 ÷ 같은 형식 최근 1년 도달 중간값(형식 게시물 15개 미만이면 채널 전체) — 이 표의 「도달」 열에만 씀
@@ -2494,6 +2504,73 @@ small { line-height: 1.6; }
       RB[k] = median(a) || null;
     }
     return RB[k] ? it.r / RB[k] : null;
+  }
+  // 반응 비율: 인스타 = 저장·공유 ÷ 도달, 유튜브·hong = 공유·좋아요 ÷ 조회. 평소 = 같은 채널·같은 형식 최근 1년 중간값(형식 15개 미만이면 채널 전체, 광고·과거 기록 제외)
+  // 형식별 막대만 채널 전체 중간값 대비(형식끼리 견주려고) — 도달·타 대학 좋아요도 형식별 막대는 도달·좋아요 값 ÷ 채널 전체 중간값
+  // 도달 300·조회 500 미만은 공유 한두 개로 비율이 크게 튀어 뺌. 유튜브 공유는 전체 기간 값(L)에만 있어 L 조회가 지금 조회의 80% 이상일 때만(게시 직후 값에 멈춘 L 제외)
+  // 댓글은 대부분 0이라(중간값 0) 비율 비교에서 뺌. 타 대학은 조회·도달·저장·공유가 공개되지 않아 좋아요(각 학교 자기 평소 대비)만
+  const RXM = {
+    reach: ['도달', '도달 평소 대비', '같은 형식 최근 1년 도달 중간값 대비', '팔로워 밖까지 넓게 닿았어요.'],
+    save: ['저장', '저장률', '저장 ÷ 도달', '나중에 다시 보려고 저장한 사람이 많아요.'],
+    share: ['공유', '공유율', '공유 ÷ 도달', '친구에게 보내거나 퍼 간 사람이 많아요.'],
+    like: ['좋아요', '좋아요율', '좋아요 ÷ 조회', '본 사람 중 좋아요를 누른 비율이 높아요.'],
+    blike: ['좋아요', '좋아요 평소 대비', '학교마다 자기 평소 좋아요 대비', ''],
+  };
+  const rxKeysOf = ch => ch === '인스타그램' ? ['save', 'share', 'reach'] : ch === '유튜브' ? ['share', 'like'] : ch === 'hong._.video' ? ['like'] : ['blike'];
+  const rxDef = (k, ch) => k === 'share' && ch === '유튜브' ? '공유 ÷ 조회' : RXM[k][2];
+  function rxRate(it, k) {
+    if (it.x || frozen(it) || it.t === '스토리' || !rxKeysOf(it.c).includes(k) || k === 'reach' || k === 'blike') return null;
+    const v = last(it); if (!v) return null;
+    if (it.c === '인스타그램') { if (!(it.r >= 300)) return null; const c = v[k === 'save' ? 4 : 3]; return c == null ? null : c / it.r; }
+    if (!(v[0] >= 500)) return null;
+    if (k === 'share') return it.L && it.L[3] != null && it.L[0] > 0 && it.L[0] >= v[0] * 0.8 ? it.L[3] / it.L[0] : null;
+    return v[1] == null ? null : v[1] / v[0];
+  }
+  const RXB = {};
+  const rxRaw = (it, k) => { if (k === 'reach') return it.r > 0 && !it.x && !frozen(it) && !young(it) ? it.r : null; if (k === 'blike') { const v = last(it); return young(it) || it.ad || !v ? null : v[1]; } return rxRate(it, k); };
+  const rxBase = (ch, k, t) => {
+    const key = ch + '|' + k + '|' + (t || '');
+    if (!(key in RXB)) {
+      const pk = f => D.items.filter(x => x.c === ch && !x.ad && x.t !== '스토리' && x.d >= addDays(D.updated, -365) && f(x)).map(x => rxRaw(x, k)).filter(v => v != null);
+      let a = t ? pk(x => x.t === t) : pk(() => true); if (t && a.length < BASE_T_MIN) a = pk(() => true);
+      RXB[key] = median(a) || null;
+    }
+    return RXB[key];
+  };
+  const rxTypeVal = (it, k) => { const v = rxRaw(it, k), b = v == null ? null : rxBase(it.c, k); return b ? v / b : null; };
+  // 평소 대비(배). 도달·타 대학 좋아요는 조회처럼 쌓이는 값이라 판정 전(14일 미만) 게시물은 뺌
+  const rxVal = (it, k) => {
+    if (k === 'reach') return young(it) ? null : reachRatio(it);
+    if (k === 'blike') return young(it) || it.ad ? null : ratio(it);
+    const v = rxRate(it, k), b = v == null ? null : rxBase(it.c, k, it.t);
+    return b ? v / b : null;
+  };
+  // 전략 화면 「저장·공유가 많은 콘텐츠」: 형식별·분류별(타 대학은 학교 × 형식) 평소 대비 중간값 막대
+  function rxSec(chs, L) {
+    const bench = !ownIn(chs).length, ch = chs.length === 1 ? chs[0] : null;
+    if (!bench && !ch) return null;
+    const keys = rxKeysOf(bench ? null : ch);
+    if (!keys.includes(S.rxK)) S.rxK = keys[0];
+    const k = S.rxK, M = RXM[k];
+    const rowsBy = (key, fv) => {
+      const g = {};
+      L.forEach(it => { if (fv(it, k) == null) return; const gk = key(it); if (gk) (g[gk] = g[gk] || []).push(it); });
+      return Object.entries(g).map(([gk, arr]) => ({ k: gk, n: arr.length, idx: median(arr.map(it => fv(it, k))), raw: median(arr.map(it => rxRate(it, k))), few: false })).filter(r => r.n >= MIN_N).sort(byIdx);
+    };
+    // 형식별 = 채널 전체 대비, 분류별 = 같은 형식 대비. 타 대학은 학교 × 분류(같은 형식 대비)
+    const T = rowsBy(it => fmtType(it.t), rxTypeVal), G = bench ? rowsBy(it => it.g ? chName(it.c) + ' · ' + it.g : null, rxVal) : rowsBy(it => it.g, rxVal);
+    // 형식별 아랫줄에만 실제 비율(분류별 막대는 같은 형식 대비라 비율을 함께 쓰면 헷갈림)
+    const sub = r => r.n + '개' + (r.raw != null ? ' · ' + M[1] + ' ' + pctA(r.raw) : ''), subG = r => r.n + '개';
+    const nm = bench ? '학교 × 분류' : '분류', mn = M[1].replace(/ 평소 대비$/, '');
+    const best = G[0], worst = G.length > 1 ? G[G.length - 1] : null;
+    const head = bench ? '좋아요가 많은 형식·분류' : ch === '인스타그램' ? '저장·공유가 많은 콘텐츠' : ch === '유튜브' ? '공유·좋아요가 많은 콘텐츠' : '좋아요가 많은 콘텐츠';
+    const seg = keys.length > 1 ? '<div class="seg" id="rxBy" aria-label="반응 기준">' + keys.map(x => '<button type="button" data-v="' + x + '" aria-pressed="' + (k === x) + '">' + (x === 'reach' ? '도달' : RXM[x][1]) + '</button>').join('') + '</div>' : '';
+    const base = bench || k === 'reach' ? null : rxBase(ch, k);
+    const html = secOpen(head, periodPhrase() + ' 게시물 · ' + mn + ' 평소 대비 중간값 · 세로선 1배보다 길면 평소보다 많아요', seg) +
+      '<dl class="defs"><div><dt>' + M[1] + '</dt><dd>' + rxDef(k, ch) + '</dd></div><div><dt>분류별 막대</dt><dd>' + (bench ? '학교마다 ' : '') + '같은 형식 최근 1년 중간값 대비</dd></div><div><dt>형식별 막대</dt><dd>' + (bench ? '학교마다 ' : '') + '채널 전체 최근 1년 중간값 대비' + (base ? ' · ' + pctA(base) : '') + '</dd></div>' + (bench ? '<div><dt>공개 범위</dt><dd>타 대학은 조회·도달·저장·공유가 공개되지 않아요</dd></div>' : '') + '</dl>' +
+      (best ? '<p class="note">' + mn + ' 가장 높은 ' + nm + ' ' + esc(best.k) + ' · 평소의 ' + xf(best.idx) + ' · ' + best.n + '개' + (worst ? ' / 가장 낮은 ' + nm + ' ' + esc(worst.k) + ' · ' + xf(worst.idx) + ' · ' + worst.n + '개' : '') + '</p>' : '') +
+      '<div class="two">' + (T.length > 1 ? '<div><h3>형식별</h3><div class="bars" id="rxT"></div></div>' : '') + '<div><h3>' + nm + '별</h3><div class="bars" id="rxG"></div></div></div>' + secClose;
+    return { html, T, G, sub, subG, bench, k };
   }
   function reactTable(ch, cats) {
     const all = pool({ channels: [ch], since: addDays(D.updated, -365) });
@@ -2509,6 +2586,7 @@ small { line-height: 1.6; }
       ['조회 평소 대비', it => ratio(it), xf, 'reach', '도달형', '조회'],
       ['시청 완료율', completion, pct, 'save', '몰입형', '끝까지'],
       ['좋아요율', likeRate, pctA, 'share', '호감형', '좋아요'],
+      ['공유율', it => rxRate(it, 'share'), pctA, 'talk', '확산형', '공유'],
     ];
     else cols = [
       ['조회 평소 대비', it => ratio(it), xf, 'reach', '도달형', '조회'],
@@ -3045,14 +3123,20 @@ small { line-height: 1.6; }
   function renderRank() {
     const tabs = [['views', '많이 본'], ['hot', '평소보다 잘 된'], ['quality', '반응 좋은', '인스타 = 참여율 · 유튜브 = 끝까지 본 비율 · hong = 좋아요율']];
     if (weekly()) tabs.splice(1, 0, ['week', '급상승', '지난 기록보다 많이 늘어난 순']);
+    const vc = viewChannels();
+    if (vc.includes('인스타그램')) tabs.push(['save', '저장 많은', '저장 ÷ 도달 · 인스타그램']);
+    if (vc.includes('인스타그램') || vc.includes('유튜브')) tabs.push(['share', '공유 많은', '인스타 = 공유 ÷ 도달 · 유튜브 = 공유 ÷ 조회']);
+    if (S.ch === '타 대학') tabs.push(['talk', '댓글 많은', '댓글 수 많은 순']);
+    if (!tabs.some(t => t[0] === S.rankBy)) S.rankBy = 'views';
     $('rankTabs').innerHTML = tabs.map(([k, l, tip]) => '<button class="chip" type="button" data-k="' + k + '" aria-pressed="' + (S.rankBy === k) + '"' + (tip ? ' title="' + tip + '"' : '') + '>' + l + '</button>').join('');
     $('rankTabs').querySelectorAll('.chip').forEach(b => b.addEventListener('click', () => { S.rankBy = b.dataset.k; S.rankShown = 10; renderRank(); }));
     const L = exploreList({ g: S.g || undefined, gs: S.gs || undefined });
-    const score = { views: mainVal, hot: ratio, quality, week: it => inc(it, mainM(it.c)) }[S.rankBy] || mainVal;
-    $('rankSub').textContent = { views: (S.ch === '타 대학' ? '좋아요' : '조회') + ' 많은 순', hot: '평소 대비 성과가 높은 순 · 채널 규모와 상관없이 비교해요', quality: '반응 좋은 순 · 인스타 참여율 · 유튜브 끝까지 본 비율 · hong 좋아요율', week: '지난 기록보다 많이 늘어난 순' }[S.rankBy] + (S.g ? ' · ' + S.g : '');
+    const score = { views: mainVal, hot: ratio, quality, week: it => inc(it, mainM(it.c)), save: it => rxVal(it, 'save'), share: it => rxVal(it, 'share'), talk: it => val(it, 2) || null }[S.rankBy] || mainVal;
+    $('rankSub').textContent = { views: (S.ch === '타 대학' ? '좋아요' : '조회') + ' 많은 순', hot: '평소 대비 성과가 높은 순 · 채널 규모와 상관없이 비교해요', quality: '반응 좋은 순 · 인스타 참여율 · 유튜브 끝까지 본 비율 · hong 좋아요율', week: '지난 기록보다 많이 늘어난 순', save: '저장률 평소 대비 높은 순 · 같은 형식 대비 · 도달 300 이상', share: '공유율 평소 대비 높은 순 · 같은 형식 대비 · 도달 300·조회 500 이상', talk: '댓글 많은 순' }[S.rankBy] + (S.g ? ' · ' + S.g : '');
     const sorted = L.filter(it => score(it) != null).sort((a, b) => score(b) - score(a));
     const shown = sorted.slice(0, S.rankShown);
-    $('rank').innerHTML = rankRows(shown, S.rankBy === 'quality' ? { right: it => qName(it.c) + ' <em>' + pct(quality(it)) + '</em>' } : S.rankBy === 'week' ? { right: it => '이번 주 ' + mName(it) + ' <em class="up">+' + fmtK(inc(it, mainM(it.c))) + '</em>' } : null);
+    const rxRight = k => ({ right: it => RXM[k][1] + ' <span class="num">' + pctA(rxRate(it, k)) + '</span> · <em class="' + xCls(rxVal(it, k)) + '">평소의 ' + xf(rxVal(it, k)) + '</em>' });
+    $('rank').innerHTML = rankRows(shown, S.rankBy === 'save' || S.rankBy === 'share' ? rxRight(S.rankBy) : S.rankBy === 'talk' ? { right: it => '댓글 <span class="num">' + fmt(val(it, 2)) + '</span>' + (val(it, 1) > 0 ? ' · 좋아요 <span class="num">' + fmtK(val(it, 1)) + '</span>' : '') } : S.rankBy === 'quality' ? { right: it => qName(it.c) + ' <em>' + pct(quality(it)) + '</em>' } : S.rankBy === 'week' ? { right: it => '이번 주 ' + mName(it) + ' <em class="up">+' + fmtK(inc(it, mainM(it.c))) + '</em>' } : null);
     wireRank($('rank'), shown);
     $('rankMore').hidden = S.rankShown >= sorted.length;
   }
@@ -3463,6 +3547,16 @@ small { line-height: 1.6; }
       const pr = f0[0] / b0.m, late = r != null && !young(it) && pr < 1 && r >= HIT;
       F.push({ k: '속도', m: late ? 1.2 : pr >= 1.5 || pr <= 0.67 ? pr : 1, nm: pr >= 1.5 ? '빠른 첫 반응' : late ? '뒤늦은 확산' : pr <= 0.67 ? '느린 첫 반응' : '평소 같은 첫 반응', h: pr >= 1.5 ? '올리자마자 반응이 빨랐어요.' : late ? '처음엔 느렸다가 뒤늦게 늘었어요.' : pr <= 0.67 ? '첫날 반응이 평소보다 느렸어요.' : '첫날 반응은 평소와 비슷했어요.', s: agName(f0[1]) + ' 조회 평소의 ' + xf(pr) + (late ? ' · 추천·검색으로 늦게 퍼진 흐름으로 보여요' : '') });
     }
+    // 반응: 저장·공유·좋아요가 도달·조회 대비 평소보다 많았는지 · 우리 같은 주제·같은 형식과 막대 비교
+    if (own) rxKeysOf(it.c).forEach(k => {
+      const m = rxVal(it, k); if (m == null) return;
+      const M = RXM[k], raw = rxRate(it, k), bv = rxBase(it.c, k, it.t);
+      const md = arr => { const a = arr.map(x => rxVal(x, k)).filter(v => v != null); return a.length >= MIN_N ? median(a) : null; };
+      const lead = raw != null ? M[1] + ' ' + pctA(raw) + '로 ' : M[0] + '이 ';
+      F.push({ k: '반응', m, ext: true, nm: M[1], h: lead + '평소의 ' + xf(m) + (m >= 1.2 ? '예요. ' + M[3] : m <= 0.85 ? '에 그쳤어요.' : '로 비슷해요.'),
+        s: (k === 'reach' ? '평소 = 같은 형식 ' + typeShort(it.t) + ' 최근 1년 도달 중간값' : '평소 = 같은 형식 ' + typeShort(it.t) + ' 최근 1년 중간값 ' + pctA(bv) + ' · ' + rxDef(k, it.c)),
+        bars: cmpBars([['이 콘텐츠', m], it.g ? [we + ' 같은 주제', md(P.filter(x => x.g === it.g))] : null]) });
+    });
     // 결과 + 요약
     if (r != null) {
       if (young(it)) out.push(['info', '결과', (age <= 0 ? '오늘 올려서' : '올린 지 ' + age + '일째라') + ' 아직 판정 전이에요.', '지금까지 평소의 ' + xf(r) + ' · ' + AGE_MIN + '일이 지나면 판정해요']);
@@ -3487,11 +3581,6 @@ small { line-height: 1.6; }
     const pr = rankPct(mainVal);
     if (pr != null && pr <= 0.1) out.push(['good', '순위', '이 채널 게시물 전체에서 상위 ' + Math.max(1, Math.round(pr * 100)) + '%예요.', peers.length + '개 중 ' + Math.max(1, Math.round(pr * peers.length)) + '위']);
     if (it.c === '인스타그램' && it.r > 0) {
-      const sh = (v[3] || 0) / it.r, sv = (v[4] || 0) / it.r;
-      const shp = rankPct(x => x.r > 0 ? ((last(x) || [])[3] || 0) / x.r : null);
-      if (shp != null && shp <= 0.15) out.push(['good', '반응', '도달 대비 공유가 상위 ' + Math.max(1, Math.round(shp * 100)) + '%예요. 많이 공유된 콘텐츠예요.', '도달 대비 공유 ' + pct(sh)]);
-      const svp = rankPct(x => x.r > 0 ? ((last(x) || [])[4] || 0) / x.r : null);
-      if (svp != null && svp <= 0.15) out.push(['good', '반응', '도달 대비 저장이 상위 ' + Math.max(1, Math.round(svp * 100)) + '%예요. 나중에 다시 보려고 저장한 사람이 많아요.', '도달 대비 저장 ' + pct(sv)]);
       const e = engagement(it);
       if (e != null && base.q && !it.x && e < base.q * 0.6) out.push(['bad', '반응', '도달 대비 반응이 평소의 60%도 안 돼요.', '도달한 사람 중 좋아요·댓글·공유·저장한 비율 ' + pct(e) + ' · 평소 ' + pct(base.q)]);
       if ((v[2] || 0) > 200) out.push(['info', '반응', '댓글이 ' + fmt(v[2]) + '개 달렸어요. 이벤트·참여형 게시물에서 자주 보이는 모습이에요.', '']);
