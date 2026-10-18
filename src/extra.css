@@ -716,3 +716,13 @@ small { line-height: 1.6; }
 /* 30일 최고 칸: 옆 칸과 같은 정사각형 유지 */
 .kpi-row .kpi-t.best { min-height: 0; overflow: hidden; }
 .kpi-t.best .cmp3 { gap: 3px; padding-top: 6px; }
+/* 평소 비교 막대 하나: 채운 막대 = 이 게시물, 세로 눈금 = 평소 */
+.c3k { display: flex; justify-content: space-between; gap: 8px; font-size: var(--fs-tag); line-height: 1.3; color: var(--muted); white-space: nowrap; }
+.c3k b { font-weight: 700; color: var(--up); }
+.cmp3.dn .c3k b { color: var(--down); }
+.cmp3 .c3k .c3mk b { color: var(--fg); }
+.c3mk::before { content: ""; display: inline-block; width: 2px; height: 10px; margin-right: 4px; vertical-align: -1px; background: var(--fg); border-radius: 1px; }
+.c3x { position: relative; height: 8px; margin: 3px 0 4px; border-radius: 999px; background: var(--plane); }
+.c3x i { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 999px; background: var(--up); }
+.cmp3.dn .c3x i { background: var(--down-bar); }
+.c3x s { position: absolute; top: -4px; bottom: -4px; width: 2px; margin-left: -1px; background: var(--fg); border-radius: 1px; }
