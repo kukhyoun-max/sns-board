@@ -2411,6 +2411,9 @@ function metaRefreshInfo_(ss, conf) {
 function metaStep_(ss, today, logs) {
   const conf = metaConf_();
   if (!conf) { logs.push([new Date(), '메타 광고 API', 0, '건너뜀: 스크립트 속성 META_TOKEN·META_ACCOUNT 없음']); return; }
+  // 과거 채우기가 덜 끝났는데 예약이 없으면 1분 뒤로 예약(편집기에서 다시 누르지 않아도 이어짐)
+  if (PropertiesService.getScriptProperties().getProperty('META_BF') && !ScriptApp.getProjectTriggers().some(t => t.getHandlerFunction() === 'backfillMeta'))
+    ScriptApp.newTrigger('backfillMeta').timeBased().after(60 * 1000).create();
   const ds = ss.getSheetByName(META_DAILY_SHEET);
   if (!ds || ds.getLastRow() < 2) logs.push([new Date(), '메타 광고 API', 0, '경고: 「' + META_DAILY_SHEET + '」 탭이 비어 있음 — 편집기에서 backfillMeta를 한 번 실행하세요']);
   const to = shiftDate_(today, -1), from = shiftDate_(today, -META_DAYS);
@@ -2451,6 +2454,13 @@ function backfillMeta() {
       try { rows = metaDailySplit_(conf, a, b); }
       catch (e) {
         // 보관 기간(37개월) 밖이라는 code 100만 건너뜀 — 다른 code 100(잘못된 요청)까지 건너뛰면 37개월이 조용히 비어 버림
+        // 요청 한도(code 4·17·32·613)면 위치를 저장하고 30분 뒤 자동으로 다시(최대 20번)
+        if (/code (4|17|32|613)\b/.test(e.message) && (s.rl = (s.rl || 0) + 1) <= 20) {
+          p.setProperty('META_BF', JSON.stringify(s));
+          ScriptApp.newTrigger('backfillMeta').timeBased().after(30 * 60 * 1000).create();
+          logRows_(ss, [[new Date(), '메타 과거 채우기', s.n, '요청 한도 — ' + a + '부터 30분 뒤 자동으로 이어서(' + s.rl + '번째)']]);
+          return s.n;
+        }
         if (s.got || !/code 100\b/.test(e.message) || !/37|month|start date|time.?range|date range/i.test(e.message)) { p.setProperty('META_BF', JSON.stringify(s)); throw e; } // 다시 실행하면 이 달부터 이어서
         s.skipped.push(a.slice(0, 7)); s.start = next; s.a = next; continue;
       }
