@@ -26,6 +26,8 @@ if ($mode eq 'preview') {
     mkdir '.preview' unless -d '.preview';
     wr('.preview/index.html', $pre . $html . $post);
     wr('.preview/data.json', rd('sample/data.json'));
+    # API 분석 데이터(part) 미리보기용 가짜 값
+    for my $p (qw(yt ig yv)) { wr(".preview/part_$p.json", rd("sample/part_$p.json")) if -e "sample/part_$p.json"; }
     print ".preview/index.html (샘플 데이터)\n";
 } else {
     my $inj = '<script>window.SNS_API_URL = "' . $api . '";</script>' . "\n";
