@@ -2313,13 +2313,37 @@ function metaAct_(r, type) {
   const a = (r.actions || []).filter(x => x.action_type === type)[0];
   return a ? Number(a.value) || 0 : 0;
 }
-// 일별 캠페인 실적 [from, to] → 「메타 일별」 행
+// 비동기 보고서: 무거운 인사이트 조회(캠페인 × 날짜)는 바로 받으면 메타가 30초쯤 뒤 code 2로 포기해서,
+// 보고서 작업을 맡기고(POST) 끝날 때까지 기다린 뒤 결과를 쪽별로 받음
+function metaAsync_(conf, act, params) {
+  const err = j => new Error((j.error.code === 190 ? '토큰 만료·무효 — ' : '') + 'code ' + j.error.code + ': ' + String(j.error.message || '').replace(/access_token=[^&\s]+/g, 'access_token=…'));
+  const res = UrlFetchApp.fetch(META_API + act + '/insights', { method: 'post', muteHttpExceptions: true, payload: Object.assign({}, params, { access_token: conf.token }) });
+  let j; try { j = JSON.parse(res.getContentText()); } catch (e) { throw new Error('메타 응답을 읽지 못함(HTTP ' + res.getResponseCode() + ')'); }
+  if (j.error) throw err(j);
+  const id = j.report_run_id;
+  if (!id) throw new Error('메타 비동기 보고서 ID를 받지 못함');
+  for (let i = 0; ; i++) {
+    if (i >= 60) throw new Error('code 2: 비동기 보고서가 4분 안에 끝나지 않음');
+    Utilities.sleep(i < 5 ? 2000 : 5000);
+    const s = JSON.parse(UrlFetchApp.fetch(META_API + id + '?fields=async_status&access_token=' + encodeURIComponent(conf.token), { muteHttpExceptions: true }).getContentText());
+    if (s.error) throw err(s);
+    if (s.async_status === 'Job Completed') break;
+    if (/Failed|Skipped/.test(s.async_status || '')) throw new Error('code 2: 비동기 보고서 실패(' + s.async_status + ')');
+  }
+  return metaGet_(conf, id + '/insights', { limit: 500 });
+}
+// 일별 캠페인 실적 [from, to] → 「메타 일별」 행 (계정마다 비동기 보고서, 일부 계정 실패는 conf.warn)
 function metaDailyRows_(conf, from, to) {
-  return metaAll_(conf, '/insights', {
-    level: 'campaign', time_increment: 1, limit: 200,
-    time_range: JSON.stringify({ since: from, until: to }),
-    fields: 'campaign_id,campaign_name,spend,impressions,inline_link_clicks,actions'
-  }).filter(r => Number(r.spend) || Number(r.impressions))
+  const params = { level: 'campaign', time_increment: 1, time_range: JSON.stringify({ since: from, until: to }),
+    fields: 'campaign_id,campaign_name,spend,impressions,inline_link_clicks,actions' };
+  const out = [], errs = [];
+  conf.acts.forEach(act => {
+    try { Array.prototype.push.apply(out, metaAsync_(conf, act, params)); }
+    catch (e) { errs.push(act.slice(-4) + ': ' + e.message); }
+  });
+  if (errs.length === conf.acts.length) throw new Error(errs.join(' / '));
+  errs.forEach(x => { if (conf.warn.indexOf(x) < 0) conf.warn.push(x); });
+  return out.filter(r => Number(r.spend) || Number(r.impressions))
     .map(r => [r.date_start, String(r.campaign_id), r.campaign_name, Number(r.spend) || 0, Number(r.impressions) || 0,
       Number(r.inline_link_clicks) || 0, metaAct_(r, 'landing_page_view'), metaAct_(r, 'post_engagement'), metaAct_(r, 'video_view')]);
 }
@@ -2334,11 +2358,11 @@ function metaDailySplit_(conf, from, to) {
     return metaDailySplit_(conf, from, mid).concat(metaDailySplit_(conf, shiftDate_(mid, 1), to));
   }
 }
-// 「메타 일별」에서 from 이후 행만 새 값으로 바꿔 씀(그 이전 행은 그대로)
-function metaMergeDaily_(ss, from, rows) {
+// 「메타 일별」에서 from 이후(to가 있으면 from~to) 행만 새 값으로 바꿔 씀(나머지 행은 그대로)
+function metaMergeDaily_(ss, from, rows, to) {
   const sh = ss.getSheetByName(META_DAILY_SHEET) || ss.insertSheet(META_DAILY_SHEET);
   const old = sh.getLastRow() > 1 ? sh.getRange(2, 1, sh.getLastRow() - 1, META_DAILY_HEAD.length).getValues() : [];
-  const keep = old.map(r => [fmtDate_(r[0]), String(r[1]), String(r[2])].concat(r.slice(3))).filter(r => /^\d{4}-\d{2}-\d{2}$/.test(r[0]) && r[0] < from);
+  const keep = old.map(r => [fmtDate_(r[0]), String(r[1]), String(r[2])].concat(r.slice(3))).filter(r => /^\d{4}-\d{2}-\d{2}$/.test(r[0]) && (r[0] < from || (to && r[0] > to)));
   const all = keep.concat(rows).sort((a, b) => a[0] < b[0] ? -1 : a[0] > b[0] ? 1 : a[2] < b[2] ? -1 : 1);
   sh.clearContents();
   sh.getRange(1, 1, 1, META_DAILY_HEAD.length).setValues([META_DAILY_HEAD]).setFontWeight('bold');
@@ -2389,30 +2413,49 @@ function metaStep_(ss, today, logs) {
   const r = metaRefreshInfo_(ss, conf);
   logs.push([new Date(), '메타 광고 API', rows.length, '정상 — ' + from + '~' + to + ' 일별 ' + rows.length + '행(탭 전체 ' + n + '행) · 캠페인 ' + r.camps + '개 · 소재 ' + r.ads + '개' + (conf.warn.length ? ' · 일부 계정 실패: ' + conf.warn.join(' / ').slice(0, 200) : '')]);
 }
-// 처음 한 번(편집기에서 실행): 메타가 허용하는 가장 오래된 날(37개월 전 다음 날)부터 어제까지 한 달씩 받아 「메타 일별」을 새로 채움
+// 처음 한 번(편집기에서 실행): 메타가 허용하는 가장 오래된 날(37개월 전 다음 날)부터 어제까지 한 달씩 받아 「메타 일별」을 채움
 // 첫 구간이 기간 한도(code 100)에 걸리면 그 달은 건너뛰고 다음 달부터 받음. 그 이전은 「메타 광고」 수동 탭(2023-06~)이 맡음
+// 한 달 받을 때마다 탭에 바로 쓰고 진행 위치를 스크립트 속성 META_BF에 남김. 4분 30초가 지나면 멈추고 1분 뒤 자기 자신을 다시 예약(끝까지 자동)
 function backfillMeta() {
   return withLock_('메타 과거 채우기', () => {
     const ss = SpreadsheetApp.getActive() || SpreadsheetApp.openById(SS_ID);
+    const p = PropertiesService.getScriptProperties(), t0 = Date.now();
     const conf = metaConf_();
     if (!conf) throw new Error('스크립트 속성 META_TOKEN·META_ACCOUNT를 먼저 넣으세요');
-    const today = Utilities.formatDate(new Date(), TZ, 'yyyy-MM-dd'), end = shiftDate_(today, -1);
     const ym = (y, m) => { const d = new Date(Date.UTC(y, m, 1)); return d.toISOString().slice(0, 10); };
-    const Y = Number(today.slice(0, 4)), Mo = Number(today.slice(5, 7)) - 1;
-    const back = ym(Y, Mo - META_MONTHS).slice(0, 8) + today.slice(8, 10); // 37개월 전 같은 날(말일 넘침은 아래 비교로 걸러짐)
-    let start = shiftDate_(/^\d{4}-\d{2}-(29|30|31)$/.test(back) ? ym(Y, Mo - META_MONTHS + 1) : back, 1);
-    const rows = [], skipped = [];
-    for (let a = start; a <= end;) {
-      const next = ym(Number(a.slice(0, 4)), Number(a.slice(5, 7))), b = shiftDate_(next, -1) < end ? shiftDate_(next, -1) : end;
-      try { Array.prototype.push.apply(rows, metaDailySplit_(conf, a, b)); }
-      catch (e) { if (rows.length || !/code 100\b/.test(e.message)) throw e; skipped.push(a.slice(0, 7)); start = next; }
-      a = next;
+    let s = JSON.parse(p.getProperty('META_BF') || 'null');
+    if (!s) {
+      const today = Utilities.formatDate(new Date(), TZ, 'yyyy-MM-dd');
+      const Y = Number(today.slice(0, 4)), Mo = Number(today.slice(5, 7)) - 1;
+      const back = ym(Y, Mo - META_MONTHS).slice(0, 8) + today.slice(8, 10); // 37개월 전 같은 날(말일 넘침은 아래 비교로 걸러짐)
+      const start = shiftDate_(/^\d{4}-\d{2}-(29|30|31)$/.test(back) ? ym(Y, Mo - META_MONTHS + 1) : back, 1);
+      s = { start: start, a: start, end: shiftDate_(today, -1), got: 0, n: 0, skipped: [], warn: [] };
     }
-    const n = metaMergeDaily_(ss, start, rows);
+    conf.warn = s.warn;
+    ScriptApp.getProjectTriggers().filter(t => t.getHandlerFunction() === 'backfillMeta').forEach(t => ScriptApp.deleteTrigger(t));
+    while (s.a <= s.end) {
+      if (Date.now() - t0 > 270 * 1000) {
+        p.setProperty('META_BF', JSON.stringify(s));
+        ScriptApp.newTrigger('backfillMeta').timeBased().after(60 * 1000).create();
+        logRows_(ss, [[new Date(), '메타 과거 채우기', s.n, '진행 중 — ' + s.start + '~' + s.a + ' 전날까지 ' + s.n + '행 · 1분 뒤 자동으로 이어서']]);
+        return s.n;
+      }
+      const a = s.a, next = ym(Number(a.slice(0, 4)), Number(a.slice(5, 7))), b = shiftDate_(next, -1) < s.end ? shiftDate_(next, -1) : s.end;
+      let rows;
+      try { rows = metaDailySplit_(conf, a, b); }
+      catch (e) {
+        if (s.got || !/code 100\b/.test(e.message)) { p.setProperty('META_BF', JSON.stringify(s)); throw e; } // 다시 실행하면 이 달부터 이어서
+        s.skipped.push(a.slice(0, 7)); s.start = next; s.a = next; continue;
+      }
+      s.n = metaMergeDaily_(ss, a, rows, b);
+      s.got += rows.length; s.a = next;
+      p.setProperty('META_BF', JSON.stringify(s));
+    }
+    p.deleteProperty('META_BF');
     const r = metaRefreshInfo_(ss, conf);
-    logRows_(ss, [[new Date(), '메타 과거 채우기', n, '정상 — ' + start + '~' + end + (skipped.length ? ' (기간 한도로 건너뜀: ' + skipped.join(', ') + ')' : '') + ' · 캠페인 ' + r.camps + '개 · 소재 ' + r.ads + '개' + (conf.warn.length ? ' · 일부 계정 실패: ' + conf.warn.join(' / ').slice(0, 200) : '')]]);
+    logRows_(ss, [[new Date(), '메타 과거 채우기', s.n, '정상 — ' + s.start + '~' + s.end + (s.skipped.length ? ' (기간 한도로 건너뜀: ' + s.skipped.join(', ') + ')' : '') + ' · 캠페인 ' + r.camps + '개 · 소재 ' + r.ads + '개' + (conf.warn.length ? ' · 일부 계정 실패: ' + conf.warn.join(' / ').slice(0, 200) : '')]]);
     dropCache_();
-    return n;
+    return s.n;
   });
 }
 // 대시보드용: 「메타 일별」 + 「메타 캠페인」 → loadMetaTab_와 같은 모양의 캠페인 목록 (+ api: 1, mo: 월별 [YYYY-MM, 지출, 노출])
@@ -2853,31 +2896,40 @@ function fbGet1_(token, path, params) {
 }
 
 function testFacebookApi() {
+  // 결과는 편집기 실행 로그와 시트 「실행 로그」 탭에 함께 남김(로그 창에서 복사하기 번거로워서)
+  const lines = [];
+  // 토큰이 섞인 문자열(paging 주소 등)은 남기기 전에 가림 — 2026-10-19 응답 paging.previous에 페이지 토큰이 그대로 찍혔음
+  const L = (f, ...a) => { let i = 0; const s = String(f).replace(/%s/g, () => String(a[i++])).replace(/access_token=[^&\s"]+/g, 'access_token=…'); lines.push(s); Logger.log(s); };
+  try { testFacebookApi_(L); }
+  catch (e) { L('오류: %s', e.message); }
+  finally { logRows_(SpreadsheetApp.getActive() || SpreadsheetApp.openById(SS_ID), lines.map(s => [new Date(), '페이스북 시험', 0, s.slice(0, 500)])); }
+}
+function testFacebookApi_(L) {
   const p = PropertiesService.getScriptProperties();
   const token = p.getProperty('META_TOKEN');
   if (!token) throw new Error('스크립트 속성 META_TOKEN 없음');
   // 1) 페이지 찾기: 시스템 사용자에 할당된 페이지 목록(페이지 토큰 포함 — 로그에 쓰지 않음)
   let pages = [];
   try { pages = metaGet_({ token: token }, 'me/accounts', { fields: 'id,name,username,link,tasks,access_token,instagram_business_account{username}', limit: 100 }); }
-  catch (e) { Logger.log('me/accounts 실패: %s', e.message); }
-  Logger.log('토큰에 보이는 페이지 %s개: %s', pages.length, pages.map(x => x.name + '(' + (x.username || '-') + ' · ' + x.id + ' · 인스타 ' + (x.instagram_business_account ? x.instagram_business_account.username : '없음') + ' · 권한 ' + (x.tasks || []).join('/') + ')').join(' | ') || '없음');
+  catch (e) { L('me/accounts 실패: %s', e.message); }
+  L('토큰에 보이는 페이지 %s개: %s', pages.length, pages.map(x => x.name + '(' + (x.username || '-') + ' · ' + x.id + ' · 인스타 ' + (x.instagram_business_account ? x.instagram_business_account.username : '없음') + ' · 권한 ' + (x.tasks || []).join('/') + ')').join(' | ') || '없음');
   const want = String(p.getProperty('FB_PAGE_ID') || '').trim();
   const page = pages.filter(x => want ? x.id === want : (x.username === FB_PAGE || String(x.link || '').indexOf('/' + FB_PAGE) >= 0))[0];
   if (!page) {
     // 할당 안 된 경우: 공개 페이지로 찾아지는지만 확인
-    try { const j = fbGet1_(token, want || FB_PAGE, { fields: 'id,name,link,followers_count' }); Logger.log('할당 목록엔 없고 공개 조회는 됨: %s', JSON.stringify(j)); }
-    catch (e) { Logger.log('공개 조회도 안 됨: %s', e.message); }
-    Logger.log('→ 비즈니스 설정에서 %s 페이지를 시스템 사용자 sns-board에 할당(콘텐츠·인사이트)한 뒤 다시 실행', FB_PAGE);
+    try { const j = fbGet1_(token, want || FB_PAGE, { fields: 'id,name,link,followers_count' }); L('할당 목록엔 없고 공개 조회는 됨: %s', JSON.stringify(j)); }
+    catch (e) { L('공개 조회도 안 됨: %s', e.message); }
+    L('→ 비즈니스 설정에서 %s 페이지를 시스템 사용자 sns-board에 할당(콘텐츠·인사이트)한 뒤 다시 실행', FB_PAGE);
     return;
   }
   const pt = page.access_token || token;
-  Logger.log('페이지 찾음: %s (ID %s) · 페이지 토큰 %s', page.name, page.id, page.access_token ? '있음' : '없음(시스템 사용자 토큰으로 시도)');
-  try { Logger.log('페이지 정보: %s', JSON.stringify(fbGet1_(pt, page.id, { fields: 'name,link,followers_count,fan_count' }))); }
-  catch (e) { Logger.log('페이지 정보 실패: %s', e.message); }
+  L('페이지 찾음: %s (ID %s) · 페이지 토큰 %s', page.name, page.id, page.access_token ? '있음' : '없음(시스템 사용자 토큰으로 시도)');
+  try { L('페이지 정보: %s', JSON.stringify(fbGet1_(pt, page.id, { fields: 'name,link,followers_count,fan_count' }))); }
+  catch (e) { L('페이지 정보 실패: %s', e.message); }
 
   // 2) 게시물: FB_FROM 이후 몇 개까지 받아지는지, 반응·댓글·공유 수가 오는지
   const posts = [];
-  let url = META_API + page.id + '/posts?fields=' + encodeURIComponent('id,message,created_time,permalink_url,status_type,shares,reactions.summary(total_count).limit(0),comments.summary(total_count).limit(0)') + '&limit=100&access_token=' + encodeURIComponent(pt);
+  let url = META_API + page.id + '/posts?fields=' + encodeURIComponent('id,message,created_time,permalink_url,status_type,shares,reactions.summary(total_count).limit(0),comments.summary(total_count).limit(0)') + '&limit=25&access_token=' + encodeURIComponent(pt); // 100이면 code 1 「Please reduce the amount of data」(2026-10-19)
   try {
     for (let n = 0; url && n < 30; n++) {
       const j = JSON.parse(UrlFetchApp.fetch(url, { muteHttpExceptions: true }).getContentText());
@@ -2886,16 +2938,16 @@ function testFacebookApi() {
       (j.data || []).forEach(x => { if (Utilities.formatDate(new Date(x.created_time), TZ, 'yyyy-MM-dd') >= FB_FROM) posts.push(x); else old = true; });
       url = !old && j.paging && j.paging.next || '';
     }
-  } catch (e) { Logger.log('게시물 목록 실패: %s', String(e.message).replace(/access_token=[^&\s]+/g, 'access_token=…')); }
+  } catch (e) { L('게시물 목록 실패: %s', String(e.message).replace(/access_token=[^&\s]+/g, 'access_token=…')); }
   const d = x => Utilities.formatDate(new Date(x.created_time), TZ, 'yyyy-MM-dd');
-  Logger.log('%s 이후 게시물 %s개%s', FB_FROM, posts.length, posts.length ? ' · ' + d(posts[posts.length - 1]) + ' ~ ' + d(posts[0]) : '');
-  posts.slice(0, 5).forEach(x => Logger.log('  %s %s · 반응 %s · 댓글 %s · 공유 %s · %s', d(x), JSON.stringify(String(x.message || '').replace(/\s+/g, ' ').slice(0, 20)),
+  L('%s 이후 게시물 %s개%s', FB_FROM, posts.length, posts.length ? ' · ' + d(posts[posts.length - 1]) + ' ~ ' + d(posts[0]) : '');
+  posts.slice(0, 5).forEach(x => L('  %s %s · 반응 %s · 댓글 %s · 공유 %s · %s', d(x), JSON.stringify(String(x.message || '').replace(/\s+/g, ' ').slice(0, 20)),
     x.reactions && x.reactions.summary ? x.reactions.summary.total_count : '-', x.comments && x.comments.summary ? x.comments.summary.total_count : '-', x.shares ? x.shares.count : 0, x.status_type || ''));
 
   // 3) 게시물 인사이트: 최근 게시물 하나로 지표별 시험
   if (posts[0]) FB_POST_METRICS.forEach(m => {
-    try { const j = fbGet1_(pt, posts[0].id + '/insights', { metric: m }); const v = j.data && j.data[0] && j.data[0].values && j.data[0].values[0]; Logger.log('  게시물 지표 %s: 됨 %s', m, v ? JSON.stringify(v.value) : '(값 없음)'); }
-    catch (e) { Logger.log('  게시물 지표 %s: 안 됨 — %s', m, e.message); }
+    try { const j = fbGet1_(pt, posts[0].id + '/insights', { metric: m }); const v = j.data && j.data[0] && j.data[0].values && j.data[0].values[0]; L('  게시물 지표 %s: 됨 %s', m, v ? JSON.stringify(v.value) : '(값 없음)'); }
+    catch (e) { L('  게시물 지표 %s: 안 됨 — %s', m, e.message); }
   });
 
   // 4) 페이지 일별 인사이트: 최근 7일 합
@@ -2904,8 +2956,11 @@ function testFacebookApi() {
     try {
       const j = fbGet1_(pt, page.id + '/insights', { metric: m, period: 'day', since: since, until: until });
       const vals = (j.data && j.data[0] && j.data[0].values || []).map(v => Number(v.value) || 0);
-      Logger.log('  페이지 지표 %s: 됨 · 최근 %s일 합 %s', m, vals.length, vals.reduce((a, b) => a + b, 0));
-    } catch (e) { Logger.log('  페이지 지표 %s: 안 됨 — %s', m, e.message); }
+      let note = '';
+      // 7일 범위로 빈 목록이면(2026-10-19 전부 data: []) 기간 없이 기본값(최근 2일)으로 한 번 더
+      if (!vals.length) { const k = fbGet1_(pt, page.id + '/insights', { metric: m, period: 'day' }); note = ' · 기간 없이: ' + JSON.stringify((k.data || []).map(x => (x.values || []).map(v => v.value))).slice(0, 150); }
+      L('  페이지 지표 %s: 됨 · 최근 %s일 합 %s%s', m, vals.length, vals.reduce((a, b) => a + b, 0), note); // paging은 토큰이 들어 있어 남기지 않음
+    } catch (e) { L('  페이지 지표 %s: 안 됨 — %s', m, e.message); }
   });
 }
 
