@@ -4084,21 +4084,22 @@ function briefHtml_(posts, stories, recent, notes, today, stamp) {
   h += '<div style="background:' + BR.up + ';background:linear-gradient(135deg,' + BR.up + ',' + BR.navy + ');border-radius:18px;padding:20px 22px;color:#fff;margin-bottom:6px">'
     + '<div style="font-size:12px;opacity:.85">SNS 밤 브리핑 · ' + stamp.slice(11) + ' 기준</div>'
     + '<div style="font-size:22px;font-weight:800;line-height:1.4">' + briefDay_(today) + ' 오늘 올린 콘텐츠 ' + posts.length + '개</div>'
-    + (top ? '<div style="font-size:14px;opacity:.95">반응 1등 「' + briefEsc_(briefTitle_(top.title, 18)) + '」' + (top.best ? ' · ' + top.best.name + ' 평소의 ' + briefRatioText_(top.best.r) : '') + '</div>' : '') + '</div>';
-  // 오늘의 판정(맨 위)
+    + (top ? '<div style="font-size:14px;opacity:.95;line-height:1.6;margin-top:4px">반응 1등 「' + briefEsc_(briefTitle_(top.title, 18)) + '」' + (top.best && top.best.r >= 1.3 ? '<br>' + top.best.name + ' 평소의 ' + briefRatioText_(top.best.r) : '') + '</div>' : '') + '</div>';
+  // 오늘의 반응 순위(맨 위): 줄마다 한 가지만 — 1줄 순위·채널·판정 칩, 2줄 제목(두 줄까지), 3줄 반응률·강점
   if (withRc.length) {
     let g = '';
     withRc.forEach((x, i) => {
-      g += '<tr><td style="padding:10px 0;border-top:' + (i ? '1px solid ' + BR.line : '0') + '"><span style="display:inline-block;min-width:18px;font-weight:800">' + (i + 1) + '</span>' + briefChip_(x.ch, x.type)
-        + '<div style="font-size:14px;font-weight:700;white-space:nowrap;overflow:hidden;max-width:340px">' + briefEsc_(briefTitle_(x.title, 24)) + '</div>'
-        + (x.best ? '<div style="font-size:12px;color:' + BR.sub + '">강점 ' + x.best.name + ' 평소의 ' + briefRatioText_(x.best.r) + '</div>' : '') + '</td>'
-        + '<td style="padding:10px 0;border-top:' + (i ? '1px solid ' + BR.line : '0') + ';text-align:right;vertical-align:top;white-space:nowrap">' + briefChipTier_(x.rc.r)
-        + '<div style="font-size:12px;color:' + BR.mu + ';margin-top:4px">반응률 평소의 <b style="color:' + BR.fg + '">' + briefRatioText_(x.rc.r) + '</b></div></td></tr>';
+      const bd = i ? 'border-top:1px solid ' + BR.line + ';' : '';
+      const strong = x.best && x.best.r >= 1.3 ? ' · 강점 <b style="color:' + BR.up + '">' + x.best.name + '</b> 평소의 ' + briefRatioText_(x.best.r) : '';
+      g += '<tr><td style="' + bd + 'padding:12px 0 2px;line-height:1.5"><span style="font-size:15px;font-weight:800;margin-right:8px">' + (i + 1) + '</span>' + briefChip_(x.ch, x.type) + '</td>'
+        + '<td style="' + bd + 'padding:12px 0 2px;text-align:right;line-height:1.5">' + briefChipTier_(x.rc.r) + '</td></tr>'
+        + '<tr><td colspan="2" style="padding:4px 0 0;font-size:14px;font-weight:700;line-height:1.5">' + briefEsc_(briefTitle_(x.title, 40)) + '</td></tr>'
+        + '<tr><td colspan="2" style="padding:4px 0 12px;font-size:12px;color:' + BR.sub + ';line-height:1.5">반응률 평소의 <b style="color:' + BR.fg + '">' + briefRatioText_(x.rc.r) + '</b>' + strong + '</td></tr>';
     });
-    h += h2('오늘의 판정', '반응률로 매긴 순위 · 반응률은 비율이라 올린 지 얼마 안 돼도 견줄 수 있어요');
-    h += card(tbl(g) + '<div style="margin-top:10px;padding-top:10px;border-top:1px solid ' + BR.line + ';font-size:11px;color:' + BR.mu + ';line-height:2">'
-      + BR_TIER.map((t, i) => '<span style="display:inline-block;margin-right:6px;padding:0 8px;border-radius:999px;background:' + t[3] + ';color:' + t[2] + ';font-weight:700">' + t[1] + '</span>'
-        + (i === 0 ? '0.7배 미만' : i === 4 ? '5배 이상' : BR_TIER[i - 1][0] + '~' + t[0] + '배') + ' ').join('') + '</div>');
+    h += h2('오늘의 반응 순위', '반응률로 매긴 순위 · 비율이라 올린 지 얼마 안 돼도 견줄 수 있어요');
+    h += card(tbl(g) + '<div style="margin-top:4px;padding-top:12px;border-top:1px solid ' + BR.line + ';font-size:11px;color:' + BR.mu + ';line-height:2.4">'
+      + BR_TIER.map((t, i) => '<span style="white-space:nowrap;margin-right:10px"><span style="display:inline-block;padding:0 8px;border-radius:999px;line-height:1.8;background:' + t[3] + ';color:' + t[2] + ';font-weight:700">' + t[1] + '</span> '
+        + (i === 0 ? '0.7배 미만' : i === 4 ? '5배 이상' : BR_TIER[i - 1][0] + '~' + t[0] + '배') + '</span>').join(' ') + '</div>');
   }
   // 숫자 타일
   const sv = stories.reduce((a, s) => a + s.views, 0);
@@ -4116,9 +4117,10 @@ function briefHtml_(posts, stories, recent, notes, today, stamp) {
       + '<div style="font-size:16px;font-weight:800;margin:2px 0 0;line-height:1.5">' + briefEsc_(briefTitle_(x.title)) + '</div>'
       + '<div style="font-size:12px;color:' + BR.mu + '">' + Utilities.formatDate(x.at, TZ, 'HH:mm') + ' 올림 · ' + briefAgo_(x.hours) + '</div></div>';
     // 한 줄 요약
-    if (x.best || x.worst) {
+    const hasBest = x.best && x.best.r >= 1.3, hasWorst = x.worst && x.worst !== x.best && x.worst.r < 0.7;
+    if (hasBest || hasWorst) {
       const line = (lab, m, col) => '<tr><td style="font-size:12px;color:' + BR.mu + ';width:36px;padding:2px 0">' + lab + '</td><td style="font-size:13px;padding:2px 0"><b style="color:' + col + '">' + m.name + '</b> 평소의 ' + briefRatioText_(m.r) + '</td><td style="text-align:right;padding:2px 0">' + briefChipTier_(m.r) + '</td></tr>';
-      s += '<div style="background:' + BR.soft + ';border-radius:12px;padding:10px 12px;margin-top:10px">' + tbl((x.best ? line('강점', x.best, BR.up) : '') + (x.worst && x.worst !== x.best && x.worst.r < 1.3 ? line('약점', x.worst, BR.downTx) : '')) + '</div>';
+      s += '<div style="background:' + BR.soft + ';border-radius:12px;padding:10px 12px;margin-top:10px">' + tbl((hasBest ? line('강점', x.best, BR.up) : '') + (hasWorst ? line('약점', x.worst, BR.downTx) : '')) + '</div>';
     }
     // 원래 숫자
     s += '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;margin:10px -3px 0"><tr>' + stat('조회수', briefNum_(x.views)) + stat('좋아요', briefNum_(x.likes)) + stat('댓글', briefNum_(x.comments))
