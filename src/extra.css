@@ -791,3 +791,4 @@ details.fold[open] > summary { padding-bottom: 10px; }
 .stl-b i { display: block; height: 100%; border-radius: 5px; }
 .stl-r b { min-width: 44px; text-align: right; }
 .stl-r .tier { margin-left: 0; font-size: 12px; padding: 2px 8px; }
+#mTbl td:first-child { white-space: normal; min-width: 240px; } #mTbl td:first-child .tag { white-space: nowrap; margin-top: 4px; }
