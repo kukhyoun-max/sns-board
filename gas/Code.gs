@@ -3877,18 +3877,25 @@ function nightBrief(test) {
   try { igxStories_(ss); stories = briefStories_(ss, today); } catch (e) { notes.push('스토리 확인 실패: ' + String(e.message).slice(0, 100)); }
   let D = null;
   try { const j = cacheGet_(); D = j ? JSON.parse(j) : null; } catch (e) { D = null; }
-  const night = briefNightBase_(ss, today);
+  // 시트 읽기·쓰기는 시트가 바쁘면(다른 기록 실행 중) 타임아웃이 날 수 있어 실패해도 메일은 보냄 — 쓰기는 메일 뒤에 한 번 더 시도
+  let night = {};
+  try { night = briefNightBase_(ss, today); } catch (e) { notes.push('올린 날 밤 기록 읽기 실패'); }
   posts.forEach(x => { x.night = night[x.ch + '|' + x.type] || null; x.usual = briefUsual_(D, x.ch, x.type, today); });
-  if (posts.length) {
-    igxUpsert_(ss, BRIEF_SHEET, BRIEF_HEAD, [0, 2], posts.map(x => [today, x.ch, x.id, x.type, Utilities.formatDate(x.at, TZ, 'yyyy-MM-dd HH:mm'), Math.round(x.hours * 10) / 10,
-      x.views, x.likes, x.comments, x.shares, x.saves, x.reach, stamp]));
-  }
   const recent = posts.length ? [] : briefRecent_(D, today);
   const to = String(PropertiesService.getScriptProperties().getProperty('BRIEF_TO') || '').trim();
   const subject = '[SNS 브리핑] ' + briefDay_(today) + ' 오늘 올린 콘텐츠 ' + posts.length + '개' + (test ? ' (테스트)' : '');
-  if (!to) { logRows_(ss, [[new Date(), '밤 브리핑', posts.length, '보내지 않음: 스크립트 속성 BRIEF_TO 없음']]); return; }
-  MailApp.sendEmail({ to: to, subject: subject, htmlBody: briefHtml_(posts, stories, recent, notes, today, stamp), name: 'SNS 성과 보드' });
-  logRows_(ss, [[new Date(), '밤 브리핑', posts.length, '보냄 · 게시물 ' + posts.length + ' · 스토리 ' + stories.length + (notes.length ? ' · ' + notes.join(' · ') : '')]]);
+  if (to) MailApp.sendEmail({ to: to, subject: subject, htmlBody: briefHtml_(posts, stories, recent, notes, today, stamp), name: 'SNS 성과 보드' });
+  let saved = '';
+  if (posts.length) {
+    const rows = posts.map(x => [today, x.ch, x.id, x.type, Utilities.formatDate(x.at, TZ, 'yyyy-MM-dd HH:mm'), Math.round(x.hours * 10) / 10,
+      x.views, x.likes, x.comments, x.shares, x.saves, x.reach, stamp]);
+    for (let i = 0; i < 2 && saved !== 'ok'; i++) {
+      try { igxUpsert_(ss, BRIEF_SHEET, BRIEF_HEAD, [0, 2], rows); saved = 'ok'; } catch (e) { saved = String(e.message).slice(0, 80); if (!i) Utilities.sleep(20000); }
+    }
+  }
+  const msg = (to ? '보냄' : '보내지 않음: 스크립트 속성 BRIEF_TO 없음') + ' · 게시물 ' + posts.length + ' · 스토리 ' + stories.length
+    + (saved && saved !== 'ok' ? ' · 「' + BRIEF_SHEET + '」 기록 실패: ' + saved : '') + (notes.length ? ' · ' + notes.join(' · ') : '');
+  try { logRows_(ss, [[new Date(), '밤 브리핑', posts.length, msg]]); } catch (e) { Logger.log(msg); }
 }
 
 // 인스타(jjuniv·hong): 최신 게시물 25개 중 오늘 올린 것 + 지표
