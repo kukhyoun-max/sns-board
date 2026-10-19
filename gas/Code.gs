@@ -2293,9 +2293,16 @@ function metaGet_(conf, path, params) {
   let url = META_API + path + '?' + q + '&access_token=' + encodeURIComponent(conf.token);
   const out = [];
   for (let page = 0; url && page < 200; page++) {
-    const res = UrlFetchApp.fetch(url, { muteHttpExceptions: true });
-    let j;
-    try { j = JSON.parse(res.getContentText()); } catch (e) { throw new Error('메타 응답을 읽지 못함(HTTP ' + res.getResponseCode() + ')'); }
+    let res, j;
+    // 메타 일시 오류(code 1·2, is_transient, HTTP 5xx)는 잠깐 쉬고 최대 3번 더 시도
+    for (let t = 0; ; t++) {
+      res = UrlFetchApp.fetch(url, { muteHttpExceptions: true });
+      try { j = JSON.parse(res.getContentText()); } catch (e) { j = null; }
+      const temp = !j ? res.getResponseCode() >= 500 : !!(j.error && (j.error.is_transient || j.error.code === 1 || j.error.code === 2));
+      if (!temp || t >= 3) break;
+      Utilities.sleep(3000 * (t + 1));
+    }
+    if (!j) throw new Error('메타 응답을 읽지 못함(HTTP ' + res.getResponseCode() + ')');
     if (j.error) throw new Error((j.error.code === 190 ? '토큰 만료·무효 — ' : '') + 'code ' + j.error.code + ': ' + String(j.error.message || '').replace(/access_token=[^&\s]+/g, 'access_token=…'));
     Array.prototype.push.apply(out, j.data || []);
     url = j.paging && j.paging.next || '';
@@ -2309,7 +2316,7 @@ function metaAct_(r, type) {
 // 일별 캠페인 실적 [from, to] → 「메타 일별」 행
 function metaDailyRows_(conf, from, to) {
   return metaAll_(conf, '/insights', {
-    level: 'campaign', time_increment: 1, limit: 500,
+    level: 'campaign', time_increment: 1, limit: 200,
     time_range: JSON.stringify({ since: from, until: to }),
     fields: 'campaign_id,campaign_name,spend,impressions,inline_link_clicks,actions'
   }).filter(r => Number(r.spend) || Number(r.impressions))
@@ -2812,6 +2819,83 @@ function testIgApi_(chName) {
   Logger.log('「하루 차이」가 많으면 원본 시트 날짜가 다른 시간대 기준 → IG_DATE_TZ를 바꿔야 새 게시물이 월요일에 중복되지 않음');
   Logger.log('시트에 없는 최근 %s일 게시물 %s개: %s', IG_NEW_DAYS, fresh.length, fresh.map(x => x.date + ' ' + x.caption.replace(/\s+/g, ' ').slice(0, 18)).join(' / '));
   if (api.note) Logger.log('참고: %s', api.note);
+}
+
+// ───────── 페이스북 페이지 API 시험 (2026-10-19): 받을 수 있는지만 확인, 시트에 쓰지 않음 ─────────
+// 편집기에서 testFacebookApi 실행 → 실행 로그에 페이지 찾기·게시물 수·지표별 성공/실패를 출력
+//  · 토큰: 메타 광고·인스타와 같은 META_TOKEN(시스템 사용자 sns-board). 페이지가 시스템 사용자에 할당돼 있어야 me/accounts에 보임
+//  · 페이지: FB_PAGE(아이디) — 스크립트 속성 FB_PAGE_ID에 숫자 ID를 넣으면 그 값 우선
+//  · 지표 이름은 메타가 자주 바꿔서(2025-11 노출 계열 폐지 등) 후보를 하나씩 따로 불러 보고 되는 것만 고른다
+const FB_PAGE = 'discoveryjjss';
+const FB_FROM = '2025-01-01';                  // 과거 엑셀(2012~2024) 다음부터
+const FB_POST_METRICS = ['post_media_view', 'post_total_media_view_unique', 'post_impressions_unique', 'post_clicks', 'post_reactions_by_type_total', 'post_video_views'];
+const FB_PAGE_METRICS = ['page_follows', 'page_daily_follows_unique', 'page_daily_unfollows_unique', 'page_media_view', 'page_total_media_view_unique', 'page_impressions_unique', 'page_post_engagements', 'page_views_total', 'page_video_views'];
+
+// 한 번만 GET(다음 쪽 안 따라감). 오류에는 메타 메시지만 남김
+function fbGet1_(token, path, params) {
+  const q = Object.keys(params || {}).map(k => k + '=' + encodeURIComponent(params[k])).join('&');
+  const res = UrlFetchApp.fetch(META_API + path + '?' + (q ? q + '&' : '') + 'access_token=' + encodeURIComponent(token), { muteHttpExceptions: true });
+  let j;
+  try { j = JSON.parse(res.getContentText()); } catch (e) { throw new Error('메타 응답을 읽지 못함(HTTP ' + res.getResponseCode() + ')'); }
+  if (j.error) throw new Error((j.error.code === 190 ? '토큰 만료·무효 — ' : '') + 'code ' + j.error.code + ': ' + String(j.error.message || '').replace(/access_token=[^&\s]+/g, 'access_token=…'));
+  return j;
+}
+
+function testFacebookApi() {
+  const p = PropertiesService.getScriptProperties();
+  const token = p.getProperty('META_TOKEN');
+  if (!token) throw new Error('스크립트 속성 META_TOKEN 없음');
+  // 1) 페이지 찾기: 시스템 사용자에 할당된 페이지 목록(페이지 토큰 포함 — 로그에 쓰지 않음)
+  let pages = [];
+  try { pages = metaGet_({ token: token }, 'me/accounts', { fields: 'id,name,username,link,tasks,access_token,instagram_business_account{username}', limit: 100 }); }
+  catch (e) { Logger.log('me/accounts 실패: %s', e.message); }
+  Logger.log('토큰에 보이는 페이지 %s개: %s', pages.length, pages.map(x => x.name + '(' + (x.username || '-') + ' · ' + x.id + ' · 인스타 ' + (x.instagram_business_account ? x.instagram_business_account.username : '없음') + ' · 권한 ' + (x.tasks || []).join('/') + ')').join(' | ') || '없음');
+  const want = String(p.getProperty('FB_PAGE_ID') || '').trim();
+  const page = pages.filter(x => want ? x.id === want : (x.username === FB_PAGE || String(x.link || '').indexOf('/' + FB_PAGE) >= 0))[0];
+  if (!page) {
+    // 할당 안 된 경우: 공개 페이지로 찾아지는지만 확인
+    try { const j = fbGet1_(token, want || FB_PAGE, { fields: 'id,name,link,followers_count' }); Logger.log('할당 목록엔 없고 공개 조회는 됨: %s', JSON.stringify(j)); }
+    catch (e) { Logger.log('공개 조회도 안 됨: %s', e.message); }
+    Logger.log('→ 비즈니스 설정에서 %s 페이지를 시스템 사용자 sns-board에 할당(콘텐츠·인사이트)한 뒤 다시 실행', FB_PAGE);
+    return;
+  }
+  const pt = page.access_token || token;
+  Logger.log('페이지 찾음: %s (ID %s) · 페이지 토큰 %s', page.name, page.id, page.access_token ? '있음' : '없음(시스템 사용자 토큰으로 시도)');
+  try { Logger.log('페이지 정보: %s', JSON.stringify(fbGet1_(pt, page.id, { fields: 'name,link,followers_count,fan_count' }))); }
+  catch (e) { Logger.log('페이지 정보 실패: %s', e.message); }
+
+  // 2) 게시물: FB_FROM 이후 몇 개까지 받아지는지, 반응·댓글·공유 수가 오는지
+  const posts = [];
+  let url = META_API + page.id + '/posts?fields=' + encodeURIComponent('id,message,created_time,permalink_url,status_type,shares,reactions.summary(total_count).limit(0),comments.summary(total_count).limit(0)') + '&limit=100&access_token=' + encodeURIComponent(pt);
+  try {
+    for (let n = 0; url && n < 30; n++) {
+      const j = JSON.parse(UrlFetchApp.fetch(url, { muteHttpExceptions: true }).getContentText());
+      if (j.error) throw new Error('code ' + j.error.code + ': ' + j.error.message);
+      let old = false;
+      (j.data || []).forEach(x => { if (Utilities.formatDate(new Date(x.created_time), TZ, 'yyyy-MM-dd') >= FB_FROM) posts.push(x); else old = true; });
+      url = !old && j.paging && j.paging.next || '';
+    }
+  } catch (e) { Logger.log('게시물 목록 실패: %s', String(e.message).replace(/access_token=[^&\s]+/g, 'access_token=…')); }
+  const d = x => Utilities.formatDate(new Date(x.created_time), TZ, 'yyyy-MM-dd');
+  Logger.log('%s 이후 게시물 %s개%s', FB_FROM, posts.length, posts.length ? ' · ' + d(posts[posts.length - 1]) + ' ~ ' + d(posts[0]) : '');
+  posts.slice(0, 5).forEach(x => Logger.log('  %s %s · 반응 %s · 댓글 %s · 공유 %s · %s', d(x), JSON.stringify(String(x.message || '').replace(/\s+/g, ' ').slice(0, 20)),
+    x.reactions && x.reactions.summary ? x.reactions.summary.total_count : '-', x.comments && x.comments.summary ? x.comments.summary.total_count : '-', x.shares ? x.shares.count : 0, x.status_type || ''));
+
+  // 3) 게시물 인사이트: 최근 게시물 하나로 지표별 시험
+  if (posts[0]) FB_POST_METRICS.forEach(m => {
+    try { const j = fbGet1_(pt, posts[0].id + '/insights', { metric: m }); const v = j.data && j.data[0] && j.data[0].values && j.data[0].values[0]; Logger.log('  게시물 지표 %s: 됨 %s', m, v ? JSON.stringify(v.value) : '(값 없음)'); }
+    catch (e) { Logger.log('  게시물 지표 %s: 안 됨 — %s', m, e.message); }
+  });
+
+  // 4) 페이지 일별 인사이트: 최근 7일 합
+  const until = Math.floor(Date.now() / 1000), since = until - 7 * 86400;
+  FB_PAGE_METRICS.forEach(m => {
+    try {
+      const j = fbGet1_(pt, page.id + '/insights', { metric: m, period: 'day', since: since, until: until });
+      const vals = (j.data && j.data[0] && j.data[0].values || []).map(v => Number(v.value) || 0);
+      Logger.log('  페이지 지표 %s: 됨 · 최근 %s일 합 %s', m, vals.length, vals.reduce((a, b) => a + b, 0));
+    } catch (e) { Logger.log('  페이지 지표 %s: 안 됨 — %s', m, e.message); }
+  });
 }
 
 // ───────── 유튜브 분석 API: 「전주대학교」 브랜드 계정으로 한 번 승인받기 ─────────
