@@ -743,3 +743,30 @@ small { line-height: 1.6; }
 .dp-top span.up, .dp-top span.down, .dp-top span.flat { font-size: 13px; font-weight: 700; }
 .wait.sm { padding: 18px; font-size: 14px; }
 .mgrid small.mu { font-size: 12px; color: var(--muted); font-weight: 500; margin-left: 4px; }
+/* 판정 칩(최근 게시물 · 밤 브리핑과 같은 단계, 2026-10-20) */
+.race-t > .rt { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+@media (hover: hover) { .race-l li:hover .race-t > .rt { text-decoration: underline; text-underline-offset: 3px; } }
+.tier { flex: none; margin-left: 10px; padding: 3px 9px; border-radius: 999px; font-size: 13px; font-weight: 700; line-height: 1.5; white-space: nowrap; }
+.tier.lo { background: var(--down-soft); color: var(--down); }
+.tier.mid, .tier.na { background: var(--line); color: var(--muted); }
+.tier.hi { background: var(--up-soft); color: var(--up); }
+.tier.hi2 { background: var(--up); color: #fff; }
+.tier.hi3 { background: linear-gradient(135deg, var(--jj), var(--navy)); color: #fff; }
+/* 접은 칸(콘텐츠 목록 · 연도별 표 · 용어 뜻) */
+details.fold { margin-top: 14px; border-top: 1px solid var(--line); }
+details.fold > summary { list-style: none; cursor: pointer; display: flex; align-items: center; gap: 8px; padding: 14px 0 2px; font-size: var(--fs-sm); font-weight: 700; color: var(--fg); }
+details.fold > summary::-webkit-details-marker { display: none; }
+details.fold > summary small { font-weight: 500; color: var(--muted); }
+details.fold > summary::after { content: '›'; margin-left: auto; color: var(--muted); font-size: 18px; transition: transform .15s; }
+details.fold[open] > summary::after { transform: rotate(90deg); }
+details.fold[open] > summary { padding-bottom: 10px; }
+/* 점검할 것: 채널마다 한 줄(분류 + 판정 칩) */
+.irs .ir { flex-direction: row; align-items: flex-start; gap: 12px; padding: 12px 14px; }
+.irs .ir > .bd, .irs .ir > span:first-child { flex: none; margin-top: 2px; }
+.irs .ir-g { flex: 1; min-width: 0; grid-template-columns: minmax(0, 1fr); gap: 8px; }
+.irs .ir-c { flex-direction: row; align-items: center; gap: 8px; }
+.irs .ir-c > b { flex: 1; min-width: 0; font-size: var(--fs-sm); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.irs .ir-c .ir-l { flex: none; width: 56px; }
+.irs .ir-c .tier { margin-left: 0; }
+.irs .ir-f { flex: 1; align-items: center; }
+.irs .ir-f .ir-l { background: none; padding: 4px 0; font-size: var(--fs-tag); }
