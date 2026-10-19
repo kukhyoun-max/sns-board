@@ -293,9 +293,11 @@
     const cur = pool({ channels: chs, since: addDays(D.updated, -30) });
     const low = cur.filter(it => judged(it) && ratio(it) < 0.5).sort((a, b) => ratio(a) - ratio(b)).slice(0, 3);
     let html = topHtml(chs) + '<div class="gap"></div>' + weekHtml(chs) + '<div class="gap"></div>' + trendHtml(chs) + (chs.length === 1 ? '<div id="deep"></div>' : '');
-    html += '<div class="gap"></div><section class="sec"><div class="sh"><div><h2>점검할 것</h2><p>최근 3달 요약과 평소보다 처진 콘텐츠</p></div></div>' +
-      defsHtml() + briefText(chs).replace('style="padding:18px 0 0"', 'style="padding:0 0 18px"') +
-      '<h3 class="sub">평소보다 처진 콘텐츠</h3><p class="d">최근 30일 · 올린 지 ' + AGE_MIN + '일 지남 · 조회 평소의 0.5배 미만</p><p class="d">다음 기획 때 제목·첫 장·썸네일 점검</p><ol class="rank" id="bLow">' + (low.length ? rankRows(low) : '<li class="empty">' + ICO.check + ' 처진 콘텐츠가 없어요</li>') + '</ol>' + secClose;
+    // 용어 뜻은 맨 아래 접은 칸으로, 조건 설명 줄은 제목에 마우스를 올리면
+    html += '<div class="gap"></div><section class="sec"><div class="sh"><div><h2>점검할 것</h2><p>최근 3달 분류별 · 처진 콘텐츠</p></div></div>' +
+      briefText(chs).replace('style="padding:18px 0 0"', 'style="padding:0 0 18px"') +
+      '<h3 class="sub" title="최근 30일 · 올린 지 ' + AGE_MIN + '일 지남 · 조회 평소의 0.5배 미만 · 다음 기획 때 제목·첫 장·썸네일 점검">평소보다 처진 콘텐츠</h3><ol class="rank" id="bLow">' + (low.length ? rankRows(low) : '<li class="empty">' + ICO.check + ' 처진 콘텐츠가 없어요</li>') + '</ol>' +
+      '<details class="fold"><summary>용어 뜻</summary>' + defsHtml() + '</details>' + secClose;
     if (S.ch !== '전체') html += secOpen('최근 3달 분류별 성과', '분류별 조회 평소 대비 중간값 · 누르면 그 분류 콘텐츠') + '<div class="bars" id="bCat"></div>' + secClose;
     html += yearlyHtml(S.ch === '전체' ? OWN : chs);
     if (S.ch === '전체' && benchNames().length) html += '<div class="gap"></div>' + benchCmpHtml();
@@ -338,7 +340,8 @@
     const Dy = [['게시물당 값', '중간값']];
     if (chs.includes('인스타그램') && histOf('인스타그램')) Dy.push(['인스타 ' + dot(IG_AUTO) + ' 이전', '엑셀 기록 · 기록 당시 수치'], ['조회 기록 없음', '2020~22년 · 23년 7~12월']);
     if (chs.includes('유튜브')) Dy.push(['유튜브 조회', '전체 기간 누적']);
-    return secOpen('연도별 추이', '게시일 기준 · ' + adWord()) + '<dl class="defs">' + Dy.map(d => '<div><dt>' + d[0] + '</dt><dd>' + d[1] + '</dd></div>').join('') + '</dl><div class="tw"><table class="tbl"><thead><tr>' + head + '</tr></thead><tbody>' + rows.join('') + '</tbody></table></div>' + secClose;
+    // 큰 표라 접어 둔다 — 펼치면 기준 칩 + 표
+    return secOpen('연도별 추이', '게시일 기준 · ' + adWord()) + '<details class="fold"><summary>' + yrs[yrs.length - 1] + '~' + yrs[0] + '년 표 보기</summary><dl class="defs">' + Dy.map(d => '<div><dt>' + d[0] + '</dt><dd>' + d[1] + '</dd></div>').join('') + '</dl><div class="tw"><table class="tbl"><thead><tr>' + head + '</tr></thead><tbody>' + rows.join('') + '</tbody></table></div></details>' + secClose;
   }
   function sparkData(ch) {
     const m = mainM(ch), out = [];
@@ -363,13 +366,14 @@
       if (!L.length) return;
       const g = groupBy(L, 'g').filter(r => r.n >= MIN_N && r.idx != null).sort(byIdx);
       if (!g.length) { R.push('<div class="ir"><div class="ir-h">' + badge(ch) + '<span class="mu">한 분류에 ' + MIN_N + '개 이상 모인 게 없어 비교 전이에요</span></div></div>'); return; }
+      // 채널마다 한 줄: 분류 이름 + 판정 칩(조회 평소 대비), 게시물 수·잘 된 비율은 마우스 올림
       const t = g[0], w = g.length > 1 ? g[g.length - 1] : null;
-      const cell = (lab, r, cls) => '<div class="ir-c"><span class="ir-l">' + lab + '</span><b>' + esc(r.k) + '</b><span class="ir-v"><b class="num ' + cls + '">조회 평소의 ' + xf(r.idx) + '</b> · 게시물 ' + r.n + '개 · 잘 된 비율 ' + pct0(r.hit) + '</span></div>';
-      R.push('<div class="ir"><div class="ir-h">' + badge(ch) + '<span class="mu">최근 3달 ' + L.length + '개</span></div><div class="ir-g">' + cell(t.idx >= 1 ? '가장 높은 분류' : '가장 나은 분류', t, t.idx >= 1 ? 'up' : 'flat') + (w ? cell('가장 약한 분류', w, 'down') : '') + '</div></div>');
+      const cell = (lab, r) => { const tr = tierOf(r.idx); return '<div class="ir-c" title="' + esc(lab + ' · 조회 평소의 ' + xf(r.idx) + ' · 게시물 ' + r.n + '개 · 잘 된 비율 ' + pct0(r.hit)) + '"><span class="ir-l">' + lab + '</span><b>' + esc(r.k) + '</b><span class="tier ' + tr[1] + '">' + xf(r.idx) + '</span></div>'; };
+      R.push('<div class="ir">' + badge(ch) + '<div class="ir-g">' + cell('가장 나은', t) + (w ? cell('가장 약한', w) : '') + '</div></div>');
     });
     const ig = pool({ channels: ['인스타그램'], since: addDays(D.updated, -90) }).filter(it => ratio(it) != null);
     const ft = own.includes('인스타그램') ? groupBy(ig.filter(it => it.r > 0), 't').map(r => ({ k: r.k, n: r.n, rv: median(r.arr.map(it => it.r)) })).filter(r => r.n >= 5 && r.rv > 0).sort((a, b) => b.rv - a.rv) : [];
-    if (ft.length >= 2) R.push('<div class="ir"><div class="ir-h">' + badge('인스타그램') + '<span class="mu">형식별 도달(게시물 하나가 닿은 사람 수)</span></div><div class="ir-f">' + ft.map(r => '<span>' + esc(r.k) + ' <b class="num">' + fmtK(r.rv) + '명</b> · ' + r.n + '개</span>').join('') + '</div><p class="ir-n">캐러셀은 슬라이드를 넘길 때마다 조회가 다시 세져서 조회 대신 도달로 견줘요</p></div>');
+    if (ft.length >= 2) R.push('<div class="ir" title="캐러셀은 슬라이드를 넘길 때마다 조회가 다시 세져서 조회 대신 도달(게시물 하나가 닿은 사람 수)로 견줘요">' + badge('인스타그램') + '<div class="ir-f"><span class="ir-l">형식별 도달</span>' + ft.map(r => '<span>' + esc(r.k) + ' <b class="num">' + fmtK(r.rv) + '명</b></span>').join('') + '</div></div>');
     return R.length ? R.join('') : '<p class="mu">최근 3달 게시물이 없어요.</p>';
   }
   function insights(chs) {
@@ -394,7 +398,7 @@
   }
   function briefText(chs) {
     const ins = insights(chs);
-    return '<div class="brief" style="padding:18px 0 0"><div class="lb">최근 3달 분류별 요약<small>최근 3달 게시물 기준</small></div><div class="irs">' + insightRows(chs) + '</div></div>';
+    return '<div class="brief" style="padding:18px 0 0"><div class="irs">' + insightRows(chs) + '</div></div>';
   }
   function wireBrief() {
     const b = $('briefBtn'); if (!b) return;
@@ -547,7 +551,8 @@
     // 그 전 30일(같은 길이)과 비교 — 달력 지난달은 이번 달이 덜 지나 공정하지 않음
     const p30 = pool({ channels: chs, since: addDays(D.updated, -60), until: addDays(D.updated, -31) }).length, dn = c30all.length - p30;
     const cmp = p30 ? '직전 30일 대비 ' + dNum(dn, '개') : '';
-    t.push(kpiTile('최근 30일 올린 게시물', c30all.length + '개', cmp || by, '', spark(monthly(chs, 'n'), '최근 6달 월별 게시 수'), 'posts'));
+    // 홈 숫자는 4칸까지(2026-10-20 「글이 너무 많다」) — 이미 4칸이면 게시 수는 뺀다
+    if (t.length < 4) t.push(kpiTile('최근 30일 올린 게시물', c30all.length + '개', cmp || by, '', spark(monthly(chs, 'n'), '최근 6달 월별 게시 수'), 'posts'));
     // 카드가 홀수면 한 칸이 혼자 길어지므로 「최근 30일 가장 잘 된 게시물」로 짝을 맞춘다
     const best = c30.slice().sort((a, b) => ratio(b) - ratio(a))[0];
     if (t.length % 2 && best) { window.__best = best; t.push('<div class="kpi-t best" role="button" tabindex="0" aria-label="최근 30일 가장 잘 된 게시물 상세 보기"><div class="kpi-l">30일 최고 게시물</div><div class="kpi-v num up"><small>' + mW(best.c) + ' 평소의 </small>' + xf(ratio(best)) + '</div><div class="kpi-s"><span class="bt">' + badge(best.c) + esc(title(best.n)) + '</span></div>' + baseCmp(best, 1) + '</div>'); }
@@ -577,7 +582,7 @@
   function topHtml(chs) {
     return '<section class="sec top-sec"><div class="sh"><div><h2>' + (S.ch === '전체' ? '이번 주 한눈에' : chName(S.ch) + ' 이번 주') + '</h2><p>' + mdLabel(D.updated) + ' 기록 기준 · ' + adWord() + '</p></div>' +
       '<div class="top-act"><button type="button" class="btn sm" id="repCopy">주간 보고 복사</button><button type="button" class="btn sm" id="repPrint">인쇄·PDF</button></div></div>' +
-      kpiHtml(chs) + raceHtml(chs) + homeSummary(chs) + '</section>';
+      kpiHtml(chs) + raceHtml(chs) + '</section>';
   }
   // 주간 보고: 카톡·메일에 붙일 글(맨 위 숫자 + 요약 + 많이 큰 콘텐츠 + 데이터 주의)
   function reportText(chs) {
@@ -630,16 +635,17 @@
     const L = D.items.filter(it => chs.includes(it.c) && OWN.includes(it.c) && it.t !== '스토리' && (S.ads || !it.ad) && daysBetween(it.d, D.updated) <= 14).sort((a, b) => a.d < b.d ? 1 : a.d > b.d ? -1 : 0).slice(0, 4);
     window.__race = L;
     if (!L.length) return '';
-    const MX = 3;
-    return '<div class="race"><div class="race-h"><h3>최근 게시물, 평소보다 잘 크고 있나요?</h3><span>올린 지 같은 날수의 조회를 같은 형식 게시물과 비교</span></div><ol class="race-l">' + L.map((it, i) => {
-      const p = paceOf(it), r = p ? p.r : null;
-      const cls = r == null ? 'na' : p.base ? 'base' : r >= HIT ? 'hit' : r >= 1 ? 'up' : 'down';
-      return '<li data-r="' + i + '" tabindex="0" role="button" aria-label="' + esc(title(it.n)) + ' 상세 보기"><div class="race-t">' + badge(it.c) + '<span>' + esc(title(it.n)) + '</span></div>' +
-        '<div class="race-b"><span class="bl"><i class="' + cls + '" style="width:' + (r == null ? 0 : Math.min(100, r / MX * 100)) + '%"></i><em style="left:' + (100 / MX) + '%"></em><em class="h" style="left:' + (HIT / MX * 100) + '%"></em></span>' +
-        '<b class="num ' + (r == null || p.base ? 'flat' : xCls(r)) + '"' + (p ? ' title="' + esc(paceTip(p)) + '"' : '') + '>' + (r == null ? '비교 전' : '조회 평소의 ' + xf(r)) + '</b></div>' +
-        '<small>' + whenTxt(it.d) + ' · 조회 ' + fmtK(mainVal(it)) + (r == null ? '' : p.base ? ' · 평소 최종 조회 대비' : ' · ' + agName(p.e) + ' 조회 비교' + (p.b.mixed ? ' · 같은 형식 자료가 적어 채널 전체와 비교' : '')) + '</small></li>';
-    }).join('') + '</ol><div class="race-k"><span><em></em>평소만큼</span><span><em class="h"></em>잘 된 기준 1.5배</span><span>끝 3배</span></div></div>';
+    // 한 줄 = 채널 · 제목 · 판정 칩(밤 브리핑과 같은 단계). 비교 기준은 칩에 마우스를 올리면
+    return '<div class="race"><div class="race-h"><h3>최근 게시물</h3><span>조회 · 같은 형식 평소 대비</span></div><ol class="race-l">' + L.map((it, i) => {
+      const p = paceOf(it), r = p ? p.r : null, t = r == null ? null : tierOf(r);
+      const tip = p ? paceTip(p) + (p.base ? ' · 평소 최종 조회 대비' : p.b.mixed ? ' · 같은 형식 자료가 적어 채널 전체와 비교' : '') : '';
+      return '<li data-r="' + i + '" tabindex="0" role="button" aria-label="' + esc(title(it.n)) + ' 상세 보기"><div class="race-t">' + badge(it.c) + '<span class="rt">' + esc(title(it.n)) + '</span>' +
+        '<b class="tier ' + (t ? t[1] : 'na') + '"' + (tip ? ' title="' + esc(tip) + '"' : '') + '>' + (t ? t[0] + (t[1] === 'mid' ? '' : ' ' + xf(r)) : '비교 전') + '</b></div>' +
+        '<small>' + whenTxt(it.d) + ' · 조회 ' + fmtK(mainVal(it)) + '</small></li>';
+    }).join('') + '</ol></div>';
   }
+  // 판정 단계(밤 10시 브리핑 BR_TIER와 같은 기준): 평소의 0.7배 미만 낮음 · 1.3배 미만 평소 수준 · 2배 잘 됨 · 5배 아주 잘 됨 · 그 이상 대박
+  const tierOf = r => r < 0.7 ? ['낮음', 'lo'] : r < 1.3 ? ['평소 수준', 'mid'] : r < 2 ? ['잘 됨', 'hi'] : r < 5 ? ['아주 잘 됨', 'hi2'] : ['대박', 'hi3'];
   function wireRace() {
     const L = window.__race || [];
     document.querySelectorAll('.race-l li[data-r]').forEach(li => { const go = () => openDetail(L[+li.dataset.r]); li.addEventListener('click', go); li.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); go(); } }); });
@@ -702,10 +708,12 @@
     const mv = it => (m ? val(it, m) : mainVal(it)) || 0, nw = p.nw.slice().sort((a, b) => mv(b) - mv(a));
     const old = p.old.filter(it => p.inc0(it) > 0).sort((a, b) => p.inc0(b) - p.inc0(a)).slice(0, 5);
     // 새로 올린 콘텐츠가 없으면 빈 칸을 두지 않고 '많이 늘어난 콘텐츠' 하나만 넓게
-    const oldBox = '<div><h3>' + (nw.length ? '많이 늘어난 기존 콘텐츠' : '이번 주 많이 늘어난 콘텐츠') + '</h3><p class="d">' + (nw.length ? '예전에 올렸는데 이번 주에도 ' + MN[m] + ' 늘어난 콘텐츠' : '이번 기간에 새로 올린 콘텐츠는 없어요 · 예전 콘텐츠 중 ' + MN[m] + ' 많이 늘어난 순') + '</p><ol class="rank' + (nw.length ? '' : ' wide') + '" id="wkOld">' +
+    const oldBox = '<div><h3>' + (nw.length ? '많이 늘어난 기존 콘텐츠' : '많이 늘어난 콘텐츠') + '</h3><ol class="rank' + (nw.length ? '' : ' wide') + '" id="wkOld">' +
       (old.length ? rankRows(old, { right: it => '이번 주 ' + MN[m] + ' <em class="up">+' + fmtK(p.inc0(it)) + '</em>' }) : '<li class="empty">이번 기간에 늘어난 콘텐츠가 없어요</li>') + '</ol></div>';
-    h += nw.length ? '<div class="two wk-lists"><div><h3>이번 주 올린 콘텐츠 <small>' + nw.length + '개</small></h3><p class="d">' + MN[m] + ' 많은 순</p><ol class="rank" id="wkNew">' +
+    // 목록은 접어 둔다(홈 길이 줄이기) — 펼친 상태는 S.wkOpen으로 지표 버튼을 눌러도 유지
+    const lists = nw.length ? '<div class="two wk-lists"><div><h3>이번 주 올린 콘텐츠 <small>' + nw.length + '개</small></h3><ol class="rank" id="wkNew">' +
       rankRows(nw.slice(0, 8), { right: it => [MN[m] + ' <span class="num">' + fmtK(mv(it)) + '</span>', m ? '' : ageLine(it)].filter(Boolean).join(' · ') }) + '</ol></div>' + oldBox + '</div>' : '<div class="wk-lists">' + oldBox + '</div>';
+    h += '<details class="fold" id="wkFold"' + (S.wkOpen ? ' open' : '') + '><summary>콘텐츠 목록 <small>' + (nw.length ? '새 게시물 ' + nw.length + '개 · ' : '') + '많이 늘어난 ' + old.length + '개</small></summary>' + lists + '</details>';
     w.lists = { nw: nw.slice(0, 8), old };
     window.__wk = w;
     return h + '</section>';
@@ -744,6 +752,7 @@
   }
   function wireWeek() {
     wireDaily();
+    const fd = $('wkFold'); if (fd) fd.addEventListener('toggle', () => { S.wkOpen = fd.open; });
     document.querySelectorAll('#wkBy button').forEach(b => b.addEventListener('click', () => { S.wkM = +b.dataset.v; const el = $('wkSec'); if (el) { el.outerHTML = weekHtml(window.__wkChs || viewChannels()); wireWeek(); } }));
     const w = window.__wk; if (!w || !w.lists) return; wireRank($('wkNew'), w.lists.nw); wireRank($('wkOld'), w.lists.old); }
 
@@ -835,9 +844,10 @@
     if (ownChs.includes('유튜브') && (TR.p === '3y' || TR.p === 'all') && ['per', 'like'].includes(TR.m)) notes.push('유튜브 긴 영상은 예전 연도가 유리');
     let h = '<section class="sec" id="trSec"><div class="sh"><div><h2' + (medTip ? ' title="' + esc(medTip) + '"' : '') + '>채널 현황</h2><p>' + esc(notes.join(' · ')) + (cn ? '<br><span class="warn">' + ICO.warn + ' ' + esc(cn) + '</span>' : '') + '</p></div></div>' +
       '<div class="tr-ctl"><div class="chips">' + TR_M.filter((m, i) => i < TR_CORE || TR.more || m[0] === TR.m).map(m => '<button class="chip" type="button" data-trm="' + m[0] + '" aria-pressed="' + (TR.m === m[0]) + '">' + m[1] + '</button>').join('') +
-        '<button class="chip more-chip" type="button" data-trmore="1" aria-expanded="' + TR.more + '">' + (TR.more ? '접기' : '지표 더보기 ' + (TR_M.length - TR_CORE)) + '</button></div>' +
+        '<button class="chip more-chip" type="button" data-trmore="1" aria-expanded="' + TR.more + '">' + (TR.more ? '접기' : '더보기') + '</button></div>' +
       '<div class="tr-pu"><div class="seg">' + TR_P.map(p => '<button type="button" data-trp="' + p[0] + '" aria-pressed="' + (TR.p === p[0]) + '">' + p[1] + '</button>').join('') + '</div>' +
-      '<div class="seg">' + TR_U.map(x => '<button type="button" data-tru="' + x[0] + '" aria-pressed="' + (u === x[0]) + '">' + x[1] + '</button>').join('') + '</div></div></div>' +
+      // 단위(일·주·월…)는 기간에 맞춰 자동 — 「더보기」를 펼쳤을 때만 버튼
+      (TR.more || TR.u !== 'auto' ? '<div class="seg">' + TR_U.map(x => '<button type="button" data-tru="' + x[0] + '" aria-pressed="' + (u === x[0]) + '">' + x[1] + '</button>').join('') + '</div>' : '') + '</div></div>' +
       '<div class="tr-grid' + (M.length === 1 ? ' one' : M.length === 4 ? ' two' : '') + '">';
     const LASTW = { day: '어제', week: '지난주', month: '지난달', quarter: '지난 분기', year: '작년' }[u], PREVW = { day: '전날', week: '전주', month: '전달', quarter: '전 분기', year: '전년' }[u];
     M.forEach((s, i) => {
@@ -852,7 +862,8 @@
         '<div class="tr-cap">' + cap + '</div>' +
         (s.kind === 'bench' ? '<div class="tr-lg">' + s.series.map(x => '<span><i style="background:' + chColor(x.ch) + '"></i>' + esc(x.ch === '인스타그램' ? '우리 인스타' : chName(x.ch)) + (likeHidden(x.ch) && TR.m !== 'posts' ? ' <small>비공개</small>' : '') + '</span>').join('') + '</div>' : '') +
         (empty ? '<div class="tr-chart tr-empty">데이터 없음</div>' : '<div class="tr-chart"><canvas id="trC' + i + '"></canvas></div>') +
-        (s.top.length ? '<div class="tr-top"><span>이 기간 잘 된 게시물</span>' + s.top.map((it, j) => '<button type="button" data-trt="' + i + ':' + j + '">' + (s.kind === 'own' ? '' : esc(chName(it.c)) + ' · ') + esc(title(it.n)) + ' <b>' + xf(s.rf(it)) + '</b></button>').join('') + '</div>' : '') +
+        // 잘 된 게시물 목록은 「더보기」를 펼쳤을 때만(그래프 카드를 짧게)
+        (TR.more && s.top.length ? '<div class="tr-top"><span>이 기간 잘 된 게시물</span>' + s.top.map((it, j) => '<button type="button" data-trt="' + i + ':' + j + '">' + (s.kind === 'own' ? '' : esc(chName(it.c)) + ' · ') + esc(title(it.n)) + ' <b>' + xf(s.rf(it)) + '</b></button>').join('') + '</div>' : '') +
         '</div>';
     });
     return h + '</div></section>';
