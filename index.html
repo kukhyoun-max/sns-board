@@ -1066,6 +1066,10 @@ details.fold[open] > summary { padding-bottom: 10px; }
 .stl-r b { min-width: 44px; text-align: right; }
 .stl-r .tier { margin-left: 0; font-size: 12px; padding: 2px 8px; }
 #mTbl td:first-child { white-space: normal; min-width: 240px; } #mTbl td:first-child .tag { white-space: nowrap; margin-top: 4px; }
+/* 탐색 네모 그림: 묶는 기준 */
+.tm-by { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin: 4px 0 12px; font-size: var(--fs-xs); }
+.tm-by .seg { margin: 0; }
+.tm-sel { font-size: var(--fs-sm); }
 </style>
 
 <div class="app" id="app">
@@ -3194,7 +3198,7 @@ details.fold[open] > summary { padding-bottom: 10px; }
   // ═════════ 6. 콘텐츠 탐색 ═════════
   function viewExplore() {
     const html = '<section class="sec"><div class="sh"><div><h2>콘텐츠 동향</h2><p id="trendSub"></p></div><div class="seg" id="trendCh" hidden></div></div>' +
-      '<div class="chips fade" id="gchips"></div><div class="tree" id="tree"></div><div class="legend"><span class="lg-c"><span class="chip" aria-pressed="true">크기 = ' + (S.ch === '타 대학' ? '좋아요' : '조회') + '</span><span class="chip" aria-pressed="true">색 = 평소 대비</span></span><span class="scale" id="scale"></span></div></section>' +
+      '<div class="chips fade" id="gchips"></div><div class="tm-by" id="tmBy"></div><div class="tree" id="tree"></div><div class="legend"><span class="lg-c"><span class="chip" aria-pressed="true">크기 = ' + (S.ch === '타 대학' ? '좋아요' : '조회') + '</span><span class="chip" aria-pressed="true">색 = 평소 대비</span></span><span class="scale" id="scale"></span></div></section>' +
       secOpen('콘텐츠 순위', '<span id="rankSub"></span>') + '<div class="chips" id="rankTabs"></div><ol class="rank" id="rank"></ol><button class="more" id="rankMore" type="button">더 보기 ›</button>' + secClose +
       secOpen('전체 콘텐츠', '행을 누르면 상세 정보가 열려요 · 원하는 조건으로 뽑으려면 하단 「추출」을 쓰세요') + '<div class="tw"><table><thead><tr id="thead"></tr></thead><tbody id="tbody"></tbody></table></div><button class="more" id="tblMore" type="button">더 보기 ›</button>' + secClose;
     $('view').innerHTML = html;
@@ -3212,7 +3216,7 @@ details.fold[open] > summary { padding-bottom: 10px; }
     }
     const chs = isAll ? [S.trendCh] : viewChannels();
     const L = pool({ channels: chs });
-    const groups = groupBy(L, 'g').sort((a, b) => b.n - a.n);
+    const groups = groupBy(L, 'g').sort((a, b) => b.n - a.n), groupsAll = groups;
     const subs = S.g ? groupBy(L.filter(it => it.g === S.g && it.s), 's').sort((a, b) => b.n - a.n) : [];
     if (!subs.length) S.gs = null;
     const subHtml = subs.length ? '<span class="gsep"></span><button class="chip sub" type="button" data-gs="" aria-pressed="' + (!S.gs) + '">전체</button>' +
@@ -3222,21 +3226,29 @@ details.fold[open] > summary { padding-bottom: 10px; }
     const selC = $('gchips').querySelector('.chip[data-g][aria-pressed="true"]'); if (selC && S.g) $('gchips').scrollLeft = Math.max(0, selC.offsetLeft - 16);
     $('gchips').querySelectorAll('.chip[data-g]').forEach(b => b.addEventListener('click', () => { S.g = b.dataset.g || null; S.gs = null; renderTrend(); renderRank(); }));
     $('gchips').querySelectorAll('.chip[data-gs]').forEach(b => b.addEventListener('click', () => { S.gs = b.dataset.gs || null; renderTrend(); renderRank(); }));
-    $('trendSub').textContent = (S.g ? S.g + (S.gs ? ' › ' + S.gs : '') + ' · ' : '') + periodPhrase() + ' 게시물 · ' + (S.g ? '네모 하나 = 콘텐츠 하나' : '네모 하나 = 분류 하나 · 누르면 그 분류 콘텐츠') + ' · 숫자는 ' + vW() + ' 평소 대비';
     const box = $('tree');
     // 「전체」일 때는 콘텐츠 하나하나 대신 분류별로 묶어 보여준다(2026-10-20 사용자 요청) — 크기 = 분류 조회 합계, 색 = 분류 조회 평소 대비 중간값, 누르면 그 분류 콘텐츠
-    if (!S.g) {
+    // 묶는 기준: 분류(g) · 형식(t) · 제작(p). 형식·제작 네모를 누르면 그 안 콘텐츠(S.tmSel), 「‹ 묶음」으로 돌아감
+    const TB = [['g', '분류'], ['t', '형식'], ['p', '제작']], by = S.g ? 'g' : (S.tmBy || 'g'), byN = TB.find(x => x[0] === by)[1];
+    if (S.g || by === 'g') S.tmSel = null;
+    const keyOf = it => by === 't' ? typeShort(it.t) : by === 'p' ? (it.p || '–') : it.g;
+    $('trendSub').textContent = (S.g ? S.g + (S.gs ? ' › ' + S.gs : '') + ' · ' : '') + periodPhrase() + ' 게시물 · ' + (S.g || S.tmSel ? '네모 하나 = 콘텐츠 하나' : '네모 하나 = ' + byN + ' 하나 · 누르면 그 안 콘텐츠') + ' · 숫자는 ' + vW() + ' 평소 대비';
+    $('tmBy').innerHTML = S.g ? '' : (S.tmSel ? '<button type="button" class="chip" data-tmback="1">‹ ' + byN + ' 묶음</button><b class="tm-sel">' + esc(S.tmSel) + '</b>' : '<span class="mu">묶는 기준</span>' + segBtns('tmBySeg', TB, by));
+    $('tmBy').querySelectorAll('#tmBySeg button').forEach(b => b.addEventListener('click', () => { S.tmBy = b.dataset.v; S.tmSel = null; renderTrend(); }));
+    $('tmBy').querySelectorAll('[data-tmback]').forEach(b => b.addEventListener('click', () => { S.tmSel = null; renderTrend(); }));
+    if (!S.g && !S.tmSel) {
+      const groups = by === 'g' ? groupsAll : groupBy(L, keyOf);
       const G = groups.map(r => ({ r, w: sum(r.arr.map(it => mainVal(it) || 0)) })).filter(x => x.w > 0).sort((a, b) => b.w - a.w).slice(0, 14);
       if (!G.length) { box.innerHTML = '<div class="empty">조건에 맞는 콘텐츠가 없어요.</div>'; return; }
       const rg = squarify(G.map(x => ({ it: x.r, w: x.w })), 0, 0, box.clientWidth, box.clientHeight);
-      box.innerHTML = rg.map((q, i) => { const d = (q.it.idx || 0) - 1, area = q.w * q.h, cls = (area < 9000 ? (area < 4500 ? 'tm s xs' : 'tm s') : 'tm') + (q.w < 90 ? ' narrow' : '') + (area < 2200 ? ' xxs' : '') + (heatLight(d) ? ' lt' : '');
+      box.innerHTML = rg.map((q, i) => { const d = (q.it.idx || 0) - 1, area = q.w * q.h, cls = (area < 9000 ? (area < 4500 ? 'tm s xs' : 'tm s') : 'tm') + (q.w < 90 ? ' narrow' : '') + (area < 2200 || q.h < 34 ? ' xxs' : '') + (heatLight(d) ? ' lt' : '');
         return '<button type="button" class="' + cls + '" data-k="' + esc(q.it.k) + '" title="' + esc(q.it.k + ' · 게시물 ' + q.it.n + '개' + (q.it.idx == null ? '' : ' · ' + vW() + ' 평소의 ' + xf(q.it.idx))) + '" style="left:' + q.x + 'px;top:' + q.y + 'px;width:' + q.w + 'px;height:' + q.h + 'px;background:' + heat(d) + '">' +
           '<span class="a">' + esc(q.it.k) + '</span><span class="b num">' + q.it.n + '개' + (q.it.idx == null ? '' : '<span class="r"> · ' + xf(q.it.idx) + '</span>') + '</span></button>'; }).join('');
-      box.querySelectorAll('.tm').forEach(b => b.addEventListener('click', () => { S.g = b.dataset.k; S.gs = null; renderTrend(); renderRank(); }));
+      box.querySelectorAll('.tm').forEach(b => b.addEventListener('click', () => { if (by === 'g') { S.g = b.dataset.k; S.gs = null; renderTrend(); renderRank(); } else { S.tmSel = b.dataset.k; renderTrend(); } }));
       $('scale').innerHTML = '<span>평소보다 낮음</span>' + [-0.75, -0.4, 0, 1, 3].map(d => '<i style="background:' + heat(d) + '"></i>').join('') + '<span>높음</span>';
       return;
     }
-    const items = (S.g ? L.filter(it => it.g === S.g && (!S.gs || it.s === S.gs)) : L).filter(it => mainVal(it) > 0).sort((a, b) => mainVal(b) - mainVal(a)).slice(0, 18);
+    const items = (S.tmSel ? L.filter(it => keyOf(it) === S.tmSel) : S.g ? L.filter(it => it.g === S.g && (!S.gs || it.s === S.gs)) : L).filter(it => mainVal(it) > 0).sort((a, b) => mainVal(b) - mainVal(a)).slice(0, 18);
     if (!items.length) { box.innerHTML = '<div class="empty">조건에 맞는 콘텐츠가 없어요.</div>'; return; }
     const W = box.clientWidth, H = box.clientHeight;
     const rects = squarify(items.map(it => ({ it, w: mainVal(it) })), 0, 0, W, H);
