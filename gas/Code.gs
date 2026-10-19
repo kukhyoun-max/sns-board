@@ -2034,7 +2034,7 @@ function attachTags_(ss, items, keys) {
     const v = it.L || it.h.filter(Boolean).pop() || [];
     if (isAdPattern({ views: v[0], likes: v[1] })) it.ad = { s: '패턴', k: [] };
   });
-  return { roles: T.roles, ads: { end: A.end, daily: A.daily, camps: A.camps, rows: A.rows, plans: A.plans, meta: loadMeta_(ss), error: A.error || '', src: A.src || [], manualEnd: A.manualEnd || '' } };
+  return { roles: T.roles, ads: { end: A.end, daily: A.daily, camps: A.camps, rows: A.rows, plans: A.plans, meta: loadMeta_(ss), fx: Number(PropertiesService.getScriptProperties().getProperty('META_KRW_PER_USD')) || 0, error: A.error || '', src: A.src || [], manualEnd: A.manualEnd || '' } };
 }
 
 // ───────── 인스타그램 과거 기록 (엑셀로 기록하던 시기) ─────────

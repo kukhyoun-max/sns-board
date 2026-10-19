@@ -1034,6 +1034,7 @@ small { line-height: 1.6; }
   const RANGES = [['30', '1달'], ['90', '3달'], ['365', '1년'], ['all', '전체']];
   const MN = ['조회', '좋아요', '댓글', '공유', '저장'];
   const WD = ['일', '월', '화', '수', '목', '금', '토'];
+  const KRW_PER_USD = 1400; // 메타 달러 집행분 환산 기본 환율 — 스크립트 속성 META_KRW_PER_USD가 있으면 그 값(D.ads.fx)
   const HIT = 1.5; // 히트 = 평소(같은 채널·같은 형식 최근 1년 중앙값, 형식 표본이 적으면 채널 중앙값)의 1.5배 이상
   const MIN_N = 5; // 표본 적음 기준 — 이보다 적은 그룹은 결론·순위에서 뺀다
   const VIEWS = [['brief', '홈'], ['strategy', '전략'], ['maker', '제작·사람'], ['season', '입시'], ['ads', '광고'], ['explore', '탐색'], ['export', '추출']];
@@ -2851,6 +2852,7 @@ small { line-height: 1.6; }
     if (pf === 'meta') viewMeta(seg); else viewGoogle(seg);
   }
   const usd = v => v == null || isNaN(v) ? '–' : '$' + (Math.abs(v) >= 100 ? fmt(Math.round(v)) : (+v).toFixed(2));
+  const fxNote = () => D.ads.meta.some(c => c.usd != null) ? ' · 달러 집행분은 1달러 = ' + fmt((D.ads && D.ads.fx) || KRW_PER_USD) + '원으로 환산' : '';
   // 월별 집행: 이중 축 대신 x축을 같이 쓰는 막대 차트 두 개(위 광고비 · 아래 노출). 36달이 넘으면 분기로 묶음
   const adPairHtml = (a, b) => '<div class="chart" style="height:180px"><canvas id="' + a + '"></canvas></div><div class="chart" style="height:150px;margin-top:8px"><canvas id="' + b + '"></canvas></div>';
   function adBuckets(months, cost, imp) {
@@ -2888,19 +2890,19 @@ small { line-height: 1.6; }
     const ks = camps.flatMap(c => c.mo && c.mo.length ? c.mo.map(x => x[0]) : [mk(c)]).sort();
     const months = []; if (ks.length) { let m = ks[0] + '-01'; while (m.slice(0, 7) <= ks[ks.length - 1]) { months.push(m.slice(0, 7)); m = monthStart(m, 1); } }
     const ms = {}, mi = {}; camps.forEach(c => (c.mo && c.mo.length ? c.mo : [[mk(c), c.spend, c.imp]]).forEach(([k, s, i]) => { ms[k] = (ms[k] || 0) + (s || 0); mi[k] = (mi[k] || 0) + (i || 0); }));
-    const MB = Object.assign(adBuckets(months, ms, mi), { money: usd });
-    let html = seg + '<section class="sec"><div class="sh"><div><h2>광고 성과</h2><p>메타 광고 관리자 · 캠페인 종료일 ' + dot(ends[0]) + ' ~ ' + dot(ends[ends.length - 1]) + (M.some(c => !/^\d{4}/.test(c.end)) ? ' · 진행 중 포함' : '') + ' · 달러 기준</p></div></div>' +
+    const MB = Object.assign(adBuckets(months, ms, mi), { money: wonF });
+    let html = seg + '<section class="sec"><div class="sh"><div><h2>광고 성과</h2><p>메타 광고 관리자 · 캠페인 종료일 ' + dot(ends[0]) + ' ~ ' + dot(ends[ends.length - 1]) + (M.some(c => !/^\d{4}/.test(c.end)) ? ' · 진행 중 포함' : '') + ' · 원화 기준' + fxNote() + '</p></div></div>' +
       (M.some(c => c.api)
         ? '<div class="callout">메타 광고 API로 <b>매일 자동</b>으로 받아요(어제까지). 월별 추이는 <b>실제로 집행한 달</b>에 나눠 넣었어요' + (M.some(c => !c.api) ? ' · API 이전 캠페인은 종료월 기준이에요' : '') + '.<small>도달은 캠페인 전체 기간 값이에요. 날짜별 도달은 같은 사람이 겹쳐서 더할 수 없어요.</small></div>'
         : '<div class="callout">보고서는 캠페인별 <b>전체 기간 합계</b>라서 월별 추이는 <b>종료월</b> 기준으로 묶었어요.<small>새 보고서는 광고 관리자에서 같은 형식으로 내보내 스냅샷 시트 「메타 광고」 탭에 붙여넣으면 다음 갱신 때 반영돼요.</small></div>') +
       yChips +
       // 정사각형 KPI 4장 + 바닥 스파크라인(월별) · 설명은 한 줄, 나머지 단가는 아래 칩
       '<div class="kpi-row n4">' +
-        kpiTile('광고비', usd(T.spend), '집행 캠페인 ' + paid.length + '개', '', spark(MB.c, MB.unit + '별 광고비')) +
-        kpiTile('노출', fmtK(T.imp), '1천 회당 ' + usd(T.imp ? T.spend / T.imp * 1000 : null), '', spark(MB.i, MB.unit + '별 노출')) +
+        kpiTile('광고비', wonL(T.spend), '집행 캠페인 ' + paid.length + '개', '', spark(MB.c, MB.unit + '별 광고비')) +
+        kpiTile('노출', fmtK(T.imp), '1천 회당 ' + wonF(T.imp ? T.spend / T.imp * 1000 : null), '', spark(MB.i, MB.unit + '별 노출')) +
         kpiTile('<span title="캠페인끼리 겹치는 사람도 따로 셌어요">도달 · 캠페인 합</span>', fmtK(T.reach), '캠페인별 도달의 합', '') +
         kpiTile('링크 클릭', fmtK(T.clk), '클릭률 ' + pct(T.imp ? T.clk / T.imp : null), '') +
-      '</div><div class="chips ad-chips"><span class="chip" aria-pressed="true">클릭당 ' + usd(T.clk ? T.spend / T.clk : null) + '</span></div></section>';
+      '</div><div class="chips ad-chips"><span class="chip" aria-pressed="true">클릭당 ' + wonF(T.clk ? T.spend / T.clk : null) + '</span></div></section>';
     html += secOpen('월별 집행', (M.some(c => c.api) ? '집행한 달 기준' : '종료월 기준') + ' · 위는 광고비, 아래는 노출 · 같은 ' + (MB.unit === '월' ? '달' : '분기') + '끼리 위아래로 맞춰 봐요') + adPairHtml('mChart', 'mChart2') + secClose;
     const sk = S.mSort || 'spend';
     const rows = camps.map(c => ({ c, ctr: c.imp ? (c.clk || 0) / c.imp : null, cpc: c.clk ? c.spend / c.clk : null, views: sum((c.posts || []).map(it => val(it, 0))) }));
@@ -2910,7 +2912,7 @@ small { line-height: 1.6; }
     const st = c => ({ completed: '완료', inactive: '중지', archived: '보관', active: '진행 중' })[c.st] || c.st || '';
     html += secOpen('캠페인별 성과', '이름을 누르면 홍보한 인스타 게시물이 펼쳐져요') +
       '<div class="tw"><table class="tbl" id="mTbl"><thead><tr><th>캠페인</th><th>종료</th>' + th('spend', '광고비') + th('imp', '노출') + th('reach', '도달') + th('clk', '링크 클릭') + th('ctr', '클릭률') + th('cpc', '클릭당') + '<th>목표 결과</th></tr></thead><tbody>' +
-      rows.map((r, i) => { const n = (r.c.posts || []).length; return '<tr class="click' + (S.adOpen === r.c.n ? ' on' : '') + '" data-mi="' + i + '"><td><div class="ellip" style="max-width:300px"><b>' + esc(metaLabel(r.c.n)) + '</b></div>' + manTag(r.c) + (n ? '<span class="tag p-own">게시물 ' + n + '개 연결</span>' : /^Instagram 게시물/.test(r.c.n) ? '<span class="tag">게시물 데이터 없음</span>' : '<span class="tag">별도 광고</span>') + ' <span class="tag">' + esc(st(r.c)) + '</span></td><td>' + (/^\d{4}/.test(r.c.end) ? dot(r.c.end) : esc(r.c.end)) + '</td><td class="n">' + usd(r.c.spend) + '</td><td class="n">' + fmtK(r.c.imp) + '</td><td class="n">' + fmtK(r.c.reach) + '</td><td class="n">' + fmtK(r.c.clk) + '</td><td class="n">' + pct(r.ctr) + '</td><td class="n">' + usd(r.cpc) + '</td><td>' + (r.c.res != null ? fmt(r.c.res) + ' ' + esc(META_RT[r.c.rt] || r.c.rt || '') : '–') + '</td></tr>' +
+      rows.map((r, i) => { const n = (r.c.posts || []).length; return '<tr class="click' + (S.adOpen === r.c.n ? ' on' : '') + '" data-mi="' + i + '"><td><div class="ellip" style="max-width:300px"><b>' + esc(metaLabel(r.c.n)) + '</b></div>' + manTag(r.c) + (n ? '<span class="tag p-own">게시물 ' + n + '개 연결</span>' : /^Instagram 게시물/.test(r.c.n) ? '<span class="tag">게시물 데이터 없음</span>' : '<span class="tag">별도 광고</span>') + ' <span class="tag">' + esc(st(r.c)) + '</span></td><td>' + (/^\d{4}/.test(r.c.end) ? dot(r.c.end) : esc(r.c.end)) + '</td><td class="n"' + (r.c.usd != null ? ' title="' + usd(r.c.usd) + ' 환산"' : '') + '>' + won(r.c.spend) + '</td><td class="n">' + fmtK(r.c.imp) + '</td><td class="n">' + fmtK(r.c.reach) + '</td><td class="n">' + fmtK(r.c.clk) + '</td><td class="n">' + pct(r.ctr) + '</td><td class="n">' + wonF(r.cpc) + '</td><td>' + (r.c.res != null ? fmt(r.c.res) + ' ' + esc(META_RT[r.c.rt] || r.c.rt || '') : '–') + '</td></tr>' +
         (S.adOpen === r.c.n ? '<tr><td colspan="9" style="padding:0 0 10px;white-space:normal">' + (n ? '<ol class="rank" id="mPosts">' + rankRows(r.c.posts, { right: it => '조회 <span class="num">' + fmtK(val(it, 0)) + '</span>' }) + '</ol>' : '<p class="note">' + (/^Instagram 게시물/.test(r.c.n) ? '이 게시물은 대시보드 수집 기간(2024년~) 밖이거나 캡션이 바뀌어 찾지 못했어요.' : '게시물 홍보가 아닌 별도 광고예요.') + '</p>') + '</td></tr>' : ''); }).join('') +
       '</tbody></table></div><p class="note">캠페인 이름(게시물 캡션 앞부분)으로 인스타 게시물을 찾아 연결했어요. 연결된 게시물은 「광고」 표시가 붙고 평소 계산에서 빠져요 · 상단 버튼이 「광고 제외」일 때는 목록·합계에서도 빠져요.</p>' + secClose;
     if (posts.length) {
@@ -2922,7 +2924,7 @@ small { line-height: 1.6; }
     $('view').querySelectorAll('[data-ms]').forEach(b => b.addEventListener('click', () => { S.mSort = b.dataset.ms; viewAds(); }));
     $('view').querySelectorAll('#mTbl tr[data-mi]').forEach(tr => tr.addEventListener('click', () => { const n = rows[+tr.dataset.mi].c.n; S.adOpen = S.adOpen === n ? null : n; viewAds(); }));
     if (S.adOpen && $('mPosts')) { const r = rows.find(x => x.c.n === S.adOpen); if (r) wireRank($('mPosts'), r.c.posts); }
-    drawAdPair('mChart', 'mChart2', MB, v => '$' + axK(v));
+    drawAdPair('mChart', 'mChart2', MB, axK);
   }
   function viewGoogle(seg) {
     const A = D.ads;
@@ -3699,7 +3701,7 @@ small { line-height: 1.6; }
     metrics.push(['게시일', dot(it.d) + ' · ' + whenTxt(it.d)], ['형식', fmtType(it.t)]);
     if (it.x) metrics.push(['데이터', '엑셀 과거 기록(기록 당시 수치)']);
     if (it.w && it.w.length) metrics.push(['참여자', it.w.join(', ')]);
-    if (it.ad && it.ad.mk && D.ads && D.ads.meta) { const ms = D.ads.meta.filter(c => it.ad.mk.includes(c.n)); if (ms.length) metrics.push(['메타 광고비', usd(sum(ms.map(c => c.spend)))], ['메타 광고 노출', fmt(sum(ms.map(c => c.imp)))], ['메타 링크 클릭', fmt(sum(ms.map(c => c.clk)))]); }
+    if (it.ad && it.ad.mk && D.ads && D.ads.meta) { const ms = D.ads.meta.filter(c => it.ad.mk.includes(c.n)); if (ms.length) metrics.push(['메타 광고비', wonF(sum(ms.map(c => c.spend)))], ['메타 광고 노출', fmt(sum(ms.map(c => c.imp)))], ['메타 링크 클릭', fmt(sum(ms.map(c => c.clk)))]); }
     if (it.ad && it.ad.k.length && D.ads) { const cs = D.ads.camps.filter(c => it.ad.k.includes(c.n)); if (cs.length) metrics.push(['광고 캠페인', cs.length + '개 · ' + dot(cs.map(c => c.from).sort()[0]) + '~' + dot(cs.map(c => c.to).sort().pop())], ['캠페인 광고비', fmt(sum(cs.map(c => c.cost))) + '원' + (cs.some(c => c.videos.length > 1) ? ' (여러 영상 공동)' : '')], ['캠페인 노출', fmt(sum(cs.map(c => c.imp)))]); }
     const sim = D.items.filter(x => x !== it && x.c === it.c && x.g === it.g && x.t !== '스토리').sort((a, b) => (mainVal(b) || 0) - (mainVal(a) || 0)).slice(0, 5);
     const el = $('detail');
@@ -3955,7 +3957,7 @@ small { line-height: 1.6; }
     if (benchNames().length && !['인스타그램'].concat(benchNames()).some(ch => folAt(ch, D.updated))) out.push({ id: 'setup:benchfol', t: '타 대학 팔로워 비교는 준비 중이에요', b: '타 대학 팔로워 수는 「타대학 일별」 탭에 쌓이고 있어요. 보드 업데이트를 배포하면 팔로워당 반응 · 팔로워 증가가 타 대학 탭에 나와요.' });
     // 메타 광고 중 연결된 게시물이 없는 지출 캠페인(캡션 매칭 실패일 수 있음)
     const um = (A.meta || []).filter(c => c.spend > 0 && !(c.posts || []).length && /^(?:Instagram (?:게시물|post)|게시물):/i.test(c.n || ''));
-    if (um.length) out.push({ id: 'meta-unl:' + um.length, t: '게시물 연결 안 된 메타 광고 ' + um.length + '건', b: um.slice(0, 3).map(c => '「' + metaLabel(c.n).slice(0, 20) + '」 ' + usd(c.spend)).join(' · ') + ' — 캡션이 바뀌었거나 수집 기간 밖이라 게시물을 못 찾았어요. 그 게시물은 광고 표시 없이 평소 계산에 들어가 있을 수 있어요. 「광고 매핑」 탭에 연결을 적으면 고쳐져요.' });
+    if (um.length) out.push({ id: 'meta-unl:' + um.length, t: '게시물 연결 안 된 메타 광고 ' + um.length + '건', b: um.slice(0, 3).map(c => '「' + metaLabel(c.n).slice(0, 20) + '」 ' + won(c.spend)).join(' · ') + ' — 캡션이 바뀌었거나 수집 기간 밖이라 게시물을 못 찾았어요. 그 게시물은 광고 표시 없이 평소 계산에 들어가 있을 수 있어요. 「광고 매핑」 탭에 연결을 적으면 고쳐져요.' });
     return out;
   }
   const seenGet = () => { try { return JSON.parse(localStorage.getItem('sb-seen') || '[]'); } catch (e) { return []; } };
@@ -4025,6 +4027,14 @@ small { line-height: 1.6; }
     (D.acct || []).forEach(x => (byCh[x.ch] = byCh[x.ch] || []).push(x));
     Object.entries(byCh).forEach(([c, a]) => { a.sort((x, y) => x.d < y.d ? -1 : 1); const p = a[a.length - 2], q = a[a.length - 1]; if (p && q && p.d !== q.d && JSON.stringify(p.m) === JSON.stringify(q.m)) D.acctStale[c] = { d0: p.d, d1: q.d }; });
     const M = (D.ads && D.ads.meta) || [];
+    // 메타 광고비는 원화로 통일: 달러 계정(수동 탭·광고 추가 입력·달러 광고 계정)은 고정 환율로 환산하고 원래 달러는 c.usd에 남김
+    const FX = (D.ads && D.ads.fx) || KRW_PER_USD;
+    M.forEach(c => {
+      if (c.cur === 'KRW' || c.usd !== undefined) return;
+      const w = v => v == null ? v : Math.round(v * FX);
+      c.usd = c.spend; c.spend = w(c.spend); c.budget = w(c.budget);
+      if (c.mo) c.mo = c.mo.map(([k, s, i]) => [k, w(s || 0), i]);
+    });
     const ig = D.items.filter(it => it.c === '인스타그램').map(it => [it, nz(it.n)]);
     M.forEach(c => {
       c.posts = [];
