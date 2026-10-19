@@ -3844,3 +3844,167 @@ function igxAccountMerge_(ss, rows) {
   });
   igxUpsert_(ss, IGX_DAY_SHEET, IGX_DAY_HEAD, [0, 1], out);
 }
+
+// ───────── 밤 10시 성과 브리핑 메일 (2026-10-19) ─────────
+// 매일 22:00(KST) 오늘 올린 게시물(인스타·hong·유튜브)의 지금 값을 API로 받아 담당자 메일로 보냄. PC가 꺼져 있어도 동작
+//  · 받는 주소: 스크립트 속성 BRIEF_TO(공개 저장소라 코드에 넣지 않음). 없으면 보내지 않고 실행 로그에만 남김
+//  · 처음 한 번: 편집기에서 setupNightBrief 실행(메일 보내기 권한 승인 + 22시 트리거) → testNightBrief로 지금 한 통
+//  · 비교: 「당일 22시 기록」 탭에 매일 값을 쌓아 「올린 날 밤 기준 평소」(같은 채널·형식 5개 이상)를 만들고,
+//    그 전에는 보드 데이터의 「평소 최종 조회」(같은 채널·형식 최근 1년 중간값, 게시 14일 이상) 대비로 보여 줌
+const BRIEF_SHEET = '당일 22시 기록';
+const BRIEF_HEAD = ['기록일', '채널', '게시물 ID', '형식', '게시 시각', '경과(시간)', '조회', '좋아요', '댓글', '공유', '저장', '도달', '기록 시각'];
+const BRIEF_MIN = 5;                           // 「올린 날 밤 기준 평소」를 쓰려면 같은 채널·형식 기록이 이만큼 있어야 함
+
+function setupNightBrief() {
+  ScriptApp.getProjectTriggers().filter(t => t.getHandlerFunction() === 'nightBrief').forEach(t => ScriptApp.deleteTrigger(t));
+  ScriptApp.newTrigger('nightBrief').timeBased().everyDays(1).atHour(22).nearMinute(0).inTimezone(TZ).create();
+  MailApp.getRemainingDailyQuota(); // 메일 권한을 이 실행에서 승인받게 함
+  Logger.log('22시 트리거 등록. 받는 주소(BRIEF_TO): ' + (PropertiesService.getScriptProperties().getProperty('BRIEF_TO') ? '있음' : '없음 — 프로젝트 설정 → 스크립트 속성에 BRIEF_TO 추가'));
+}
+function testNightBrief() { nightBrief(true); }
+
+function nightBrief(test) {
+  test = test === true;
+  const ss = SpreadsheetApp.getActive() || SpreadsheetApp.openById(SS_ID);
+  const now = new Date(), today = Utilities.formatDate(now, TZ, 'yyyy-MM-dd'), stamp = Utilities.formatDate(now, TZ, 'yyyy-MM-dd HH:mm');
+  const notes = [];
+  let posts = [];
+  try { posts = posts.concat(briefInstagram_(today, notes)); } catch (e) { notes.push('인스타 확인 실패: ' + String(e.message).slice(0, 100)); }
+  try { posts = posts.concat(briefYouTube_(today)); } catch (e) { notes.push('유튜브 확인 실패: ' + String(e.message).slice(0, 100)); }
+  posts.forEach(x => { x.hours = Math.max(0, (now - x.at) / 3600000); });
+  posts.sort((a, b) => a.at - b.at);
+  let stories = [];
+  try { igxStories_(ss); stories = briefStories_(ss, today); } catch (e) { notes.push('스토리 확인 실패: ' + String(e.message).slice(0, 100)); }
+  let D = null;
+  try { const j = cacheGet_(); D = j ? JSON.parse(j) : null; } catch (e) { D = null; }
+  const night = briefNightBase_(ss, today);
+  posts.forEach(x => { x.night = night[x.ch + '|' + x.type] || null; x.usual = briefUsual_(D, x.ch, x.type, today); });
+  if (posts.length) {
+    igxUpsert_(ss, BRIEF_SHEET, BRIEF_HEAD, [0, 2], posts.map(x => [today, x.ch, x.id, x.type, Utilities.formatDate(x.at, TZ, 'yyyy-MM-dd HH:mm'), Math.round(x.hours * 10) / 10,
+      x.views, x.likes, x.comments, x.shares, x.saves, x.reach, stamp]));
+  }
+  const recent = posts.length ? [] : briefRecent_(D, today);
+  const to = String(PropertiesService.getScriptProperties().getProperty('BRIEF_TO') || '').trim();
+  const subject = '[SNS 브리핑] ' + briefDay_(today) + ' 오늘 올린 콘텐츠 ' + posts.length + '개' + (test ? ' (테스트)' : '');
+  if (!to) { logRows_(ss, [[new Date(), '밤 브리핑', posts.length, '보내지 않음: 스크립트 속성 BRIEF_TO 없음']]); return; }
+  MailApp.sendEmail({ to: to, subject: subject, htmlBody: briefHtml_(posts, stories, recent, notes, today, stamp), name: 'SNS 성과 보드' });
+  logRows_(ss, [[new Date(), '밤 브리핑', posts.length, '보냄 · 게시물 ' + posts.length + ' · 스토리 ' + stories.length + (notes.length ? ' · ' + notes.join(' · ') : '')]]);
+}
+
+// 인스타(jjuniv·hong): 최신 게시물 25개 중 오늘 올린 것 + 지표
+function briefInstagram_(today, notes) {
+  const out = [];
+  igxChannels_().forEach(c => {
+    const list = igxGet_(c.conf, c.user + '/media', { fields: 'id,caption,timestamp,permalink,media_type,media_product_type,like_count,comments_count', limit: 25 }).data || [];
+    list.filter(x => Utilities.formatDate(new Date(x.timestamp), TZ, 'yyyy-MM-dd') === today).forEach(x => {
+      const miss = [];
+      const v = igxInsights_(c.conf, x.id, ['views', 'reach', 'saved', 'shares'], null, miss);
+      const msg = '일부 지표 없음: ' + miss.join(',');
+      if (miss.length && notes.indexOf(msg) < 0) notes.push(msg);
+      const g = k => v[k] === undefined ? '' : v[k];
+      out.push({ ch: c.ch, id: String(x.id), at: new Date(x.timestamp), type: typeLabel_(x.media_product_type, x.media_type), title: String(x.caption || ''), url: x.permalink || '',
+        views: g('views'), likes: Number(x.like_count) || 0, comments: Number(x.comments_count) || 0, shares: g('shares'), saves: g('saved'), reach: g('reach') });
+    });
+  });
+  return out;
+}
+// 유튜브: 업로드 목록에서 오늘 올린 영상 + 통계(브랜드 계정 토큰). 공유·저장·도달은 없음
+function briefYouTube_(today) {
+  const ids = ytaRecent_(1, today).filter(v => v.date === today).map(v => v.id);
+  if (!ids.length) return [];
+  const r = ytaGet_('https://www.googleapis.com/youtube/v3/videos?part=snippet,statistics,contentDetails&id=' + ids.join(','));
+  return (r.items || []).map(x => {
+    const st = x.statistics || {}, sec = isoDur_(x.contentDetails && x.contentDetails.duration);
+    return { ch: '유튜브', id: x.id, at: new Date(x.snippet.publishedAt), type: lengthBucket_(sec), title: String(x.snippet.title || ''), url: 'https://youtu.be/' + x.id,
+      views: Number(st.viewCount) || 0, likes: Number(st.likeCount) || 0, comments: Number(st.commentCount) || 0, shares: '', saves: '', reach: '' };
+  });
+}
+// 오늘 올린 스토리(「인스타 스토리」 탭, 방금 갱신한 값)
+function briefStories_(ss, today) {
+  const sh = ss.getSheetByName(IGX_STORY_SHEET);
+  if (!sh || sh.getLastRow() < 2) return [];
+  const n = v => Number(String(v).replace(/,/g, '')) || 0;
+  return sh.getRange(2, 1, sh.getLastRow() - 1, IGX_STORY_HEAD.length).getDisplayValues()
+    .filter(r => String(r[2]).slice(0, 10) === today)
+    .map(r => ({ ch: r[0], views: n(r[5]), reach: n(r[6]), exits: n(r[14]) }));
+}
+// 「당일 22시 기록」의 지난 기록 → 채널|형식별 조회 중간값(기록 BRIEF_MIN개 이상만)
+function briefNightBase_(ss, today) {
+  const sh = ss.getSheetByName(BRIEF_SHEET), by = {}, out = {};
+  if (!sh || sh.getLastRow() < 2) return out;
+  sh.getRange(2, 1, sh.getLastRow() - 1, 7).getDisplayValues().forEach(r => {
+    if (r[0] >= today || r[6] === '') return;
+    const k = r[1] + '|' + r[3]; (by[k] = by[k] || []).push(Number(String(r[6]).replace(/,/g, '')) || 0);
+  });
+  Object.keys(by).forEach(k => { if (by[k].length >= BRIEF_MIN) out[k] = { med: briefMed_(by[k]), n: by[k].length }; });
+  return out;
+}
+// 보드 데이터: 같은 채널·형식, 최근 1년·게시 14일 이상 게시물의 마지막 조회 중간값(광고 제외)
+function briefUsual_(D, ch, type, today) {
+  if (!D || !D.items) return null;
+  const from = shiftDate_(today, -365), to = shiftDate_(today, -14);
+  const v = D.items.filter(it => it.c === ch && it.t === type && !it.ad && it.d >= from && it.d <= to).map(briefLast_).filter(x => x != null);
+  return v.length >= BRIEF_MIN ? { med: briefMed_(v), n: v.length } : null;
+}
+function briefLast_(it) { for (let i = (it.h || []).length - 1; i >= 0; i--) if (it.h[i] && it.h[i][0] != null) return it.h[i][0]; return null; }
+// 오늘 올린 게 없을 때: 최근 3일 게시물(보드 데이터 = 오늘 아침 기록 값)
+function briefRecent_(D, today) {
+  if (!D || !D.items) return [];
+  const from = shiftDate_(today, -3), own = ['인스타그램', '유튜브', 'hong._.video'];
+  return D.items.filter(it => own.indexOf(it.c) >= 0 && it.t !== '스토리' && it.d >= from && it.d < today)
+    .map(it => ({ ch: it.c, d: it.d, title: String(it.n || ''), views: briefLast_(it) }))
+    .sort((a, b) => a.d < b.d ? 1 : -1);
+}
+function briefMed_(a) { const s = a.slice().sort((x, y) => x - y), m = Math.floor(s.length / 2); return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2; }
+function briefDay_(d) { const t = new Date(d + 'T12:00:00+09:00'); return Number(d.slice(5, 7)) + '/' + Number(d.slice(8, 10)) + '(' + '일월화수목금토'[Number(Utilities.formatDate(t, TZ, 'u')) % 7] + ')'; }
+function briefNum_(v) { if (v === '' || v == null) return '–'; v = Number(v); return v >= 10000 ? (Math.round(v / 1000) / 10) + '만' : Math.round(v).toLocaleString('ko-KR'); }
+function briefEsc_(s) { return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); }
+// 캡션 첫 줄(원문 그대로, 길면 말줄임)
+function briefTitle_(s) { const t = String(s || '').split('\n').map(x => x.trim()).filter(Boolean)[0] || '(캡션 없음)'; return t.length > 60 ? t.slice(0, 60) + '…' : t; }
+function briefAgo_(h) { const m = Math.round(h * 60); return m < 60 ? m + '분 지남' : Math.floor(m / 60) + '시간 ' + (m % 60) + '분 지남'; }
+// 비교 한 줄: 「올린 날 밤 기준 평소 대비 ▲ 1.8배」 / 「평소 최종 조회 3.2만의 34%」
+function briefCmp_(x) {
+  if (x.views === '' || x.views == null) return '';
+  if (x.night && x.night.med > 0) {
+    const r = x.views / x.night.med, arrow = r >= 1 ? '▲ ' : '▼ ';
+    const t = r >= 2 || r <= 0.5 ? arrow + (Math.round(r * 10) / 10) + '배' : arrow + Math.round(Math.abs(r - 1) * 100) + '%';
+    return '<div style="color:' + (r >= 1 ? '#1b64da' : '#f06f00') + ';font-weight:700">올린 날 밤 기준 평소 대비 ' + t + '</div><div style="color:#8b95a1;font-size:12px">평소 ' + briefNum_(x.night.med) + ' · 같은 형식 ' + x.night.n + '개</div>';
+  }
+  if (x.usual && x.usual.med > 0) {
+    return '<div style="color:#4e5968">평소 최종 조회 ' + briefNum_(x.usual.med) + '의 <b>' + Math.round(x.views / x.usual.med * 100) + '%</b></div><div style="color:#8b95a1;font-size:12px">같은 형식 최근 1년 ' + x.usual.n + '개 · 올린 날 밤 기록은 쌓는 중</div>';
+  }
+  return '<div style="color:#8b95a1;font-size:12px">비교할 같은 형식 게시물이 적어요</div>';
+}
+function briefHtml_(posts, stories, recent, notes, today, stamp) {
+  const chName = c => c === 'hong._.video' ? 'hong' : c;
+  const box = '<div style="border:1px solid #e5e8eb;border-radius:12px;padding:14px 16px;margin-bottom:12px">';
+  const row = (k, v) => '<tr><td style="padding:2px 0;color:#6b7684">' + k + '</td><td style="padding:2px 0;text-align:right;font-weight:600">' + v + '</td></tr>';
+  let h = '<div style="font-family:\'Noto Sans KR\',sans-serif;max-width:560px;margin:0 auto;color:#191f28;line-height:1.7">';
+  h += '<h2 style="margin:0 0 4px;font-size:20px">' + briefDay_(today) + ' 오늘 올린 콘텐츠 ' + posts.length + '개</h2>';
+  h += '<div style="color:#8b95a1;font-size:13px;margin-bottom:16px">' + stamp.slice(11) + ' 기준</div>';
+  posts.forEach(x => {
+    h += box + '<div style="font-size:12px;color:#0078ad;font-weight:700">' + briefEsc_(chName(x.ch)) + ' · ' + briefEsc_(x.type || '게시물') + '</div>';
+    h += '<div style="font-size:15px;font-weight:700;margin:2px 0">' + briefEsc_(briefTitle_(x.title)) + '</div>';
+    h += '<div style="color:#8b95a1;font-size:12px;margin-bottom:6px">' + Utilities.formatDate(x.at, TZ, 'HH:mm') + ' 올림 · ' + briefAgo_(x.hours) + '</div>' + briefCmp_(x);
+    h += '<table style="width:100%;border-collapse:collapse;font-size:14px;margin-top:8px">' + row('조회', briefNum_(x.views)) + row('좋아요', briefNum_(x.likes)) + row('댓글', briefNum_(x.comments));
+    if (x.ch !== '유튜브') h += row('공유', briefNum_(x.shares)) + row('저장', briefNum_(x.saves)) + row('도달', briefNum_(x.reach));
+    h += '</table>' + (x.url ? '<div style="margin-top:6px"><a href="' + briefEsc_(x.url) + '" style="color:#0078ad;font-size:13px">게시물 열기</a></div>' : '') + '</div>';
+  });
+  if (!posts.length) {
+    h += box + '<b>오늘 올린 콘텐츠 없음</b>';
+    if (recent.length) {
+      h += '<div style="color:#8b95a1;font-size:12px;margin:6px 0 2px">최근 3일 게시물 · 오늘 아침 기록</div><table style="width:100%;border-collapse:collapse;font-size:13px">';
+      recent.slice(0, 10).forEach(r => { h += '<tr><td style="padding:3px 0">' + Number(r.d.slice(5, 7)) + '/' + Number(r.d.slice(8)) + ' ' + briefEsc_(chName(r.ch)) + ' · ' + briefEsc_(briefTitle_(r.title).slice(0, 24)) + '</td><td style="text-align:right;font-weight:600;white-space:nowrap">조회 ' + briefNum_(r.views) + '</td></tr>'; });
+      h += '</table>';
+    } else h += '<div style="color:#8b95a1;font-size:12px">최근 3일에도 올린 게시물이 없어요</div>';
+    h += '</div>';
+  }
+  if (stories.length) {
+    const sum = k => stories.reduce((a, s) => a + s[k], 0);
+    h += box + '<div style="font-size:12px;color:#0078ad;font-weight:700">스토리</div><div style="font-weight:700">오늘 스토리 ' + stories.length + '개</div>';
+    h += '<table style="width:100%;border-collapse:collapse;font-size:14px;margin-top:6px">' + row('조회 합계', briefNum_(sum('views'))) + row('도달 합계', briefNum_(sum('reach'))) + row('나가기', briefNum_(sum('exits'))) + '</table></div>';
+  }
+  if (notes.length) h += '<div style="color:#8b95a1;font-size:12px;margin-bottom:12px">' + notes.map(briefEsc_).join('<br>') + '</div>';
+  h += '<a href="' + BOARD_URL + '" style="display:inline-block;background:#0078ad;color:#fff;text-decoration:none;padding:10px 16px;border-radius:10px;font-weight:700;font-size:14px">성과 보드 열기</a>';
+  return h + '</div>';
+}
