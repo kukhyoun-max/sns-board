@@ -2898,7 +2898,7 @@ function testIgApi_(chName) {
 //  · 페이지: FB_PAGE(아이디) — 스크립트 속성 FB_PAGE_ID에 숫자 ID를 넣으면 그 값 우선
 //  · 지표 이름은 메타가 자주 바꿔서(2025-11 노출 계열 폐지 등) 후보를 하나씩 따로 불러 보고 되는 것만 고른다
 const FB_PAGE = 'discoveryjjss';
-const FB_FROM = '2025-01-01';                  // 과거 엑셀(2012~2024) 다음부터
+const FB_FROM = '2021-07-01';                  // 과거 엑셀은 2021-07 이후가 거의 비어 있음(2023 3건·2024 1~2월만) → 그때부터 API로 채움(2026-10-19 2025-01에서 앞당김)
 const FB_POST_METRICS = ['post_media_view', 'post_total_media_view_unique', 'post_impressions_unique', 'post_clicks', 'post_reactions_by_type_total', 'post_video_views'];
 const FB_PAGE_METRICS = ['page_follows', 'page_daily_follows_unique', 'page_daily_unfollows_unique', 'page_media_view', 'page_total_media_view_unique', 'page_impressions_unique', 'page_post_engagements', 'page_views_total', 'page_video_views'];
 
@@ -3036,9 +3036,38 @@ function fbDaily_(ss, c, today, miss) {
   return rows.length;
 }
 
-function fbPosts_(ss, c, today, miss) {
+// 일별 과거 채우기: 탭의 가장 이른 날짜 앞으로 90일씩 거슬러 받음. 값이 하나도 없는 구간이 나오면(메타 보관 기간 끝) 스크립트 속성 FB_DAY_BACK = done
+function fbDailyBack_(ss, c, miss, deadline) {
+  const p = PropertiesService.getScriptProperties();
+  if (p.getProperty('FB_DAY_BACK') === 'done') return { n: 0, done: true };
+  const unix = d => Math.floor(new Date(d + 'T00:00:00+09:00').getTime() / 1000);
+  const sh = ss.getSheetByName(FB_DAY_SHEET);
+  if (!sh || sh.getLastRow() < 2) return { n: 0, done: false };
+  let to = sh.getRange(2, 1, sh.getLastRow() - 1, 1).getDisplayValues().map(r => r[0]).filter(d => /^\d{4}-\d{2}-\d{2}$/.test(d)).sort()[0];
+  let n = 0, done = false;
+  while (to > FB_FROM && !(deadline && Date.now() > deadline)) {
+    const from = shiftDate_(to, -FB_DAY_FIRST) < FB_FROM ? FB_FROM : shiftDate_(to, -FB_DAY_FIRST);
+    const by = {};
+    fbInsights_(c.pt, c.id, FB_DAY_M, { period: 'day', since: unix(from), until: unix(to) }, miss).forEach(d => (d.values || []).forEach(v => {
+      const day = shiftDate_(Utilities.formatDate(new Date(v.end_time), TZ, 'yyyy-MM-dd'), -1);
+      if (day < to) (by[day] = by[day] || {})[d.name] = Number(v.value) || 0;
+    }));
+    const days = Object.keys(by).sort().filter(day => FB_DAY_M.some(m => by[day][m]));  // 0만 있는 날은 보관 기간 밖으로 봄
+    if (!days.length) { done = true; break; }
+    const now = Utilities.formatDate(new Date(), TZ, 'yyyy-MM-dd HH:mm');
+    igxUpsert_(ss, FB_DAY_SHEET, FB_DAY_HEAD, [0], days.map(day => [day].concat(FB_DAY_M.map(m => by[day][m] === undefined ? '' : by[day][m])).concat([now])));
+    n += days.length;
+    to = days[0];
+  }
+  if (done || to <= FB_FROM) { p.setProperty('FB_DAY_BACK', 'done'); done = true; }
+  return { n: n, done: done, to: to };
+}
+
+// 지표는 최근 FB_POST_DAYS일 게시물 + 아직 탭에 없는 게시물만 받음. deadline이 지나면 지표가 필요한 게시물은 탭에 쓰지 않고 남겨 둠 → 다음 실행이 이어서 받음
+function fbPosts_(ss, c, today, miss, deadline) {
   const sh = ss.getSheetByName(FB_POST_SHEET);
-  const first = !sh || sh.getLastRow() < 2;
+  const have = {};
+  if (sh && sh.getLastRow() > 1) sh.getRange(2, 1, sh.getLastRow() - 1, 1).getDisplayValues().forEach(r => { have[r[0]] = 1; });
   const recent = shiftDate_(today, -FB_POST_DAYS);
   const list = [];
   let url = META_API + c.id + '/posts?fields=' + encodeURIComponent('id,message,created_time,permalink_url,status_type,shares,reactions.summary(total_count).limit(0),comments.summary(total_count).limit(0)') + '&limit=25&access_token=' + encodeURIComponent(c.pt);
@@ -3054,41 +3083,68 @@ function fbPosts_(ss, c, today, miss) {
     url = j.paging && j.paging.next || '';
   }
   const now = Utilities.formatDate(new Date(), TZ, 'yyyy-MM-dd HH:mm');
-  let ins = 0;
-  const rows = list.map(x => {
+  let ins = 0, left = 0;
+  const rows = [];
+  list.forEach(x => {
     const at = Utilities.formatDate(new Date(x.created_time), TZ, 'yyyy-MM-dd HH:mm');
     const v = {};
-    if (first || at.slice(0, 10) >= recent) {
-      fbInsights_(c.pt, x.id, FB_POST_M, null, miss).forEach(d => { const a = d.values && d.values[0] ? d.values[0].value : ''; v[d.name] = typeof a === 'object' && a !== null ? JSON.stringify(a) : a; });
-      ins++;
+    if (!have[String(x.id)] || at.slice(0, 10) >= recent) {
+      if (deadline && Date.now() > deadline) { if (!have[String(x.id)]) { left++; return; } } // 시간이 모자라면 새 게시물은 다음 실행으로
+      else {
+        fbInsights_(c.pt, x.id, FB_POST_M, null, miss).forEach(d => { const a = d.values && d.values[0] ? d.values[0].value : ''; v[d.name] = typeof a === 'object' && a !== null ? JSON.stringify(a) : a; });
+        ins++;
+      }
     }
     const g = m => v[m] === undefined ? '' : v[m];
-    return [String(x.id), at, x.status_type || '', x.permalink_url || '', String(x.message || '').slice(0, 1000),
+    rows.push([String(x.id), at, x.status_type || '', x.permalink_url || '', String(x.message || '').slice(0, 1000),
       x.reactions && x.reactions.summary ? x.reactions.summary.total_count : '', x.comments && x.comments.summary ? x.comments.summary.total_count : '', x.shares ? x.shares.count : 0,
-      g('post_media_view'), g('post_total_media_view_unique'), g('post_clicks'), g('post_reactions_by_type_total'), g('post_video_views'), now];
+      g('post_media_view'), g('post_total_media_view_unique'), g('post_clicks'), g('post_reactions_by_type_total'), g('post_video_views'), now]);
   });
   const r = rows.length ? igxUpsert_(ss, FB_POST_SHEET, FB_POST_HEAD, [0], fbMerge_(ss, FB_POST_SHEET, FB_POST_HEAD, rows)) : { added: 0 };
-  return { n: rows.length, added: r.added, ins: ins, end: end };
+  return { n: rows.length, added: r.added, ins: ins, end: end, left: left, from: list.length ? list[list.length - 1].created_time.slice(0, 10) : '' };
 }
 
 // 매일 기록 단계(fb). 「끝」은 게시물 목록이 어디서 멈췄는지 — 「더 없음」이면 메타가 준 게시물이 전부(개수 상한 확인용)
-function fbStep_(ss, today, logs) {
+// sec: 이 단계에 쓸 시간(초). 매일 기록 때는 다른 단계 몫을 남기려고 짧게, facebookNow는 길게 — 모자라면 다음 실행이 이어서 받음
+function fbStep_(ss, today, logs, sec) {
   const p = PropertiesService.getScriptProperties();
   if (p.getProperty('FB_API') !== 'on') { logs.push([new Date(), '페이스북', 0, '건너뜀: FB_API 꺼짐']); return; }
   const token = p.getProperty('META_TOKEN');
   if (!token) { logs.push([new Date(), '페이스북', 0, '건너뜀: META_TOKEN 없음']); return; }
+  const deadline = Date.now() + (sec || 90) * 1000;
   const c = fbPage_(token), parts = [], miss = [];
   try { parts.push('일별 ' + fbDaily_(ss, c, today, miss) + '일'); } catch (e) { parts.push('일별 오류: ' + String(e.message).slice(0, 120)); }
-  try { const r = fbPosts_(ss, c, today, miss); parts.push('게시물 ' + r.n + '개(새 ' + r.added + ' · 지표 받음 ' + r.ins + ' · 끝: ' + r.end + ')'); } catch (e) { parts.push('게시물 오류: ' + String(e.message).slice(0, 120)); }
+  try { const r = fbPosts_(ss, c, today, miss, deadline); if (!r.left && r.end !== '쪽 한도') p.setProperty('FB_POST_BACK', 'done'); else p.deleteProperty('FB_POST_BACK'); parts.push('게시물 ' + r.n + '개(' + r.from + '~ · 새 ' + r.added + ' · 지표 받음 ' + r.ins + (r.left ? ' · 다음에 이어서 ' + r.left : '') + ' · 끝: ' + r.end + ')'); } catch (e) { parts.push('게시물 오류: ' + String(e.message).slice(0, 120)); }
+  try { const b = fbDailyBack_(ss, c, miss, deadline); if (b.n || !b.done) parts.push('일별 과거 ' + b.n + '일' + (b.done ? '(끝)' : '(다음에 이어서, ' + (b.to || '') + '까지 받음)')); } catch (e) { parts.push('일별 과거 오류: ' + String(e.message).slice(0, 120)); }
   logs.push([new Date(), '페이스북', 0, parts.join(' · ') + (miss.length ? ' · 받지 못한 지표: ' + miss.join(', ') : '')]);
 }
 // 편집기·메뉴에서 바로 한 번(처음 켤 때)
 function facebookNow() {
   const ss = SpreadsheetApp.getActive() || SpreadsheetApp.openById(SS_ID);
   const logs = [];
-  try { fbStep_(ss, Utilities.formatDate(new Date(), TZ, 'yyyy-MM-dd'), logs); } catch (e) { logs.push([new Date(), '페이스북', 0, '오류: ' + e.message]); }
+  try { fbStep_(ss, Utilities.formatDate(new Date(), TZ, 'yyyy-MM-dd'), logs, 280); } catch (e) { logs.push([new Date(), '페이스북', 0, '오류: ' + e.message]); }
   logRows_(ss, logs);
   logs.forEach(l => Logger.log(l[3]));
+}
+
+// 과거 채우기 자동 이어서(2026-10-19): 게시물 지표(FB_POST_BACK)·일별 과거(FB_DAY_BACK)가 다 끝날 때까지 1분 뒤 자기 자신을 다시 예약.
+// 시작은 storySnapshot(2시간마다)의 ensureFbBackfill_이 맡아 사람이 누르지 않아도 됨. 같은 오류가 반복돼도 20번에서 멈춤(FB_BF_RUNS)
+function fbBackfill() {
+  ScriptApp.getProjectTriggers().filter(t => t.getHandlerFunction() === 'fbBackfill').forEach(t => ScriptApp.deleteTrigger(t));
+  const p = PropertiesService.getScriptProperties();
+  facebookNow();
+  const done = p.getProperty('FB_POST_BACK') === 'done' && p.getProperty('FB_DAY_BACK') === 'done';
+  const runs = Number(p.getProperty('FB_BF_RUNS') || 0) + 1;
+  p.setProperty('FB_BF_RUNS', String(done ? 0 : runs));
+  if (!done && runs < 20) ScriptApp.newTrigger('fbBackfill').timeBased().after(60 * 1000).create();
+  else logRows_(SpreadsheetApp.getActive() || SpreadsheetApp.openById(SS_ID), [[new Date(), '페이스북', 0, done ? '과거 채우기 끝' : '과거 채우기 자동 반복 20번에서 멈춤 — 실행 로그의 오류를 확인하세요']]);
+}
+function ensureFbBackfill_() {
+  const p = PropertiesService.getScriptProperties();
+  if (p.getProperty('FB_API') !== 'on' || Number(p.getProperty('FB_BF_RUNS') || 0) >= 20) return;
+  if (p.getProperty('FB_POST_BACK') === 'done' && p.getProperty('FB_DAY_BACK') === 'done') return;
+  if (ScriptApp.getProjectTriggers().some(t => t.getHandlerFunction() === 'fbBackfill')) return;
+  ScriptApp.newTrigger('fbBackfill').timeBased().after(60 * 1000).create();
 }
 
 // ───────── 유튜브 분석 API: 「전주대학교」 브랜드 계정으로 한 번 승인받기 ─────────
@@ -3345,6 +3401,7 @@ function igxStep_(ss, today, logs) {
 function storySnapshot() {
   const ss = SpreadsheetApp.getActive() || SpreadsheetApp.openById(SS_ID);
   try { ensureBackfill_(); } catch (e) {}
+  try { ensureFbBackfill_(); } catch (e) {}
   try {
     if (!igxChannels_().length) return;
     const s = igxStories_(ss);
