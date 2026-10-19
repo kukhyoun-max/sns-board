@@ -729,3 +729,17 @@ small { line-height: 1.6; }
 .gate-f { display: flex; gap: 8px; margin: 14px auto 6px; max-width: 420px; }
 .gate-f .inp { flex: 1; min-width: 0; font-size: 16px; }
 .gate small { display: block; min-height: 1.4em; }
+/* API 분석 데이터(2026-10-20): 가로 비율 막대 · 기간 합계 줄 */
+.pbl { display: flex; flex-direction: column; gap: 10px; margin: 6px 0 4px; }
+.pb-h { display: flex; justify-content: space-between; gap: 12px; font-size: var(--fs-md, 14px); line-height: 1.5; }
+.pb-h > span:first-child { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--fg); }
+.pb-h > span:last-child { flex: none; display: flex; gap: 8px; align-items: baseline; }
+.pb-h small { color: var(--muted); font-size: 12px; }
+.pb-t { height: 8px; border-radius: 4px; background: var(--plane, #f2f4f6); overflow: hidden; margin-top: 4px; }
+.pb-t i { display: block; height: 100%; border-radius: 4px; background: var(--up); }
+.dp-top { display: flex; justify-content: space-between; align-items: flex-end; gap: 12px; flex-wrap: wrap; margin: 4px 0 10px; }
+.dp-top small { display: block; color: var(--muted); font-size: 13px; }
+.dp-top b { display: block; font-size: 26px; font-weight: 800; line-height: 1.3; }
+.dp-top span.up, .dp-top span.down, .dp-top span.flat { font-size: 13px; font-weight: 700; }
+.wait.sm { padding: 18px; font-size: 14px; }
+.mgrid small.mu { font-size: 12px; color: var(--muted); font-weight: 500; margin-left: 4px; }

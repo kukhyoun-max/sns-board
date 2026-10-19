@@ -292,7 +292,7 @@
     const chs = viewChannels();
     const cur = pool({ channels: chs, since: addDays(D.updated, -30) });
     const low = cur.filter(it => judged(it) && ratio(it) < 0.5).sort((a, b) => ratio(a) - ratio(b)).slice(0, 3);
-    let html = topHtml(chs) + '<div class="gap"></div>' + weekHtml(chs) + '<div class="gap"></div>' + trendHtml(chs);
+    let html = topHtml(chs) + '<div class="gap"></div>' + weekHtml(chs) + '<div class="gap"></div>' + trendHtml(chs) + (chs.length === 1 ? '<div id="deep"></div>' : '');
     html += '<div class="gap"></div><section class="sec"><div class="sh"><div><h2>점검할 것</h2><p>최근 3달 요약과 평소보다 처진 콘텐츠</p></div></div>' +
       defsHtml() + briefText(chs).replace('style="padding:18px 0 0"', 'style="padding:0 0 18px"') +
       '<h3 class="sub">평소보다 처진 콘텐츠</h3><p class="d">최근 30일 · 올린 지 ' + AGE_MIN + '일 지남 · 조회 평소의 0.5배 미만</p><p class="d">다음 기획 때 제목·첫 장·썸네일 점검</p><ol class="rank" id="bLow">' + (low.length ? rankRows(low) : '<li class="empty">' + ICO.check + ' 처진 콘텐츠가 없어요</li>') + '</ol>' + secClose;
@@ -304,7 +304,7 @@
     wireWeek(); wireTrend(); wireBenchCmp(); wireAdv(); wireTop(chs);
     wireRank($('bLow'), low);
     if (S.ch !== '전체') bars('bCat', groupBy(pool({ channels: chs, since: addDays(D.updated, -90) }), 'g').filter(r => r.n >= MIN_N).sort(byIdx), subN, k => { S.view = 'explore'; S.g = k; render(); window.scrollTo({ top: 0 }); });
-    wireBrief();
+    wireBrief(); wireDeep(chs);
   }
   // 연도별 추이 — 게시일 기준 연간 요약. 인스타 과거 기록(엑셀 기록 시기)까지 포함
   function yearlyHtml(chs) {
@@ -2525,6 +2525,196 @@
     }).catch(() => toast('엑셀 도구를 불러오지 못했어요. 「표 복사」를 써 주세요'));
   }
 
+  // ───────── API 분석 데이터(2026-10-20): 유튜브 분석 · 인스타 계정 일별 · 게시물 추가 지표 ─────────
+  // 기본 데이터와 따로 받음(?part=yt | ig | yv&v=영상 ID) — 첫 화면이 느려지지 않게. 미리보기는 part_*.json
+  const PART = {}, PART_P = {};
+  let partSeq = 0;
+  function loadPart(name, v) {
+    const k = name + (v ? ':' + v : '');
+    if (PART[k]) return Promise.resolve(PART[k]);
+    if (PART_P[k]) return PART_P[k];
+    PART_P[k] = new Promise(res => {
+      const done = d => { delete PART_P[k]; const ok = d && !d.error; if (ok) PART[k] = d; res(ok ? d : null); };
+      if (!window.SNS_API_URL) { fetch('part_' + name + '.json').then(r => r.ok ? r.json() : null).then(done, () => done(null)); return; }
+      const cb = '__sbP' + (++partSeq), sc = document.createElement('script');
+      const t = setTimeout(() => { window[cb] = () => {}; done(null); }, 45000);
+      window[cb] = d => { clearTimeout(t); delete window[cb]; sc.remove(); done(d); };
+      sc.onerror = () => { clearTimeout(t); done(null); };
+      sc.src = window.SNS_API_URL + '?part=' + name + (v ? '&v=' + encodeURIComponent(v) : '') + '&callback=' + cb + (KEY ? '&key=' + encodeURIComponent(KEY) : '') + '&t=' + Date.now();
+      document.body.appendChild(sc);
+    });
+    return PART_P[k];
+  }
+  const DP = { ytM: 'views', ytR: '90', ytS: 'all', igM: 'fol', igR: '90' };
+  const ytId = u => { const m = String(u || '').match(/(?:v=|shorts\/|youtu\.be\/)([\w-]{11})/); return m ? m[1] : ''; };
+  const igKey = u => String(u || '').split('?')[0].replace(/\/+$/, '');
+  const medOf = a => { const s = a.filter(v => v != null && !isNaN(v)).sort((x, y) => x - y), n = s.length; return n ? (n % 2 ? s[(n - 1) / 2] : (s[n / 2 - 1] + s[n / 2]) / 2) : null; };
+  const segBtns = (id, opts, cur) => '<div class="seg" id="' + id + '">' + opts.map(o => '<button type="button" data-v="' + o[0] + '" aria-pressed="' + (o[0] === cur) + '">' + o[1] + '</button>').join('') + '</div>';
+  // 가로 비율 막대 목록: [이름, 값, 몫(0~1), 오른쪽 작은 글자]
+  const pbars = rows => '<div class="pbl">' + rows.map(r => '<div class="pb"><div class="pb-h"><span>' + esc(r[0]) + '</span><span><b class="num">' + pct0(r[2]) + '</b>' + (r[3] ? '<small>' + r[3] + '</small>' : '') + '</span></div><div class="pb-t"><i style="width:' + Math.max(1.5, Math.min(100, r[2] * 100)).toFixed(1) + '%"></i></div></div>').join('') + '</div>';
+  const shareRows = (pairs, top) => { const tot = sum(pairs.map(p => p[1])); if (!tot) return []; const s = pairs.slice().sort((a, b) => b[1] - a[1]); const head = s.slice(0, top || 6), rest = sum(s.slice(top || 6).map(p => p[1])); if (rest > 0) head.push(['그 밖', rest]); return head.map(p => [p[0], p[1], p[1] / tot, fmtK(p[1])]); };
+  const deepWait = h => '<div class="gap"></div><section class="sec"><div class="sh"><div><h2>' + h + '</h2><p>분석 데이터를 불러오는 중이에요</p></div></div><div class="wait sm">잠시만요</div>' + secClose;
+  const deepFail = h => '<div class="gap"></div><section class="sec"><div class="sh"><div><h2>' + h + '</h2><p>분석 데이터를 받지 못했어요 · 새로고침하면 다시 받아요</p></div></div>' + secClose;
+  // 기간 합계 vs 바로 앞 같은 길이 기간: 「직전 90일 대비 ▲ 12%」
+  function periodCmp(rows, di, vf, days) {
+    if (!rows.length || days === 'all') return '';
+    const end = rows[rows.length - 1][di], n = Number(days), a = addDays(end, -n + 1), b = addDays(end, -2 * n + 1);
+    const cur = sum(rows.filter(r => r[di] >= a).map(vf)), prev = sum(rows.filter(r => r[di] >= b && r[di] < a).map(vf));
+    if (!prev || rows[0][di] > b) return '';
+    const d = cur / prev - 1;
+    return '<span class="' + dCls(d) + '">직전 ' + n + '일 대비 ' + dTxt(d, 1) + '</span>';
+  }
+  function deepChart(id, rows, di, vf, range, opt) {
+    const u = range === 'all' ? 'month' : Number(range) > 120 ? 'week' : 'day';
+    const from = range === 'all' ? '' : addDays(rows[rows.length - 1][di], -Number(range) + 1);
+    const B = new Map();
+    rows.filter(r => r[di] >= from).forEach(r => { const k = trKey(r[di], u), v = vf(r); if (v == null) return; const o = B.get(k) || { s: 0, last: null }; o.s += v; o.last = v; B.set(k, o); });
+    const keys = [...B.keys()].sort(), col = opt.col;
+    draw(id, { type: opt.line ? 'line' : 'bar', data: { labels: keys.map(k => trLabel(k, u)), datasets: [{ label: opt.name, data: keys.map(k => opt.line ? B.get(k).last : B.get(k).s), backgroundColor: col, borderColor: col, borderWidth: 2, pointRadius: 0, borderRadius: 3, maxBarThickness: 24, cubicInterpolationMode: 'monotone' }] },
+      options: chartOpts({ scales: { x: { ticks: { maxRotation: 0, autoSkip: true, maxTicksLimit: 6 } }, y: { display: true, beginAtZero: !opt.line, position: 'right', grid: { color: css('--line') }, border: { display: false }, ticks: { maxTicksLimit: 4, font: { size: 13 }, color: css('--muted'), callback: v => opt.line ? fmt(v) : fmtK(v) } } },
+        plugins: { tooltip: { callbacks: { label: c => opt.name + ' ' + (opt.f ? opt.f(c.raw) : fmt(c.raw)) } } } }) });
+  }
+  // ── 홈 · 유튜브
+  const YT_M = { views: ['조회수', r => r[1]], watch: ['시청 시간', r => r[2] == null ? null : r[2] / 60, v => fmt(v) + '시간'], net: ['구독 순증', r => r[4] == null ? null : r[4] - (r[5] || 0)], shares: ['공유', r => r[8]] };
+  function ytDeepHtml(d) {
+    const rows = d.day || [];
+    if (!rows.length) return '';
+    const m = YT_M[DP.ytM], R = DP.ytR, end = rows[rows.length - 1][0], from = R === 'all' ? rows[0][0] : addDays(end, -Number(R) + 1);
+    const tot = sum(rows.filter(r => r[0] >= from).map(m[1]));
+    let h = secOpen('채널 흐름', '유튜브 분석 · 채널 전체 하루 단위 값 · ' + dot(rows[0][0]) + '부터', segBtns('dpYtM', [['views', '조회수'], ['watch', '시청 시간'], ['net', '구독 순증'], ['shares', '공유']], DP.ytM));
+    h += '<div class="dp-top"><div><small>' + (R === 'all' ? '전체 기간' : '최근 ' + R + '일') + ' ' + m[0] + '</small><b class="num">' + (m[2] ? m[2](tot) : fmtK(tot)) + '</b>' + periodCmp(rows, 0, m[1], R) + '</div>' + segBtns('dpYtR', [['90', '90일'], ['365', '1년'], ['all', '전체']], R) + '</div>';
+    h += '<div class="chart" style="height:220px"><canvas id="dpYtC"></canvas></div><p class="note">' + (R === 'all' ? '달마다 합계' : R === '365' ? '주마다 합계' : '하루마다') + ' · 끝 1~2일은 분석 API가 늦게 채워 낮게 보일 수 있어요</p>' + secClose;
+    // 어디서 보러 왔나: 최근 1년에 올린 영상의 유입 경로(영상 전체 기간 값)
+    const vids = D.items.filter(it => it.c === '유튜브' && it.d >= addDays(D.updated, -365) && !it.ad && ytId(it.u) && d.src[ytId(it.u)]);
+    const pick = vids.filter(it => DP.ytS === 'all' || (DP.ytS === 'short' ? it.t === '1분 이하' : it.t !== '1분 이하'));
+    const agg = {};
+    pick.forEach(it => d.src[ytId(it.u)].forEach(p => { agg[p[0]] = (agg[p[0]] || 0) + p[1]; }));
+    const sr = shareRows(Object.keys(agg).map(i => [d.srcN[i], agg[i]]));
+    h += secOpen('어디서 보러 왔나', '최근 1년에 올린 영상 ' + pick.length + '개 · 유입 경로별 조회수 몫 · 광고 영상 제외', segBtns('dpYtS', [['all', '전체'], ['short', '쇼츠'], ['long', '롱폼']], DP.ytS)) + (sr.length ? pbars(sr) : '<p class="d">이 조건의 유입 경로 자료가 없어요</p>') + secClose;
+    // 누가 보나: 최근 28일
+    const aud = (d.aud || []).filter(r => r[0] === '최근 28일'), kinds = [...new Set(aud.map(r => r[1]))];
+    if (kinds.length) {
+      h += secOpen('누가 보나', '최근 28일 시청자 · 유튜브 분석');
+      kinds.forEach(k => { const L = aud.filter(r => r[1] === k).map(r => [r[2], r[3]]); const s = sum(L.map(x => x[1])); h += '<h3 class="sub">' + esc(k) + '</h3>' + pbars(L.sort((a, b) => b[1] - a[1]).slice(0, 6).map(x => [x[0], x[1], s ? x[1] / s : 0, ''])); });
+      h += '<p class="note">13~17세는 유튜브가 일부만 집계해 실제보다 낮게 나와요</p>' + secClose;
+    }
+    if ((d.kw || []).length) {
+      const mx = d.kw[0][1];
+      h += secOpen('어떤 검색어로 왔나', '최근 28일 · 채널 전체 유튜브 검색 유입 상위 10개') + pbars(d.kw.slice(0, 10).map(k => [k[0], k[1], k[1] / mx, '조회수 ' + fmtK(k[1])])).replace(/<b class="num">\d+%<\/b>/g, '') + secClose;
+    }
+    return h;
+  }
+  // ── 홈 · 인스타그램 / hong
+  const IG_M = { fol: ['팔로워', r => r[2], true], newF: ['새 팔로워', r => r[3]], reach: ['도달', r => r[4]], views: ['조회', r => r[5]], pv: ['프로필 방문', r => r[6]], link: ['링크 클릭', r => r[7]] };
+  function igDeepHtml(d, ch) {
+    const rows = (d.day || []).filter(r => r[0] === ch);
+    let h = '';
+    if (rows.length) {
+      const m = IG_M[DP.igM], R = DP.igR, end = rows[rows.length - 1][1], from = R === 'all' ? rows[0][1] : addDays(end, -Number(R) + 1);
+      const sel = rows.filter(r => r[1] >= from), first = sel.find(r => r[2] != null), lastR = sel.slice().reverse().find(r => r[2] != null);
+      const big = m[2] ? (lastR ? fmt(lastR[2]) + '명' : '–') : fmtK(sum(sel.map(m[1])));
+      const sub = m[2] ? (first && lastR && first !== lastR ? '<span class="' + dCls((lastR[2] - first[2]) / first[2]) + '">' + dot(first[1]) + '부터 ' + (lastR[2] >= first[2] ? '+' : '') + fmt(lastR[2] - first[2]) + '명</span>' : '') : periodCmp(rows, 1, m[1], R);
+      h += secOpen('계정 흐름', '인스타 API · 계정 하루 단위 값 · ' + dot(rows[0][1]) + '부터', segBtns('dpIgM', [['fol', '팔로워'], ['newF', '새 팔로워'], ['reach', '도달'], ['pv', '프로필 방문'], ['link', '링크 클릭']], DP.igM));
+      h += '<div class="dp-top"><div><small>' + (m[2] ? '지금 ' : (R === 'all' ? '전체 기간 ' : '최근 ' + R + '일 ')) + m[0] + '</small><b class="num">' + big + '</b>' + sub + '</div>' + segBtns('dpIgR', [['30', '30일'], ['90', '90일'], ['all', '전체']], R) + '</div>';
+      h += '<div class="chart" style="height:220px"><canvas id="dpIgC"></canvas></div><p class="note">' + (R === 'all' ? '달마다 ' + (m[2] ? '마지막 값' : '합계') : '하루마다') + ' · 새 팔로워는 메타가 30일 전까지만 줘서 그 앞은 비어 있어요</p>' + secClose;
+    }
+    const dm = (d.demo || []).filter(r => r[0] === ch);
+    if (dm.length) {
+      const kinds = [...new Set(dm.map(r => r[1]))];
+      h += secOpen('팔로워는 누구인가', (d.demoD && d.demoD[ch] ? dot(d.demoD[ch]) + ' 기록' : '최근 기록') + ' · 팔로워 분포');
+      kinds.forEach(k => { const L = dm.filter(r => r[1] === k).map(r => [r[2], r[3]]); const s = sum(L.map(x => x[1])); h += '<h3 class="sub">' + esc(k) + '</h3>' + pbars(L.sort((a, b) => b[1] - a[1]).slice(0, 6).map(x => [x[0], x[1], s ? x[1] / s : 0, fmt(x[1]) + '명'])); });
+      h += secClose;
+    }
+    const st = (d.story || []).filter(r => r[0] === ch).slice(0, 10);
+    if (st.length) {
+      h += secOpen('최근 스토리', '스토리는 24시간만 보여서 2시간마다 받아 둔 마지막 값 · 나간 비율 = 나가기 ÷ 조회');
+      h += kTbl(['올린 때', '조회', '도달', '나간 비율'], st.map(r => [esc(md2(r[1].slice(0, 10)) + ' ' + r[1].slice(11, 16)), fmt(r[3]), fmt(r[4]), r[3] ? pct0((r[12] || 0) / r[3]) : '–']));
+      h += secClose;
+    }
+    return h;
+  }
+  function wireDeep(chs) {
+    const box = $('deep'); if (!box || chs.length !== 1) return;
+    const ch = chs[0], isYt = ch === '유튜브', name = isYt ? 'yt' : 'ig', title = isYt ? '채널 흐름' : '계정 흐름';
+    box.innerHTML = deepWait(title);
+    loadPart(name).then(d => {
+      if (!$('deep') || S.ch !== ch || S.view !== 'brief') return;
+      if (!d) { $('deep').innerHTML = deepFail(title); return; }
+      const paint = () => {
+        $('deep').innerHTML = isYt ? ytDeepHtml(d) : igDeepHtml(d, ch);
+        if (isYt && (d.day || []).length) { const m = YT_M[DP.ytM]; deepChart('dpYtC', d.day, 0, m[1], DP.ytR, { name: m[0], col: chColor(ch), f: m[2] }); }
+        if (!isYt) { const rows = (d.day || []).filter(r => r[0] === ch); if (rows.length) { const m = IG_M[DP.igM]; deepChart('dpIgC', rows, 1, m[1], DP.igR, { name: m[0], col: chColor(ch), line: m[2] }); } }
+        [['dpYtM', 'ytM'], ['dpYtR', 'ytR'], ['dpYtS', 'ytS'], ['dpIgM', 'igM'], ['dpIgR', 'igR']].forEach(p => { const el = $(p[0]); if (el) el.querySelectorAll('button').forEach(b => b.addEventListener('click', () => { DP[p[1]] = b.dataset.v; paint(); })); });
+        wireScroll();
+      };
+      paint();
+    });
+  }
+  // ── 상세 패널: 유튜브 영상 「시청 분석」 · 인스타 게시물 「게시물 인사이트」
+  function deepDetailHtml(it) {
+    if (it.c === '유튜브' && ytId(it.u)) return '<div class="gap"></div><section class="dsec" id="dDeep"><h3 style="margin:0 0 6px;font-size:var(--fs-xl);font-weight:700">시청 분석</h3><div class="h" id="dDeepB">분석 데이터를 불러오는 중이에요</div></section>';
+    if ((it.c === '인스타그램' || it.c === 'hong._.video') && it.u) return '<div class="gap"></div><section class="dsec" id="dDeep"><h3 style="margin:0 0 6px;font-size:var(--fs-xl);font-weight:700">게시물 인사이트</h3><div class="h" id="dDeepB">분석 데이터를 불러오는 중이에요</div></section>';
+    return '';
+  }
+  // 같은 채널·형식, 최근 1년·올린 지 14일 지난 게시물(광고 제외)의 중간값
+  const peerOf = (it, f) => medOf(D.items.filter(x => x !== it && x.c === it.c && x.t === it.t && !x.ad && x.d >= addDays(D.updated, -365) && x.d <= addDays(D.updated, -AGE_MIN)).map(f));
+  const tileP = (k, v, p) => '<div><span>' + esc(k) + '</span><b>' + v + (p ? ' <small class="mu">· 평소 ' + p + '</small>' : '') + '</b></div>';
+  function wireDeepDetail(it) {
+    const box = $('dDeepB'); if (!box) return;
+    const same = () => $('dDeepB') === box && !$('detail').hidden;
+    if (it.c === '유튜브') {
+      const id = ytId(it.u);
+      loadPart('yt').then(d => {
+        if (!same()) return;
+        const a = d && d.vid[id], s = d && d.src[id];
+        if (!a && !s) { box.innerHTML = '이 영상은 분석 자료가 아직 없어요 · 2024년 이후 영상만 받아요'; return; }
+        let h = '';
+        if (a) {
+          const per = (x, v) => x && x[0] > 0 && v != null ? v / x[0] * 1000 : null;
+          const net = a[0] == null ? null : a[0] - (a[1] || 0), pNet = peerOf(it, x => { const q = d.vid[ytId(x.u)]; const v = last(x); return q && v && v[0] > 0 ? (q[0] - (q[1] || 0)) / v[0] * 1000 : null; });
+          const pAvp = peerOf(it, x => { const q = d.vid[ytId(x.u)]; return q ? q[3] : null; });
+          h += '<div class="mgrid">' + tileP('구독 증가', fmt(a[0])) + tileP('구독 감소', fmt(a[1])) + tileP('조회 1천 회당 구독 순증', per(last(it), net) == null ? '–' : per(last(it), net).toFixed(1) + '명', pNet == null ? '' : pNet.toFixed(1) + '명')
+            + tileP('공유', fmt(a[2])) + tileP('평균 시청률', a[3] == null ? '–' : a[3].toFixed(1) + '%', pAvp == null ? '' : pAvp.toFixed(1) + '%') + tileP('시청 시간', a[4] == null ? '–' : fmt(a[4] / 60) + '시간') + '</div>';
+        }
+        if (s && s.length) h += '<h3 class="sub">어디서 보러 왔나</h3>' + pbars(shareRows(s.map(p => [d.srcN[p[0]], p[1]])));
+        h += '<h3 class="sub">시청 지속 곡선</h3><div id="dRet"><p class="d">불러오는 중이에요</p></div><h3 class="sub">어떤 검색어로 왔나</h3><div id="dKw"><p class="d">불러오는 중이에요</p></div>';
+        box.innerHTML = h; box.classList.remove('h');
+        loadPart('yv', id).then(v => {
+          if (!same() || !$('dRet')) return;
+          const ret = v && v.ret || [], kw = v && v.kw || [];
+          if (ret.length) {
+            $('dRet').innerHTML = '<div class="chart" style="height:200px"><canvas id="aCanvas"></canvas></div><p class="note">가로 = 영상 진행(%) · 세로 = 그 지점을 보고 있던 비율 · 점선 = 비슷한 길이 영상 대비(0.5가 보통)</p>';
+            draw('aCanvas', { type: 'line', data: { labels: ret.map(r => Math.round(r[0] * 100) + '%'), datasets: [
+              { label: '시청 비율', data: ret.map(r => r[1]), borderColor: chColor('유튜브'), borderWidth: 2, pointRadius: 0, cubicInterpolationMode: 'monotone' },
+              { label: '비슷한 영상 대비', data: ret.map(r => r[2]), borderColor: css('--muted'), borderDash: [6, 3], borderWidth: 1.5, pointRadius: 0, yAxisID: 'y2' }] },
+              options: chartOpts({ scales: { x: { ticks: { maxRotation: 0, autoSkip: true, maxTicksLimit: 6 } }, y: { display: true, position: 'right', grid: { color: css('--line') }, border: { display: false }, ticks: { maxTicksLimit: 4, callback: v => pct0(v) } }, y2: { display: false, min: 0, max: 1 } },
+                plugins: { tooltip: { callbacks: { label: c => c.dataset.label + ' ' + (c.datasetIndex ? c.raw.toFixed(2) : pct0(c.raw)) } } } }) });
+          } else $('dRet').innerHTML = '<p class="d">시청 지속 자료가 없어요 · 최근 90일 영상만 매주 받아요</p>';
+          $('dKw').innerHTML = kw.length ? pbars(kw.slice(0, 8).map(k => [k[0], k[1], k[1] / kw[0][1], '조회수 ' + fmtK(k[1])])).replace(/<b class="num">\d+%<\/b>/g, '') : '<p class="d">유튜브 검색으로 들어온 기록이 없어요</p>';
+        });
+      });
+      return;
+    }
+    loadPart('ig').then(d => {
+      if (!same()) return;
+      const a = d && d.post[igKey(it.u)];
+      if (!a) { box.innerHTML = '이 게시물은 추가 지표가 아직 없어요'; return; }
+      const v = last(it) || [], reach = it.r;
+      const k1 = (n, b) => n == null || !(b > 0) ? null : n / b * 1000;
+      const pk = i => peerOf(it, x => { const q = d.post[igKey(x.u)]; return q && q[i] != null && x.r > 0 ? q[i] / x.r * 1000 : null; });
+      const pw = peerOf(it, x => { const q = d.post[igKey(x.u)]; return q ? q[4] : null; });
+      const f1 = x => x == null ? '' : x.toFixed(1) + '명';
+      let h = '<div class="mgrid">';
+      if (a[0] != null) h += tileP('팔로우 유입', fmt(a[0]) + '명') + tileP('도달 1천 명당 팔로우', f1(k1(a[0], reach)) || '–', f1(pk(0)));
+      if (a[1] != null) h += tileP('프로필 방문', fmt(a[1]));
+      if (a[2] != null) h += tileP('프로필 활동', fmt(a[2])) + tileP('도달 1천 명당 프로필 활동', f1(k1(a[2], reach)) || '–', f1(pk(2)));
+      if (a[3] != null) h += tileP('상호작용', fmt(a[3]));
+      if (a[4] != null) h += tileP('릴스 평균 시청', a[4].toFixed(1) + '초', pw == null ? '' : pw.toFixed(1) + '초');
+      if (a[5] != null) h += tileP('릴스 총 시청', fmt(a[5] / 3600) + '시간');
+      h += '</div><p class="note">평소 = 같은 채널·형식 최근 1년 게시물 중간값 · 팔로우 유입은 피드 게시물만, 릴스 시청은 릴스만 메타가 줘요</p>';
+      box.innerHTML = h; box.classList.remove('h');
+    });
+  }
   // ───────── 상세 ─────────
   let lastFocus = null;
   // 성과 진단: 이 콘텐츠의 특징(주제·시기·제작·시리즈·제목 조건·첫날 속도)마다 같은 특징의 과거 게시물이 보통 평소의 몇 배였는지 견줘
@@ -2693,6 +2883,7 @@
       '<div class="gap"></div><section class="dsec sig" id="dSig"><h3>성과 진단</h3><div class="h">' + (OWN.includes(it.c) ? '우리 과거 게시물·타 대학 게시물과 견준 결과' : '이 학교 과거 게시물과 견준 결과') + '</div>' +
         signals(it).map(s => '<div class="sg"><span class="k ' + s[0] + '">' + s[1] + '</span><div><b>' + esc(s[2]) + '</b>' + (s[3] ? '<span>' + esc(s[3]) + '</span>' : '') + (s[4] || '') + '</div></div>').join('') +
         '<p class="note">우리 자료는 최근 2년 게시물 중간값이에요 · 타 대학 제목·소재는 2026년 10월 대학·입시 채널 15곳 유튜브 조사 · 함께 나타난 특징이라 원인이라고 단정하진 않아요</p></section>' +
+      deepDetailHtml(it) +
       '<div class="gap"></div><section class="dsec" id="dMet"><h3 style="margin:0 0 6px;font-size:var(--fs-xl);font-weight:700">지표</h3><div class="mgrid">' + metrics.map(m2 => '<div><span>' + esc(m2[0]) + '</span><b>' + esc(m2[1]) + '</b></div>').join('') + '</div>' +
         '<h3 style="margin:22px 0 10px;font-size:var(--fs-lg);font-weight:700">캡션</h3><p class="caption">' + esc(String(it.n || '').trim()) + '</p></section>' +
       '<div class="gap"></div><section class="dsec" id="dSim"><h3 style="margin:0 0 6px;font-size:var(--fs-xl);font-weight:700">같은 분류의 다른 콘텐츠</h3><ol class="rank" id="dSimList">' + rankRows(sim) + '</ol></section>' +
@@ -2705,7 +2896,7 @@
       el.scrollTo({ top: $(b.dataset.s).offsetTop - 120, behavior: 'smooth' });
     }));
     wireRank($('dSimList'), sim);
-    drawDetailChart(it);
+    drawDetailChart(it); wireDeepDetail(it);
   }
   // ═════════ 핵심 숫자 상세 — 홈 칸을 누르면 그래프 · 분석 · 데이터 표 ═════════
   const lastMonths = n => { const out = []; for (let k = n - 1; k >= 0; k--) { const d = new Date(D.updated + 'T00:00:00Z'); d.setUTCDate(1); d.setUTCMonth(d.getUTCMonth() - k); out.push(d.toISOString().slice(0, 7)); } return out; };
@@ -2845,7 +3036,7 @@
   }
   function closeDetail() {
     $('detail').hidden = true; document.body.style.overflow = '';
-    ['dCanvas', 'kCanvas'].forEach(id => { if (charts[id]) { charts[id].destroy(); delete charts[id]; } });
+    ['dCanvas', 'kCanvas', 'aCanvas'].forEach(id => { if (charts[id]) { charts[id].destroy(); delete charts[id]; } });
     if (lastFocus && lastFocus.focus) lastFocus.focus();
   }
   document.addEventListener('keydown', e => { if (e.key === 'Escape' && !$('detail').hidden) closeDetail(); });

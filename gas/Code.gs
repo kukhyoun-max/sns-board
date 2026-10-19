@@ -1204,6 +1204,19 @@ function doGet(e) {
   let who = null;
   try { who = accessCheck_(key); } catch (err) { who = null; }
   if (!who) json = JSON.stringify({ error: 'auth', msg: key ? '접속 키가 맞지 않거나 막혔어요' : '접속 키가 필요해요' });
+  // 분석 데이터(part): 키가 맞을 때만, part마다 따로 캐시
+  const part = String((e && e.parameter && e.parameter.part) || '');
+  if (!json && part) {
+    if (!PART_TABS[part]) json = JSON.stringify({ error: 'part' });
+    else {
+      const pre = part === 'yv' ? 'pyv:' + String(e.parameter.v || '').replace(/[^\w-]/g, '').slice(0, 20) : 'part:' + part;
+      try { json = cacheGet_(pre); } catch (err) { json = null; }
+      if (!json) {
+        try { json = JSON.stringify(buildPart_(part, e)); if (!isRecording_()) { try { cachePut_(json, pre); } catch (err) {} } }
+        catch (err) { json = JSON.stringify({ error: '분석 데이터를 만들지 못했어요: ' + String(err && err.message || err) }); }
+      }
+    }
+  }
   if (!json) { try { json = cacheGet_(); } catch (err) { json = null; } }
   if (!json) {
     try {
@@ -1213,7 +1226,7 @@ function doGet(e) {
       json = JSON.stringify({ error: '데이터를 만들지 못했어요: ' + String(err && err.message || err) });
     }
   }
-  if (cb === JSONP_CB) {
+  if (cb === JSONP_CB || PART_CB.test(cb)) {
     return ContentService.createTextOutput(cb + '(' + json + ');').setMimeType(ContentService.MimeType.JAVASCRIPT);
   }
   return ContentService.createTextOutput(json).setMimeType(ContentService.MimeType.JSON);
@@ -1224,24 +1237,26 @@ function isRecording_() {
   const t = Number(PropertiesService.getScriptProperties().getProperty(PROP_RUNNING) || 0);
   return t > 0 && Date.now() - t < 10 * 60 * 1000; // 10분 넘은 표시는 실패한 실행의 흔적으로 보고 무시
 }
-function cachePut_(json) {
+function cachePut_(json, pre) {
+  pre = pre || CACHE_PREFIX;
   const gz = Utilities.gzip(Utilities.newBlob('', 'application/json').setDataFromString(json, 'UTF-8'));
   const b64 = Utilities.base64Encode(gz.getBytes());
   const id = String(Date.now());
   const parts = {};
   let n = 0;
-  for (let i = 0; i < b64.length; i += CACHE_CHUNK) parts[CACHE_PREFIX + ':' + id + ':' + (n++)] = b64.slice(i, i + CACHE_CHUNK);
+  for (let i = 0; i < b64.length; i += CACHE_CHUNK) parts[pre + ':' + id + ':' + (n++)] = b64.slice(i, i + CACHE_CHUNK);
   const c = CacheService.getScriptCache();
   c.putAll(parts, CACHE_TTL);
-  c.put(CACHE_PREFIX + ':meta', JSON.stringify({ id: id, n: n, len: b64.length }), CACHE_TTL); // 조각을 다 넣은 뒤 마지막에
+  c.put(pre + ':meta', JSON.stringify({ id: id, n: n, len: b64.length }), CACHE_TTL); // 조각을 다 넣은 뒤 마지막에
   return { n: n, bytes: b64.length, raw: json.length };
 }
-function cacheGet_() {
+function cacheGet_(pre) {
+  pre = pre || CACHE_PREFIX;
   const c = CacheService.getScriptCache();
-  const meta = JSON.parse(c.get(CACHE_PREFIX + ':meta') || 'null');
+  const meta = JSON.parse(c.get(pre + ':meta') || 'null');
   if (!meta || !meta.n) return null;
   const keys = [];
-  for (let i = 0; i < meta.n; i++) keys.push(CACHE_PREFIX + ':' + meta.id + ':' + i);
+  for (let i = 0; i < meta.n; i++) keys.push(pre + ':' + meta.id + ':' + i);
   const got = c.getAll(keys);
   let b64 = '';
   for (const k of keys) { if (got[k] == null) return null; b64 += got[k]; } // 조각 하나라도 빠지면 캐시 없음으로
@@ -1249,7 +1264,7 @@ function cacheGet_() {
   return Utilities.ungzip(Utilities.newBlob(Utilities.base64Decode(b64), 'application/x-gzip')).getDataAsString('UTF-8');
 }
 function cacheClear_() {
-  CacheService.getScriptCache().remove(CACHE_PREFIX + ':meta');
+  CacheService.getScriptCache().removeAll([CACHE_PREFIX + ':meta', 'part:yt:meta', 'part:ig:meta']); // 영상 하나(pyv)는 6시간 뒤 저절로 지워짐
 }
 function dropCache_() { try { cacheClear_(); } catch (e) {} }
 function cacheBuild_() {
@@ -4215,4 +4230,79 @@ function briefHtml_(posts, stories, recent, notes, today, stamp) {
   h += '<div style="text-align:center;margin:18px 0 6px"><a href="' + BOARD_URL + '" style="display:inline-block;background:' + BR.up + ';color:#fff;text-decoration:none;padding:12px 22px;border-radius:12px;font-weight:800;font-size:14px">성과 보드에서 자세히 보기</a></div>';
   h += '<div style="font-size:11px;color:' + BR.mu + ';text-align:center;line-height:1.6">반응률 = 인스타는 좋아요·댓글·공유·저장 ÷ 도달, 유튜브·hong은 좋아요·댓글 ÷ 조회수<br>평소 = 최근 1년 같은 형식 게시물을 그 값 순으로 줄 세웠을 때 가운데 값 · 광고 제외</div>';
   return wrap(h);
+}
+
+// ───────── 보드 분석 데이터(part, 2026-10-20): API로 쌓은 탭을 보드가 필요할 때 따로 받음 ─────────
+// doGet ?part=yt(유튜브 채널 일별·영상별 분석·유입 경로·시청자·채널 검색어) | ig(인스타 계정 일별·게시물 추가 지표·팔로워 분포·스토리)
+//       | yv&v=<영상 ID>(그 영상의 시청 지속 곡선·검색어). 기본 응답(약 1MB)에 넣지 않아 첫 화면이 느려지지 않음
+//  · JSONP 콜백은 __sbData 또는 __sbP + 숫자(동시에 여러 개 부를 수 있게). 캐시는 part마다 따로, 매일 기록 때 비움
+const PART_CB = /^__sbP\d{1,6}$/;
+const PART_TABS = { yt: 1, ig: 1, yv: 1 };
+function buildPart_(part, e) {
+  const ss = SpreadsheetApp.openById(SS_ID);
+  if (part === 'yt') return partYt_(ss);
+  if (part === 'ig') return partIg_(ss);
+  if (part === 'yv') return partYv_(ss, String((e && e.parameter && e.parameter.v) || '').replace(/[^\w-]/g, '').slice(0, 20));
+  return { error: 'part' };
+}
+function partRows_(ss, name, cols) {
+  const sh = ss.getSheetByName(name);
+  if (!sh || sh.getLastRow() < 2) return [];
+  return sh.getRange(2, 1, sh.getLastRow() - 1, cols).getValues();
+}
+const partN_ = v => v === '' || v == null || isNaN(Number(v)) ? null : Number(v);
+const partD_ = v => v instanceof Date ? Utilities.formatDate(v, TZ, 'yyyy-MM-dd') : String(v || '').slice(0, 10);
+function partYt_(ss) {
+  // 채널 일별 [날짜, 조회, 시청 시간(분), 평균 시청(초), 구독 증가, 구독 감소, 좋아요, 댓글, 공유]
+  const day = partRows_(ss, '유튜브 채널 일별', 9).map(r => [partD_(r[0])].concat(r.slice(1, 9).map(partN_))).filter(r => /^\d{4}-\d{2}-\d{2}$/.test(r[0]))
+    .sort((a, b) => a[0] < b[0] ? -1 : a[0] > b[0] ? 1 : 0);
+  // 영상별 {영상 ID: [구독 증가, 구독 감소, 공유, 평균 시청률(%), 시청 시간(분)]}
+  const vid = {};
+  partRows_(ss, '유튜브 영상 분석', 6).forEach(r => { const id = String(r[0]).trim(); if (id) vid[id] = r.slice(1, 6).map(partN_); });
+  // 영상별 유입 경로 {영상 ID: [[경로 번호, 조회, 시청 시간(분)], …]}, 경로 이름은 srcN
+  const srcN = [], si = {}, src = {};
+  partRows_(ss, '유튜브 유입 경로', 6).forEach(r => {
+    const id = String(r[0]).trim(), s = String(r[3]).trim(), v = partN_(r[4]);
+    if (!id || !s || !v) return;
+    if (!(s in si)) { si[s] = srcN.length; srcN.push(s); }
+    (src[id] = src[id] || []).push([si[s], v, partN_(r[5])]);
+  });
+  // 시청자: 최근 28일 + 최근 24달 [기간, 구분, 항목, 값]
+  const cut = shiftDate_(Utilities.formatDate(new Date(), TZ, 'yyyy-MM-dd'), -740).slice(0, 7);
+  const aud = partRows_(ss, '유튜브 시청자', 4).map(r => [r[0] instanceof Date ? Utilities.formatDate(r[0], TZ, 'yyyy-MM') : String(r[0]).trim(), String(r[1]).trim(), String(r[2]).trim(), partN_(r[3])])
+    .filter(r => r[3] != null && (r[0] === '최근 28일' || r[0] >= cut));
+  // 채널 전체 검색어(최근 28일)
+  const kw = partRows_(ss, '유튜브 검색어', 4).filter(r => String(r[0]).indexOf('(채널 전체') === 0).map(r => [String(r[2]), partN_(r[3])]).filter(r => r[1]).sort((a, b) => b[1] - a[1]).slice(0, 30);
+  return { day: day, vid: vid, srcN: srcN, src: src, aud: aud, kw: kw };
+}
+function partIg_(ss) {
+  // 계정 일별 [채널, 날짜, 팔로워, 새 팔로워, 도달, 조회, 프로필 방문, 링크 클릭, 참여 계정]
+  const day = partRows_(ss, IGX_DAY_SHEET, IGX_DAY_HEAD.length).map(r => [String(r[0]).trim(), partD_(r[1]), partN_(r[2]), partN_(r[5]), partN_(r[6]), partN_(r[7]), partN_(r[8]), partN_(r[9]), partN_(r[10])])
+    .filter(r => r[0] && /^\d{4}-\d{2}-\d{2}$/.test(r[1])).sort((a, b) => a[1] < b[1] ? -1 : a[1] > b[1] ? 1 : 0);
+  // 게시물 추가 지표 {게시물 주소: [팔로우 유입, 프로필 방문, 프로필 활동, 상호작용, 릴스 평균 시청(초), 릴스 총 시청(초)]}
+  const post = {};
+  partRows_(ss, '인스타 게시물 추가', 11).forEach(r => { const u = String(r[4]).split('?')[0].replace(/\/+$/, ''); if (u) post[u] = r.slice(5, 11).map(partN_); });
+  // 팔로워 분포: 채널마다 가장 최근 기록일만 [채널, 구분, 항목, 팔로워 수]
+  const dm = partRows_(ss, IGX_DEMO_SHEET, 5).map(r => [partD_(r[0]), String(r[1]).trim(), String(r[2]).trim(), String(r[3]).trim(), partN_(r[4])]);
+  const lastD = {}; dm.forEach(r => { if (!lastD[r[1]] || r[0] > lastD[r[1]]) lastD[r[1]] = r[0]; });
+  const demo = dm.filter(r => r[0] === lastD[r[1]] && r[4] != null).map(r => r.slice(1));
+  // 스토리 [채널, 게시 시각, 유형, 조회, 도달, 답장, 공유, 상호작용, 팔로우, 프로필 방문, 탭 다음, 탭 이전, 나가기, 다음 스토리]
+  const story = partRows_(ss, IGX_STORY_SHEET, 16).map(r => [String(r[0]).trim(), r[2] instanceof Date ? Utilities.formatDate(r[2], TZ, 'yyyy-MM-dd HH:mm') : String(r[2]), String(r[3])].concat(r.slice(5, 16).map(partN_)))
+    .filter(r => r[0]).sort((a, b) => a[1] < b[1] ? 1 : -1);
+  return { day: day, post: post, demo: demo, demoD: lastD, story: story };
+}
+// 영상 하나: 시청 지속 곡선 [[구간(%), 시청 비율, 비슷한 영상 대비]]·검색어 [[검색어, 조회]] — 줄이 많아 그 영상 줄만 찾아 읽음
+function partYv_(ss, id) {
+  if (!id) return { error: 'v' };
+  const pick = (name, cols) => {
+    const sh = ss.getSheetByName(name);
+    if (!sh || sh.getLastRow() < 2) return [];
+    const hit = sh.getRange(2, 1, sh.getLastRow() - 1, 1).createTextFinder(id).matchEntireCell(true).findAll().map(r => r.getRow());
+    if (!hit.length) return [];
+    const a = Math.min.apply(null, hit), b = Math.max.apply(null, hit);
+    return sh.getRange(a, 1, b - a + 1, cols).getValues().filter(r => String(r[0]) === id);
+  };
+  const ret = pick('유튜브 시청 지속률', 5).map(r => [partN_(r[2]), partN_(r[3]), partN_(r[4])]).filter(r => r[0] != null && r[1] != null).sort((x, y) => x[0] - y[0]);
+  const kw = pick('유튜브 검색어', 4).map(r => [String(r[2]), partN_(r[3])]).filter(r => r[1]).sort((x, y) => y[1] - x[1]).slice(0, 15);
+  return { v: id, ret: ret, kw: kw };
 }
