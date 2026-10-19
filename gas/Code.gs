@@ -4065,7 +4065,9 @@ function briefHtml_(posts, stories, recent, notes, today, stamp) {
     h += card('<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse">' + g + '</table>');
   }
   // 게시물별 카드
-  if (posts.length) h += h2('게시물별 자세히', '올린 순서');
+  // 반응 좋은 순: 평소 대비 배수가 큰 것부터, 비교 기준이 없는 게시물은 뒤에 조회 순
+  posts = posts.slice().sort((a, b) => (b.cmp ? 1 : 0) - (a.cmp ? 1 : 0) || (a.cmp && b.cmp ? b.cmp.r - a.cmp.r : 0) || (Number(b.views) || 0) - (Number(a.views) || 0));
+  if (posts.length) h += h2('게시물별 자세히', '반응 좋은 순 · 평소 대비');
   const stat = (k, v) => '<td width="33%" style="padding:4px" valign="top"><div style="background:' + BR.soft + ';border-radius:10px;padding:8px 10px"><div style="font-size:11px;color:' + BR.mu + '">' + k + '</div><div style="font-size:16px;font-weight:800">' + v + '</div></div></td>';
   posts.forEach(x => {
     const c = BR_CH[x.ch] || [x.ch, BR.sub];
