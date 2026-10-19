@@ -2294,13 +2294,13 @@ function metaGet_(conf, path, params) {
   const out = [];
   for (let page = 0; url && page < 200; page++) {
     let res, j;
-    // 메타 일시 오류(code 1·2, is_transient, HTTP 5xx)는 잠깐 쉬고 최대 3번 더 시도
+    // 메타 일시 오류(code 1·2, is_transient, HTTP 5xx)는 잠깐 쉬고 한 번 더 시도
     for (let t = 0; ; t++) {
       res = UrlFetchApp.fetch(url, { muteHttpExceptions: true });
       try { j = JSON.parse(res.getContentText()); } catch (e) { j = null; }
       const temp = !j ? res.getResponseCode() >= 500 : !!(j.error && (j.error.is_transient || j.error.code === 1 || j.error.code === 2));
-      if (!temp || t >= 3) break;
-      Utilities.sleep(3000 * (t + 1));
+      if (!temp || t >= 1) break; // 한 번만 다시 — 계속 실패하면 metaDailySplit_가 기간을 나눔
+      Utilities.sleep(2000);
     }
     if (!j) throw new Error('메타 응답을 읽지 못함(HTTP ' + res.getResponseCode() + ')');
     if (j.error) throw new Error((j.error.code === 190 ? '토큰 만료·무효 — ' : '') + 'code ' + j.error.code + ': ' + String(j.error.message || '').replace(/access_token=[^&\s]+/g, 'access_token=…'));
@@ -2322,6 +2322,17 @@ function metaDailyRows_(conf, from, to) {
   }).filter(r => Number(r.spend) || Number(r.impressions))
     .map(r => [r.date_start, String(r.campaign_id), r.campaign_name, Number(r.spend) || 0, Number(r.impressions) || 0,
       Number(r.inline_link_clicks) || 0, metaAct_(r, 'landing_page_view'), metaAct_(r, 'post_engagement'), metaAct_(r, 'video_view')]);
+}
+// 기간이 길어 메타가 일시 오류(code 1·2)로 포기하면 기간을 반으로 나눠 다시 받음. 7일 미만도 실패하면 그 구간은 건너뛰고 conf.warn에 남김
+function metaDailySplit_(conf, from, to) {
+  try { return metaDailyRows_(conf, from, to); }
+  catch (e) {
+    if (!/code [12]\b/.test(e.message)) throw e;
+    const days = Math.round((new Date(to + 'T00:00:00Z') - new Date(from + 'T00:00:00Z')) / 864e5);
+    if (days < 7) { conf.warn.push('일시 오류로 건너뜀 ' + from + '~' + to); return []; }
+    const mid = shiftDate_(from, Math.floor(days / 2));
+    return metaDailySplit_(conf, from, mid).concat(metaDailySplit_(conf, shiftDate_(mid, 1), to));
+  }
 }
 // 「메타 일별」에서 from 이후 행만 새 값으로 바꿔 씀(그 이전 행은 그대로)
 function metaMergeDaily_(ss, from, rows) {
@@ -2373,7 +2384,7 @@ function metaStep_(ss, today, logs) {
   const ds = ss.getSheetByName(META_DAILY_SHEET);
   if (!ds || ds.getLastRow() < 2) logs.push([new Date(), '메타 광고 API', 0, '경고: 「' + META_DAILY_SHEET + '」 탭이 비어 있음 — 편집기에서 backfillMeta를 한 번 실행하세요']);
   const to = shiftDate_(today, -1), from = shiftDate_(today, -META_DAYS);
-  const rows = metaDailyRows_(conf, from, to);
+  const rows = metaDailySplit_(conf, from, to);
   const n = metaMergeDaily_(ss, from, rows);
   const r = metaRefreshInfo_(ss, conf);
   logs.push([new Date(), '메타 광고 API', rows.length, '정상 — ' + from + '~' + to + ' 일별 ' + rows.length + '행(탭 전체 ' + n + '행) · 캠페인 ' + r.camps + '개 · 소재 ' + r.ads + '개' + (conf.warn.length ? ' · 일부 계정 실패: ' + conf.warn.join(' / ').slice(0, 200) : '')]);
@@ -2393,7 +2404,7 @@ function backfillMeta() {
     const rows = [], skipped = [];
     for (let a = start; a <= end;) {
       const next = ym(Number(a.slice(0, 4)), Number(a.slice(5, 7))), b = shiftDate_(next, -1) < end ? shiftDate_(next, -1) : end;
-      try { Array.prototype.push.apply(rows, metaDailyRows_(conf, a, b)); }
+      try { Array.prototype.push.apply(rows, metaDailySplit_(conf, a, b)); }
       catch (e) { if (rows.length || !/code 100\b/.test(e.message)) throw e; skipped.push(a.slice(0, 7)); start = next; }
       a = next;
     }
