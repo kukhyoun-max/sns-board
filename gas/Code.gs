@@ -2317,7 +2317,9 @@ function metaAct_(r, type) {
 // 보고서 작업을 맡기고(POST) 끝날 때까지 기다린 뒤 결과를 쪽별로 받음
 function metaAsync_(conf, act, params) {
   const err = j => new Error((j.error.code === 190 ? '토큰 만료·무효 — ' : '') + 'code ' + j.error.code + ': ' + String(j.error.message || '').replace(/access_token=[^&\s]+/g, 'access_token=…'));
-  const res = UrlFetchApp.fetch(META_API + act + '/insights', { method: 'post', muteHttpExceptions: true, payload: Object.assign({}, params, { access_token: conf.token }) });
+  // 값은 본문이 아니라 주소(쿼리)에 붙임 — 본문(form)으로 보내면 메타가 "name_placeholder must be an integer"(code 100)로 거절
+  const q = Object.keys(params).map(k => k + '=' + encodeURIComponent(params[k])).join('&');
+  const res = UrlFetchApp.fetch(META_API + act + '/insights?' + q + '&access_token=' + encodeURIComponent(conf.token), { method: 'post', muteHttpExceptions: true });
   let j; try { j = JSON.parse(res.getContentText()); } catch (e) { throw new Error('메타 응답을 읽지 못함(HTTP ' + res.getResponseCode() + ')'); }
   if (j.error) throw err(j);
   const id = j.report_run_id;
@@ -2444,7 +2446,8 @@ function backfillMeta() {
       let rows;
       try { rows = metaDailySplit_(conf, a, b); }
       catch (e) {
-        if (s.got || !/code 100\b/.test(e.message)) { p.setProperty('META_BF', JSON.stringify(s)); throw e; } // 다시 실행하면 이 달부터 이어서
+        // 보관 기간(37개월) 밖이라는 code 100만 건너뜀 — 다른 code 100(잘못된 요청)까지 건너뛰면 37개월이 조용히 비어 버림
+        if (s.got || !/code 100\b/.test(e.message) || !/37|month|start date|time.?range|date range/i.test(e.message)) { p.setProperty('META_BF', JSON.stringify(s)); throw e; } // 다시 실행하면 이 달부터 이어서
         s.skipped.push(a.slice(0, 7)); s.start = next; s.a = next; continue;
       }
       s.n = metaMergeDaily_(ss, a, rows, b);
