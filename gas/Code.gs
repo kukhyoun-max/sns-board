@@ -3946,14 +3946,21 @@ function briefNightBase_(ss, today) {
   Object.keys(by).forEach(k => { if (by[k].length >= BRIEF_MIN) out[k] = { med: briefMed_(by[k]), n: by[k].length }; });
   return out;
 }
-// 보드 데이터: 같은 채널·형식, 최근 1년·게시 14일 이상 게시물의 마지막 조회 중간값(광고 제외)
+// 보드 데이터: 같은 채널·형식, 최근 1년·게시 14일 이상 게시물(광고 제외)의 최종 조회 중간값 + 저장률·공유율(인스타, 도달 대비)·좋아요율(조회 대비) 중간값
+// hong은 예전 공개 원본의 「릴스/영상」과 API의 「릴스」를 같은 형식으로 봄
 function briefUsual_(D, ch, type, today) {
   if (!D || !D.items) return null;
   const from = shiftDate_(today, -365), to = shiftDate_(today, -14);
-  const v = D.items.filter(it => it.c === ch && it.t === type && !it.ad && it.d >= from && it.d <= to).map(briefLast_).filter(x => x != null);
-  return v.length >= BRIEF_MIN ? { med: briefMed_(v), n: v.length } : null;
+  const same = t => t === type || (ch === 'hong._.video' && /릴스/.test(t) && /릴스/.test(type));
+  const its = D.items.filter(it => it.c === ch && same(it.t) && !it.ad && it.d >= from && it.d <= to);
+  const last = its.map(it => { const h = briefLastRow_(it); return h ? { it: it, h: h } : null; }).filter(Boolean);
+  if (last.length < BRIEF_MIN) return null;
+  const rate = (f, g) => { const v = last.map(x => { const a = f(x), b = g(x); return a != null && b > 0 ? a / b : null; }).filter(x => x != null); return v.length >= BRIEF_MIN ? briefMed_(v) : null; };
+  return { med: briefMed_(last.map(x => x.h[0])), n: last.length,
+    like: rate(x => x.h[1], x => x.h[0]), save: rate(x => x.h[4], x => x.it.r), share: rate(x => x.h[3], x => x.it.r) };
 }
-function briefLast_(it) { for (let i = (it.h || []).length - 1; i >= 0; i--) if (it.h[i] && it.h[i][0] != null) return it.h[i][0]; return null; }
+function briefLastRow_(it) { for (let i = (it.h || []).length - 1; i >= 0; i--) if (it.h[i] && it.h[i][0] != null) return it.h[i]; return null; }
+function briefLast_(it) { const h = briefLastRow_(it); return h ? h[0] : null; }
 // 오늘 올린 게 없을 때: 최근 3일 게시물(보드 데이터 = 오늘 아침 기록 값)
 function briefRecent_(D, today) {
   if (!D || !D.items) return [];
@@ -3965,53 +3972,139 @@ function briefRecent_(D, today) {
 function briefMed_(a) { const s = a.slice().sort((x, y) => x - y), m = Math.floor(s.length / 2); return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2; }
 function briefDay_(d) { const t = new Date(d + 'T12:00:00+09:00'); return Number(d.slice(5, 7)) + '/' + Number(d.slice(8, 10)) + '(' + '일월화수목금토'[Number(Utilities.formatDate(t, TZ, 'u')) % 7] + ')'; }
 function briefNum_(v) { if (v === '' || v == null) return '–'; v = Number(v); return v >= 10000 ? (Math.round(v / 1000) / 10) + '만' : Math.round(v).toLocaleString('ko-KR'); }
+function briefPct_(v) { return v == null ? '–' : (Math.round(v * 1000) / 10) + '%'; }
 function briefEsc_(s) { return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); }
 // 캡션 첫 줄(원문 그대로, 길면 말줄임)
-function briefTitle_(s) { const t = String(s || '').split('\n').map(x => x.trim()).filter(Boolean)[0] || '(캡션 없음)'; return t.length > 60 ? t.slice(0, 60) + '…' : t; }
+function briefTitle_(s, n) { n = n || 60; const t = String(s || '').split('\n').map(x => x.trim()).filter(Boolean)[0] || '(캡션 없음)'; return t.length > n ? t.slice(0, n) + '…' : t; }
 function briefAgo_(h) { const m = Math.round(h * 60); return m < 60 ? m + '분 지남' : Math.floor(m / 60) + '시간 ' + (m % 60) + '분 지남'; }
-// 비교 한 줄: 「올린 날 밤 기준 평소 대비 ▲ 1.8배」 / 「평소 최종 조회 3.2만의 34%」
-function briefCmp_(x) {
-  if (x.views === '' || x.views == null) return '';
-  if (x.night && x.night.med > 0) {
-    const r = x.views / x.night.med, arrow = r >= 1 ? '▲ ' : '▼ ';
-    const t = r >= 2 || r <= 0.5 ? arrow + (Math.round(r * 10) / 10) + '배' : arrow + Math.round(Math.abs(r - 1) * 100) + '%';
-    return '<div style="color:' + (r >= 1 ? '#1b64da' : '#f06f00') + ';font-weight:700">올린 날 밤 기준 평소 대비 ' + t + '</div><div style="color:#8b95a1;font-size:12px">평소 ' + briefNum_(x.night.med) + ' · 같은 형식 ' + x.night.n + '개</div>';
-  }
-  if (x.usual && x.usual.med > 0) {
-    return '<div style="color:#4e5968">평소 최종 조회 ' + briefNum_(x.usual.med) + '의 <b>' + Math.round(x.views / x.usual.med * 100) + '%</b></div><div style="color:#8b95a1;font-size:12px">같은 형식 최근 1년 ' + x.usual.n + '개 · 올린 날 밤 기록은 쌓는 중</div>';
-  }
-  return '<div style="color:#8b95a1;font-size:12px">비교할 같은 형식 게시물이 적어요</div>';
+
+// ─ 메일 디자인: 보드와 같은 색(상승 파랑·하락 주황·채널색), 막대는 표(td 폭)로 그림 — 메일 앱이 SVG·그라데이션을 잘 못 그려서
+const BR = { fg: '#191f28', sub: '#4e5968', mu: '#8b95a1', line: '#e5e8eb', soft: '#f2f4f6', up: '#0078ad', upSoft: '#e6f2f8', down: '#f26b2a', downTx: '#c2410c', downSoft: '#fdeee6', navy: '#005494' };
+const BR_GROW = '#7fb3d5';                      // 최종값 비교에서 아직 못 미침 = 쌓이는 중
+const briefCol_ = c => c.kind === '평소 최종 조회' && c.r < 1 ? BR_GROW : null;
+const BR_CH = { '인스타그램': ['인스타', '#d6336c'], '유튜브': ['유튜브', '#1864ab'], 'hong._.video': ['hong', '#0ca678'] };
+// 이 게시물이 평소의 몇 배인지(비교 기준이 없으면 null). 올린 날 밤 기록이 쌓였으면 그것, 아니면 평소 최종 조회
+function briefRatio_(x) {
+  if (x.views === '' || x.views == null) return null;
+  if (x.night && x.night.med > 0) return { r: x.views / x.night.med, base: x.night.med, n: x.night.n, kind: '올린 날 밤 기준 평소' };
+  if (x.usual && x.usual.med > 0) return { r: x.views / x.usual.med, base: x.usual.med, n: x.usual.n, kind: '평소 최종 조회' };
+  return null;
+}
+function briefRatioText_(r) { return r >= 2 ? (Math.round(r * 10) / 10) + '배' : Math.round(r * 100) + '%'; }
+// 막대: 왼쪽 절반 = 0~평소, 오른쪽 절반 = 평소~2배. 가운데 진한 세로선이 평소
+function briefBar_(r, h, col) {
+  h = h || 10;
+  const c = col || (r >= 1 ? BR.up : BR.down), a = Math.min(r, 1), b = Math.max(0, Math.min(r, 2) - 1);
+  const half = (f, col) => '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse"><tr>'
+    + (f > 0.005 ? '<td width="' + Math.round(f * 100) + '%" style="background:' + col + ';height:' + h + 'px;font-size:0;line-height:0">&nbsp;</td>' : '')
+    + (f < 0.995 ? '<td style="background:' + BR.soft + ';height:' + h + 'px;font-size:0;line-height:0">&nbsp;</td>' : '') + '</tr></table>';
+  return '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse"><tr>'
+    + '<td width="49%" style="padding:0">' + half(a, c) + '</td>'
+    + '<td style="padding:0 1px;font-size:0;line-height:0"><div style="width:2px;height:' + (h + 8) + 'px;background:' + BR.fg + ';border-radius:1px">&nbsp;</div></td>'
+    + '<td width="49%" style="padding:0">' + half(b, c) + '</td></tr></table>';
+}
+function briefBadge_(c) {
+  const r = c.r, fin = c.kind === '평소 최종 조회';
+  if (fin && r < 1) return '<span style="display:inline-block;padding:2px 10px;border-radius:999px;font-size:13px;font-weight:700;background:' + BR.soft + ';color:' + BR.sub + '">평소 최종의 ' + briefRatioText_(r) + '</span>';
+  return '<span style="display:inline-block;padding:2px 10px;border-radius:999px;font-size:13px;font-weight:700;background:' + (r >= 1 ? BR.upSoft : BR.downSoft) + ';color:' + (r >= 1 ? BR.up : BR.downTx) + '">'
+    + (r >= 1 ? '▲ ' : '▼ ') + (fin ? '평소 최종의 ' : '평소의 ') + briefRatioText_(r) + '</span>';
+}
+// 비율 한 줄: 「공유율 1.2% ▲ 평소 0.9%」 + 작은 막대
+function briefRateRow_(name, v, base) {
+  if (v == null) return '';
+  const has = base != null && base > 0, r = has ? v / base : null;
+  const cmp = has ? '<span style="color:' + (r >= 1 ? BR.up : BR.downTx) + ';font-weight:700">' + (r >= 1 ? '▲' : '▼') + '</span> <span style="color:' + BR.mu + '">평소 ' + briefPct_(base) + '</span>' : '<span style="color:' + BR.mu + '">평소 값 없음</span>';
+  return '<tr><td style="padding:6px 0 2px;font-size:13px;color:' + BR.sub + '">' + name + '</td><td style="padding:6px 0 2px;font-size:13px;text-align:right;white-space:nowrap">'
+    + cmp + ' &nbsp;<b style="color:' + BR.fg + '">' + briefPct_(v) + '</b></td></tr>'
+    + (has ? '<tr><td colspan="2" style="padding:0 0 4px">' + briefBar_(r, 6) + '</td></tr>' : '');
+}
+function briefTile_(label, value, sub) {
+  return '<td width="50%" style="padding:6px" valign="top"><div style="background:#fff;border:1px solid ' + BR.line + ';border-radius:14px;padding:14px 16px">'
+    + '<div style="font-size:12px;color:' + BR.mu + ';white-space:nowrap;overflow:hidden">' + label + '</div>'
+    + '<div style="font-size:24px;font-weight:800;color:' + BR.fg + ';line-height:1.3">' + value + '</div>'
+    + '<div style="font-size:12px;color:' + BR.mu + ';white-space:nowrap;overflow:hidden">' + (sub || '&nbsp;') + '</div></div></td>';
+}
+function briefChip_(ch, type) {
+  const c = BR_CH[ch] || [ch, BR.sub];
+  return '<span style="display:inline-block;width:8px;height:8px;border-radius:4px;background:' + c[1] + ';margin-right:6px"></span><span style="font-size:12px;font-weight:700;color:' + c[1] + '">' + briefEsc_(c[0]) + '</span>'
+    + '<span style="font-size:12px;color:' + BR.mu + '"> · ' + briefEsc_(type || '게시물') + '</span>';
 }
 function briefHtml_(posts, stories, recent, notes, today, stamp) {
-  const chName = c => c === 'hong._.video' ? 'hong' : c;
-  const box = '<div style="border:1px solid #e5e8eb;border-radius:12px;padding:14px 16px;margin-bottom:12px">';
-  const row = (k, v) => '<tr><td style="padding:2px 0;color:#6b7684">' + k + '</td><td style="padding:2px 0;text-align:right;font-weight:600">' + v + '</td></tr>';
-  let h = '<div style="font-family:\'Noto Sans KR\',sans-serif;max-width:560px;margin:0 auto;color:#191f28;line-height:1.7">';
-  h += '<h2 style="margin:0 0 4px;font-size:20px">' + briefDay_(today) + ' 오늘 올린 콘텐츠 ' + posts.length + '개</h2>';
-  h += '<div style="color:#8b95a1;font-size:13px;margin-bottom:16px">' + stamp.slice(11) + ' 기준</div>';
+  const wrap = s => '<div style="background:' + BR.soft + ';padding:20px 12px"><div style="font-family:\'Noto Sans KR\',\'Apple SD Gothic Neo\',sans-serif;max-width:560px;margin:0 auto;color:' + BR.fg + ';line-height:1.7">' + s + '</div></div>';
+  const card = s => '<div style="background:#fff;border:1px solid ' + BR.line + ';border-radius:16px;padding:16px 18px;margin:0 0 12px">' + s + '</div>';
+  const h2 = (t, sub) => '<div style="margin:18px 4px 8px"><div style="font-size:16px;font-weight:800">' + t + '</div>' + (sub ? '<div style="font-size:12px;color:' + BR.mu + '">' + sub + '</div>' : '') + '</div>';
+  posts.forEach(x => { x.cmp = briefRatio_(x); });
+  const withCmp = posts.filter(x => x.cmp), good = withCmp.filter(x => x.cmp.r >= 1).length;
+  const fin = withCmp.length && withCmp.every(x => x.cmp.kind === '평소 최종 조회'); // 올린 날 밤 기록이 아직 없음
+  const avgR = withCmp.length ? withCmp.reduce((a, x) => a + Math.min(x.cmp.r, 3), 0) / withCmp.length : 0;
+  const sumV = posts.reduce((a, x) => a + (Number(x.views) || 0), 0);
+  let h = '';
+  // 머리
+  h += '<div style="background:' + BR.up + ';background:linear-gradient(135deg,' + BR.up + ',' + BR.navy + ');border-radius:18px;padding:20px 22px;color:#fff;margin-bottom:6px">'
+    + '<div style="font-size:12px;opacity:.85">SNS 밤 브리핑 · ' + stamp.slice(11) + ' 기준</div>'
+    + '<div style="font-size:22px;font-weight:800;line-height:1.4">' + briefDay_(today) + ' 오늘 올린 콘텐츠 ' + posts.length + '개</div>'
+    + (withCmp.length ? '<div style="font-size:14px;opacity:.95">' + (fin ? '벌써 평소 최종 조회를 넘은 게시물 ' + good + '개 · 평균 평소 최종의 ' + briefRatioText_(avgR) : '평소보다 잘 되는 중 ' + good + '개 · 아래로 ' + (withCmp.length - good) + '개') + '</div>' : '') + '</div>';
+  // 숫자 타일
+  const best = withCmp.slice().sort((a, b) => b.cmp.r - a.cmp.r)[0];
+  const sv = stories.reduce((a, s) => a + s.views, 0);
+  h += '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;margin:0 -6px"><tr>'
+    + briefTile_('오늘 게시물 조회 합계', briefNum_(sumV), '게시물 ' + posts.length + '개')
+    + briefTile_(fin ? '평소 최종 조회를 넘은 게시물' : '평소보다 잘 되는 게시물', withCmp.length ? good + ' / ' + withCmp.length : '–', fin ? '올린 날 밤 기준은 기록 쌓는 중' : '같은 형식, 올린 날 밤 기준') + '</tr><tr>'
+    + briefTile_('가장 잘 되는 게시물', best ? briefRatioText_(best.cmp.r) : '–', best ? briefEsc_(briefTitle_(best.title, 14)) : '')
+    + briefTile_('오늘 스토리 조회', stories.length ? briefNum_(sv) : '–', '스토리 ' + stories.length + '개') + '</tr></table>';
+  // 한눈에 보기: 게시물별 평소 대비 막대
+  if (withCmp.length) {
+    let g = '';
+    withCmp.slice().sort((a, b) => b.cmp.r - a.cmp.r).forEach(x => {
+      g += '<tr><td style="padding:8px 0 2px;font-size:13px">' + briefChip_(x.ch, x.type) + '<div style="font-size:13px;color:' + BR.fg + ';white-space:nowrap;overflow:hidden;max-width:360px">' + briefEsc_(briefTitle_(x.title, 26)) + '</div></td>'
+        + '<td style="padding:8px 0 2px;text-align:right;font-size:15px;font-weight:800;white-space:nowrap;color:' + (briefCol_(x.cmp) ? BR.sub : x.cmp.r >= 1 ? BR.up : BR.downTx) + '">' + briefRatioText_(x.cmp.r) + '</td></tr>'
+        + '<tr><td colspan="2" style="padding:0 0 6px">' + briefBar_(x.cmp.r, 10, briefCol_(x.cmp)) + '</td></tr>';
+    });
+    g += '<tr><td colspan="2"><table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="font-size:11px;color:' + BR.mu + '"><tr><td width="33%">0</td><td width="34%" style="text-align:center;color:' + BR.fg + ';font-weight:700">평소</td><td width="33%" style="text-align:right">2배</td></tr></table></td></tr>';
+    h += h2('평소 대비 한눈에 보기', fin ? '가운데 세로선 = 같은 형식의 평소 최종 조회 · 오늘 올려서 아직 쌓이는 중' : '가운데 세로선 = 올린 날 밤 기준 평소 · 오른쪽일수록 잘 됨');
+    h += card('<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse">' + g + '</table>');
+  }
+  // 게시물별 카드
+  if (posts.length) h += h2('게시물별 자세히', '올린 순서');
+  const stat = (k, v) => '<td width="33%" style="padding:4px" valign="top"><div style="background:' + BR.soft + ';border-radius:10px;padding:8px 10px"><div style="font-size:11px;color:' + BR.mu + '">' + k + '</div><div style="font-size:16px;font-weight:800">' + v + '</div></div></td>';
   posts.forEach(x => {
-    h += box + '<div style="font-size:12px;color:#0078ad;font-weight:700">' + briefEsc_(chName(x.ch)) + ' · ' + briefEsc_(x.type || '게시물') + '</div>';
-    h += '<div style="font-size:15px;font-weight:700;margin:2px 0">' + briefEsc_(briefTitle_(x.title)) + '</div>';
-    h += '<div style="color:#8b95a1;font-size:12px;margin-bottom:6px">' + Utilities.formatDate(x.at, TZ, 'HH:mm') + ' 올림 · ' + briefAgo_(x.hours) + '</div>' + briefCmp_(x);
-    h += '<table style="width:100%;border-collapse:collapse;font-size:14px;margin-top:8px">' + row('조회', briefNum_(x.views)) + row('좋아요', briefNum_(x.likes)) + row('댓글', briefNum_(x.comments));
-    if (x.ch !== '유튜브') h += row('공유', briefNum_(x.shares)) + row('저장', briefNum_(x.saves)) + row('도달', briefNum_(x.reach));
-    h += '</table>' + (x.url ? '<div style="margin-top:6px"><a href="' + briefEsc_(x.url) + '" style="color:#0078ad;font-size:13px">게시물 열기</a></div>' : '') + '</div>';
+    const c = BR_CH[x.ch] || [x.ch, BR.sub];
+    let s = '<div style="border-left:4px solid ' + c[1] + ';padding-left:12px;margin-left:-6px">' + briefChip_(x.ch, x.type)
+      + '<div style="font-size:16px;font-weight:800;margin:2px 0 0;line-height:1.5">' + briefEsc_(briefTitle_(x.title)) + '</div>'
+      + '<div style="font-size:12px;color:' + BR.mu + '">' + Utilities.formatDate(x.at, TZ, 'HH:mm') + ' 올림 · ' + briefAgo_(x.hours) + '</div></div>';
+    s += '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;margin-top:12px"><tr><td style="font-size:12px;color:' + BR.mu + '">조회</td><td rowspan="2" style="text-align:right;vertical-align:bottom">' + (x.cmp ? briefBadge_(x.cmp) : '') + '</td></tr>'
+      + '<tr><td style="font-size:28px;font-weight:800;line-height:1.2">' + briefNum_(x.views) + '</td></tr></table>';
+    if (x.cmp) {
+      s += '<div style="margin:10px 0 2px">' + briefBar_(x.cmp.r, 12, briefCol_(x.cmp)) + '</div>'
+        + '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="font-size:12px;color:' + BR.mu + '"><tr><td>이 게시물 <b style="color:' + BR.fg + '">' + briefNum_(x.views) + '</b></td><td style="text-align:right">' + x.cmp.kind + ' <b style="color:' + BR.fg + '">' + briefNum_(x.cmp.base) + '</b> · ' + x.cmp.n + '개</td></tr></table>';
+      if (x.cmp.kind === '평소 최종 조회') s += '<div style="font-size:11px;color:' + BR.mu + '">올린 지 ' + Math.max(1, Math.round(x.hours)) + '시간 값과 최종값 비교라 낮게 나와요 · 같은 시간대 기준은 기록이 쌓이면 바뀌어요</div>';
+    } else s += '<div style="font-size:12px;color:' + BR.mu + ';margin-top:6px">비교할 같은 형식 게시물이 적어요</div>';
+    s += '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;margin:10px -4px 0"><tr>' + stat('좋아요', briefNum_(x.likes)) + stat('댓글', briefNum_(x.comments))
+      + (x.ch !== '유튜브' ? stat('도달', briefNum_(x.reach)) + '</tr><tr>' + stat('공유', briefNum_(x.shares)) + stat('저장', briefNum_(x.saves)) + '<td></td>' : '<td></td>') + '</tr></table>';
+    const u = x.usual || {}, rv = (a, b) => a !== '' && a != null && Number(b) > 0 ? Number(a) / Number(b) : null;
+    const rates = (x.ch !== '유튜브' ? briefRateRow_('저장률 · 도달 대비', rv(x.saves, x.reach), u.save) + briefRateRow_('공유율 · 도달 대비', rv(x.shares, x.reach), u.share) : '')
+      + briefRateRow_('좋아요율 · 조회 대비', rv(x.likes, x.views), u.like);
+    if (rates) s += '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;margin-top:8px;border-top:1px solid ' + BR.line + '">' + rates + '</table>';
+    if (x.url) s += '<div style="margin-top:10px"><a href="' + briefEsc_(x.url) + '" style="color:' + BR.up + ';font-size:13px;font-weight:700;text-decoration:none">게시물 열기 ›</a></div>';
+    h += card(s);
   });
   if (!posts.length) {
-    h += box + '<b>오늘 올린 콘텐츠 없음</b>';
+    let s = '<div style="font-size:16px;font-weight:800">오늘 올린 콘텐츠 없음</div>';
     if (recent.length) {
-      h += '<div style="color:#8b95a1;font-size:12px;margin:6px 0 2px">최근 3일 게시물 · 오늘 아침 기록</div><table style="width:100%;border-collapse:collapse;font-size:13px">';
-      recent.slice(0, 10).forEach(r => { h += '<tr><td style="padding:3px 0">' + Number(r.d.slice(5, 7)) + '/' + Number(r.d.slice(8)) + ' ' + briefEsc_(chName(r.ch)) + ' · ' + briefEsc_(briefTitle_(r.title).slice(0, 24)) + '</td><td style="text-align:right;font-weight:600;white-space:nowrap">조회 ' + briefNum_(r.views) + '</td></tr>'; });
-      h += '</table>';
-    } else h += '<div style="color:#8b95a1;font-size:12px">최근 3일에도 올린 게시물이 없어요</div>';
-    h += '</div>';
+      s += '<div style="font-size:12px;color:' + BR.mu + ';margin:4px 0 6px">최근 3일 게시물 · 오늘 아침 기록</div><table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;font-size:13px">';
+      recent.slice(0, 10).forEach(r => { s += '<tr><td style="padding:4px 0;border-top:1px solid ' + BR.line + '">' + Number(r.d.slice(5, 7)) + '/' + Number(r.d.slice(8)) + ' ' + briefChip_(r.ch, '') .replace(/<span style="font-size:12px;color:[^"]*"> · <\/span>/, '') + ' ' + briefEsc_(briefTitle_(r.title, 22)) + '</td><td style="padding:4px 0;border-top:1px solid ' + BR.line + ';text-align:right;font-weight:700;white-space:nowrap">조회 ' + briefNum_(r.views) + '</td></tr>'; });
+      s += '</table>';
+    } else s += '<div style="font-size:12px;color:' + BR.mu + '">최근 3일에도 올린 게시물이 없어요</div>';
+    h += card(s);
   }
   if (stories.length) {
-    const sum = k => stories.reduce((a, s) => a + s[k], 0);
-    h += box + '<div style="font-size:12px;color:#0078ad;font-weight:700">스토리</div><div style="font-weight:700">오늘 스토리 ' + stories.length + '개</div>';
-    h += '<table style="width:100%;border-collapse:collapse;font-size:14px;margin-top:6px">' + row('조회 합계', briefNum_(sum('views'))) + row('도달 합계', briefNum_(sum('reach'))) + row('나가기', briefNum_(sum('exits'))) + '</table></div>';
+    const sum = k => stories.reduce((a, s) => a + s[k], 0), rc = sum('reach'), ex = sum('exits');
+    h += h2('스토리', '');
+    h += card('<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;margin:0 -4px"><tr>' + stat('오늘 스토리', stories.length + '개') + stat('조회 합계', briefNum_(sum('views'))) + stat('도달 합계', briefNum_(rc)) + '</tr></table>'
+      + (rc > 0 ? '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="font-size:13px;margin-top:8px"><tr><td style="color:' + BR.sub + '">중간에 나간 비율 · 도달 대비</td><td style="text-align:right;font-weight:800">' + briefPct_(ex / rc) + '</td></tr></table>' : ''));
   }
-  if (notes.length) h += '<div style="color:#8b95a1;font-size:12px;margin-bottom:12px">' + notes.map(briefEsc_).join('<br>') + '</div>';
-  h += '<a href="' + BOARD_URL + '" style="display:inline-block;background:#0078ad;color:#fff;text-decoration:none;padding:10px 16px;border-radius:10px;font-weight:700;font-size:14px">성과 보드 열기</a>';
-  return h + '</div>';
+  if (notes.length) h += '<div style="font-size:12px;color:' + BR.mu + ';margin:4px 4px 12px">' + notes.map(briefEsc_).join('<br>') + '</div>';
+  h += '<div style="text-align:center;margin:18px 0 6px"><a href="' + BOARD_URL + '" style="display:inline-block;background:' + BR.up + ';color:#fff;text-decoration:none;padding:12px 22px;border-radius:12px;font-weight:800;font-size:14px">성과 보드에서 자세히 보기</a></div>';
+  h += '<div style="font-size:11px;color:' + BR.mu + ';text-align:center;line-height:1.6">평소 = 같은 채널·형식, 최근 1년·게시 14일 이상 게시물(광고 제외)의 중간값</div>';
+  return wrap(h);
 }
