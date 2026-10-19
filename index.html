@@ -1004,12 +1004,12 @@ small { line-height: 1.6; }
 .gate-f .inp { flex: 1; min-width: 0; font-size: 16px; }
 .gate small { display: block; min-height: 1.4em; }
 /* API 분석 데이터(2026-10-20): 가로 비율 막대 · 기간 합계 줄 */
-.pbl { display: flex; flex-direction: column; gap: 10px; margin: 6px 0 4px; }
-.pb-h { display: flex; justify-content: space-between; gap: 12px; font-size: var(--fs-md, 14px); line-height: 1.5; }
+.pbl { display: flex; flex-direction: column; gap: 18px; margin: 6px 0 4px; }
+.pb-h { display: flex; justify-content: space-between; gap: 12px; font-size: var(--fs-sm, 14px); line-height: 1.4; }
 .pb-h > span:first-child { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--fg); }
 .pb-h > span:last-child { flex: none; display: flex; gap: 8px; align-items: baseline; }
 .pb-h small { color: var(--muted); font-size: 12px; }
-.pb-t { height: 8px; border-radius: 4px; background: var(--plane, #f2f4f6); overflow: hidden; margin-top: 4px; }
+.pb-t { height: 8px; border-radius: 4px; background: var(--plane, #f2f4f6); overflow: hidden; margin-top: 6px; }
 .pb-t i { display: block; height: 100%; border-radius: 4px; background: var(--up); }
 .dp-top { display: flex; justify-content: space-between; align-items: flex-end; gap: 12px; flex-wrap: wrap; margin: 4px 0 10px; }
 .dp-top small { display: block; color: var(--muted); font-size: 13px; }
@@ -1044,6 +1044,27 @@ details.fold[open] > summary { padding-bottom: 10px; }
 .irs .ir-c .tier { margin-left: 0; }
 .irs .ir-f { flex: 1; align-items: center; }
 .irs .ir-f .ir-l { background: none; padding: 4px 0; font-size: var(--fs-tag); }
+/* 누가 보나 · 팔로워는 누구인가: 구분마다 100% 막대 한 줄 */
+.stk { padding: 12px 0; border-top: 1px solid var(--line); }
+.stk:first-of-type { border-top: 0; }
+.stk-n { display: block; font-size: var(--fs-sm); font-weight: 700; margin-bottom: 8px; }
+.stk.one { display: flex; align-items: baseline; justify-content: space-between; }
+.stk.one .stk-n { margin: 0; }
+.stk.one span:last-child { font-size: var(--fs-sm); color: var(--sub); }
+.stk-b { display: flex; height: 12px; border-radius: 6px; overflow: hidden; gap: 2px; background: var(--line); }
+.stk-b i { display: block; height: 100%; min-width: 3px; }
+.stk-l { display: flex; flex-wrap: wrap; gap: 6px 14px; margin-top: 8px; font-size: var(--fs-xs); color: var(--sub); line-height: 1.7; }
+.stk-l span { display: inline-flex; align-items: center; gap: 5px; }
+.stk-l em { width: 8px; height: 8px; border-radius: 2px; display: inline-block; }
+.stk-l b { color: var(--fg); }
+/* 최근 스토리: 한 줄 = 올린 때 · 조회 막대 · 조회 · 판정 칩 */
+.stl { display: flex; flex-direction: column; gap: 12px; margin-top: 14px; }
+.stl-r { display: grid; grid-template-columns: 92px minmax(0, 1fr) auto auto; align-items: center; gap: 10px; font-size: var(--fs-sm); }
+.stl-d { color: var(--sub); white-space: nowrap; font-size: var(--fs-xs); }
+.stl-b { height: 10px; border-radius: 5px; background: var(--line); overflow: hidden; }
+.stl-b i { display: block; height: 100%; border-radius: 5px; }
+.stl-r b { min-width: 44px; text-align: right; }
+.stl-r .tier { margin-left: 0; font-size: 12px; padding: 2px 8px; }
 </style>
 
 <div class="app" id="app">
@@ -3631,6 +3652,22 @@ details.fold[open] > summary { padding-bottom: 10px; }
   // 가로 비율 막대 목록: [이름, 값, 몫(0~1), 오른쪽 작은 글자]
   const pbars = rows => '<div class="pbl">' + rows.map(r => '<div class="pb"><div class="pb-h"><span>' + esc(r[0]) + '</span><span><b class="num">' + pct0(r[2]) + '</b>' + (r[3] ? '<small>' + r[3] + '</small>' : '') + '</span></div><div class="pb-t"><i style="width:' + Math.max(1.5, Math.min(100, r[2] * 100)).toFixed(1) + '%"></i></div></div>').join('') + '</div>';
   const shareRows = (pairs, top) => { const tot = sum(pairs.map(p => p[1])); if (!tot) return []; const s = pairs.slice().sort((a, b) => b[1] - a[1]); const head = s.slice(0, top || 6), rest = sum(s.slice(top || 6).map(p => p[1])); if (rest > 0) head.push(['그 밖', rest]); return head.map(p => [p[0], p[1], p[1] / tot, fmtK(p[1])]); };
+  // 100% 막대 한 줄: 이름 · 상위 4개 + 그 밖. 한 항목이 95% 이상이면 막대 없이 한 줄(예: 국가 KR 100%)
+  const AUD_KO = { MOBILE: '휴대폰', DESKTOP: 'PC', TABLET: '태블릿', TV: 'TV', GAME_CONSOLE: '게임기', UNKNOWN_PLATFORM: '기타', KR: '한국', US: '미국', JP: '일본', SUBSCRIBED: '구독자', UNSUBSCRIBED: '비구독자', male: '남', female: '여', MALE: '남', FEMALE: '여' };
+  // 성별 한 글자(인스타 M·F·U)와 도시(「Jeonju, Jeollabuk-do」 → 전주)도 한국어로
+  const AUD_1 = { M: '남', F: '여', U: '미표기' };
+  const CITY_KO = { Jeonju: '전주', Seoul: '서울', Iksan: '익산', Gunsan: '군산', Busan: '부산', Incheon: '인천', Daegu: '대구', Daejeon: '대전', Gwangju: '광주', Ulsan: '울산', Suwon: '수원', Seongnam: '성남', Goyang: '고양', Yongin: '용인', Bucheon: '부천', Cheongju: '청주', Cheonan: '천안', Jeongeup: '정읍', Gimje: '김제', Wanju: '완주', Namwon: '남원', Changwon: '창원', Hwaseong: '화성', Ansan: '안산', Anyang: '안양', Sejong: '세종', Pohang: '포항', Gimhae: '김해', Jeju: '제주', Yeosu: '여수', Suncheon: '순천', Mokpo: '목포' };
+  const audKo = x => { const t = String(x).trim(); if (AUD_1[t]) return AUD_1[t]; const c = t.match(/^([A-Za-z-]+),/); if (c) return CITY_KO[c[1]] || c[1]; return t.replace(/[A-Za-z_]+/g, w => AUD_KO[w] || w); };
+  function stackRow(kind, pairs, col) {
+    const tot = sum(pairs.map(p => p[1] || 0)); if (!tot) return '';
+    const s = pairs.filter(p => p[1] > 0).sort((a, b) => b[1] - a[1]), top = s.slice(0, 4), rest = sum(s.slice(4).map(p => p[1]));
+    if (rest > 0) top.push(['그 밖', rest]);
+    const name = esc(String(kind).replace(/\s*\(.*\)\s*$/, ''));
+    if (top[0][1] / tot >= 0.95) return '<div class="stk one"><span class="stk-n">' + name + '</span><span>' + esc(audKo(top[0][0])) + ' <b class="num">' + pct0(top[0][1] / tot) + '</b></span></div>';
+    const op = [1, .72, .5, .34, .2];
+    return '<div class="stk"><span class="stk-n">' + name + '</span><div class="stk-b">' + top.map((p, i) => '<i style="width:' + (p[1] / tot * 100).toFixed(1) + '%;background:' + col + ';opacity:' + op[i] + '" title="' + esc(audKo(p[0]) + ' ' + pct0(p[1] / tot)) + '"></i>').join('') + '</div>' +
+      '<div class="stk-l">' + top.map((p, i) => '<span><em style="background:' + col + ';opacity:' + op[i] + '"></em>' + esc(audKo(p[0])) + ' <b class="num">' + pct0(p[1] / tot) + '</b></span>').join('') + '</div></div>';
+  }
   const deepWait = h => '<div class="gap"></div><section class="sec"><div class="sh"><div><h2>' + h + '</h2><p>분석 데이터를 불러오는 중이에요</p></div></div><div class="wait sm">잠시만요</div>' + secClose;
   const deepFail = h => '<div class="gap"></div><section class="sec"><div class="sh"><div><h2>' + h + '</h2><p>분석 데이터를 받지 못했어요 · 새로고침하면 다시 받아요</p></div></div>' + secClose;
   // 기간 합계 vs 바로 앞 같은 길이 기간: 「직전 90일 대비 ▲ 12%」
@@ -3673,8 +3710,9 @@ details.fold[open] > summary { padding-bottom: 10px; }
     const aud = (d.aud || []).filter(r => r[0] === '최근 28일'), kinds = [...new Set(aud.map(r => r[1]))];
     if (kinds.length) {
       h += secOpen('누가 보나', '최근 28일 시청자 · 유튜브 분석');
-      kinds.forEach(k => { const L = aud.filter(r => r[1] === k).map(r => [r[2], r[3]]); const s = sum(L.map(x => x[1])); h += '<h3 class="sub">' + esc(k) + '</h3>' + pbars(L.sort((a, b) => b[1] - a[1]).slice(0, 6).map(x => [x[0], x[1], s ? x[1] / s : 0, ''])); });
-      h += '<p class="note">13~17세는 유튜브가 일부만 집계해 실제보다 낮게 나와요</p>' + secClose;
+      // 구분마다 100% 막대 한 줄 + 상위 항목 칩(2026-10-20 「글이 많다」 — 긴 막대 목록 대신). 유입 경로는 위 칸에 있어 뺌
+      kinds.filter(k => !/유입/.test(k)).forEach(k => { h += stackRow(k, aud.filter(r => r[1] === k).map(r => [r[2], r[3]]), chColor('유튜브')); });
+      h += '<p class="note" title="13~17세는 유튜브가 일부만 집계해 실제보다 낮게 나와요">조회수 기준 몫</p>' + secClose;
     }
     if ((d.kw || []).length) {
       const mx = d.kw[0][1];
@@ -3700,13 +3738,18 @@ details.fold[open] > summary { padding-bottom: 10px; }
     if (dm.length) {
       const kinds = [...new Set(dm.map(r => r[1]))];
       h += secOpen('팔로워는 누구인가', (d.demoD && d.demoD[ch] ? dot(d.demoD[ch]) + ' 기록' : '최근 기록') + ' · 팔로워 분포');
-      kinds.forEach(k => { const L = dm.filter(r => r[1] === k).map(r => [r[2], r[3]]); const s = sum(L.map(x => x[1])); h += '<h3 class="sub">' + esc(k) + '</h3>' + pbars(L.sort((a, b) => b[1] - a[1]).slice(0, 6).map(x => [x[0], x[1], s ? x[1] / s : 0, fmt(x[1]) + '명'])); });
+      kinds.forEach(k => { h += stackRow(k, dm.filter(r => r[1] === k).map(r => [r[2], r[3]]), chColor(ch)); });
       h += secClose;
     }
     const st = (d.story || []).filter(r => r[0] === ch).slice(0, 10);
     if (st.length) {
-      h += secOpen('최근 스토리', '스토리는 24시간만 보여서 2시간마다 받아 둔 마지막 값 · 나간 비율 = 나가기 ÷ 조회');
-      h += kTbl(['올린 때', '조회', '도달', '나간 비율'], st.map(r => [esc(md2(r[1].slice(0, 10)) + ' ' + r[1].slice(11, 16)), fmt(r[3]), fmt(r[4]), r[3] ? pct0((r[12] || 0) / r[3]) : '–']));
+      // 표 대신 막대 + 판정 칩(2026-10-20 「표로 보여줄 거면 대시보드가 왜 필요하냐」). 평소 = 받아 둔 스토리 전체 조회 중간값
+      const all = (d.story || []).filter(r => r[0] === ch && r[3] > 0), base = medOf(all.map(r => r[3])), mx = Math.max(...st.map(r => r[3] || 0)) || 1;
+      h += secOpen('최근 스토리', '조회 · 스토리 ' + all.length + '개 평소 대비');
+      h += '<div class="dp-top"><div><small>스토리 평소 조회</small><b class="num">' + fmt(Math.round(base || 0)) + '</b></div></div>';
+      h += '<div class="stl">' + st.map(r => { const t = base && r[3] ? tierOf(r[3] / base) : null, ex = r[3] ? (r[12] || 0) / r[3] : null;
+        return '<div class="stl-r" title="' + esc('도달 ' + fmt(r[4]) + (ex != null ? ' · 나간 비율 ' + pct0(ex) : '') + ' · 2시간마다 받아 둔 마지막 값') + '"><span class="stl-d">' + esc(md2(r[1].slice(0, 10)) + ' ' + r[1].slice(11, 16)) + '</span>' +
+          '<span class="stl-b"><i style="width:' + ((r[3] || 0) / mx * 100).toFixed(1) + '%;background:' + chColor(ch) + '"></i></span><b class="num">' + fmtK(r[3]) + '</b>' + (t ? '<span class="tier ' + t[1] + '">' + t[0] + '</span>' : '') + '</div>'; }).join('') + '</div>';
       h += secClose;
     }
     return h;
