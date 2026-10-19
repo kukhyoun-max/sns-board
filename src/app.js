@@ -1895,7 +1895,12 @@
     rows.sort((a, b) => { const x = key(a), y = key(b); return x < y ? 1 : x > y ? -1 : 0; });
     const th = (k, l) => '<th class="n"><button type="button" data-ms="' + k + '"' + (sk === k ? ' data-dir="desc"' : '') + '>' + l + '</button></th>';
     const st = c => ({ completed: '완료', inactive: '중지', archived: '보관', active: '진행 중' })[c.st] || c.st || '';
-    html += secOpen('캠페인별 성과', '이름을 누르면 홍보한 인스타 게시물이 펼쳐져요') +
+    // 휴대폰은 표 대신 카드 목록(구글애즈와 같은 모양) — 표에서는 상태 칩이 옆 칸 날짜를 덮었음(2026-10-20)
+    const mob = window.matchMedia && matchMedia('(max-width:760px)').matches;
+    const mTag = r => { const n = (r.c.posts || []).length; return manTag(r.c) + (n ? '<span class="tag p-own">게시물 ' + n + '개 연결</span>' : /^Instagram 게시물/.test(r.c.n) ? '<span class="tag">게시물 데이터 없음</span>' : '<span class="tag">별도 광고</span>') + ' <span class="tag">' + esc(st(r.c)) + '</span>'; };
+    const mOpen = r => (r.c.posts || []).length ? '<ol class="rank" id="mPosts">' + rankRows(r.c.posts, { right: it => '조회 <span class="num">' + fmtK(val(it, 0)) + '</span>' }) + '</ol>' : '<p class="note">' + (/^Instagram 게시물/.test(r.c.n) ? '이 게시물은 대시보드 수집 기간(2024년~) 밖이거나 캡션이 바뀌어 찾지 못했어요.' : '게시물 홍보가 아닌 별도 광고예요.') + '</p>';
+    if (mob) html += secOpen('캠페인별 성과', '누르면 홍보한 인스타 게시물이 펼쳐져요') + '<ol class="rank adc" id="mTblM">' + rows.map((r, i) => '<li class="rk" tabindex="0" data-mi="' + i + '"><span class="no">' + (i + 1) + '</span><span class="t"><b class="ln"><span class="tx">' + esc(metaLabel(r.c.n)) + '</span></b><span>' + (/^\d{4}/.test(r.c.end) ? dot(r.c.end) + ' 종료' : esc(r.c.end)) + '</span></span><span class="rv"><b class="num">' + won(r.c.spend) + '</b><small>도달 ' + fmtK(r.c.reach) + ' · 클릭률 ' + pct(r.ctr) + '</small></span><span class="tg">' + mTag(r) + '</span></li>' + (S.adOpen === r.c.n ? '<li class="adc-open">' + mOpen(r) + '</li>' : '')).join('') + '</ol>' + secClose;
+    else html += secOpen('캠페인별 성과', '이름을 누르면 홍보한 인스타 게시물이 펼쳐져요') +
       '<div class="tw"><table class="tbl" id="mTbl"><thead><tr><th>캠페인</th><th>종료</th>' + th('spend', '광고비') + th('imp', '노출') + th('reach', '도달') + th('clk', '링크 클릭') + th('ctr', '클릭률') + th('cpc', '클릭당') + '<th>목표 결과</th></tr></thead><tbody>' +
       rows.map((r, i) => { const n = (r.c.posts || []).length; return '<tr class="click' + (S.adOpen === r.c.n ? ' on' : '') + '" data-mi="' + i + '"><td><div class="ellip" style="max-width:300px"><b>' + esc(metaLabel(r.c.n)) + '</b></div>' + manTag(r.c) + (n ? '<span class="tag p-own">게시물 ' + n + '개 연결</span>' : /^Instagram 게시물/.test(r.c.n) ? '<span class="tag">게시물 데이터 없음</span>' : '<span class="tag">별도 광고</span>') + ' <span class="tag">' + esc(st(r.c)) + '</span></td><td>' + (/^\d{4}/.test(r.c.end) ? dot(r.c.end) : esc(r.c.end)) + '</td><td class="n"' + (r.c.usd != null ? ' title="' + usd(r.c.usd) + ' 환산"' : '') + '>' + won(r.c.spend) + '</td><td class="n">' + fmtK(r.c.imp) + '</td><td class="n">' + fmtK(r.c.reach) + '</td><td class="n">' + fmtK(r.c.clk) + '</td><td class="n">' + pct(r.ctr) + '</td><td class="n">' + wonF(r.cpc) + '</td><td>' + (r.c.res != null ? fmt(r.c.res) + ' ' + esc(META_RT[r.c.rt] || r.c.rt || '') : '–') + '</td></tr>' +
         (S.adOpen === r.c.n ? '<tr><td colspan="9" style="padding:0 0 10px;white-space:normal">' + (n ? '<ol class="rank" id="mPosts">' + rankRows(r.c.posts, { right: it => '조회 <span class="num">' + fmtK(val(it, 0)) + '</span>' }) + '</ol>' : '<p class="note">' + (/^Instagram 게시물/.test(r.c.n) ? '이 게시물은 대시보드 수집 기간(2024년~) 밖이거나 캡션이 바뀌어 찾지 못했어요.' : '게시물 홍보가 아닌 별도 광고예요.') + '</p>') + '</td></tr>' : ''); }).join('') +
@@ -1907,7 +1912,7 @@
     } else $('view').innerHTML = html;
     $('view').querySelectorAll('[data-y]').forEach(b => b.addEventListener('click', () => { S.adYear = b.dataset.y; S.adOpen = null; viewAds(); }));
     $('view').querySelectorAll('[data-ms]').forEach(b => b.addEventListener('click', () => { S.mSort = b.dataset.ms; viewAds(); }));
-    $('view').querySelectorAll('#mTbl tr[data-mi]').forEach(tr => tr.addEventListener('click', () => { const n = rows[+tr.dataset.mi].c.n; S.adOpen = S.adOpen === n ? null : n; viewAds(); }));
+    $('view').querySelectorAll('#mTbl tr[data-mi], #mTblM li[data-mi]').forEach(tr => tr.addEventListener('click', () => { const n = rows[+tr.dataset.mi].c.n; S.adOpen = S.adOpen === n ? null : n; viewAds(); }));
     if (S.adOpen && $('mPosts')) { const r = rows.find(x => x.c.n === S.adOpen); if (r) wireRank($('mPosts'), r.c.posts); }
     drawAdPair('mChart', 'mChart2', MB, axK);
   }
@@ -2128,9 +2133,21 @@
     const selC = $('gchips').querySelector('.chip[data-g][aria-pressed="true"]'); if (selC && S.g) $('gchips').scrollLeft = Math.max(0, selC.offsetLeft - 16);
     $('gchips').querySelectorAll('.chip[data-g]').forEach(b => b.addEventListener('click', () => { S.g = b.dataset.g || null; S.gs = null; renderTrend(); renderRank(); }));
     $('gchips').querySelectorAll('.chip[data-gs]').forEach(b => b.addEventListener('click', () => { S.gs = b.dataset.gs || null; renderTrend(); renderRank(); }));
-    $('trendSub').textContent = (S.g ? S.g + (S.gs ? ' › ' + S.gs : '') + ' · ' : '') + periodPhrase() + ' 게시물 · 분류 옆 숫자는 ' + vW() + ' 평소 대비';
-    const items = (S.g ? L.filter(it => it.g === S.g && (!S.gs || it.s === S.gs)) : L).filter(it => mainVal(it) > 0).sort((a, b) => mainVal(b) - mainVal(a)).slice(0, 18);
+    $('trendSub').textContent = (S.g ? S.g + (S.gs ? ' › ' + S.gs : '') + ' · ' : '') + periodPhrase() + ' 게시물 · ' + (S.g ? '네모 하나 = 콘텐츠 하나' : '네모 하나 = 분류 하나 · 누르면 그 분류 콘텐츠') + ' · 숫자는 ' + vW() + ' 평소 대비';
     const box = $('tree');
+    // 「전체」일 때는 콘텐츠 하나하나 대신 분류별로 묶어 보여준다(2026-10-20 사용자 요청) — 크기 = 분류 조회 합계, 색 = 분류 조회 평소 대비 중간값, 누르면 그 분류 콘텐츠
+    if (!S.g) {
+      const G = groups.map(r => ({ r, w: sum(r.arr.map(it => mainVal(it) || 0)) })).filter(x => x.w > 0).sort((a, b) => b.w - a.w).slice(0, 14);
+      if (!G.length) { box.innerHTML = '<div class="empty">조건에 맞는 콘텐츠가 없어요.</div>'; return; }
+      const rg = squarify(G.map(x => ({ it: x.r, w: x.w })), 0, 0, box.clientWidth, box.clientHeight);
+      box.innerHTML = rg.map((q, i) => { const d = (q.it.idx || 0) - 1, area = q.w * q.h, cls = (area < 9000 ? (area < 4500 ? 'tm s xs' : 'tm s') : 'tm') + (q.w < 90 ? ' narrow' : '') + (area < 2200 ? ' xxs' : '') + (heatLight(d) ? ' lt' : '');
+        return '<button type="button" class="' + cls + '" data-k="' + esc(q.it.k) + '" title="' + esc(q.it.k + ' · 게시물 ' + q.it.n + '개' + (q.it.idx == null ? '' : ' · ' + vW() + ' 평소의 ' + xf(q.it.idx))) + '" style="left:' + q.x + 'px;top:' + q.y + 'px;width:' + q.w + 'px;height:' + q.h + 'px;background:' + heat(d) + '">' +
+          '<span class="a">' + esc(q.it.k) + '</span><span class="b num">' + q.it.n + '개' + (q.it.idx == null ? '' : '<span class="r"> · ' + xf(q.it.idx) + '</span>') + '</span></button>'; }).join('');
+      box.querySelectorAll('.tm').forEach(b => b.addEventListener('click', () => { S.g = b.dataset.k; S.gs = null; renderTrend(); renderRank(); }));
+      $('scale').innerHTML = '<span>평소보다 낮음</span>' + [-0.75, -0.4, 0, 1, 3].map(d => '<i style="background:' + heat(d) + '"></i>').join('') + '<span>높음</span>';
+      return;
+    }
+    const items = (S.g ? L.filter(it => it.g === S.g && (!S.gs || it.s === S.gs)) : L).filter(it => mainVal(it) > 0).sort((a, b) => mainVal(b) - mainVal(a)).slice(0, 18);
     if (!items.length) { box.innerHTML = '<div class="empty">조건에 맞는 콘텐츠가 없어요.</div>'; return; }
     const W = box.clientWidth, H = box.clientHeight;
     const rects = squarify(items.map(it => ({ it, w: mainVal(it) })), 0, 0, W, H);
