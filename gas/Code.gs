@@ -3957,8 +3957,22 @@ function briefUsual_(D, ch, type, today) {
   if (last.length < BRIEF_MIN) return null;
   const rate = (f, g) => { const v = last.map(x => { const a = f(x), b = g(x); return a != null && b > 0 ? a / b : null; }).filter(x => x != null); return v.length >= BRIEF_MIN ? briefMed_(v) : null; };
   return { med: briefMed_(last.map(x => x.h[0])), n: last.length,
-    like: rate(x => x.h[1], x => x.h[0]), save: rate(x => x.h[4], x => x.it.r), share: rate(x => x.h[3], x => x.it.r) };
+    like: rate(x => x.h[1], x => x.h[0]), save: rate(x => x.h[4], x => x.it.r), share: rate(x => x.h[3], x => x.it.r),
+    react: rate(x => briefReactOf_(ch, x.h[1], x.h[2], x.h[3], x.h[4], x.it.r, x.h[0]), () => 1) };
 }
+// 반응률(분석법 보고서 2026-10-17: 채널·형식을 넘는 비교는 조회가 아니라 비율로, 인스타는 도달 분모)
+//  · 인스타 = (좋아요+댓글+공유+저장) ÷ 도달 · 유튜브·hong = (좋아요+댓글) ÷ 조회(유튜브는 공유·저장·도달이 없고, hong 예전 기록에도 없음)
+//  · 비율이라 올린 지 몇 시간인지에 덜 흔들림 → 오늘 올린 게시물끼리 순위를 매기는 기준
+function briefReactOf_(ch, l, c, sh, sv, reach, views) {
+  const n = v => Number(v) || 0;
+  if (ch === '인스타그램') return Number(reach) > 0 ? (n(l) + n(c) + n(sh) + n(sv)) / Number(reach) : null;
+  return Number(views) > 0 ? (n(l) + n(c)) / Number(views) : null;
+}
+function briefReactCmp_(x) {
+  const v = briefReactOf_(x.ch, x.likes, x.comments, x.shares, x.saves, x.reach, x.views), b = x.usual && x.usual.react;
+  return v != null && b > 0 ? { r: v / b, v: v, base: b } : null;
+}
+const briefDen_ = ch => ch === '인스타그램' ? '도달 대비' : '조회 대비';
 function briefLastRow_(it) { for (let i = (it.h || []).length - 1; i >= 0; i--) if (it.h[i] && it.h[i][0] != null) return it.h[i]; return null; }
 function briefLast_(it) { const h = briefLastRow_(it); return h ? h[0] : null; }
 // 오늘 올린 게 없을 때: 최근 3일 게시물(보드 데이터 = 오늘 아침 기록 값)
@@ -4035,7 +4049,8 @@ function briefHtml_(posts, stories, recent, notes, today, stamp) {
   const wrap = s => '<div style="background:' + BR.soft + ';padding:20px 12px"><div style="font-family:\'Noto Sans KR\',\'Apple SD Gothic Neo\',sans-serif;max-width:560px;margin:0 auto;color:' + BR.fg + ';line-height:1.7">' + s + '</div></div>';
   const card = s => '<div style="background:#fff;border:1px solid ' + BR.line + ';border-radius:16px;padding:16px 18px;margin:0 0 12px">' + s + '</div>';
   const h2 = (t, sub) => '<div style="margin:18px 4px 8px"><div style="font-size:16px;font-weight:800">' + t + '</div>' + (sub ? '<div style="font-size:12px;color:' + BR.mu + '">' + sub + '</div>' : '') + '</div>';
-  posts.forEach(x => { x.cmp = briefRatio_(x); });
+  posts.forEach(x => { x.cmp = briefRatio_(x); x.rc = briefReactCmp_(x); });
+  const withRc = posts.filter(x => x.rc), goodRc = withRc.filter(x => x.rc.r >= 1).length;
   const withCmp = posts.filter(x => x.cmp), good = withCmp.filter(x => x.cmp.r >= 1).length;
   const fin = withCmp.length && withCmp.every(x => x.cmp.kind === 'fin'); // 올린 날 밤 기록이 아직 없음
   const avgR = withCmp.length ? withCmp.reduce((a, x) => a + Math.min(x.cmp.r, 3), 0) / withCmp.length : 0;
@@ -4045,14 +4060,28 @@ function briefHtml_(posts, stories, recent, notes, today, stamp) {
   h += '<div style="background:' + BR.up + ';background:linear-gradient(135deg,' + BR.up + ',' + BR.navy + ');border-radius:18px;padding:20px 22px;color:#fff;margin-bottom:6px">'
     + '<div style="font-size:12px;opacity:.85">SNS 밤 브리핑 · ' + stamp.slice(11) + ' 기준</div>'
     + '<div style="font-size:22px;font-weight:800;line-height:1.4">' + briefDay_(today) + ' 오늘 올린 콘텐츠 ' + posts.length + '개</div>'
-    + (withCmp.length ? '<div style="font-size:14px;opacity:.95">' + (fin ? '조회수가 벌써 평소를 넘은 게시물 ' + good + '개 · 오늘 올린 거라 아직 늘고 있어요' : '평소보다 잘 되는 중 ' + good + '개 · 아래로 ' + (withCmp.length - good) + '개') + '</div>' : '') + '</div>';
+    + (withRc.length ? '<div style="font-size:14px;opacity:.95">반응이 평소보다 좋은 게시물 ' + goodRc + '개 · ' + withRc.length + '개 중</div>'
+      : withCmp.length ? '<div style="font-size:14px;opacity:.95">' + (fin ? '조회수가 벌써 평소를 넘은 게시물 ' + good + '개 · 오늘 올린 거라 아직 늘고 있어요' : '평소보다 잘 되는 중 ' + good + '개 · 아래로 ' + (withCmp.length - good) + '개') + '</div>' : '') + '</div>';
+  // 반응률 · 평소와 비교 (맨 위: 오늘 게시물끼리 순위)
+  if (withRc.length) {
+    let g = '';
+    withRc.slice().sort((a, b) => b.rc.r - a.rc.r).forEach((x, i) => {
+      g += '<tr><td style="padding:8px 0 2px;font-size:13px"><span style="display:inline-block;min-width:18px;font-weight:800;color:' + BR.fg + '">' + (i + 1) + '</span>' + briefChip_(x.ch, x.type) + '<div style="font-size:13px;color:' + BR.fg + ';white-space:nowrap;overflow:hidden;max-width:360px">' + briefEsc_(briefTitle_(x.title, 26)) + '</div></td>'
+        + '<td style="padding:8px 0 2px;text-align:right;white-space:nowrap"><div style="font-size:15px;font-weight:800;color:' + (x.rc.r >= 1 ? BR.up : BR.downTx) + '">' + (x.rc.r >= 1 ? '▲ ' : '▼ ') + briefRatioText_(x.rc.r) + '</div>'
+        + '<div style="font-size:11px;color:' + BR.mu + '">반응률 ' + briefPct_(x.rc.v) + ' · 평소 ' + briefPct_(x.rc.base) + '</div></td></tr>'
+        + '<tr><td colspan="2" style="padding:0 0 6px">' + briefBar_(x.rc.r, 10) + '</td></tr>';
+    });
+    g += '<tr><td colspan="2"><table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="font-size:11px;color:' + BR.mu + '"><tr><td width="33%">0</td><td width="34%" style="text-align:center;color:' + BR.fg + ';font-weight:700">평소 반응률</td><td width="33%" style="text-align:right">2배</td></tr></table></td></tr>';
+    h += h2('반응률 · 평소와 비교', '본 사람 중 좋아요·댓글·공유·저장한 비율 · 비율이라 올린 지 얼마 안 돼도 견줄 수 있어요');
+    h += card('<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse">' + g + '</table>');
+  }
   // 숫자 타일
-  const best = withCmp.slice().sort((a, b) => b.cmp.r - a.cmp.r)[0];
+  const best = withRc.slice().sort((a, b) => b.rc.r - a.rc.r)[0];
   const sv = stories.reduce((a, s) => a + s.views, 0);
   h += '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;margin:0 -6px"><tr>'
     + briefTile_('오늘 게시물 조회 합계', briefNum_(sumV), '게시물 ' + posts.length + '개')
-    + briefTile_(fin ? '조회수 평소를 넘은 게시물' : '조회수 평소보다 높은 게시물', withCmp.length ? good + ' / ' + withCmp.length : '–', fin ? '같은 형식 게시물과 비교' : '올린 날 밤끼리 비교') + '</tr><tr>'
-    + briefTile_('조회수 평소 대비 1등', best ? briefRatioText_(best.cmp.r) : '–', best ? briefEsc_(briefTitle_(best.title, 14)) : '')
+    + briefTile_('반응률 평소보다 좋은 게시물', withRc.length ? goodRc + ' / ' + withRc.length : '–', '같은 형식 게시물과 비교') + '</tr><tr>'
+    + briefTile_('반응률 평소 대비 1등', best ? briefRatioText_(best.rc.r) : '–', best ? briefEsc_(briefTitle_(best.title, 14)) : '')
     + briefTile_('오늘 스토리 조회', stories.length ? briefNum_(sv) : '–', '스토리 ' + stories.length + '개') + '</tr></table>';
   // 한눈에 보기: 게시물별 평소 대비 막대
   if (withCmp.length) {
@@ -4068,8 +4097,8 @@ function briefHtml_(posts, stories, recent, notes, today, stamp) {
   }
   // 게시물별 카드
   // 반응 좋은 순: 평소 대비 배수가 큰 것부터, 비교 기준이 없는 게시물은 뒤에 조회 순
-  posts = posts.slice().sort((a, b) => (b.cmp ? 1 : 0) - (a.cmp ? 1 : 0) || (a.cmp && b.cmp ? b.cmp.r - a.cmp.r : 0) || (Number(b.views) || 0) - (Number(a.views) || 0));
-  if (posts.length) h += h2('게시물별 자세히', '조회수가 평소보다 높은 순');
+  posts = posts.slice().sort((a, b) => (b.rc ? 1 : 0) - (a.rc ? 1 : 0) || (a.rc && b.rc ? b.rc.r - a.rc.r : 0) || (b.cmp ? 1 : 0) - (a.cmp ? 1 : 0) || (a.cmp && b.cmp ? b.cmp.r - a.cmp.r : 0) || (Number(b.views) || 0) - (Number(a.views) || 0));
+  if (posts.length) h += h2('게시물별 자세히', '반응률이 평소보다 좋은 순');
   const stat = (k, v) => '<td width="33%" style="padding:4px" valign="top"><div style="background:' + BR.soft + ';border-radius:10px;padding:8px 10px"><div style="font-size:11px;color:' + BR.mu + '">' + k + '</div><div style="font-size:16px;font-weight:800">' + v + '</div></div></td>';
   posts.forEach(x => {
     const c = BR_CH[x.ch] || [x.ch, BR.sub];
@@ -4087,7 +4116,7 @@ function briefHtml_(posts, stories, recent, notes, today, stamp) {
     s += '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;margin:10px -4px 0"><tr>' + stat('좋아요', briefNum_(x.likes)) + stat('댓글', briefNum_(x.comments))
       + (x.ch !== '유튜브' ? stat('도달', briefNum_(x.reach)) + '</tr><tr>' + stat('공유', briefNum_(x.shares)) + stat('저장', briefNum_(x.saves)) + '<td></td>' : '<td></td>') + '</tr></table>';
     const u = x.usual || {}, rv = (a, b) => a !== '' && a != null && Number(b) > 0 ? Number(a) / Number(b) : null;
-    const rates = (x.ch !== '유튜브' ? briefRateRow_('저장률 · 도달 대비', rv(x.saves, x.reach), u.save) + briefRateRow_('공유율 · 도달 대비', rv(x.shares, x.reach), u.share) : '')
+    const rates = briefRateRow_('반응률 · ' + briefDen_(x.ch), x.rc ? x.rc.v : briefReactOf_(x.ch, x.likes, x.comments, x.shares, x.saves, x.reach, x.views), u.react) + (x.ch !== '유튜브' ? briefRateRow_('저장률 · 도달 대비', rv(x.saves, x.reach), u.save) + briefRateRow_('공유율 · 도달 대비', rv(x.shares, x.reach), u.share) : '')
       + briefRateRow_('좋아요율 · 조회 대비', rv(x.likes, x.views), u.like);
     if (rates) s += '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;margin-top:8px;border-top:1px solid ' + BR.line + '">' + rates + '</table>';
     if (x.url) s += '<div style="margin-top:10px"><a href="' + briefEsc_(x.url) + '" style="color:' + BR.up + ';font-size:13px;font-weight:700;text-decoration:none">게시물 열기 ›</a></div>';
@@ -4110,6 +4139,6 @@ function briefHtml_(posts, stories, recent, notes, today, stamp) {
   }
   if (notes.length) h += '<div style="font-size:12px;color:' + BR.mu + ';margin:4px 4px 12px">' + notes.map(briefEsc_).join('<br>') + '</div>';
   h += '<div style="text-align:center;margin:18px 0 6px"><a href="' + BOARD_URL + '" style="display:inline-block;background:' + BR.up + ';color:#fff;text-decoration:none;padding:12px 22px;border-radius:12px;font-weight:800;font-size:14px">성과 보드에서 자세히 보기</a></div>';
-  h += '<div style="font-size:11px;color:' + BR.mu + ';text-align:center;line-height:1.6">평소 = 최근 1년 같은 형식 게시물을 그 값 순으로 줄 세웠을 때 가운데 값 · 광고 제외</div>';
+  h += '<div style="font-size:11px;color:' + BR.mu + ';text-align:center;line-height:1.6">반응률 = 인스타는 좋아요·댓글·공유·저장 ÷ 도달, 유튜브·hong은 좋아요·댓글 ÷ 조회<br>평소 = 최근 1년 같은 형식 게시물을 그 값 순으로 줄 세웠을 때 가운데 값 · 광고 제외</div>';
   return wrap(h);
 }
