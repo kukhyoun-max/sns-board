@@ -730,12 +730,12 @@ small { line-height: 1.6; }
 .gate-f .inp { flex: 1; min-width: 0; font-size: 16px; }
 .gate small { display: block; min-height: 1.4em; }
 /* API 분석 데이터(2026-10-20): 가로 비율 막대 · 기간 합계 줄 */
-.pbl { display: flex; flex-direction: column; gap: 10px; margin: 6px 0 4px; }
-.pb-h { display: flex; justify-content: space-between; gap: 12px; font-size: var(--fs-md, 14px); line-height: 1.5; }
+.pbl { display: flex; flex-direction: column; gap: 18px; margin: 6px 0 4px; }
+.pb-h { display: flex; justify-content: space-between; gap: 12px; font-size: var(--fs-sm, 14px); line-height: 1.4; }
 .pb-h > span:first-child { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--fg); }
 .pb-h > span:last-child { flex: none; display: flex; gap: 8px; align-items: baseline; }
 .pb-h small { color: var(--muted); font-size: 12px; }
-.pb-t { height: 8px; border-radius: 4px; background: var(--plane, #f2f4f6); overflow: hidden; margin-top: 4px; }
+.pb-t { height: 8px; border-radius: 4px; background: var(--plane, #f2f4f6); overflow: hidden; margin-top: 6px; }
 .pb-t i { display: block; height: 100%; border-radius: 4px; background: var(--up); }
 .dp-top { display: flex; justify-content: space-between; align-items: flex-end; gap: 12px; flex-wrap: wrap; margin: 4px 0 10px; }
 .dp-top small { display: block; color: var(--muted); font-size: 13px; }
@@ -770,3 +770,24 @@ details.fold[open] > summary { padding-bottom: 10px; }
 .irs .ir-c .tier { margin-left: 0; }
 .irs .ir-f { flex: 1; align-items: center; }
 .irs .ir-f .ir-l { background: none; padding: 4px 0; font-size: var(--fs-tag); }
+/* 누가 보나 · 팔로워는 누구인가: 구분마다 100% 막대 한 줄 */
+.stk { padding: 12px 0; border-top: 1px solid var(--line); }
+.stk:first-of-type { border-top: 0; }
+.stk-n { display: block; font-size: var(--fs-sm); font-weight: 700; margin-bottom: 8px; }
+.stk.one { display: flex; align-items: baseline; justify-content: space-between; }
+.stk.one .stk-n { margin: 0; }
+.stk.one span:last-child { font-size: var(--fs-sm); color: var(--sub); }
+.stk-b { display: flex; height: 12px; border-radius: 6px; overflow: hidden; gap: 2px; background: var(--line); }
+.stk-b i { display: block; height: 100%; min-width: 3px; }
+.stk-l { display: flex; flex-wrap: wrap; gap: 6px 14px; margin-top: 8px; font-size: var(--fs-xs); color: var(--sub); line-height: 1.7; }
+.stk-l span { display: inline-flex; align-items: center; gap: 5px; }
+.stk-l em { width: 8px; height: 8px; border-radius: 2px; display: inline-block; }
+.stk-l b { color: var(--fg); }
+/* 최근 스토리: 한 줄 = 올린 때 · 조회 막대 · 조회 · 판정 칩 */
+.stl { display: flex; flex-direction: column; gap: 12px; margin-top: 14px; }
+.stl-r { display: grid; grid-template-columns: 92px minmax(0, 1fr) auto auto; align-items: center; gap: 10px; font-size: var(--fs-sm); }
+.stl-d { color: var(--sub); white-space: nowrap; font-size: var(--fs-xs); }
+.stl-b { height: 10px; border-radius: 5px; background: var(--line); overflow: hidden; }
+.stl-b i { display: block; height: 100%; border-radius: 5px; }
+.stl-r b { min-width: 44px; text-align: right; }
+.stl-r .tier { margin-left: 0; font-size: 12px; padding: 2px 8px; }
