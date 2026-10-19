@@ -792,3 +792,7 @@ details.fold[open] > summary { padding-bottom: 10px; }
 .stl-r b { min-width: 44px; text-align: right; }
 .stl-r .tier { margin-left: 0; font-size: 12px; padding: 2px 8px; }
 #mTbl td:first-child { white-space: normal; min-width: 240px; } #mTbl td:first-child .tag { white-space: nowrap; margin-top: 4px; }
+/* 탐색 네모 그림: 묶는 기준 */
+.tm-by { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin: 4px 0 12px; font-size: var(--fs-xs); }
+.tm-by .seg { margin: 0; }
+.tm-sel { font-size: var(--fs-sm); }
