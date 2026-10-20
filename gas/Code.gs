@@ -5205,7 +5205,8 @@ const COLLAB_SHEET = '공동작업(상대 게시)';
 const COLLAB_HEAD = ['게시물 주소', '올린 계정', '조회(앱에서 보고 적기)', '메모', '게시일', '캡션 앞부분', '좋아요', '댓글', '받은 시각'];
 // 담당자가 대화로 알려 준 게시물(2026-10-21). 게시물마다 한 번만 넣고(COLLAB_SEEDED = 넣은 짧은 코드 목록), 그 뒤 수정·삭제는 탭에서
 const COLLAB_SEED = [["https://www.instagram.com/p/Dd8bnHhk_cF/", "jeonbuk1994", 445600, "앱 인사이트 조회 2026-10-21 0시 기준"],
-  ["https://www.instagram.com/p/DWVkHDCkc9T/", "jumfesta", "", "JUMF 공동작업(2026-10-21 담당자 알려 줌)"]];
+  ["https://www.instagram.com/p/DWVkHDCkc9T/", "jumfesta", "", "JUMF 공동작업(2026-10-21 담당자 알려 줌)"],
+  ["https://www.instagram.com/p/DZoYIqHkaZ-/", "jumfesta", "", "2026-10-21 담당자 알려 줌 · 올린 계정 확인 필요(jumfesta로 가정)"]];
 const igShort_ = u => (String(u || '').match(/\/(?:p|reel|reels|tv)\/([^/?#]+)/) || [])[1] || '';
 function collabStep_(ss) {
   let sh = ss.getSheetByName(COLLAB_SHEET);
