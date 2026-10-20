@@ -320,6 +320,7 @@ function runSnapshot_() {
         Array.prototype.push.apply(rows, part);
         logs.push([new Date(), src.channel, total, src.bench ? '정상 (계정 ' + chs.length + '개)' : '정상']);
         if (src.channel === '유튜브' && YT_API_LOG_) logs.push([new Date(), '유튜브 API', YT_API_LOG_.n, YT_API_LOG_.msg]);
+        if (src.bench && BENCH_API_LOG_.msg) logs.push([new Date(), '타대학 API', BENCH_API_LOG_.n, BENCH_API_LOG_.msg]);
         if (IG_API_LOG_[src.channel]) logs.push([new Date(), IG_CH[src.channel].log, IG_API_LOG_[src.channel].n, IG_API_LOG_[src.channel].msg]);
       } catch (e) {
         failed.push({ src: src, msg: e.message });
@@ -615,6 +616,7 @@ function readSource_(src, today) {
   });
   if (src.channel === '유튜브' && !src.sheet) ytOverlay_(out, today);
   if (IG_CH[src.channel] && !src.sheet) igOverlay_(out, today, src.channel);
+  if (src.bench && !src.sheet) benchOverlay_(out, today, cutoff);
   return out;
 }
 
@@ -3752,6 +3754,72 @@ function igmOnline_(ss, today) {
   return rows.length;
 }
 
+// 타 대학 공개 계정(business_discovery): 팔로워·게시물 수 + 게시물(최신순, since 이전 게시물이 나오거나 maxPage쪽까지)
+// 같은 실행 안에서는 한 번만 받음(원본 읽기의 benchOverlay_와 igm 단계가 같이 씀)
+const BENCH_API_ = {};
+function benchFetch_(u, since, maxPage) {
+  const ck = u + '|' + since;
+  if (BENCH_API_[ck]) return BENCH_API_[ck];
+  const c = igxChannels_().filter(x => x.ch === '인스타그램')[0] || igxChannels_()[0];
+  if (!c) throw new Error('META_TOKEN 또는 IG_API 꺼짐');
+  const mf = '{id,timestamp,media_type,media_product_type,permalink,caption,like_count,comments_count}';
+  let b = null, after = '';
+  const media = [];
+  for (let page = 0; page < maxPage; page++) {
+    const r = igxGet_(c.conf, c.user, { fields: 'business_discovery.username(' + u + '){followers_count,media_count,media' + (after ? '.after(' + after + ')' : '') + '.limit(50)' + mf + '}' }).business_discovery;
+    if (!b) b = r;
+    const d = (r.media && r.media.data) || [];
+    let old = false;
+    d.forEach(m => { const date = Utilities.formatDate(new Date(m.timestamp), TZ, 'yyyy-MM-dd'); if (date >= since) media.push({ m: m, date: date }); else old = true; });
+    after = !old && d.length && r.media.paging && r.media.paging.cursors ? r.media.paging.cursors.after || '' : '';
+    if (!after) break;
+  }
+  return (BENCH_API_[ck] = { followers: b.followers_count, count: b.media_count, media: media });
+}
+const benchType_ = m => m.media_product_type === 'REELS' ? '릴스' : (m.media_type === 'CAROUSEL_ALBUM' ? '캐러셀' : m.media_type === 'VIDEO' ? '영상' : '이미지');
+
+// 원본 읽기 때 타 대학(공개 원본, Supermetrics 월요일 갱신) 게시물의 좋아요·댓글을 API 값으로 덮고, 원본에 없는 최근 게시물을 더한다 (2026-10-20)
+//  · 그래야 화~일 임시 기록도 값이 바뀌어 「원본 미갱신」으로 빠지지 않음. 조회(릴스 재생)는 API가 주지 않아 원본 값 유지
+//  · 게시물 연결은 igMatch_(캡션 앞 30자 + 날짜 ±1일). IG_API = on이고 META_TOKEN이 있을 때만, 실패하면 원본 값 그대로
+const BENCH_API_LOG_ = { n: 0, msg: '' };
+function benchOverlay_(out, today, cutoff) {
+  if (PropertiesService.getScriptProperties().getProperty('IG_API') !== 'on') return;
+  const since = cutoff || shiftDate_(today, -BENCH_DAYS), recent = shiftDate_(today, -IG_NEW_DAYS);
+  const parts = [];
+  let total = 0;
+  IGM_BENCH.forEach(u => {
+    const chName = BENCH_PREFIX + u;
+    const ch = out[chName];
+    if (!ch) return; // 원본에 없는 학교는 건드리지 않음
+    try {
+      const api = benchFetch_(u, since, 6);
+      const media = api.media.map(x => ({ id: String(x.m.id), date: x.date, caption: String(x.m.caption || ''), product: String(x.m.media_product_type || ''), m: x.m }));
+      const mt = igMatch_(ch, media);
+      let upd = 0, add = 0;
+      media.forEach(x => {
+        const k = mt.byId[x.id];
+        if (k) {
+          ch[k].likes = Number(x.m.like_count) || 0;
+          ch[k].comments = Number(x.m.comments_count) || 0;
+          if (x.m.permalink) ch[k].url = x.m.permalink;
+          upd++;
+        } else if (x.date >= recent) {
+          const key = capKey_(x.date, x.caption);
+          if (!key || ch[key]) return;
+          ch[key] = { date: x.date, title: cut_(x.caption.replace(/\s+/g, ' ').trim(), 80), url: x.m.permalink || '', full: x.caption, desc: '',
+            views: '', likes: Number(x.m.like_count) || 0, comments: Number(x.m.comments_count) || 0, shares: '', saves: '', reach: '', engaged: '', avgSec: '',
+            lengthSec: '', type: typeLabel_(x.product, String(x.m.media_type || '')) };
+          add++;
+        }
+      });
+      total += upd + add;
+      parts.push(u + ' 갱신 ' + upd + '·새 ' + add + (mt.amb ? '·겹침 ' + mt.amb : ''));
+    } catch (e) { parts.push(u + ' 오류(원본 값 사용): ' + String(e.message).slice(0, 80)); }
+  });
+  BENCH_API_LOG_.n = total;
+  BENCH_API_LOG_.msg = parts.join(' · ');
+}
+
 function igmBench_(ss, today) {
   const c = igxChannels_().filter(x => x.ch === '인스타그램')[0] || igxChannels_()[0];
   if (!c) return { acc: 0, posts: 0 };
@@ -3759,11 +3827,12 @@ function igmBench_(ss, today) {
   const acc = [], posts = [];
   IGM_BENCH.forEach(u => {
     try {
-      const b = igxGet_(c.conf, c.user, { fields: 'business_discovery.username(' + u + '){followers_count,media_count,media.limit(50){id,timestamp,media_type,media_product_type,permalink,caption,like_count,comments_count}}' }).business_discovery;
-      acc.push([today, u, b.followers_count, b.media_count, now]);
-      ((b.media && b.media.data) || []).forEach(m => posts.push([u, String(m.id), Utilities.formatDate(new Date(m.timestamp), TZ, 'yyyy-MM-dd'),
-        m.media_product_type === 'REELS' ? '릴스' : (m.media_type === 'CAROUSEL_ALBUM' ? '캐러셀' : m.media_type === 'VIDEO' ? '영상' : '이미지'),
-        m.permalink || '', String(m.caption || '').replace(/\s+/g, ' ').slice(0, 60), ytaNum_(m.like_count), ytaNum_(m.comments_count), today]));
+      // 원본 읽기(benchOverlay_)에서 받은 것이 있으면 그 앞 50개를 씀(예전과 같은 범위)
+      const hit = Object.keys(BENCH_API_).filter(k => k.indexOf(u + '|') === 0)[0];
+      const b = hit ? BENCH_API_[hit] : benchFetch_(u, '2000-01-01', 1);
+      acc.push([today, u, b.followers, b.count, now]);
+      b.media.slice(0, 50).forEach(x => posts.push([u, String(x.m.id), x.date, benchType_(x.m),
+        x.m.permalink || '', String(x.m.caption || '').replace(/\s+/g, ' ').slice(0, 60), ytaNum_(x.m.like_count), ytaNum_(x.m.comments_count), today]));
     } catch (e) { acc.push([today, u, '', '', now + ' 오류: ' + String(e.message).slice(0, 80)]); }
   });
   igxUpsert_(ss, '타대학 일별', ['날짜', '계정', '팔로워', '게시물 수', '기록 시각'], [0, 1], acc);
