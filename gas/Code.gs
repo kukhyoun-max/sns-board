@@ -5244,6 +5244,16 @@ function collabStep_(ss) {
   if (key !== pp.getProperty('COLLAB_LOGKEY')) { pp.setProperty('COLLAB_LOGKEY', key); logRows_(ss, [[new Date(), COLLAB_SHEET, n, st.join(' / ').slice(0, 480)]]); }
   return n;
 }
+// 편집기에서 바로 채우기: 탭을 채우고 결과를 실행 로그·확인용 시트에 바로 남김
+function collabNow() {
+  const ss = SpreadsheetApp.getActive() || SpreadsheetApp.openById(SS_ID);
+  PropertiesService.getScriptProperties().deleteProperty('COLLAB_LOGKEY');
+  const n = collabStep_(ss);
+  const sh = ss.getSheetByName(COLLAB_SHEET);
+  if (sh && sh.getLastRow() > 1) sh.getRange(2, 1, sh.getLastRow() - 1, COLLAB_HEAD.length).getValues().forEach(r => Logger.log([r[0], r[1], '좋아요 ' + r[6], '댓글 ' + r[7], r[8]].join(' · ')));
+  Logger.log('채운 게시물 ' + n + '개');
+  logMirror_(true);
+}
 // ───────── 공동작업 게시물 확인(2026-10-21): 편집기에서 collabCheck 실행 → 실행 로그에 결과 ─────────
 // ① 우리 게시물 중 공동작업(collaborators) ② 상대 계정이 올리고 우리를 초대한 게시물이 우리 목록에 있는지 ③ 그 게시물 인사이트를 우리 토큰으로 받을 수 있는지
 // 상대 계정은 스크립트 속성 COLLAB_ACCOUNTS(쉼표로 여러 개, 없으면 jeonbuk1994)
