@@ -166,6 +166,8 @@
   const hidTag = it => it.hid ? '<span class="tag p-guess" title="' + HID_TIP + '">비공개로 보임</span>' : '';
   // 광고 의심(it.sus): 광고 표시는 없지만 좋아요가 유난히 적고 조회가 멈춘 영상 — 표시만, 계산에는 그대로 넣음
   const susTag = it => it.sus ? '<span class="tag p-guess" title="' + esc(it.sus) + '">광고 의심</span>' : '';
+  // 공동작업(it.co = 함께한 계정, 2026-10-21): 우리 계정이 올리고 다른 계정과 함께 게시한 것
+  const coTag = it => it.co ? '<span class="tag p-co" title="' + esc('함께 올린 계정: ' + it.co) + '">공동작업</span>' : '';
   const adtag = it => it.ad ? '<span class="tag ' + (it.ad.s === '확인' ? 'p-ad' : 'p-ad p-guess') + '" title="' + esc(it.ad.s === '패턴' ? '광고 리포트 이후 영상 · 조회 패턴으로 추정' : it.ad.x && !it.ad.k.length && !it.ad.mk ? it.ad.x + ' (캠페인 정보 없음)' : it.ad.mk && !it.ad.k.length ? '메타 광고(게시물 홍보): ' + it.ad.mk.map(metaLabel).join(', ') : '구글애즈 캠페인 연결(' + it.ad.s + '): ' + it.ad.k.join(', ')) + '">광고' + (it.ad.s === '확인' ? '' : ' 추정') + '</span>' : '';
 
   // ───────── 필터 ─────────
@@ -200,7 +202,7 @@
       const right = opt.right ? opt.right(it) : mName(it) + ' <span class="num">' + mvTxt + '</span>' + (tag ? ' · <em class="' + (it.ad || yg || it.hid ? 'flat' : xCls(r)) + '"' + (yg ? ' title="올린 지 ' + AGE_MIN + '일이 안 돼 조회가 아직 쌓이는 중이에요"' : it.hid ? ' title="' + HID_TIP + '"' : '') + '>' + tag + '</em>' : '');
       return '<li class="rk" tabindex="0" data-i="' + i + '"><span class="no">' + (i + 1) + '</span>' +
         '<span class="t"><b>' + line(it) + '</b><span>' + right + ' · <span title="' + esc(dot(it.d)) + '">' + whenTxt(it.d) + '</span></span></span>' +
-        '<span class="tg"><span class="tag">' + esc(glab(it)) + '</span>' + ptag(it.p) + adtag(it) + susTag(it) + hidTag(it) + histTag(it) + '</span></li>';
+        '<span class="tg"><span class="tag">' + esc(glab(it)) + '</span>' + ptag(it.p) + adtag(it) + coTag(it) + susTag(it) + hidTag(it) + histTag(it) + '</span></li>';
     }).join('') || '<li class="empty">조건에 맞는 콘텐츠가 없어요.</li>';
   }
   function wireRank(el, L) {
@@ -2344,7 +2346,7 @@
     const L = pool({ channels: viewChannels(), ads: true, g: S.g || undefined }).sort((a, b) => { const x = col.v(a), y = col.v(b); if (x == null && y == null) return 0; if (x == null) return 1; if (y == null) return -1; return (x > y ? 1 : x < y ? -1 : 0) * dir; });
     $('tbody').innerHTML = L.slice(0, S.tblShown).map((it, i) => '<tr data-i="' + i + '">' + C.map(c => {
       const v = c.v(it);
-      if (c.k === 'p') return '<td>' + ptag(v) + adtag(it) + susTag(it) + hidTag(it) + '</td>';
+      if (c.k === 'p') return '<td>' + ptag(v) + adtag(it) + coTag(it) + susTag(it) + hidTag(it) + '</td>';
       if (c.k === 'n') return '<td class="tt2">' + line(it) + '</td>';
       if (c.n) return '<td class="n">' + (c.f ? c.f(v, it) : fmt(v)) + '</td>';
       if (c.f) return '<td title="' + esc(dot(v)) + '">' + c.f(v, it) + '</td>';
@@ -2843,7 +2845,7 @@
     if (co.length) {
       const lk = medOf(D.items.filter(it => it.c === ch && !it.ad && it.t !== '스토리' && it.d >= addDays(D.updated, -365) && it.d <= addDays(D.updated, -AGE_MIN)).map(it => { const v = last(it); return v ? v[1] : null; }));
       h += secOpen('상대 계정이 올린 공동작업', '좋아요·댓글은 매시간 · 조회는 앱에서 보고 「공동작업(상대 게시)」 탭에 적은 값 · 우리 평소 계산에는 넣지 않아요');
-      h += '<ul class="cml co">' + co.slice(0, 10).map(r => '<li><a href="' + esc(r[0]) + '" target="_blank" rel="noopener"><span class="cml-t">' + esc(r[4] || r[0]) + '</span><small>@' + esc(r[1]) + (r[3] ? ' · ' + esc(dot(r[3])) : '') + (r[2] != null ? ' · 조회 ' + fmtK(r[2]) : '') + (r[5] != null ? ' · 좋아요 ' + fmtK(r[5]) : '') + (r[6] != null ? ' · 댓글 ' + fmt(r[6]) : '') + '</small>' +
+      h += '<ul class="cml co">' + co.slice(0, 10).map(r => '<li><a href="' + esc(r[0]) + '" target="_blank" rel="noopener"><span class="cml-t">' + esc(r[4] || r[0]) + '</span><small><span class="tag p-co">공동작업</span> @' + esc(r[1]) + (r[3] ? ' · ' + esc(dot(r[3])) : '') + (r[2] != null ? ' · 조회 ' + fmtK(r[2]) : '') + (r[5] != null ? ' · 좋아요 ' + fmtK(r[5]) : '') + (r[6] != null ? ' · 댓글 ' + fmt(r[6]) : '') + '</small>' +
         (r[5] != null && lk ? '<span class="co-x ' + xCls(r[5] / lk) + '">좋아요 우리 평소의 ' + xf(r[5] / lk) + '</span>' : '') + '</a></li>').join('') + '</ul>' + secClose;
     }
     return h;
@@ -3073,7 +3075,7 @@
       const nums = [['조회', p.v], ['좋아요', p.l], ['댓글', p.cm], ['공유', p.sh], ['저장', p.sv]].filter(x => x[1] != null && (x[0] !== '댓글' || x[1] > 0)).map(x => x[0] + ' ' + fmtK(x[1])).join(' · ');
       return '<li data-td="' + i + '" tabindex="0" role="button" aria-label="' + esc(title(p.n)) + ' 열기"><div class="race-t">' + badge(p.c) + '<span class="rt">' + esc(title(p.n)) + '</span>' +
         '<b class="tier ' + (t ? t[1] : 'na') + '"' + (tip ? ' title="' + esc(tip) + '"' : '') + '>' + (t ? '반응 ' + t[0] + (t[1] === 'mid' ? '' : ' ' + xf(r)) : '비교 전') + '</b></div>' +
-        '<small>' + tdAgo(p.at, now) + ' 올림 · ' + nums + (was > 0 ? ' · <span class="up">지난번보다 +' + fmtK(was) + '</span>' : '') + '</small>' + tdRowBar(p, now) + '</li>';
+        '<small>' + tdAgo(p.at, now) + ' 올림 · ' + ((tdItem(p) || {}).co ? '공동작업 · ' : '') + nums + (was > 0 ? ' · <span class="up">지난번보다 +' + fmtK(was) + '</span>' : '') + '</small>' + tdRowBar(p, now) + '</li>';
     }).join('');
     const since = sn ? '<span class="td-since">지난번 확인 ' + esc(sn.at.slice(11, 16)) + '</span>' : '';
     return '<section class="sec td-sec"><div class="sh"><div><h2>오늘</h2><p>' + esc(d.at.slice(11, 16)) + ' 지금 값 · 10분마다 새로 받아요</p></div><div class="top-act">' + since + '<button type="button" class="btn sm" id="tdRe">새로 받기</button></div></div>' +
@@ -3336,7 +3338,7 @@
       '<section class="dsec" id="dChart"><h1 class="dtitle">' + line(it) + '</h1>' +
         '<div class="dbig num">' + fmt(mainVal(it)) + '<small class="' + cls + '">' + (it.ad ? '광고 영상이라 평소 대비는 계산하지 않아요' : it.hid ? '비공개로 보임 · 평소 계산에서 뺌' : d == null ? '' : (young(it) ? '지금까지 ' + MN[m] + ' 평소의 ' + xf(d + 1) + ' · 조회 모이는 중' : MN[m] + ' 평소의 ' + xf(d + 1))) + '</small></div>' +
         (wk != null ? '<div class="num ' + (wk >= 0 ? 'up' : 'down') + '" style="font-weight:700;margin-top:2px">이번 주 ' + MN[m] + ' ' + sgn(wk) + fmt(wk) + '</div>' : '') +
-        '<div class="dtags"><span class="tag">' + esc(glab(it)) + '</span>' + ptag(it.p) + adtag(it) + susTag(it) + hidTag(it) + histTag(it) + '<span class="tag">' + esc(fmtType(it.t)) + '</span>' + (it.w || []).map(n => '<span class="tag">' + esc(n) + '</span>').join('') + '</div>' +
+        '<div class="dtags"><span class="tag">' + esc(glab(it)) + '</span>' + ptag(it.p) + adtag(it) + coTag(it) + susTag(it) + hidTag(it) + histTag(it) + '<span class="tag">' + esc(fmtType(it.t)) + '</span>' + (it.w || []).map(n => '<span class="tag">' + esc(n) + '</span>').join('') + '</div>' +
         '<div class="cmp"><canvas id="dCanvas"></canvas></div>' +
         // 누를 수 없는 토글 대신 실제로 그린 차트 이름 한 줄
         '<p class="note" style="text-align:center">' + (detailLine(it) ? '기록 날짜별 누적 ' + MN[m] : '이 콘텐츠 · 같은 분류 · 같은 형식 중간값') + '</p></section>' +

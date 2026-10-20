@@ -1384,6 +1384,7 @@ function buildDashboardData_() {
   const list = keys.map(k => items[k]);
   let extra = { roles: {}, ads: null };
   try { extra = attachTags_(ss, list, keys.map(k => rawKey[k])); } catch (e) { extra.tagError = e.message; }
+  try { coMark_(ss, list); } catch (e) {}
 
   return {
     updated: dates[dates.length - 1] || '',
@@ -3519,6 +3520,7 @@ function storySnapshot() {
     }
   } catch (e) {}
   try { collabStep_(ss); } catch (e) { logRows_(ss, [[new Date(), COLLAB_SHEET, 0, '오류: ' + String(e.message).slice(0, 150)]]); }
+  try { collabOwnStep_(ss, 60); } catch (e) { logRows_(ss, [[new Date(), COLLAB_OWN_SHEET, 0, '오류: ' + String(e.message).slice(0, 150)]]); }
   try { postHourly_(ss); } catch (e) { logRows_(ss, [[new Date(), HOURLY_SHEET, 0, '오류: ' + String(e.message).slice(0, 150)]]); }
 }
 function ensureStoryTrigger_() {
@@ -5211,7 +5213,7 @@ const COLLAB_SEED = [["https://www.instagram.com/p/Dd8bnHhk_cF/", "jeonbuk1994",
   ["https://www.instagram.com/p/DbNVeWiESYA/", "", "", "2026-10-21 담당자 알려 줌"],
   ["https://www.instagram.com/p/Dd0YicDTg8N/", "", "", "2026-10-21 담당자 알려 줌"],
   ["https://www.instagram.com/p/DebVN7sTRZd/", "", "", "2026-10-21 담당자 알려 줌"],
-  ["https://www.instagram.com/p/DWfbRFlk0BC/", "", "", "2026-10-21 담당자 알려 줌"]];
+  ["https://www.instagram.com/p/DWfbRFlk0BC/", "jeonbuk1994", "", "2026-10-21 담당자 알려 줌"]];
 const igShort_ = u => (String(u || '').match(/\/(?:p|reel|reels|tv)\/([^/?#]+)/) || [])[1] || '';
 function collabStep_(ss) {
   let sh = ss.getSheetByName(COLLAB_SHEET);
@@ -5230,11 +5232,11 @@ function collabStep_(ss) {
   let n = 0;
   Object.keys(byAcc).forEach(u => {
     let media = [];
-    try { media = benchFetch_(u, '2018-01-01', 6).media; } catch (e) { byAcc[u].forEach(x => { rows[x[0]][8] = '못 받음: ' + String(e.message).slice(0, 60); }); return; }
+    try { media = benchFetch_(u, '2018-01-01', 20).media; } catch (e) { byAcc[u].forEach(x => { rows[x[0]][8] = '못 받음: ' + String(e.message).slice(0, 60); }); return; }
     const idx = {}; media.forEach(x => { idx[igShort_(x.m.permalink)] = x; });
     byAcc[u].forEach(x => {
       const m = idx[x[1]], r = rows[x[0]];
-      if (!m) { if (!x[2] || !r[6]) r[8] = (x[2] ? '올린 계정을 B열에 적어 주세요(아는 계정에서 못 찾음)' : '최근 300개 안에 없음') + ' · ' + now; return; }
+      if (!m) { if (!x[2] || !r[6]) r[8] = (x[2] ? '올린 계정을 B열에 적어 주세요(아는 계정에서 못 찾음)' : '최근 1000개 안에 없음') + ' · ' + now; return; }
       if (x[2]) r[1] = u;
       r[4] = m.date; r[5] = String(m.m.caption || '').split('\n')[0].slice(0, 80); r[6] = Number(m.m.like_count) || 0; r[7] = Number(m.m.comments_count) || 0; r[8] = now; n++;
     });
@@ -5257,7 +5259,60 @@ function collabNow() {
   const sh = ss.getSheetByName(COLLAB_SHEET);
   if (sh && sh.getLastRow() > 1) sh.getRange(2, 1, sh.getLastRow() - 1, COLLAB_HEAD.length).getValues().forEach(r => Logger.log([r[0], r[1], '좋아요 ' + r[6], '댓글 ' + r[7], r[8]].join(' · ')));
   Logger.log('채운 게시물 ' + n + '개');
+  // 우리 계정이 올린 공동작업도 한 번에 많이 확인(평소엔 1시간에 60개씩)
+  const o = collabOwnStep_(ss, 600), osh = ss.getSheetByName(COLLAB_OWN_SHEET);
+  const co = osh && osh.getLastRow() > 1 ? osh.getRange(2, 1, osh.getLastRow() - 1, 3).getValues().filter(r => String(r[2]).trim()) : [];
+  logRows_(ss, [[new Date(), COLLAB_OWN_SHEET, o, '이번에 확인 ' + o + '개 · 공동작업 ' + co.length + '개: ' + co.map(r => r[1] + ' ' + igShort_(r[0]) + '(' + r[2] + ')').join(' / ').slice(0, 400)]]);
+  Logger.log('우리 게시물 확인 ' + o + '개 · 공동작업 ' + co.length + '개');
   logMirror_(true);
+}
+// ───────── 우리 계정이 올린 공동작업(2026-10-21, 「공동작업이라고 표기하자 대시보드 상에서도」) ─────────
+// 게시물마다 /collaborators를 한 번씩 물어 「공동작업(우리 게시)」 탭에 씀. 확인 안 한 게시물 + 최근 14일 게시물(하루 한 번 다시)
+// 1시간마다 스토리 실행이 max개씩. 보드는 it.co(함께한 계정)로 「공동작업」 표시
+const COLLAB_OWN_SHEET = '공동작업(우리 게시)';
+const COLLAB_OWN_HEAD = ['게시물 주소', '채널', '함께한 계정', '게시일', '확인 시각'];
+function collabOwnStep_(ss, max) {
+  const chs = igxChannels_();
+  if (!chs.length) return 0;
+  let sh = ss.getSheetByName(COLLAB_OWN_SHEET);
+  if (!sh) { sh = ss.insertSheet(COLLAB_OWN_SHEET); sh.getRange(1, 1, 1, COLLAB_OWN_HEAD.length).setValues([COLLAB_OWN_HEAD]); sh.setFrozenRows(1); sh.getRange('D:E').setNumberFormat('@'); }
+  const rows = sh.getLastRow() > 1 ? sh.getRange(2, 1, sh.getLastRow() - 1, COLLAB_OWN_HEAD.length).getDisplayValues() : [];
+  const at = {}; rows.forEach((r, i) => { at[igShort_(r[0])] = i; });
+  const pp = PropertiesService.getScriptProperties();
+  const today = Utilities.formatDate(new Date(), TZ, 'yyyy-MM-dd'), now = Utilities.formatDate(new Date(), TZ, 'yyyy-MM-dd HH:mm'), recent = shiftDate_(today, -14);
+  let calls = 0;
+  chs.forEach(c => {
+    const doneKey = 'COLLAB_OWN_DONE_' + c.ch, done = pp.getProperty(doneKey) === '1';
+    let after = '', page = 0, end = false;
+    while (calls < max && page++ < 40) {
+      const j = igxGet_(c.conf, c.user + '/media', Object.assign({ fields: 'id,permalink,timestamp', limit: 100 }, after ? { after: after } : {}));
+      const d = j.data || [];
+      for (let x = 0; x < d.length && calls < max; x++) {
+        const m = d[x], k = igShort_(m.permalink), day = Utilities.formatDate(new Date(m.timestamp), TZ, 'yyyy-MM-dd'), i = at[k];
+        if (i != null && !(day >= recent && String(rows[i][4]).slice(0, 10) !== today)) continue;
+        calls++;
+        let who;
+        try { who = (igxGet_(c.conf, m.id + '/collaborators', {}).data || []).map(y => y.username).filter(Boolean).join(', '); } catch (e) { continue; }
+        const row = [m.permalink, c.ch, who, day, now];
+        if (i == null) { at[k] = rows.length; rows.push(row); } else rows[i] = row;
+      }
+      const last = d.length ? Utilities.formatDate(new Date(d[d.length - 1].timestamp), TZ, 'yyyy-MM-dd') : '';
+      after = d.length && j.paging && j.paging.next && j.paging.cursors ? j.paging.cursors.after : '';
+      if (!after) { end = true; break; }
+      if (done && last < recent) break; // 한 번 끝까지 본 계정은 최근 것만
+    }
+    if (end && calls < max) pp.setProperty(doneKey, '1');
+  });
+  if (rows.length) { sh.getRange(2, 4, rows.length, 2).setNumberFormat('@'); sh.getRange(2, 1, rows.length, COLLAB_OWN_HEAD.length).setValues(rows); }
+  return calls;
+}
+// 보드 게시물에 공동작업 표시: 우리가 올린 것(함께한 계정) · 상대가 올린 것은 따로 보여 주므로 여기선 우리 게시물만
+function coMark_(ss, list) {
+  const sh = ss.getSheetByName(COLLAB_OWN_SHEET);
+  if (!sh || sh.getLastRow() < 2) return;
+  const map = {};
+  sh.getRange(2, 1, sh.getLastRow() - 1, 3).getValues().forEach(r => { if (String(r[2]).trim()) map[igShort_(r[0])] = String(r[2]).trim(); });
+  list.forEach(it => { if (it.c !== '유튜브' && it.u) { const w = map[igShort_(it.u)]; if (w) it.co = w; } });
 }
 // ───────── 공동작업 게시물 확인(2026-10-21): 편집기에서 collabCheck 실행 → 실행 로그에 결과 ─────────
 // ① 우리 게시물 중 공동작업(collaborators) ② 상대 계정이 올리고 우리를 초대한 게시물이 우리 목록에 있는지 ③ 그 게시물 인사이트를 우리 토큰으로 받을 수 있는지
