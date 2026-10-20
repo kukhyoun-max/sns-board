@@ -4498,6 +4498,8 @@ function nightBrief(test) {
   try { igxStories_(ss); stories = briefStories_(ss, today); } catch (e) { notes.push('스토리 확인 실패: ' + String(e.message).slice(0, 100)); }
   let D = null;
   try { const j = cacheGet_(); D = j ? JSON.parse(j) : null; } catch (e) { D = null; }
+  // 캐시가 비어 있으면(6시간 지남·캐시 밀려남) 보드 데이터를 바로 만들어 평소 값을 계산 — 없으면 평소 칸이 모두 「기준 없음」 (2026-10-20)
+  if (!D) { try { D = buildDashboardData_(); } catch (e) { notes.push('평소 값 계산 실패: ' + String(e.message).slice(0, 80)); } }
   // 시트 읽기·쓰기는 시트가 바쁘면(다른 기록 실행 중) 타임아웃이 날 수 있어 실패해도 메일은 보냄 — 쓰기는 메일 뒤에 한 번 더 시도
   let night = {};
   try { night = briefNightBase_(ss, today); } catch (e) { notes.push('올린 날 밤 기록 읽기 실패'); }
