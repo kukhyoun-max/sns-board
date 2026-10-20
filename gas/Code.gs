@@ -3518,6 +3518,7 @@ function storySnapshot() {
       if (JSON.stringify(ytPrivMap_()) !== before) dropCache_();
     }
   } catch (e) {}
+  try { collabStep_(ss); } catch (e) { logRows_(ss, [[new Date(), COLLAB_SHEET, 0, '오류: ' + String(e.message).slice(0, 150)]]); }
   try { postHourly_(ss); } catch (e) { logRows_(ss, [[new Date(), HOURLY_SHEET, 0, '오류: ' + String(e.message).slice(0, 150)]]); }
 }
 function ensureStoryTrigger_() {
@@ -5104,7 +5105,10 @@ function partIg_(ss) {
     if (!ok && at.slice(0, 10) >= cut30) todo.push([String(r[0]).trim(), at, String(r[5]).slice(0, 140), partN_(r[6]), u]);
   });
   todo.sort((a, b) => a[1] < b[1] ? 1 : -1);
-  return { day: day, post: post, demo: demo, demoD: lastD, story: story, ft: ft, fol: fol, reachDemo: reachDemo, reachD: rdD, pm: pm, cmt: cmt, todo: todo.slice(0, 40) };
+  // 상대 계정이 올린 공동작업 [주소, 올린 계정, 조회(사람이 적음), 게시일, 캡션, 좋아요, 댓글]
+  const collab = partRows_(ss, COLLAB_SHEET, COLLAB_HEAD.length).filter(r => r[0] && r[1]).map(r => [String(r[0]).trim(), String(r[1]).trim().replace(/^@/, ''), partN_(r[2]), partD_(r[4]), String(r[5] || ''), partN_(r[6]), partN_(r[7])])
+    .sort((a, b) => a[3] < b[3] ? 1 : -1);
+  return { day: day, post: post, demo: demo, demoD: lastD, story: story, ft: ft, fol: fol, reachDemo: reachDemo, reachD: rdD, pm: pm, cmt: cmt, todo: todo.slice(0, 40), collab: collab };
 }
 // 영상 하나: 시청 지속 곡선 [[구간(%), 시청 비율, 비슷한 영상 대비]]·검색어 [[검색어, 조회]] — 줄이 많아 그 영상 줄만 찾아 읽음
 function partYv_(ss, id) {
@@ -5192,6 +5196,34 @@ function partToday_(ss) {
   return { ts: now.getTime(), at: Utilities.formatDate(now, TZ, 'yyyy-MM-dd HH:mm'), today: today, posts: p, acct: acct, story: briefStories_(ss, today), hist: hr.hist, hbase: hr.base, notes: notes };
 }
 
+// ───────── 상대 계정이 올린 공동작업 게시물(2026-10-21) ─────────
+// API는 올린 계정에만 인사이트를 줌(collabCheck: 우리 토큰으로 요청하면 code 100 Unsupported get request).
+// 그래서 사람이 「공동작업(상대 게시)」 탭에 게시물 주소·올린 계정을 적으면, 1시간마다 business_discovery로 공개 숫자(좋아요·댓글)·게시일·캡션을 채움.
+// 조회는 앱 인사이트에서 보고 사람이 적음. 보드는 인스타 화면에 따로 보여 주고 우리 게시물의 평소 계산에는 넣지 않음
+const COLLAB_SHEET = '공동작업(상대 게시)';
+const COLLAB_HEAD = ['게시물 주소', '올린 계정', '조회(앱에서 보고 적기)', '메모', '게시일', '캡션 앞부분', '좋아요', '댓글', '받은 시각'];
+const igShort_ = u => (String(u || '').match(/\/(?:p|reel|reels|tv)\/([^/?#]+)/) || [])[1] || '';
+function collabStep_(ss) {
+  let sh = ss.getSheetByName(COLLAB_SHEET);
+  if (!sh) { sh = ss.insertSheet(COLLAB_SHEET); sh.getRange(1, 1, 1, COLLAB_HEAD.length).setValues([COLLAB_HEAD]); sh.setFrozenRows(1); sh.getRange(1, 1, 1, 4).setBackground('#fff4d6'); return 0; }
+  if (sh.getLastRow() < 2) return 0;
+  const rows = sh.getRange(2, 1, sh.getLastRow() - 1, COLLAB_HEAD.length).getValues();
+  const now = Utilities.formatDate(new Date(), TZ, 'yyyy-MM-dd HH:mm'), byAcc = {};
+  rows.forEach((r, i) => { const u = String(r[1]).trim().replace(/^@/, ''), k = igShort_(r[0]); if (u && k) (byAcc[u] = byAcc[u] || []).push([i, k]); });
+  let n = 0;
+  Object.keys(byAcc).forEach(u => {
+    let media = [];
+    try { media = benchFetch_(u, '2018-01-01', 6).media; } catch (e) { byAcc[u].forEach(x => { rows[x[0]][8] = '못 받음: ' + String(e.message).slice(0, 60); }); return; }
+    const idx = {}; media.forEach(x => { idx[igShort_(x.m.permalink)] = x; });
+    byAcc[u].forEach(x => {
+      const m = idx[x[1]], r = rows[x[0]];
+      if (!m) { r[8] = '최근 300개 안에 없음 · ' + now; return; }
+      r[4] = m.date; r[5] = String(m.m.caption || '').split('\n')[0].slice(0, 80); r[6] = Number(m.m.like_count) || 0; r[7] = Number(m.m.comments_count) || 0; r[8] = now; n++;
+    });
+  });
+  sh.getRange(2, 5, rows.length, 5).setValues(rows.map(r => r.slice(4, 9)));
+  return n;
+}
 // ───────── 공동작업 게시물 확인(2026-10-21): 편집기에서 collabCheck 실행 → 실행 로그에 결과 ─────────
 // ① 우리 게시물 중 공동작업(collaborators) ② 상대 계정이 올리고 우리를 초대한 게시물이 우리 목록에 있는지 ③ 그 게시물 인사이트를 우리 토큰으로 받을 수 있는지
 // 상대 계정은 스크립트 속성 COLLAB_ACCOUNTS(쉼표로 여러 개, 없으면 jeonbuk1994)
