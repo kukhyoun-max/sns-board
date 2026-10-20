@@ -5247,7 +5247,9 @@ function collabStep_(ss) {
 // 편집기에서 바로 채우기: 탭을 채우고 결과를 실행 로그·확인용 시트에 바로 남김
 function collabNow() {
   const ss = SpreadsheetApp.getActive() || SpreadsheetApp.openById(SS_ID);
+  // 손으로 돌릴 때는 시작 목록 중 탭에 없는 줄을 다시 넣음(이미 있는 줄은 건드리지 않음)
   PropertiesService.getScriptProperties().deleteProperty('COLLAB_LOGKEY');
+  PropertiesService.getScriptProperties().deleteProperty('COLLAB_SEEDED');
   const n = collabStep_(ss);
   const sh = ss.getSheetByName(COLLAB_SHEET);
   if (sh && sh.getLastRow() > 1) sh.getRange(2, 1, sh.getLastRow() - 1, COLLAB_HEAD.length).getValues().forEach(r => Logger.log([r[0], r[1], '좋아요 ' + r[6], '댓글 ' + r[7], r[8]].join(' · ')));
