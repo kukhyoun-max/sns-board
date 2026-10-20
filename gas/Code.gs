@@ -3446,6 +3446,7 @@ function storySnapshot() {
   } catch (e) {
     logRows_(ss, [[new Date(), '인스타 스토리', 0, '오류: ' + e.message]]);
   }
+  try { postHourly_(ss); } catch (e) { logRows_(ss, [[new Date(), HOURLY_SHEET, 0, '오류: ' + String(e.message).slice(0, 150)]]); }
 }
 function ensureStoryTrigger_() {
   if (ScriptApp.getProjectTriggers().some(t => t.getHandlerFunction() === 'storySnapshot')) return;
@@ -5012,6 +5013,41 @@ function partYv_(ss, id) {
     .sort((x, y) => y[2] - x[2]).slice(0, 5);
   return { v: id, ret: ret, kw: kw, sub: sub, age: age, im: im, isrc: isrc, end: end, cm: cm };
 }
+// ───────── 게시물 시간별(2026-10-20): 1시간마다 어제·오늘 올린 게시물의 지금 값을 쌓음 ─────────
+// 보드 「오늘」의 올린 뒤 시간별 조회 곡선과 「평소 같은 시간」(같은 채널·형식 지난 게시물이 올린 지 같은 시간에 받은 조회 중간값) 비교에 씀
+const HOURLY_SHEET = '게시물 시간별';
+const HOURLY_HEAD = ['기록 시각', '채널', '게시물 ID', '형식', '게시 시각', '경과(시간)', '조회', '좋아요', '댓글', '공유', '저장', '도달'];
+function postHourly_(ss) {
+  const now = new Date(), today = Utilities.formatDate(now, TZ, 'yyyy-MM-dd'), yday = shiftDate_(today, -1), notes = [];
+  let posts = [];
+  try { posts = posts.concat(briefInstagram_(today, notes, yday)); } catch (e) {}
+  try { posts = posts.concat(briefYouTube_(today, yday)); } catch (e) {}
+  if (!posts.length) return 0;
+  const stamp = Utilities.formatDate(now, TZ, 'yyyy-MM-dd HH:mm');
+  const rows = posts.map(x => [stamp, x.ch, String(x.id), x.type, Utilities.formatDate(x.at, TZ, 'yyyy-MM-dd HH:mm'), Math.round((now - x.at) / 360000) / 10, x.views, x.likes, x.comments, x.shares, x.saves, x.reach]);
+  let sh = ss.getSheetByName(HOURLY_SHEET);
+  if (!sh) { sh = ss.insertSheet(HOURLY_SHEET); sh.getRange(1, 1, 1, HOURLY_HEAD.length).setValues([HOURLY_HEAD]); sh.setFrozenRows(1); }
+  const at = sh.getLastRow() + 1;
+  sh.getRange(at, 3, rows.length, 1).setNumberFormat('@'); // 인스타 게시물 ID는 17자리 넘어 숫자로 바뀌면 끝자리가 틀어짐
+  sh.getRange(at, 1, rows.length, HOURLY_HEAD.length).setValues(rows);
+  return rows.length;
+}
+// 오늘 게시물의 시간별 [경과(시간), 조회] · 지난 게시물로 만든 평소 {채널|형식|경과 시간(반올림): 조회 중간값}(게시물 3개 이상)
+function hourlyFor_(ss, ids) {
+  const hist = {}, pool = {}, base = {};
+  const sh = ss.getSheetByName(HOURLY_SHEET);
+  if (!sh || sh.getLastRow() < 2) return { hist: hist, base: base };
+  const num = v => { const x = Number(String(v).replace(/,/g, '')); return v === '' || isNaN(x) ? null : x; };
+  sh.getRange(2, 1, sh.getLastRow() - 1, 7).getDisplayValues().forEach(r => {
+    const id = String(r[2]), h = num(r[5]), v = num(r[6]);
+    if (h == null || v == null || h < 0) return;
+    if (ids[id]) (hist[id] = hist[id] || []).push([h, v]);
+    else if (h <= 48) { const k = r[1] + '|' + r[3] + '|' + Math.round(h); (pool[k] = pool[k] || []).push(v); }
+  });
+  Object.keys(pool).forEach(k => { if (pool[k].length >= 3) base[k] = briefMed_(pool[k]); });
+  Object.keys(hist).forEach(id => hist[id].sort((a, b) => a[0] - b[0]));
+  return { hist: hist, base: base };
+}
 // ───────── 오늘 지금(2026-10-20): ?part=today ─────────
 // 어제·오늘 올린 게시물(인스타·hong·유튜브)의 지금 값과 계정 숫자를 API로 바로 받음. 캐시 10분(TODAY_TTL), 보드가 화면을 연 동안 10분마다 다시 받음
 const TODAY_TTL = 600;
@@ -5032,5 +5068,7 @@ function partToday_(ss) {
     acct.forEach(a => { const b = base[a.c]; if (b) { a.base = b.v; a.baseAt = b.at || b.d; } });
   } catch (e) {}
   try { const y = ytaGet_('https://www.googleapis.com/youtube/v3/channels?part=statistics&mine=true').items[0].statistics; acct.push({ c: '유튜브', subs: n(y.subscriberCount), views: n(y.viewCount) }); } catch (e) { notes.push('유튜브 구독자 확인 실패'); }
-  return { ts: now.getTime(), at: Utilities.formatDate(now, TZ, 'yyyy-MM-dd HH:mm'), today: today, posts: p, acct: acct, story: briefStories_(ss, today), notes: notes };
+  let hr = { hist: {}, base: {} };
+  try { const ids = {}; p.forEach(x => { ids[String(x.id)] = 1; }); hr = hourlyFor_(ss, ids); } catch (e) {}
+  return { ts: now.getTime(), at: Utilities.formatDate(now, TZ, 'yyyy-MM-dd HH:mm'), today: today, posts: p, acct: acct, story: briefStories_(ss, today), hist: hr.hist, hbase: hr.base, notes: notes };
 }
