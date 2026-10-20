@@ -796,3 +796,23 @@ details.fold[open] > summary { padding-bottom: 10px; }
 .tm-by { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin: 4px 0 12px; font-size: var(--fs-xs); }
 .tm-by .seg { margin: 0; }
 .tm-sel { font-size: var(--fs-sm); }
+/* 오늘(2026-10-20): 홈 맨 위 지금 값. 강조 면은 아래 「이번 주」 첫 칸 하나만이라 여기 칸은 평범하게 */
+.td-sec .kpi-row { margin-top: 2px; }
+.td-sec .kpi-t:first-child { background: var(--bg); border: 1px solid var(--line); box-shadow: none; color: inherit; }
+.td-sec .kpi-t:first-child .kpi-l { color: var(--sub); }
+.td-sec .kpi-t:first-child .kpi-v { color: var(--fg); }
+.td-sec .kpi-t:first-child .kpi-s, .td-sec .kpi-t:first-child .kpi-s .flat { color: var(--muted); }
+.td-sec .kpi-t:first-child .kpi-s .up { color: var(--up); }
+.td-sec .kpi-t:first-child .kpi-s .down { color: var(--down); }
+.td-sec .race-l li small { color: var(--muted); font-size: var(--fs-tag); line-height: 1.6; }
+.td-since { align-self: center; font-size: var(--fs-tag); color: var(--muted); white-space: nowrap; }
+.dp-top span { display: block; font-size: 13px; color: var(--sub); margin-top: 2px; }
+/* 댓글 목록(답 안 한 댓글 · 공감 많은 댓글) */
+.cml { list-style: none; margin: 4px 0 0; padding: 0; }
+.cml li { border-top: 1px solid var(--line); }
+.cml li:first-child { border-top: 0; }
+.cml li > a, .cml li { display: flex; flex-direction: column; gap: 2px; padding: 10px 0; color: inherit; text-decoration: none; min-width: 0; }
+.cml li > a { padding: 0; }
+.cml-t { font-size: var(--fs-sm); line-height: 1.6; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; word-break: break-all; }
+.cml small { font-size: var(--fs-tag); color: var(--muted); }
+@media (hover: hover) { .cml a:hover .cml-t { text-decoration: underline; text-underline-offset: 3px; } }
