@@ -5238,6 +5238,10 @@ function collabStep_(ss) {
   });
   sh.getRange(2, 2, rows.length, 1).setValues(rows.map(r => [r[1]]));
   sh.getRange(2, 5, rows.length, 5).setValues(rows.map(r => r.slice(4, 9)));
+  // 채운 결과를 실행 로그에 남김(확인용 시트로 바로 보이게). 계정·찾음 여부가 바뀌거나 날짜가 바뀔 때만
+  const st = rows.map(r => igShort_(r[0]) + ' @' + (String(r[1]).trim() || '?') + ' ' + (r[6] !== '' && r[6] != null ? '좋아요 ' + r[6] + '·댓글 ' + r[7] : String(r[8]).split(' · ')[0]));
+  const key = now.slice(0, 10) + '|' + rows.map(r => igShort_(r[0]) + String(r[1]).trim() + (r[6] !== '' && r[6] != null ? 1 : 0)).join(',');
+  if (key !== pp.getProperty('COLLAB_LOGKEY')) { pp.setProperty('COLLAB_LOGKEY', key); logRows_(ss, [[new Date(), COLLAB_SHEET, n, st.join(' / ').slice(0, 480)]]); }
   return n;
 }
 // ───────── 공동작업 게시물 확인(2026-10-21): 편집기에서 collabCheck 실행 → 실행 로그에 결과 ─────────
