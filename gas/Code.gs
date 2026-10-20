@@ -4406,7 +4406,7 @@ function collectMoreNow() {
 function backfillExtras() {
   try { ensureTriggers_(); } catch (e) {}
   try { logMirror_(); } catch (e) {}
-  try { const pp = PropertiesService.getScriptProperties(); if (!pp.getProperty('COLLAB_SEEDED')) { const s1 = SpreadsheetApp.getActive() || SpreadsheetApp.openById(SS_ID); logRows_(s1, [[new Date(), COLLAB_SHEET, collabStep_(s1), '처음 채움(담당자가 알려 준 게시물)']]); } } catch (e) {}
+  try { const pp = PropertiesService.getScriptProperties(); if (COLLAB_SEED.some(r => String(pp.getProperty('COLLAB_SEEDED') || '').indexOf(igShort_(r[0])) < 0)) { const s1 = SpreadsheetApp.getActive() || SpreadsheetApp.openById(SS_ID); logRows_(s1, [[new Date(), COLLAB_SHEET, collabStep_(s1), '처음 채움(담당자가 알려 준 게시물)']]); } } catch (e) {}
   const t0 = Date.now(), deadline = t0 + 5 * 60 * 1000;
   const ss = SpreadsheetApp.getActive() || SpreadsheetApp.openById(SS_ID);
   const p = PropertiesService.getScriptProperties();
@@ -5203,14 +5203,17 @@ function partToday_(ss) {
 // 조회는 앱 인사이트에서 보고 사람이 적음. 보드는 인스타 화면에 따로 보여 주고 우리 게시물의 평소 계산에는 넣지 않음
 const COLLAB_SHEET = '공동작업(상대 게시)';
 const COLLAB_HEAD = ['게시물 주소', '올린 계정', '조회(앱에서 보고 적기)', '메모', '게시일', '캡션 앞부분', '좋아요', '댓글', '받은 시각'];
-// 처음 탭을 만들 때 넣는 줄(담당자가 알려 준 게시물, 2026-10-21). 한 번만 넣고(COLLAB_SEEDED), 그 뒤 수정·삭제는 탭에서
-const COLLAB_SEED = [["https://www.instagram.com/p/Dd8bnHhk_cF/", "jeonbuk1994", 445600, "앱 인사이트 조회 2026-10-21 0시 기준"]];
+// 담당자가 대화로 알려 준 게시물(2026-10-21). 게시물마다 한 번만 넣고(COLLAB_SEEDED = 넣은 짧은 코드 목록), 그 뒤 수정·삭제는 탭에서
+const COLLAB_SEED = [["https://www.instagram.com/p/Dd8bnHhk_cF/", "jeonbuk1994", 445600, "앱 인사이트 조회 2026-10-21 0시 기준"],
+  ["https://www.instagram.com/p/DWVkHDCkc9T/", "jumfesta", "", "JUMF 공동작업(2026-10-21 담당자 알려 줌)"]];
 const igShort_ = u => (String(u || '').match(/\/(?:p|reel|reels|tv)\/([^/?#]+)/) || [])[1] || '';
 function collabStep_(ss) {
   let sh = ss.getSheetByName(COLLAB_SHEET);
   if (!sh) { sh = ss.insertSheet(COLLAB_SHEET); sh.getRange(1, 1, 1, COLLAB_HEAD.length).setValues([COLLAB_HEAD]); sh.setFrozenRows(1); sh.getRange(1, 1, 1, 4).setBackground('#fff4d6'); }
   const pp = PropertiesService.getScriptProperties();
-  if (!pp.getProperty('COLLAB_SEEDED')) { const have = sh.getLastRow() > 1 ? sh.getRange(2, 1, sh.getLastRow() - 1, 1).getValues().map(r => igShort_(r[0])) : []; const add = COLLAB_SEED.filter(r => have.indexOf(igShort_(r[0])) < 0); if (add.length) sh.getRange(sh.getLastRow() + 1, 1, add.length, 4).setValues(add); pp.setProperty('COLLAB_SEEDED', '1'); }
+  let done = []; try { done = JSON.parse(pp.getProperty('COLLAB_SEEDED') || '[]'); } catch (e) { done = []; } if (!Array.isArray(done)) done = [igShort_(COLLAB_SEED[0][0])];
+  const todoS = COLLAB_SEED.filter(r => done.indexOf(igShort_(r[0])) < 0);
+  if (todoS.length) { const have = sh.getLastRow() > 1 ? sh.getRange(2, 1, sh.getLastRow() - 1, 1).getValues().map(r => igShort_(r[0])) : []; const add = todoS.filter(r => have.indexOf(igShort_(r[0])) < 0); if (add.length) sh.getRange(sh.getLastRow() + 1, 1, add.length, 4).setValues(add); pp.setProperty('COLLAB_SEEDED', JSON.stringify(done.concat(todoS.map(r => igShort_(r[0]))))); }
   if (sh.getLastRow() < 2) return 0;
   const rows = sh.getRange(2, 1, sh.getLastRow() - 1, COLLAB_HEAD.length).getValues();
   const now = Utilities.formatDate(new Date(), TZ, 'yyyy-MM-dd HH:mm'), byAcc = {};
