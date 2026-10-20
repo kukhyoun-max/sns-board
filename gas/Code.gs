@@ -3387,11 +3387,11 @@ function igxDemographics_(ss, today) {
   if (sh && sh.getLastRow() > 1 && !isMonday_(today)) return { n: 0, skip: true, miss: [] };
   const rows = [], miss = [];
   igxChannels_().forEach(c => {
-    ['age', 'gender', 'city'].forEach(b => {
+    ['age', 'gender', 'city', 'country'].forEach(b => {
       try {
         const d = igxGet_(c.conf, c.user + '/insights', { metric: 'follower_demographics', period: 'lifetime', metric_type: 'total_value', breakdown: b }).data || [];
         ((d[0] && d[0].total_value && d[0].total_value.breakdowns && d[0].total_value.breakdowns[0].results) || [])
-          .forEach(x => rows.push([today, c.ch, b === 'age' ? '연령' : b === 'gender' ? '성별' : '도시', String(x.dimension_values[0]), x.value]));
+          .forEach(x => rows.push([today, c.ch, ({ age: '연령', gender: '성별', city: '도시', country: '국가' })[b], String(x.dimension_values[0]), x.value]));
       } catch (e) { miss.push('follower_demographics/' + b); }
     });
   });
@@ -3407,6 +3407,15 @@ function igxStep_(ss, today, logs) {
   try { const s = igxStories_(ss); parts.push('스토리 ' + s.n + '개(새 ' + s.added + ')'); miss.push.apply(miss, s.miss); } catch (e) { parts.push('스토리 오류: ' + e.message); }
   try { const a = igxAccountDay_(ss, today); parts.push('계정 일별 ' + a.n + '줄'); miss.push.apply(miss, a.miss); } catch (e) { parts.push('계정 일별 오류: ' + e.message); }
   try { const f = igxFollowTypeDays_(ss, today, 3); parts.push('팔로워 구분 ' + f.n + '줄'); miss.push.apply(miss, f.miss); } catch (e) { parts.push('팔로워 구분 오류: ' + e.message); }
+  try { const a = igxDayMoreDays_(ss, today, 3); parts.push('계정 일별 추가 ' + a.n + '줄'); miss.push.apply(miss, a.miss); } catch (e) { parts.push('계정 일별 추가 오류: ' + e.message); }
+  try { const r = igxReachedDemo_(ss, today); parts.push(r.skip ? '도달·반응 분포는 월요일' : '도달·반응 분포 ' + r.n + '줄'); miss.push.apply(miss, r.miss); } catch (e) { parts.push('도달·반응 분포 오류: ' + e.message); }
+  try {
+    const m = igxComments_(ss, today, shiftDate_(today, -30), Date.now() + 60 * 1000);
+    parts.push(m.perm ? '댓글: 권한 없음(토큰에 instagram_manage_comments 필요)' : '댓글 ' + m.n + '개(게시물 ' + m.posts + '개)');
+    const p = PropertiesService.getScriptProperties(), dn = JSON.parse(p.getProperty('BACKFILL_DONE') || '{}');
+    if (!m.perm && dn.igCm === 'perm') { dn.igCm = 0; p.setProperty('BACKFILL_DONE', JSON.stringify(dn)); } // 권한이 생기면 과거 댓글 채우기를 다시 시작
+  } catch (e) { parts.push('댓글 오류: ' + String(e.message).slice(0, 100)); }
+  try { parts.push('태그된 게시물 ' + igxTags_(ss, today) + '개'); } catch (e) { parts.push(/code (10|200|3)\b/.test(e.message) ? '태그된 게시물: 권한 없음' : '태그된 게시물 오류: ' + String(e.message).slice(0, 100)); }
   try { const d = igxDemographics_(ss, today); parts.push(d.skip ? '분포는 월요일' : '분포 ' + d.n + '줄'); miss.push.apply(miss, d.miss); } catch (e) { parts.push('분포 오류: ' + e.message); }
   logs.push([new Date(), '인스타 추가 수집', 0, parts.join(' · ') + (miss.length ? ' · 받지 못한 지표: ' + Array.from(new Set(miss)).join(', ') : '')]);
 }
@@ -3505,11 +3514,21 @@ function ytaChannelDaily_(ss, today) {
 }
 
 // 기간 하나의 시청자 분포 행들
-function ytaAudienceRows_(label, s, e, now) {
-  const rows = [];
+const YTA_PLAY = { WATCH: '유튜브 시청 페이지', SHORTS: '쇼츠 피드', BROWSE: '홈·탐색 화면', CHANNEL: '채널 페이지', EMBEDDED: '다른 사이트에 삽입', EXTERNAL_APP: '외부 앱',
+  SEARCH: '검색 결과 화면', MOBILE: '모바일(옛 기준)', YT_OTHER: '기타 유튜브' };
+function ytaAudienceRows_(label, s, e, now, only) {
+  const rows = [], base = only !== 'more', more = only !== 'base';
   // 질의 하나가 실패(분석 API가 가끔 HTTP 500)해도 나머지는 씀. 실패는 YTA_FAIL_에 셈
   const add = (kind, rs, key, val, name) => rs.forEach(r => rows.push([label, kind, name ? name(r[key]) : r[key], ytaNum_(r[val]), now]));
-  const q = (kind, fn, key, val, name) => { try { add(kind, fn(), key, val, name); } catch (err) { ytaFail_(kind); } };
+  const q0 = (kind, fn, key, val, name) => { try { add(kind, fn(), key, val, name); } catch (err) { ytaFail_(kind); } };
+  const q = (kind, fn, key, val, name) => { if (base) q0(kind, fn, key, val, name); };
+  if (more) {
+    q0('도시(조회)', () => ytaReport_({ startDate: s, endDate: e, dimensions: 'city', metrics: 'views', sort: '-views', maxResults: 25 }), 'city', 'views');
+    q0('공유 서비스(공유)', () => ytaReport_({ startDate: s, endDate: e, dimensions: 'sharingService', metrics: 'shares', sort: '-shares', maxResults: 25 }), 'sharingService', 'shares');
+    q0('재생 위치(조회)', () => ytaReport_({ startDate: s, endDate: e, dimensions: 'insightPlaybackLocationType', metrics: 'views' }), 'insightPlaybackLocationType', 'views', x => YTA_PLAY[x] || x);
+    q0('OS(조회)', () => ytaReport_({ startDate: s, endDate: e, dimensions: 'operatingSystem', metrics: 'views', sort: '-views' }), 'operatingSystem', 'views');
+    q0('콘텐츠 유형(조회)', () => ytaReport_({ startDate: s, endDate: e, dimensions: 'creatorContentType', metrics: 'views' }), 'creatorContentType', 'views', x => YTA_CTYPE[x] || x);
+  }
   q('연령·성별(%)', () => ytaReport_({ startDate: s, endDate: e, dimensions: 'ageGroup,gender', metrics: 'viewerPercentage' }).map(r => ({ k: r.ageGroup.replace('age', '') + ' ' + (r.gender === 'female' ? '여' : r.gender === 'male' ? '남' : r.gender), v: r.viewerPercentage })), 'k', 'v');
   q('국가(조회)', () => ytaReport_({ startDate: s, endDate: e, dimensions: 'country', metrics: 'views', sort: '-views', maxResults: 15 }), 'country', 'views');
   q('기기(조회)', () => ytaReport_({ startDate: s, endDate: e, dimensions: 'deviceType', metrics: 'views' }), 'deviceType', 'views');
@@ -3580,9 +3599,20 @@ function ytaVideoRows_(v, yday, wantRet, now) {
 function ytaComments_(vid, now) {
   const out = [];
   try {
-    const c = YouTube.CommentThreads.list('snippet', { videoId: vid, maxResults: 100, textFormat: 'plainText' });
-    (c.items || []).forEach(t => { const s = t.snippet.topLevelComment.snippet;
-      out.push([t.id, vid, Utilities.formatDate(new Date(s.publishedAt), TZ, 'yyyy-MM-dd HH:mm'), String(s.textDisplay || '').slice(0, 500), s.likeCount, t.snippet.totalReplyCount, now]); });
+    // 최상위 댓글은 100개씩 10쪽(1,000개)까지, 답글은 「유튜브 답글」로(YTA_REPLIES_에 모았다가 ytaFlushReplies_가 씀) (2026-10-20)
+    const me = ytaMyChannel_(), when = x => Utilities.formatDate(new Date(x), TZ, 'yyyy-MM-dd HH:mm');
+    let tok = '';
+    for (let p = 0; p < 10; p++) {
+      const c = YouTube.CommentThreads.list('snippet,replies', Object.assign({ videoId: vid, maxResults: 100, textFormat: 'plainText' }, tok ? { pageToken: tok } : {}));
+      (c.items || []).forEach(t => { const s = t.snippet.topLevelComment.snippet;
+        out.push([t.id, vid, when(s.publishedAt), String(s.textDisplay || '').slice(0, 500), s.likeCount, t.snippet.totalReplyCount, now]);
+        let rs = (t.replies && t.replies.comments) || [];
+        if (t.snippet.totalReplyCount > rs.length) { try { rs = YouTube.Comments.list('snippet', { parentId: t.id, maxResults: 100, textFormat: 'plainText' }).items || rs; } catch (e) {} }
+        rs.forEach(r => { const q = r.snippet;
+          YTA_REPLIES_.push([r.id, t.id, vid, when(q.publishedAt), String(q.textDisplay || '').slice(0, 500), q.likeCount, me && q.authorChannelId && q.authorChannelId.value === me ? '예' : '', now]); });
+      });
+      tok = c.nextPageToken || ''; if (!tok) break;
+    }
   } catch (e) { ytaFail_(/disabled/i.test(String(e.message)) ? '댓글 꺼진 영상' : '댓글(' + String(e.message).slice(0, 60) + ')'); } // 댓글을 끈 영상도 건수로 남김(원인 확인용)
   return out;
 }
@@ -3619,7 +3649,7 @@ function ytaRecentVideos_(ss, today, weekly) {
   ytaReplaceSome_(ss, '유튜브 유입 경로', YTA_TR_HEAD, ids, tr);
   ytaReplaceSome_(ss, '유튜브 검색어', YTA_KW_HEAD, ids.concat([CH]), kw);
   if (weekly) ytaReplaceSome_(ss, '유튜브 시청 지속률', YTA_RET_HEAD, ids, ret);
-  if (cm.length) igxUpsert_(ss, '유튜브 댓글', YTA_CM_HEAD, [0], cm);
+  if (cm.length) igxUpsert_(ss, '유튜브 댓글', YTA_CM_HEAD, [0], cm); ytaFlushReplies_(ss);
   return { vids: vids.length, tr: tr.length, kw: kw.length, ret: ret.length, cm: cm.length };
 }
 
@@ -3662,6 +3692,8 @@ function ytaStep_(ss, today, logs) {
   run('최근 영상', () => { const r = ytaRecentVideos_(ss, today, false); return r.vids + '개(유입 ' + r.tr + '·검색어 ' + r.kw + '·댓글 ' + r.cm + ')'; });
   run('영상별 시청자(최근 30일 영상)', () => { const yday = shiftDate_(today, -1); return ytaVideoAud_(ss, ytaRecent_(30, today).filter(v => v.date <= yday), yday) + '개'; });
   run('노출·최종 화면(보고서 API)', () => ytrStep_(ss, 60 * 1000).text);
+  run('유형 일별', () => ytaTypeDaily_(ss, today) + '줄');
+  run('영상 추가 지표', () => ytaVideoMore_(ss, today) + '개');
   logs.push([new Date(), '유튜브 추가 수집', 0, parts.join(' · ') + ytaFailText_()]);
 }
 
@@ -3733,6 +3765,7 @@ function igmStep_(ss, today, logs) {
   if (!igxChannels_().length) { logs.push([new Date(), '인스타 게시물 추가', 0, '건너뜀: META_TOKEN 또는 IG_API 꺼짐']); return; }
   const parts = [], miss = [];
   try { const m = igmMedia_(ss, today, false, Date.now() + 90 * 1000); parts.push('게시물 ' + m.n + '개(최근 30일)'); miss.push.apply(miss, m.miss); } catch (e) { parts.push('게시물 오류: ' + String(e.message).slice(0, 120)); }
+  try { const x = igmMediaMore_(ss, today, false, Date.now() + 60 * 1000); parts.push('게시물 세부 ' + x.n + '줄'); miss.push.apply(miss, x.miss); } catch (e) { parts.push('게시물 세부 오류: ' + String(e.message).slice(0, 120)); }
   try { const b = igmBench_(ss, today); parts.push('타 대학 ' + b.acc + '곳·게시물 ' + b.posts + '개'); } catch (e) { parts.push('타 대학 오류: ' + String(e.message).slice(0, 120)); }
   logs.push([new Date(), '인스타 게시물 추가', 0, parts.join(' · ') + (miss.length ? ' · 받지 못한 지표: ' + Array.from(new Set(miss)).join(', ') : '')]);
 }
@@ -3894,6 +3927,222 @@ function igxFollowTypeDays_(ss, today, days) {
   return { n: rows.length, miss: miss };
 }
 
+// ───────── 인스타 계정 일별 추가·게시물 세부·도달/반응한 사람 분포·댓글·태그된 게시물 (2026-10-20) ─────────
+//  · 「인스타 계정 일별 추가」 : 채널·날짜·지표·구분·값(세로로 길게). 좋아요·댓글·공유·저장·답장·상호작용 합계, 팔로우/언팔로우,
+//                               조회·도달·상호작용의 콘텐츠 유형별(릴스·게시물·스토리…), 프로필 버튼 누름 종류
+//  · 「인스타 게시물 세부」    : 게시물별 프로필 활동 종류(링크·전화·길찾기…), 릴스 건너뛰기 비율·다른 앱 교차 조회(메타가 주는 것만)
+//  · 「인스타 도달·반응 분포」 : 이번 달 도달한 사람/반응한 사람의 연령·성별·도시·국가(월요일)
+//  · 「인스타 댓글」          : 게시물 댓글·답글 내용(작성자 이름은 저장하지 않음, 우리 계정이 단 답글만 표시) — 토큰에 instagram_manage_comments 필요
+//  · 「인스타 태그된 게시물」  : 다른 계정이 우리 계정을 태그한 게시물 — 같은 권한 필요. 권한이 없으면 로그에 남기고 건너뜀
+const IGX_MORE_SHEET = '인스타 계정 일별 추가';
+const IGX_MORE_HEAD = ['채널', '날짜', '지표', '구분', '값', '기록 시각'];
+const IGX_MORE_SUM = ['likes', 'comments', 'shares', 'saves', 'replies', 'total_interactions'];
+const IGX_MORE_BRK = [['follows_and_unfollows', 'follow_type'], ['views', 'media_product_type'], ['reach', 'media_product_type'],
+  ['total_interactions', 'media_product_type'], ['profile_links_taps', 'contact_button_type']];
+const IGX_KO = { likes: '좋아요', comments: '댓글', shares: '공유', saves: '저장', replies: '답장', total_interactions: '상호작용', follows_and_unfollows: '팔로우·언팔로우',
+  views: '조회', reach: '도달', profile_links_taps: '프로필 버튼', profile_activity: '프로필 활동', reels_skip_rate: '릴스 건너뛰기 비율', crossposted_views: '교차 게시 조회',
+  facebook_views: '페이스북 조회', reached_audience_demographics: '도달한 사람', engaged_audience_demographics: '반응한 사람' };
+// 일별 하루치 행. 메타가 안 주는 지표는 miss에(한 번 실패한 것은 bad에 넣어 같은 실행에서 다시 묻지 않음)
+function igxDayMore_(c, d, miss, bad, now) {
+  const unix = x => Math.floor(new Date(x + 'T00:00:00+09:00').getTime() / 1000);
+  const base = { period: 'day', metric_type: 'total_value', since: unix(d), until: unix(shiftDate_(d, 1)) }, rows = [];
+  const want = IGX_MORE_SUM.filter(m => bad.indexOf(m) < 0), mm = [];
+  if (want.length) {
+    const v = igxInsights_(c.conf, c.user, want, base, mm);
+    want.forEach(m => { if (v[m] !== undefined && v[m] !== '') rows.push([c.ch, d, IGX_KO[m], '전체', v[m], now]); });
+  }
+  IGX_MORE_BRK.forEach(x => {
+    const k = x.join('/');
+    if (bad.indexOf(k) >= 0) return;
+    try {
+      const r = igxGet_(c.conf, c.user + '/insights', Object.assign({ metric: x[0], breakdown: x[1] }, base)).data || [];
+      ((r[0] && r[0].total_value && r[0].total_value.breakdowns && r[0].total_value.breakdowns[0] && r[0].total_value.breakdowns[0].results) || [])
+        .forEach(y => {
+          let g = String((y.dimension_values || [])[0] || '알 수 없음');
+          if (x[0] === 'follows_and_unfollows') g = g === 'FOLLOWER' ? '팔로우' : g === 'NON_FOLLOWER' ? '언팔로우' : g;
+          rows.push([c.ch, d, IGX_KO[x[0]], g, Number(y.value) || 0, now]);
+        });
+    } catch (e) { mm.push(k); }
+  });
+  mm.forEach(m => { if (bad.indexOf(m) < 0) bad.push(m); if (miss.indexOf(m) < 0) miss.push(m); });
+  return rows;
+}
+function igxDayMoreDays_(ss, today, days) {
+  const now = Utilities.formatDate(new Date(), TZ, 'yyyy-MM-dd HH:mm'), rows = [], miss = [], bad = [];
+  igxChannels_().forEach(c => { for (let i = 1; i <= days; i++) rows.push.apply(rows, igxDayMore_(c, shiftDate_(today, -i), miss, bad, now)); });
+  if (rows.length) igxUpsert_(ss, IGX_MORE_SHEET, IGX_MORE_HEAD, [0, 1, 2, 3], rows);
+  return { n: rows.length, miss: miss };
+}
+// 이번 달 도달한 사람·반응한 사람 분포(월요일 또는 탭이 비어 있을 때). 표본이 적으면(반응 100명 미만 등) 메타가 빈 값을 줌
+function igxReachedDemo_(ss, today) {
+  const name = '인스타 도달·반응 분포', head = ['기록일', '채널', '지표', '구분', '항목', '사람 수'];
+  const sh = ss.getSheetByName(name);
+  if (sh && sh.getLastRow() > 1 && !isMonday_(today)) return { n: 0, skip: true, miss: [] };
+  const rows = [], miss = [], KO = { age: '연령', gender: '성별', city: '도시', country: '국가' };
+  igxChannels_().forEach(c => ['reached_audience_demographics', 'engaged_audience_demographics'].forEach(m => ['age', 'gender', 'city', 'country'].forEach(b => {
+    try {
+      const d = igxGet_(c.conf, c.user + '/insights', { metric: m, period: 'lifetime', timeframe: 'this_month', metric_type: 'total_value', breakdown: b }).data || [];
+      ((d[0] && d[0].total_value && d[0].total_value.breakdowns && d[0].total_value.breakdowns[0] && d[0].total_value.breakdowns[0].results) || [])
+        .forEach(x => rows.push([today, c.ch, IGX_KO[m], KO[b], String(x.dimension_values[0]), x.value]));
+    } catch (e) { if (miss.indexOf(m + '/' + b) < 0) miss.push(m + '/' + b); }
+  })));
+  if (rows.length) igxUpsert_(ss, name, head, [0, 1, 2, 3, 4], rows);
+  return { n: rows.length, miss: miss };
+}
+// 게시물 세부: 프로필 활동 종류 + 릴스 추가 지표
+const IGM_MORE_REELS = ['reels_skip_rate', 'crossposted_views', 'facebook_views'];
+// start: 이어서 할 순번(과거 채우기용). 반환 next = 다음 순번, total = 전체 게시물 수
+function igmMediaMore_(ss, today, all, deadline, start) {
+  const rows = [], miss = [], bad = [], list = [];
+  igxChannels_().forEach(c => igMedia_(c.conf, c.user, 'id,timestamp,media_product_type', 100, all ? IG_CH[c.ch].from : shiftDate_(today, -30)).forEach(m => list.push({ c: c, m: m })));
+  let i = start || 0;
+  for (; i < list.length; i++) {
+    if (deadline && Date.now() > deadline) break;
+    {
+      const c = list[i].c, m = list[i].m, id = String(m.id);
+      if (bad.indexOf('profile_activity/action_type') < 0) {
+        try {
+          const r = igxGet_(c.conf, id + '/insights', { metric: 'profile_activity', breakdown: 'action_type', metric_type: 'total_value' }).data || [];
+          ((r[0] && r[0].total_value && r[0].total_value.breakdowns && r[0].total_value.breakdowns[0] && r[0].total_value.breakdowns[0].results) || [])
+            .forEach(y => rows.push([c.ch, id, IGX_KO.profile_activity, String((y.dimension_values || [])[0] || ''), Number(y.value) || 0, today]));
+        } catch (e) { bad.push('profile_activity/action_type'); miss.push('profile_activity/action_type'); }
+      }
+      if (m.media_product_type === 'REELS') {
+        const want = IGM_MORE_REELS.filter(x => bad.indexOf(x) < 0), mm = [];
+        const v = want.length ? igxInsights_(c.conf, id, want, null, mm) : {};
+        want.forEach(x => { if (v[x] !== undefined && v[x] !== '') rows.push([c.ch, id, IGX_KO[x], '전체', v[x], today]); });
+        mm.forEach(x => { if (bad.indexOf(x) < 0) bad.push(x); if (miss.indexOf(x) < 0) miss.push(x); });
+      }
+    }
+  }
+  if (rows.length) igxUpsert_(ss, '인스타 게시물 세부', ['채널', '게시물 ID', '지표', '구분', '값', '기록일'], [0, 1, 2, 3], rows);
+  return { n: rows.length, miss: miss, stopped: i < list.length, next: i, total: list.length };
+}
+// 댓글·답글: 최근 N일 게시물(all이면 전체). 권한이 없으면 첫 실패에서 멈추고 'perm' 표시
+const IGC_HEAD = ['채널', '댓글 ID', '상위 댓글 ID', '게시물 ID', '작성 시각', '내용', '좋아요', '답글 수', '우리 계정 답글', '기록일'];
+// from: 이 날 이후 게시물(없으면 채널 시작일부터), start: 이어서 할 순번. 반환 next·total
+function igxComments_(ss, today, from, deadline, start) {
+  const rows = [], list = [];
+  let perm = false, posts = 0;
+  const ts = x => Utilities.formatDate(new Date(x), TZ, 'yyyy-MM-dd HH:mm');
+  igxChannels_().forEach(c => igMedia_(c.conf, c.user, 'id,timestamp,comments_count', 100, from || IG_CH[c.ch].from).filter(m => Number(m.comments_count) > 0).forEach(m => list.push({ c: c, m: m })));
+  let i = start || 0;
+  for (; i < list.length; i++) {
+    if (deadline && Date.now() > deadline) break;
+    {
+      const c = list[i].c, m = list[i].m;
+      let after = '';
+      try {
+        for (let p = 0; p < 10; p++) {
+          const j = igxGet_(c.conf, m.id + '/comments', Object.assign({ fields: 'id,text,timestamp,like_count,replies.limit(50){id,text,timestamp,like_count,from}', limit: 50 }, after ? { after: after } : {}));
+          (j.data || []).forEach(x => {
+            const rp = (x.replies && x.replies.data) || [];
+            rows.push([c.ch, String(x.id), '', String(m.id), ts(x.timestamp), String(x.text || '').slice(0, 500), Number(x.like_count) || 0, rp.length, rp.some(y => y.from && String(y.from.id) === String(c.user)) ? '예' : '', today]);
+            rp.forEach(y => rows.push([c.ch, String(y.id), String(x.id), String(m.id), ts(y.timestamp), String(y.text || '').slice(0, 500), Number(y.like_count) || 0, '', y.from && String(y.from.id) === String(c.user) ? '예' : '', today]));
+          });
+          after = j.paging && j.paging.next && j.paging.cursors ? j.paging.cursors.after : '';
+          if (!after) break;
+        }
+        posts++;
+      } catch (e) {
+        if (/code (10|200|3|190)\b/.test(e.message)) { perm = true; break; }
+      }
+    }
+  }
+  if (rows.length) igxUpsert_(ss, '인스타 댓글', IGC_HEAD, [0, 1], rows);
+  return { n: rows.length, posts: posts, perm: perm, stopped: !perm && i < list.length, next: i, total: list.length };
+}
+function igxTags_(ss, today) {
+  const rows = [];
+  igxChannels_().forEach(c => {
+    let after = '';
+    for (let p = 0; p < 20; p++) {
+      const j = igxGet_(c.conf, c.user + '/tags', Object.assign({ fields: 'id,username,timestamp,media_type,media_product_type,permalink,caption,like_count,comments_count', limit: 50 }, after ? { after: after } : {}));
+      (j.data || []).forEach(m => rows.push([c.ch, String(m.id), m.username || '', Utilities.formatDate(new Date(m.timestamp), TZ, 'yyyy-MM-dd HH:mm'),
+        m.media_product_type === 'REELS' ? '릴스' : (m.media_type === 'CAROUSEL_ALBUM' ? '캐러셀' : m.media_type === 'VIDEO' ? '영상' : '이미지'),
+        m.permalink || '', String(m.caption || '').replace(/\s+/g, ' ').slice(0, 300), ytaNum_(m.like_count), ytaNum_(m.comments_count), today]));
+      after = j.paging && j.paging.next && j.paging.cursors ? j.paging.cursors.after : '';
+      if (!after) break;
+    }
+  });
+  if (rows.length) igxUpsert_(ss, '인스타 태그된 게시물', ['채널', '게시물 ID', '올린 계정', '게시 시각', '유형', '링크', '캡션 앞부분', '좋아요', '댓글', '기록일'], [0, 1], rows);
+  return rows.length;
+}
+
+// ───────── 유튜브 추가: 콘텐츠 유형 일별·영상 추가 지표·재생목록·유입 세부·답글 (2026-10-20) ─────────
+//  · 「유튜브 유형 일별」   : 날짜·콘텐츠 유형(쇼츠·일반 영상·라이브)별 조회·시청 시간·구독 증가·좋아요·공유
+//  · 「유튜브 영상 추가 지표」: 영상별 재생목록 추가·제거, 싫어요, 카드 노출·클릭
+//  · 「유튜브 재생목록」     : 재생목록별 조회·시작 수·시청 시간(시리즈 성과)
+//  · 「유튜브 유입 세부」    : 최근 90일 영상별 어떤 외부 사이트·어떤 추천 영상·어떤 재생목록에서 왔나(상위 10개씩, 월요일)
+//  · 「유튜브 답글」        : 댓글에 달린 답글(작성자 이름은 저장하지 않음, 우리 채널 답글만 표시) — 댓글 응답률 계산용
+const YTA_CTYPE = { SHORTS: '쇼츠', VIDEO_ON_DEMAND: '일반 영상', LIVE_STREAM: '라이브', STORY: '스토리', UNSPECIFIED: '알 수 없음' };
+function ytaTypeDaily_(ss, today) {
+  const name = '유튜브 유형 일별', sh = ss.getSheetByName(name);
+  const from = (!sh || sh.getLastRow() < 2) ? YTA_HIST_START : shiftDate_(today, -7);
+  const now = Utilities.formatDate(new Date(), TZ, 'yyyy-MM-dd HH:mm');
+  const rows = ytaReport_({ startDate: from, endDate: today, dimensions: 'day,creatorContentType', sort: 'day',
+    metrics: 'views,estimatedMinutesWatched,subscribersGained,likes,shares' })
+    .map(r => [r.day, YTA_CTYPE[r.creatorContentType] || r.creatorContentType, r.views, r.estimatedMinutesWatched, r.subscribersGained, r.likes, r.shares, now]);
+  igxUpsert_(ss, name, ['날짜', '콘텐츠 유형', '조회', '시청 시간(분)', '구독 증가', '좋아요', '공유', '기록 시각'], [0, 1], rows);
+  return rows.length;
+}
+function ytaVideoMore_(ss, today) {
+  const api = YT_API_ || null;
+  let ids = api ? Object.keys(api.videos).filter(id => api.videos[id].date >= YT_PERIOD_START) : [];
+  if (!ids.length) ids = ytaRecent_(1100, today).map(v => v.id);
+  const o = {};
+  for (let i = 0; i < ids.length; i += YT_BATCH) {
+    const f = { startDate: YT_PERIOD_START, endDate: today, dimensions: 'video', filters: 'video==' + ids.slice(i, i + YT_BATCH).join(','), maxResults: 200 };
+    try { ytaReport_(Object.assign({ metrics: 'videosAddedToPlaylists,videosRemovedFromPlaylists,dislikes' }, f)).forEach(r => { o[r.video] = Object.assign(o[r.video] || {}, r); }); } catch (e) { ytaFail_('재생목록 추가·싫어요'); }
+    try { ytaReport_(Object.assign({ metrics: 'cardImpressions,cardClicks' }, f)).forEach(r => { o[r.video] = Object.assign(o[r.video] || {}, r); }); } catch (e) { ytaFail_('카드'); }
+  }
+  const now = shiftDate_(today, 0);
+  const rows = Object.keys(o).map(id => { const r = o[id]; return [id, ytaNum_(r.videosAddedToPlaylists), ytaNum_(r.videosRemovedFromPlaylists), ytaNum_(r.dislikes), ytaNum_(r.cardImpressions), ytaNum_(r.cardClicks), now]; });
+  if (rows.length) igxUpsert_(ss, '유튜브 영상 추가 지표', ['영상 ID', '재생목록 추가', '재생목록 제거', '싫어요', '카드 노출', '카드 클릭', '기록일'], [0], rows);
+  return rows.length;
+}
+function ytaPlaylists_(ss, today) {
+  const pl = {};
+  let tok = '';
+  for (let p = 0; p < 10; p++) {
+    const r = ytaGet_('https://www.googleapis.com/youtube/v3/playlists?part=snippet,contentDetails&mine=true&maxResults=50' + (tok ? '&pageToken=' + tok : ''));
+    (r.items || []).forEach(x => { pl[x.id] = { t: x.snippet.title, n: x.contentDetails.itemCount, d: Utilities.formatDate(new Date(x.snippet.publishedAt), TZ, 'yyyy-MM-dd') }; });
+    tok = r.nextPageToken || ''; if (!tok) break;
+  }
+  const f = { startDate: YTA_HIST_START, endDate: today, dimensions: 'playlist', filters: 'isCurated==1', maxResults: 200, sort: '-playlistViews' };
+  let st = [];
+  const tries = ['playlistViews,playlistStarts,playlistEstimatedMinutesWatched,playlistAverageViewDuration,viewsPerPlaylistStart,averageTimeInPlaylist', 'playlistViews,playlistStarts,playlistEstimatedMinutesWatched', 'views,estimatedMinutesWatched'];
+  for (const m of tries) { try { st = ytaReport_(Object.assign({}, f, { metrics: m, sort: '-' + m.split(',')[0] })); break; } catch (e) { if (m === tries[tries.length - 1]) throw e; } }
+  const rows = st.map(r => [String(r.playlist), (pl[r.playlist] || {}).t || '', (pl[r.playlist] || {}).d || '', ytaNum_((pl[r.playlist] || {}).n),
+    ytaNum_(r.playlistViews != null ? r.playlistViews : r.views), ytaNum_(r.playlistStarts), ytaNum_(r.playlistEstimatedMinutesWatched != null ? r.playlistEstimatedMinutesWatched : r.estimatedMinutesWatched),
+    ytaNum_(r.playlistAverageViewDuration), ytaNum_(r.viewsPerPlaylistStart), ytaNum_(r.averageTimeInPlaylist), today]);
+  igxUpsert_(ss, '유튜브 재생목록', ['재생목록 ID', '이름', '만든 날', '영상 수', '조회', '시작 수', '시청 시간(분)', '평균 시청(초)', '시작당 조회', '목록 안 평균 시간(분)', '기록일'], [0], rows);
+  return rows.length;
+}
+function ytaTrafficDetail_(ss, today) {
+  const yday = shiftDate_(today, -1), now = today, rows = [];
+  const vids = ytaRecent_(YTA_RECENT_DAYS, today).filter(v => v.date <= yday);
+  vids.forEach(v => ['EXT_URL', 'RELATED_VIDEO', 'PLAYLIST', 'NOTIFICATION'].forEach(t => {
+    try { ytaReport_({ startDate: v.date, endDate: yday, dimensions: 'insightTrafficSourceDetail', metrics: 'views', filters: 'video==' + v.id + ';insightTrafficSourceType==' + t, sort: '-views', maxResults: 10 })
+      .forEach(r => rows.push([v.id, v.title, YTA_TRAFFIC[t] || t, r.insightTrafficSourceDetail, r.views, now])); } catch (e) { ytaFail_('유입 세부'); }
+  }));
+  ytaReplaceSome_(ss, '유튜브 유입 세부', ['영상 ID', '제목', '유입 경로', '세부', '조회', '기록일'], vids.map(v => v.id), rows);
+  return rows.length;
+}
+// 답글: ytaComments_가 모아 둔 것을 씀
+let YTA_REPLIES_ = [], YTA_MYCH_ = null;
+function ytaMyChannel_() {
+  if (YTA_MYCH_ == null) { try { YTA_MYCH_ = ytaGet_('https://www.googleapis.com/youtube/v3/channels?part=id&mine=true').items[0].id; } catch (e) { YTA_MYCH_ = ''; } }
+  return YTA_MYCH_;
+}
+function ytaFlushReplies_(ss) {
+  if (!YTA_REPLIES_.length) return 0;
+  const n = YTA_REPLIES_.length;
+  igxUpsert_(ss, '유튜브 답글', ['답글 ID', '상위 댓글 ID', '영상 ID', '작성 시각', '내용', '좋아요', '우리 채널 답글', '기록일'], [0], YTA_REPLIES_);
+  YTA_REPLIES_ = [];
+  return n;
+}
+
 // 주간 수집(월요일 10시 트리거, 메뉴로도 실행): 무거운 것 — 시청 지속률·태그·재생목록·지난달 시청자 분포·인스타 전체 게시물·접속 시간대
 // 매일 기록과 따로 돌려 한 실행이 6분 한도를 넘지 않게 함. 시간이 모자라면 남은 것은 다음 주에(또는 다시 실행하면) 이어서
 function weeklyExtras() {
@@ -3905,6 +4154,8 @@ function weeklyExtras() {
   if (PropertiesService.getScriptProperties().getProperty('YT_REFRESH')) {
     run('시청 지속률', () => ytaRecentVideos_(ss, today, true).ret + '줄');
     run('태그·재생목록', () => ytaVideoInfo_(ss, today) + '개');
+    run('재생목록 성과', () => ytaPlaylists_(ss, today) + '개');
+    run('유입 세부', () => ytaTrafficDetail_(ss, today) + '줄');
     run('영상별 시청자(최근 90일 영상)', () => { const yday = shiftDate_(today, -1); return ytaVideoAud_(ss, ytaRecent_(YTA_RECENT_DAYS, today).filter(v => v.date <= yday), yday, deadline - 60 * 1000) + '개'; });
     run('지난달 시청자', () => { const a = ytaAudience_(ss, today, YTA_MONTHS_PER_RUN); return a.months + '달' + (a.left ? '(남은 ' + a.left + '달)' : ''); });
   }
@@ -3969,7 +4220,7 @@ function backfillExtras() {
       ytaReplaceSome_(ss, '유튜브 유입 경로', YTA_TR_HEAD, ids, tr);
       ytaReplaceSome_(ss, '유튜브 검색어', YTA_KW_HEAD, ids, kw);
       ytaReplaceSome_(ss, '유튜브 시청 지속률', YTA_RET_HEAD, ids, ret);
-      if (cm.length) igxUpsert_(ss, '유튜브 댓글', YTA_CM_HEAD, [0], cm);
+      if (cm.length) igxUpsert_(ss, '유튜브 댓글', YTA_CM_HEAD, [0], cm); ytaFlushReplies_(ss);
     }
     const rest = todo.length - ids.length;
     if (!rest) done.vid2 = 1;
@@ -4005,7 +4256,7 @@ function backfillExtras() {
     let i = Number(p.getProperty('BACKFILL_CM2_I') || 0); // 2차(원인 확인용으로 처음부터 다시)
     const cm = [];
     for (; i < vids.length && left() > 30 * 1000; i++) Array.prototype.push.apply(cm, ytaComments_(vids[i].id, today));
-    if (cm.length) igxUpsert_(ss, '유튜브 댓글', YTA_CM_HEAD, [0], cm);
+    if (cm.length) igxUpsert_(ss, '유튜브 댓글', YTA_CM_HEAD, [0], cm); ytaFlushReplies_(ss);
     p.setProperty('BACKFILL_CM2_I', String(i));
     if (i >= vids.length) done.cm2 = 1;
     parts.push('유튜브 댓글 ' + cm.length + '개' + (done.cm2 ? '(완료)' : '(영상 ' + (vids.length - i) + '개 남음)'));
@@ -4084,21 +4335,88 @@ function backfillExtras() {
       parts.push('인스타 팔로워 구분 ' + n + '일 거슬러 ' + rows.length + '줄' + (done.igFt ? '(완료)' : '(다음은 ' + d + '부터)') + (miss.length ? '(받지 못한 지표: ' + miss.join(', ') + ')' : ''));
     } else { done.igFt = 1; parts.push('인스타 팔로워 구분 건너뜀(IG_API 꺼짐)'); }
   }
+  // ⑩ 유튜브 시청자 분포의 새 구분(도시·공유 서비스·재생 위치·OS·콘텐츠 유형) — 지난달부터 거꾸로
+  if (!done.aud3 && p.getProperty('YT_REFRESH') && left() > 60 * 1000) {
+    let m = p.getProperty('BACKFILL_AUD3_M') || shiftDate_(today.slice(0, 7) + '-01', -1).slice(0, 7) + '-01', n = 0, rows = [];
+    const now = Utilities.formatDate(new Date(), TZ, 'yyyy-MM-dd HH:mm');
+    while (m >= YTA_HIST_START.slice(0, 7) + '-01' && left() > 45 * 1000) {
+      const end = shiftDate_(Utilities.formatDate(new Date(Date.UTC(Number(m.slice(0, 4)), Number(m.slice(5, 7)), 1)), 'UTC', 'yyyy-MM-dd'), -1);
+      rows = rows.concat(ytaAudienceRows_(m.slice(0, 7), m, end, now, 'more')); n++;
+      m = shiftDate_(m, -1).slice(0, 7) + '-01';
+    }
+    if (rows.length) igxUpsert_(ss, '유튜브 시청자', ['기간', '구분', '항목', '값', '기록 시각'], [0, 1, 2], rows);
+    p.setProperty('BACKFILL_AUD3_M', m);
+    if (m < YTA_HIST_START.slice(0, 7) + '-01') done.aud3 = 1;
+    parts.push('유튜브 시청자 새 구분 ' + n + '달' + (done.aud3 ? '(완료)' : '(다음은 ' + m.slice(0, 7) + ')'));
+  }
+  // ⑪ 유튜브 답글·1,000개까지 댓글: 2024-01 이후 모든 영상(진행 BACKFILL_REP_I)
+  if (!done.rep && left() > 45 * 1000) {
+    const vids = ytaRecent_(1100, today).filter(v => v.date >= YT_PERIOD_START);
+    let i = Number(p.getProperty('BACKFILL_REP_I') || 0);
+    const cm = [];
+    for (; i < vids.length && left() > 30 * 1000; i++) Array.prototype.push.apply(cm, ytaComments_(vids[i].id, today));
+    if (cm.length) igxUpsert_(ss, '유튜브 댓글', YTA_CM_HEAD, [0], cm);
+    const nr = ytaFlushReplies_(ss);
+    p.setProperty('BACKFILL_REP_I', String(i));
+    if (i >= vids.length) done.rep = 1;
+    parts.push('유튜브 댓글·답글 ' + cm.length + '·' + nr + '개' + (done.rep ? '(완료)' : '(영상 ' + (vids.length - i) + '개 남음)'));
+  }
+  // ⑫ 인스타 계정 일별 추가(하루씩 거꾸로)
+  if (!done.igMore && left() > 60 * 1000) {
+    const chans = igxChannels_();
+    if (chans.length) {
+      let d = p.getProperty('BACKFILL_IG_MORE_DAY') || shiftDate_(today, -4);
+      const floor = shiftDate_(today, -760), rows = [], miss = [], bad = [], now = Utilities.formatDate(new Date(), TZ, 'yyyy-MM-dd HH:mm');
+      let n = 0, empty = 0, stop = false;
+      while (!stop && d >= floor && left() > 30 * 1000) {
+        let got = false;
+        chans.forEach(c => { const r = igxDayMore_(c, d, miss, bad, now); if (r.length) { got = true; rows.push.apply(rows, r); } });
+        n++; empty = got ? 0 : empty + 1;
+        if (empty >= 7) stop = true;
+        d = shiftDate_(d, -1);
+      }
+      if (rows.length) igxUpsert_(ss, IGX_MORE_SHEET, IGX_MORE_HEAD, [0, 1, 2, 3], rows);
+      p.setProperty('BACKFILL_IG_MORE_DAY', d);
+      if (stop || d < floor) done.igMore = 1;
+      parts.push('인스타 계정 일별 추가 ' + n + '일 거슬러 ' + rows.length + '줄' + (done.igMore ? '(완료)' : '(다음은 ' + d + '부터)') + (miss.length ? '(받지 못한 지표: ' + miss.join(', ') + ')' : ''));
+    } else { done.igMore = 1; }
+  }
+  // ⑬ 인스타 전체 게시물 세부(진행 BACKFILL_IGPM_I)
+  if (!done.igPm && left() > 60 * 1000) {
+    if (igxChannels_().length) {
+      const r = igmMediaMore_(ss, today, true, deadline - 40 * 1000, Number(p.getProperty('BACKFILL_IGPM_I') || 0));
+      p.setProperty('BACKFILL_IGPM_I', String(r.next));
+      if (!r.stopped) done.igPm = 1;
+      parts.push('인스타 게시물 세부 ' + r.n + '줄' + (done.igPm ? '(완료)' : '(게시물 ' + (r.total - r.next) + '개 남음)') + (r.miss.length ? '(받지 못한 지표: ' + r.miss.join(', ') + ')' : ''));
+    } else { done.igPm = 1; }
+  }
+  // ⑭ 인스타 전체 게시물 댓글(진행 BACKFILL_IGC_I). 권한이 없으면 'perm'으로 멈추고, 매일 수집에서 권한이 확인되면 다시 시작
+  if (!done.igCm && left() > 60 * 1000) {
+    if (igxChannels_().length) {
+      const r = igxComments_(ss, today, '', deadline - 40 * 1000, Number(p.getProperty('BACKFILL_IGC_I') || 0));
+      if (r.perm) { done.igCm = 'perm'; parts.push('인스타 댓글: 권한 없음(토큰에 instagram_manage_comments를 넣으면 자동으로 다시 시작)'); }
+      else {
+        p.setProperty('BACKFILL_IGC_I', String(r.next));
+        if (!r.stopped) done.igCm = 1;
+        parts.push('인스타 댓글 ' + r.n + '개' + (done.igCm ? '(완료)' : '(게시물 ' + (r.total - r.next) + '개 남음)'));
+      }
+    } else { done.igCm = 1; }
+  }
   p.setProperty('BACKFILL_DONE', JSON.stringify(done));
-  const all = done.aud2 && done.vid2 && done.ig && done.cm2 && done.chOld && done.igHist && done.ytr && done.vidAud && done.igFt;
+  const all = done.aud2 && done.vid2 && done.ig && done.cm2 && done.chOld && done.igHist && done.ytr && done.vidAud && done.igFt && done.aud3 && done.rep && done.igMore && done.igPm && done.igCm;
   logRows_(ss, [[new Date(), '과거 채우기', 0, parts.join(' · ') + ytaFailText_() + ' — ' + Math.round((Date.now() - t0) / 1000) + '초' + (all ? ' · 전부 끝남' : ' · 1분 뒤 자동으로 이어서')]]);
   Logger.log(parts.join(' · ') + (all ? ' · 전부 끝남' : ' · 1분 뒤 자동으로 이어서'));
   // 끝나지 않았으면 1분 뒤 자기 자신을 다시 예약(한 번만 실행하면 끝까지 감). 끝났으면 예약을 지움
   ScriptApp.getProjectTriggers().filter(t => t.getHandlerFunction() === 'backfillExtras').forEach(t => ScriptApp.deleteTrigger(t));
-  const runs = Number(p.getProperty('BACKFILL_RUNS') || 0) + 1; // 같은 단계가 계속 실패해도 무한히 돌지 않게 30번에서 멈춤
+  const runs = Number(p.getProperty('BACKFILL_RUNS') || 0) + 1; // 같은 단계가 계속 실패해도 무한히 돌지 않게 80번에서 멈춤
   p.setProperty('BACKFILL_RUNS', String(all ? 0 : runs));
-  if (!all && runs < 30) ScriptApp.newTrigger('backfillExtras').timeBased().after(60 * 1000).create();
-  else if (!all) logRows_(ss, [[new Date(), '과거 채우기', 0, '자동 반복 30번에서 멈춤 — 실행 로그의 오류를 확인하세요']]);
+  if (!all && runs < 80) ScriptApp.newTrigger('backfillExtras').timeBased().after(60 * 1000).create();
+  else if (!all) logRows_(ss, [[new Date(), '과거 채우기', 0, '자동 반복 80번에서 멈춤 — 실행 로그의 오류를 확인하세요']]);
 }
 // 과거 채우기에 아직 안 끝난 항목이 있는데 예약이 없으면 1분 뒤로 예약(새 항목을 추가해 배포했을 때 사람이 누르지 않아도 시작)
 function ensureBackfill_() {
   const d = JSON.parse(PropertiesService.getScriptProperties().getProperty('BACKFILL_DONE') || '{}');
-  if (d.aud2 && d.vid2 && d.ig && d.cm2 && d.chOld && d.igHist && d.ytr && d.vidAud && d.igFt) return;
+  if (d.aud2 && d.vid2 && d.ig && d.cm2 && d.chOld && d.igHist && d.ytr && d.vidAud && d.igFt && d.aud3 && d.rep && d.igMore && d.igPm && d.igCm) return;
   if (ScriptApp.getProjectTriggers().some(t => t.getHandlerFunction() === 'backfillExtras')) return;
   ScriptApp.newTrigger('backfillExtras').timeBased().after(60 * 1000).create();
 }
