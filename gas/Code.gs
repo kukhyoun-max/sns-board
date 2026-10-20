@@ -220,13 +220,21 @@ function setupDaily() {
   ScriptApp.getProjectTriggers()
     .filter(t => ['weeklySnapshot', 'dailySnapshot'].indexOf(t.getHandlerFunction()) >= 0)
     .forEach(t => ScriptApp.deleteTrigger(t));
-  ScriptApp.newTrigger('dailySnapshot')
-    .timeBased()
-    .everyDays(1)
-    .atHour(8)
-    .nearMinute(0)
-    .inTimezone(TZ)
-    .create();
+  SNAP_HOURS.forEach(h => ScriptApp.newTrigger('dailySnapshot').timeBased().everyDays(1).atHour(h).nearMinute(0).inTimezone(TZ).create());
+}
+// 하루 여러 번 기록: 같은 날 기록은 바꿔 써서(runSnapshot_ 3단계) 줄이 쌓이지 않음. 원본 읽기·API 단계가 다시 돌아 화면 값이 그만큼 새로워짐
+const SNAP_HOURS = [8, 12, 16, 20];
+const TRIG_VER = '2026-10-20 하루 4번·스토리 1시간';
+// 트리거 버전이 바뀌면 기록·스토리·밤 브리핑 트리거를 다시 맞춤(편집기에서 setup을 다시 돌리지 않아도 되게). 과거 채우기·스토리 실행이 부름
+function ensureTriggers_() {
+  const p = PropertiesService.getScriptProperties();
+  if (p.getProperty('TRIG_VER') === TRIG_VER) return;
+  const ts = ScriptApp.getProjectTriggers();
+  setupDaily();
+  ts.filter(t => t.getHandlerFunction() === 'storySnapshot').forEach(t => ScriptApp.deleteTrigger(t));
+  ScriptApp.newTrigger('storySnapshot').timeBased().everyHours(1).create();
+  if (!ts.some(t => t.getHandlerFunction() === 'nightBrief')) ScriptApp.newTrigger('nightBrief').timeBased().everyDays(1).atHour(22).nearMinute(0).inTimezone(TZ).create();
+  p.setProperty('TRIG_VER', TRIG_VER);
 }
 
 // ───────── 매일 갱신 (트리거 실행 함수) ─────────
@@ -1213,8 +1221,9 @@ function doGet(e) {
     else {
       const pre = part === 'yv' ? 'pyv:' + String(e.parameter.v || '').replace(/[^\w-]/g, '').slice(0, 20) : 'part:' + part;
       try { json = cacheGet_(pre); } catch (err) { json = null; }
+      if (json && part === 'today' && e.parameter.fresh) { try { if (Date.now() - Number(JSON.parse(json).ts || 0) > 2 * 60 * 1000) json = null; } catch (err) { json = null; } }
       if (!json) {
-        try { json = JSON.stringify(buildPart_(part, e)); if (!isRecording_()) { try { cachePut_(json, pre); } catch (err) {} } }
+        try { json = JSON.stringify(buildPart_(part, e)); if (!isRecording_() || part === 'today') { try { cachePut_(json, pre, part === 'today' ? TODAY_TTL : 0); } catch (err) {} } }
         catch (err) { json = JSON.stringify({ error: '분석 데이터를 만들지 못했어요: ' + String(err && err.message || err) }); }
       }
     }
@@ -1239,8 +1248,9 @@ function isRecording_() {
   const t = Number(PropertiesService.getScriptProperties().getProperty(PROP_RUNNING) || 0);
   return t > 0 && Date.now() - t < 10 * 60 * 1000; // 10분 넘은 표시는 실패한 실행의 흔적으로 보고 무시
 }
-function cachePut_(json, pre) {
+function cachePut_(json, pre, ttl) {
   pre = pre || CACHE_PREFIX;
+  ttl = ttl || CACHE_TTL;
   const gz = Utilities.gzip(Utilities.newBlob('', 'application/json').setDataFromString(json, 'UTF-8'));
   const b64 = Utilities.base64Encode(gz.getBytes());
   const id = String(Date.now());
@@ -1248,8 +1258,8 @@ function cachePut_(json, pre) {
   let n = 0;
   for (let i = 0; i < b64.length; i += CACHE_CHUNK) parts[pre + ':' + id + ':' + (n++)] = b64.slice(i, i + CACHE_CHUNK);
   const c = CacheService.getScriptCache();
-  c.putAll(parts, CACHE_TTL);
-  c.put(pre + ':meta', JSON.stringify({ id: id, n: n, len: b64.length }), CACHE_TTL); // 조각을 다 넣은 뒤 마지막에
+  c.putAll(parts, ttl);
+  c.put(pre + ':meta', JSON.stringify({ id: id, n: n, len: b64.length }), ttl); // 조각을 다 넣은 뒤 마지막에
   return { n: n, bytes: b64.length, raw: json.length };
 }
 function cacheGet_(pre) {
@@ -1360,6 +1370,7 @@ function buildDashboardData_() {
 
   return {
     updated: dates[dates.length - 1] || '',
+    built: Utilities.formatDate(new Date(), TZ, 'yyyy-MM-dd HH:mm'), // 이 응답을 만든 시각(하루 여러 번 기록, 보드가 새 기록인지 봄)
     dates: dates,
     channels: order.map(c => ({ name: c, bench: OWN_CHANNELS.indexOf(c) < 0 })),
     metrics: DASH_METRICS,
@@ -3425,6 +3436,7 @@ function igxStep_(ss, today, logs) {
 // 2시간마다(트리거): 스토리만. 새 스토리가 있거나 오류일 때만 로그를 남김(로그 탭이 넘치지 않게)
 function storySnapshot() {
   const ss = SpreadsheetApp.getActive() || SpreadsheetApp.openById(SS_ID);
+  try { ensureTriggers_(); } catch (e) {}
   try { ensureBackfill_(); } catch (e) {}
   try { ensureFbBackfill_(); } catch (e) {}
   try {
@@ -3437,7 +3449,7 @@ function storySnapshot() {
 }
 function ensureStoryTrigger_() {
   if (ScriptApp.getProjectTriggers().some(t => t.getHandlerFunction() === 'storySnapshot')) return;
-  ScriptApp.newTrigger('storySnapshot').timeBased().everyHours(2).create();
+  ScriptApp.newTrigger('storySnapshot').timeBased().everyHours(1).create();
 }
 
 // 편집기·메뉴에서 바로 한 번: 오늘 몫을 지금 받음(처음 켤 때)
@@ -4284,6 +4296,7 @@ function collectMoreNow() {
 //  ③ 인스타 계정 일별 도달·조회·프로필 방문·링크 클릭·참여 계정(하루씩, API가 주는 데까지 — 보통 2년 안팎)
 // 진행 상황은 스크립트 속성 BACKFILL_DONE(끝난 항목)·BACKFILL_IG_DAY(인스타 다음에 받을 날짜)에 둠
 function backfillExtras() {
+  try { ensureTriggers_(); } catch (e) {}
   const t0 = Date.now(), deadline = t0 + 5 * 60 * 1000;
   const ss = SpreadsheetApp.getActive() || SpreadsheetApp.openById(SS_ID);
   const p = PropertiesService.getScriptProperties();
@@ -4593,11 +4606,12 @@ function nightBrief(test) {
 }
 
 // 인스타(jjuniv·hong): 최신 게시물 25개 중 오늘 올린 것 + 지표
-function briefInstagram_(today, notes) {
+function briefInstagram_(today, notes, from) {
+  from = from || today;
   const out = [];
   igxChannels_().forEach(c => {
     const list = igxGet_(c.conf, c.user + '/media', { fields: 'id,caption,timestamp,permalink,media_type,media_product_type,like_count,comments_count', limit: 25 }).data || [];
-    list.filter(x => Utilities.formatDate(new Date(x.timestamp), TZ, 'yyyy-MM-dd') === today).forEach(x => {
+    list.filter(x => { const d = Utilities.formatDate(new Date(x.timestamp), TZ, 'yyyy-MM-dd'); return d >= from && d <= today; }).forEach(x => {
       const miss = [];
       const reel = x.media_product_type === 'REELS';
       const v = igxInsights_(c.conf, x.id, ['views', 'reach', 'saved', 'shares'].concat(reel ? ['ig_reels_avg_watch_time', 'profile_activity'] : ['follows', 'profile_activity']), null, miss);
@@ -4612,8 +4626,9 @@ function briefInstagram_(today, notes) {
   return out;
 }
 // 유튜브: 업로드 목록에서 오늘 올린 영상 + 통계(브랜드 계정 토큰). 공유·저장·도달은 없음
-function briefYouTube_(today) {
-  const ids = ytaRecent_(1, today).filter(v => v.date === today).map(v => v.id);
+function briefYouTube_(today, from) {
+  from = from || today;
+  const ids = ytaRecent_(from === today ? 1 : 2, today).filter(v => v.date >= from && v.date <= today).map(v => v.id);
   if (!ids.length) return [];
   const r = ytaGet_('https://www.googleapis.com/youtube/v3/videos?part=snippet,statistics,contentDetails&id=' + ids.join(','));
   return (r.items || []).map(x => {
@@ -4629,7 +4644,7 @@ function briefStories_(ss, today) {
   const n = v => Number(String(v).replace(/,/g, '')) || 0;
   return sh.getRange(2, 1, sh.getLastRow() - 1, IGX_STORY_HEAD.length).getDisplayValues()
     .filter(r => String(r[2]).slice(0, 10) === today)
-    .map(r => ({ ch: r[0], views: n(r[5]), reach: n(r[6]), exits: n(r[14]) }));
+    .map(r => ({ ch: r[0], at: String(r[2]).slice(11, 16), views: n(r[5]), reach: n(r[6]), exits: n(r[14]) }));
 }
 // 「당일 22시 기록」의 지난 기록 → 채널|형식별 조회 중간값(기록 BRIEF_MIN개 이상만)
 function briefNightBase_(ss, today) {
@@ -4857,12 +4872,13 @@ function briefHtml_(posts, stories, recent, notes, today, stamp) {
 //       | yv&v=<영상 ID>(그 영상의 시청 지속 곡선·검색어). 기본 응답(약 1MB)에 넣지 않아 첫 화면이 느려지지 않음
 //  · JSONP 콜백은 __sbData 또는 __sbP + 숫자(동시에 여러 개 부를 수 있게). 캐시는 part마다 따로, 매일 기록 때 비움
 const PART_CB = /^__sbP\d{1,6}$/;
-const PART_TABS = { yt: 1, ig: 1, yv: 1 };
+const PART_TABS = { yt: 1, ig: 1, yv: 1, today: 1 };
 function buildPart_(part, e) {
   const ss = SpreadsheetApp.openById(SS_ID);
   if (part === 'yt') return partYt_(ss);
   if (part === 'ig') return partIg_(ss);
   if (part === 'yv') return partYv_(ss, String((e && e.parameter && e.parameter.v) || '').replace(/[^\w-]/g, '').slice(0, 20));
+  if (part === 'today') return partToday_(ss);
   return { error: 'part' };
 }
 function partRows_(ss, name, cols) {
@@ -4893,7 +4909,34 @@ function partYt_(ss) {
     .filter(r => r[3] != null && (r[0] === '최근 28일' || r[0] >= cut));
   // 채널 전체 검색어(최근 28일)
   const kw = partRows_(ss, '유튜브 검색어', 4).filter(r => String(r[0]).indexOf('(채널 전체') === 0).map(r => [String(r[2]), partN_(r[3])]).filter(r => r[1]).sort((a, b) => b[1] - a[1]).slice(0, 30);
-  return { day: day, vid: vid, srcN: srcN, src: src, aud: aud, kw: kw };
+  // 노출·노출 클릭률(보고서 API): 날짜별 [날짜, 노출, 클릭률] · 영상별 {ID: [노출, 클릭률]}. 클릭률은 노출 가중, 값이 %로 오면 0~1로 바꿈
+  const imD = {}, imV = {};
+  let ctrMax = 0;
+  partRows_(ss, '유튜브 노출', 4).forEach(r => {
+    const d = partD_(r[0]), id = String(r[1]).trim(), n = partN_(r[2]), c = partN_(r[3]) || 0;
+    if (!n || !/^\d{4}-\d{2}-\d{2}$/.test(d)) return;
+    if (c > ctrMax) ctrMax = c;
+    const a = imD[d] = imD[d] || [0, 0], b = imV[id] = imV[id] || [0, 0];
+    a[0] += n; a[1] += n * c; b[0] += n; b[1] += n * c;
+  });
+  const cu = ctrMax > 1 ? 100 : 1;
+  const imp = Object.keys(imD).sort().map(d => [d, imD[d][0], imD[d][1] / imD[d][0] / cu]);
+  const vimp = {};
+  Object.keys(imV).forEach(id => { vimp[id] = [imV[id][0], imV[id][1] / imV[id][0] / cu]; });
+  // 형식별 일별 [날짜, 형식, 조회, 시청 시간(분), 구독 증가]
+  const ctype = partRows_(ss, '유튜브 유형 일별', 5).map(r => [partD_(r[0]), String(r[1]).trim(), partN_(r[2]), partN_(r[3]), partN_(r[4])])
+    .filter(r => r[1] && r[2] != null && /^\d{4}-\d{2}-\d{2}$/.test(r[0])).sort((a, b) => a[0] < b[0] ? -1 : a[0] > b[0] ? 1 : 0);
+  // 재생목록 조회 상위 [이름, 영상 수, 조회, 시청 시간(분), 평균 시청(초)]
+  const pl = partRows_(ss, '유튜브 재생목록', 8).map(r => [String(r[1]), partN_(r[3]), partN_(r[4]), partN_(r[6]), partN_(r[7])]).filter(r => r[2]).sort((a, b) => b[2] - a[2]).slice(0, 12);
+  // 영상 추가 지표 {ID: [재생목록 추가, 재생목록 제거, 싫어요, 카드 노출, 카드 클릭]}
+  const vx = {};
+  partRows_(ss, '유튜브 영상 추가 지표', 6).forEach(r => { const id = String(r[0]).trim(); if (id) vx[id] = r.slice(1, 6).map(partN_); });
+  // 댓글 {ID: [받아 둔 댓글 수, 우리 채널이 답한 댓글 수]}
+  const cm = {}, cmV = {};
+  partRows_(ss, '유튜브 댓글', 2).forEach(r => { const id = String(r[1]).trim(); if (!id) return; cmV[String(r[0])] = id; (cm[id] = cm[id] || [0, 0])[0]++; });
+  const ans = {};
+  partRows_(ss, '유튜브 답글', 7).forEach(r => { if (String(r[6]).trim() && !ans[r[1]] && cmV[r[1]]) { ans[r[1]] = 1; cm[cmV[r[1]]][1]++; } });
+  return { day: day, vid: vid, srcN: srcN, src: src, aud: aud, kw: kw, imp: imp, vimp: vimp, ctype: ctype, pl: pl, vx: vx, cm: cm };
 }
 function partIg_(ss) {
   // 계정 일별 [채널, 날짜, 팔로워, 새 팔로워, 도달, 조회, 프로필 방문, 링크 클릭, 참여 계정]
@@ -4909,20 +4952,85 @@ function partIg_(ss) {
   // 스토리 [채널, 게시 시각, 유형, 조회, 도달, 답장, 공유, 상호작용, 팔로우, 프로필 방문, 탭 다음, 탭 이전, 나가기, 다음 스토리]
   const story = partRows_(ss, IGX_STORY_SHEET, 16).map(r => [String(r[0]).trim(), r[2] instanceof Date ? Utilities.formatDate(r[2], TZ, 'yyyy-MM-dd HH:mm') : String(r[2]), String(r[3])].concat(r.slice(5, 16).map(partN_)))
     .filter(r => r[0]).sort((a, b) => a[1] < b[1] ? 1 : -1);
-  return { day: day, post: post, demo: demo, demoD: lastD, story: story };
+  // 팔로워 구분 [채널, 날짜, 도달 팔로워, 도달 비팔로워, 도달 알 수 없음, 조회 팔로워, 조회 비팔로워, 조회 알 수 없음]
+  const ft = partRows_(ss, '인스타 팔로워 구분', 8).map(r => [String(r[0]).trim(), partD_(r[1])].concat(r.slice(2, 8).map(partN_)))
+    .filter(r => r[0] && /^\d{4}-\d{2}-\d{2}$/.test(r[1])).sort((a, b) => a[1] < b[1] ? -1 : a[1] > b[1] ? 1 : 0);
+  // 팔로우·언팔로우 일별 [채널, 날짜, 팔로우, 언팔로우]
+  const fu = {};
+  partRows_(ss, IGX_MORE_SHEET, 5).forEach(r => {
+    if (String(r[2]).trim() !== '팔로우·언팔로우') return;
+    const k = String(r[0]).trim() + '|' + partD_(r[1]), o = fu[k] = fu[k] || [String(r[0]).trim(), partD_(r[1]), null, null];
+    if (String(r[3]).trim() === '팔로우') o[2] = partN_(r[4]); else if (String(r[3]).trim() === '언팔로우') o[3] = partN_(r[4]);
+  });
+  const fol = Object.keys(fu).map(k => fu[k]).sort((a, b) => a[1] < b[1] ? -1 : a[1] > b[1] ? 1 : 0);
+  // 도달·반응한 사람 분포: 채널마다 최근 기록일 [채널, 지표, 구분, 항목, 사람 수]
+  const rdAll = partRows_(ss, '인스타 도달·반응 분포', 6).map(r => [partD_(r[0]), String(r[1]).trim(), String(r[2]).trim(), String(r[3]).trim(), String(r[4]).trim(), partN_(r[5])]);
+  const rdD = {}; rdAll.forEach(r => { if (!rdD[r[1]] || r[0] > rdD[r[1]]) rdD[r[1]] = r[0]; });
+  const reachDemo = rdAll.filter(r => r[0] === rdD[r[1]] && r[5] != null).map(r => r.slice(1));
+  // 게시물 ID → 주소(「인스타 게시물 추가」·「인스타 과거 게시물(API)」)
+  const url = {};
+  partRows_(ss, '인스타 과거 게시물(API)', 4).forEach(r => { if (r[0] && r[3]) url[String(r[0])] = String(r[3]).split('?')[0].replace(/\/+$/, ''); });
+  partRows_(ss, '인스타 게시물 추가', 5).forEach(r => { if (r[1] && r[4]) url[String(r[1])] = String(r[4]).split('?')[0].replace(/\/+$/, ''); });
+  // 게시물 세부 {주소: [[지표, 구분, 값], …]}
+  const pm = {};
+  partRows_(ss, '인스타 게시물 세부', 5).forEach(r => { const u = url[String(r[1])]; const v = partN_(r[4]); if (u && v != null) (pm[u] = pm[u] || []).push([String(r[2]), String(r[3]), v]); });
+  // 댓글 {주소: [댓글 수, 우리가 답한 댓글 수]} + 최근 30일 답하지 않은 댓글(내용·좋아요·주소만, 작성자 정보는 받지 않음)
+  const cmt = {}, todo = [], cut30 = shiftDate_(Utilities.formatDate(new Date(), TZ, 'yyyy-MM-dd'), -30);
+  partRows_(ss, '인스타 댓글', 9).forEach(r => {
+    if (String(r[2]).trim()) return; // 답글 줄
+    const u = url[String(r[3])] || '', key = u || String(r[3]), o = cmt[key] = cmt[key] || [0, 0], ok = !!String(r[8]).trim();
+    o[0]++; if (ok) o[1]++;
+    const at = r[4] instanceof Date ? Utilities.formatDate(r[4], TZ, 'yyyy-MM-dd HH:mm') : String(r[4]);
+    if (!ok && at.slice(0, 10) >= cut30) todo.push([String(r[0]).trim(), at, String(r[5]).slice(0, 140), partN_(r[6]), u]);
+  });
+  todo.sort((a, b) => a[1] < b[1] ? 1 : -1);
+  return { day: day, post: post, demo: demo, demoD: lastD, story: story, ft: ft, fol: fol, reachDemo: reachDemo, reachD: rdD, pm: pm, cmt: cmt, todo: todo.slice(0, 40) };
 }
 // 영상 하나: 시청 지속 곡선 [[구간(%), 시청 비율, 비슷한 영상 대비]]·검색어 [[검색어, 조회]] — 줄이 많아 그 영상 줄만 찾아 읽음
 function partYv_(ss, id) {
   if (!id) return { error: 'v' };
-  const pick = (name, cols) => {
+  // col: 영상 ID가 있는 열(1부터). 찾은 줄의 처음~끝만 읽고 그 영상 줄만 남김
+  const pick = (name, cols, col) => {
+    col = col || 1;
     const sh = ss.getSheetByName(name);
     if (!sh || sh.getLastRow() < 2) return [];
-    const hit = sh.getRange(2, 1, sh.getLastRow() - 1, 1).createTextFinder(id).matchEntireCell(true).findAll().map(r => r.getRow());
+    const hit = sh.getRange(2, col, sh.getLastRow() - 1, 1).createTextFinder(id).matchEntireCell(true).findAll().map(r => r.getRow());
     if (!hit.length) return [];
     const a = Math.min.apply(null, hit), b = Math.max.apply(null, hit);
-    return sh.getRange(a, 1, b - a + 1, cols).getValues().filter(r => String(r[0]) === id);
+    return sh.getRange(a, 1, b - a + 1, cols).getValues().filter(r => String(r[col - 1]) === id);
   };
   const ret = pick('유튜브 시청 지속률', 5).map(r => [partN_(r[2]), partN_(r[3]), partN_(r[4])]).filter(r => r[0] != null && r[1] != null).sort((x, y) => x[0] - y[0]);
   const kw = pick('유튜브 검색어', 4).map(r => [String(r[2]), partN_(r[3])]).filter(r => r[1]).sort((x, y) => y[1] - x[1]).slice(0, 15);
-  return { v: id, ret: ret, kw: kw };
+  const sub = pick('유튜브 영상 구독 여부', 6).map(r => [String(r[3]), partN_(r[4]), partN_(r[5])]).filter(r => r[1] != null);
+  const age = pick('유튜브 영상 시청자', 6).map(r => [String(r[3]), String(r[4]), partN_(r[5])]).filter(r => r[2] != null);
+  const im = pick('유튜브 노출', 4, 2).map(r => [partD_(r[0]), partN_(r[2]), partN_(r[3])]).filter(r => r[1]).sort((x, y) => x[0] < y[0] ? -1 : 1);
+  const agg = (rows, ki, ai, bi) => { const o = {}; rows.forEach(r => { const k = String(r[ki]), x = o[k] = o[k] || [k, 0, 0]; x[1] += partN_(r[ai]) || 0; x[2] += partN_(r[bi]) || 0; }); return Object.keys(o).map(k => o[k]).sort((x, y) => y[1] - x[1]); };
+  // 노출 경로: [경로, 노출, 노출×클릭률 합] → 클릭률은 화면에서 나눔
+  const isrc = agg(pick('유튜브 노출 경로', 5, 2).map(r => [r[2], r[3], (partN_(r[3]) || 0) * (partN_(r[4]) || 0)]), 0, 1, 2);
+  const end = agg(pick('유튜브 최종 화면', 5, 2), 2, 3, 4);
+  const cm = pick('유튜브 댓글', 6, 2).map(r => [r[2] instanceof Date ? Utilities.formatDate(r[2], TZ, 'yyyy-MM-dd') : String(r[2]).slice(0, 10), String(r[3]).slice(0, 140), partN_(r[4]) || 0, partN_(r[5]) || 0])
+    .sort((x, y) => y[2] - x[2]).slice(0, 5);
+  return { v: id, ret: ret, kw: kw, sub: sub, age: age, im: im, isrc: isrc, end: end, cm: cm };
+}
+// ───────── 오늘 지금(2026-10-20): ?part=today ─────────
+// 어제·오늘 올린 게시물(인스타·hong·유튜브)의 지금 값과 계정 숫자를 API로 바로 받음. 캐시 10분(TODAY_TTL), 보드가 화면을 연 동안 10분마다 다시 받음
+const TODAY_TTL = 600;
+function partToday_(ss) {
+  const now = new Date(), today = Utilities.formatDate(now, TZ, 'yyyy-MM-dd'), yday = shiftDate_(today, -1), notes = [];
+  let posts = [];
+  try { posts = posts.concat(briefInstagram_(today, notes, yday)); } catch (e) { notes.push('인스타 확인 실패'); }
+  try { posts = posts.concat(briefYouTube_(today, yday)); } catch (e) { notes.push('유튜브 확인 실패'); }
+  const n = v => v === '' || v == null || isNaN(Number(v)) ? null : Number(v);
+  const p = posts.map(x => ({ c: x.ch, id: x.id, at: Utilities.formatDate(x.at, TZ, "yyyy-MM-dd'T'HH:mm"), t: x.type, n: briefTitle_(x.title, 80), u: x.url,
+    v: n(x.views), l: n(x.likes), cm: n(x.comments), sh: n(x.shares), sv: n(x.saves), r: n(x.reach), f: n(x.follows), pa: n(x.pact), aw: n(x.avgw) }));
+  // 계정: 인스타 팔로워 지금 vs 「인스타 계정 일별」 오늘 아침(없으면 그 전) 기록, 유튜브 구독자·전체 조회 지금
+  const acct = [];
+  try { igxChannels_().forEach(c => { const u = igxGet_(c.conf, c.user, { fields: 'followers_count' }); acct.push({ c: c.ch, fol: n(u.followers_count) }); }); } catch (e) { notes.push('인스타 팔로워 확인 실패'); }
+  try {
+    const base = {};
+    partRows_(ss, IGX_DAY_SHEET, 12).forEach(r => { const c = String(r[0]).trim(), d = partD_(r[1]), v = n(r[2]); if (v == null || d > today) return; if (!base[c] || d >= base[c].d) base[c] = { d: d, v: v, at: r[11] instanceof Date ? Utilities.formatDate(r[11], TZ, 'yyyy-MM-dd HH:mm') : String(r[11]) }; });
+    acct.forEach(a => { const b = base[a.c]; if (b) { a.base = b.v; a.baseAt = b.at || b.d; } });
+  } catch (e) {}
+  try { const y = ytaGet_('https://www.googleapis.com/youtube/v3/channels?part=statistics&mine=true').items[0].statistics; acct.push({ c: '유튜브', subs: n(y.subscriberCount), views: n(y.viewCount) }); } catch (e) { notes.push('유튜브 구독자 확인 실패'); }
+  return { ts: now.getTime(), at: Utilities.formatDate(now, TZ, 'yyyy-MM-dd HH:mm'), today: today, posts: p, acct: acct, story: briefStories_(ss, today), notes: notes };
 }
