@@ -443,6 +443,7 @@ const STEP_FN = {
   },
   hong: x => {
     try { hongPostsStep_(x.ss, x.logs); } catch (e) { x.logs.push([new Date(), HONG_POSTS, 0, '오류: ' + e.message]); }
+    try { officialPostsStep_(x.ss, x.logs); } catch (e) { x.logs.push([new Date(), OFF_IG_POSTS, 0, '오류: ' + e.message]); }
   },
   fb: x => {
     try { fbStep_(x.ss, x.today, x.logs); } catch (e) { x.logs.push([new Date(), '페이스북', 0, '오류: ' + e.message]); }
@@ -2875,6 +2876,53 @@ function hongPostsStep_(ss, logs) {
   const r = igxUpsert_(ss, HONG_POSTS, ['미디어 ID', '게시일', '형식', '캡션', '게시물 주소', '조회', '좋아요', '댓글', '공유', '저장', '도달', '기록 시각'], [0], rows);
   logs.push([new Date(), HONG_POSTS, rows.length, '정상 (갱신 ' + r.updated + ' · 새 게시물 ' + r.added + ')']);
 }
+// ───────── 「jjuniv 게시물」·「유튜브 게시물」 탭: 공식 계정 게시물 캡션·설명란 전문 (JJ 스튜디오 자동매칭이 읽음, 2026-10-20) ─────────
+// JJ 스튜디오는 크레딧 줄(「🎬 시리즈 | 회차」)로 기획서에 「업로드 완료」를 붙인다. 예전엔 Supermetrics 원본(월요일만 갱신)을 읽어 화~일 업로드가 다음 주까지 안 붙었다.
+//  · 인스타 열: 「hong 게시물」과 같음. 유튜브 열: 영상 ID · 게시일 · 형식 · 제목 · 설명 · 영상 주소 · 조회 · 좋아요 · 댓글 · 기록 시각. 열 이름을 바꾸면 JJ 서버(AM_CFG.IG_TAB·YT_TAB)도 같이
+//  · 유튜브는 일부 공개·비공개(예약 포함)로 확인된 영상을 뺀다(업로드 완료가 먼저 붙지 않게). 조회는 공개 수치(전체 기간)
+//  · 요청서: 05_데이터 분석/03_대시보드 작업/2026-10-20_공식 계정 게시물 탭 요청(JJ 스튜디오).md
+const OFF_IG_POSTS = 'jjuniv 게시물', OFF_YT_POSTS = '유튜브 게시물';
+function officialPostsStep_(ss, logs) {
+  const p = PropertiesService.getScriptProperties();
+  const now = Utilities.formatDate(new Date(), TZ, 'yyyy-MM-dd HH:mm');
+  if (p.getProperty(IG_CH['인스타그램'].on) !== 'on') logs.push([new Date(), OFF_IG_POSTS, 0, '건너뜀: IG_API 꺼짐']);
+  else {
+    try {
+      const api = IG_API_['인스타그램'] || (IG_API_['인스타그램'] = fetchInstagram_('인스타그램'));
+      const rows = api.media.filter(x => x.product !== 'STORY')
+        .map(x => [x.id, x.date, typeLabel_(x.product, x.mediaType), x.caption, x.url, x.views, x.likes, x.comments, x.shares, x.saves, x.reach, now]);
+      const r = igxUpsert_(ss, OFF_IG_POSTS, ['미디어 ID', '게시일', '형식', '캡션', '게시물 주소', '조회', '좋아요', '댓글', '공유', '저장', '도달', '기록 시각'], [0], rows);
+      logs.push([new Date(), OFF_IG_POSTS, rows.length, '정상 (갱신 ' + r.updated + ' · 새 게시물 ' + r.added + ')']);
+    } catch (e) { logs.push([new Date(), OFF_IG_POSTS, 0, '오류: ' + e.message]); }
+  }
+  if (p.getProperty('YT_API') !== 'on') logs.push([new Date(), OFF_YT_POSTS, 0, '건너뜀: YT_API 꺼짐']);
+  else {
+    try {
+      const today = Utilities.formatDate(new Date(), TZ, 'yyyy-MM-dd');
+      const api = YT_API_ || (YT_API_ = fetchYouTube_(Object.keys(ytLifetime_()), today));
+      let priv = {};
+      try { priv = ytPrivMap_(); } catch (e) {}
+      let hidden = 0;
+      const rows = [];
+      Object.keys(api.videos).forEach(id => {
+        const v = api.videos[id];
+        if (priv[id] && priv[id] !== 'public') { hidden++; return; }
+        rows.push([id, v.date, lengthBucket_(v.lengthSec), v.title, v.desc, 'https://www.youtube.com/watch?v=' + id, v.views, v.likes, v.comments, now]);
+      });
+      const r = igxUpsert_(ss, OFF_YT_POSTS, ['영상 ID', '게시일', '형식', '제목', '설명', '영상 주소', '조회', '좋아요', '댓글', '기록 시각'], [0], rows);
+      logs.push([new Date(), OFF_YT_POSTS, rows.length, '정상 (갱신 ' + r.updated + ' · 새 영상 ' + r.added + (hidden ? ' · 비공개·일부 공개 뺌 ' + hidden : '') + ')']);
+    } catch (e) { logs.push([new Date(), OFF_YT_POSTS, 0, '오류: ' + e.message]); }
+  }
+}
+// 편집기에서 실행: 기록을 기다리지 않고 두 탭을 지금 채움(결과는 「실행 로그」 탭)
+function officialPostsNow() {
+  const ss = SpreadsheetApp.getActive() || SpreadsheetApp.openById(SS_ID);
+  const logs = [];
+  officialPostsStep_(ss, logs);
+  logRows_(ss, logs);
+  Logger.log(JSON.stringify(logs));
+}
+
 // 편집기에서 실행: 매일 기록을 기다리지 않고 「hong 게시물」 탭만 지금 채움(결과는 「실행 로그」 탭)
 function hongPostsNow() {
   const ss = SpreadsheetApp.getActive() || SpreadsheetApp.openById(SS_ID);
