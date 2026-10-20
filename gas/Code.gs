@@ -5208,7 +5208,10 @@ const COLLAB_SEED = [["https://www.instagram.com/p/Dd8bnHhk_cF/", "jeonbuk1994",
   ["https://www.instagram.com/p/DWVkHDCkc9T/", "jumfesta", "", "JUMF 공동작업(2026-10-21 담당자 알려 줌)"],
   ["https://www.instagram.com/p/DZoYIqHkaZ-/", "", "", "2026-10-21 담당자 알려 줌"],
   ["https://www.instagram.com/p/DaRk21FkWpB/", "", "", "2026-10-21 담당자 알려 줌"],
-  ["https://www.instagram.com/p/DbNVeWiESYA/", "", "", "2026-10-21 담당자 알려 줌"]];
+  ["https://www.instagram.com/p/DbNVeWiESYA/", "", "", "2026-10-21 담당자 알려 줌"],
+  ["https://www.instagram.com/p/Dd0YicDTg8N/", "", "", "2026-10-21 담당자 알려 줌"],
+  ["https://www.instagram.com/p/DebVN7sTRZd/", "", "", "2026-10-21 담당자 알려 줌"],
+  ["https://www.instagram.com/p/DWfbRFlk0BC/", "", "", "2026-10-21 담당자 알려 줌"]];
 const igShort_ = u => (String(u || '').match(/\/(?:p|reel|reels|tv)\/([^/?#]+)/) || [])[1] || '';
 function collabStep_(ss) {
   let sh = ss.getSheetByName(COLLAB_SHEET);
