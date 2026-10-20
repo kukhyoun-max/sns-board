@@ -1374,7 +1374,7 @@ function buildDashboardData_() {
     dates: dates,
     channels: order.map(c => ({ name: c, bench: OWN_CHANNELS.indexOf(c) < 0 })),
     metrics: DASH_METRICS,
-    items: list.filter(it => !it._drop),
+    items: list.filter(it => !it._drop && !ytHidden_(it)),
     acct: acct,
     roles: extra.roles,
     ads: extra.ads,
@@ -3446,6 +3446,13 @@ function storySnapshot() {
   } catch (e) {
     logRows_(ss, [[new Date(), '인스타 스토리', 0, '오류: ' + e.message]]);
   }
+  try {
+    if (PropertiesService.getScriptProperties().getProperty('YT_REFRESH')) {
+      const before = JSON.stringify(ytPrivMap_());
+      ytaPrivacy_(ss, Utilities.formatDate(new Date(), TZ, 'yyyy-MM-dd'));
+      if (JSON.stringify(ytPrivMap_()) !== before) dropCache_();
+    }
+  } catch (e) {}
   try { postHourly_(ss); } catch (e) { logRows_(ss, [[new Date(), HOURLY_SHEET, 0, '오류: ' + String(e.message).slice(0, 150)]]); }
 }
 function ensureStoryTrigger_() {
@@ -3495,6 +3502,39 @@ function ytaReport_(prm) {
   return (j.rows || []).map(r => { const o = {}; head.forEach((h, i) => { o[h] = r[i]; }); return o; });
 }
 // 최근 N일에 올린 영상 [{id, title, date}] (업로드 재생목록을 최신부터 넘기다 기간을 벗어나면 멈춤)
+// ───────── 유튜브 공개 상태(2026-10-20 「일부 공개·비공개는 대시보드·메일에 넣지 말자」) ─────────
+// 브랜드 계정 토큰으로 올린 영상 전체의 공개 상태를 「유튜브 공개 상태」 탭에 씀(매일 기록·1시간마다 스토리 실행). 보드·브리핑·오늘 칸은 public만
+const YT_PRIV_SHEET = '유튜브 공개 상태';
+const YT_PRIV_KO = { public: '공개', unlisted: '일부 공개', private: '비공개' };
+function ytaPrivacy_(ss, today) {
+  const ids = ytaRecent_(YTA_ALL_DAYS, today).map(v => v.id), now = Utilities.formatDate(new Date(), TZ, 'yyyy-MM-dd HH:mm'), out = [];
+  for (let i = 0; i < ids.length; i += 50) {
+    const r = ytaGet_('https://www.googleapis.com/youtube/v3/videos?part=status&id=' + ids.slice(i, i + 50).join(','));
+    (r.items || []).forEach(x => out.push([x.id, (x.status && x.status.privacyStatus) || '', now]));
+  }
+  if (!out.length) return 0;
+  const sh = ss.getSheetByName(YT_PRIV_SHEET) || ss.insertSheet(YT_PRIV_SHEET);
+  sh.clearContents();
+  sh.getRange(1, 1, out.length + 1, 3).setValues([['영상 ID', '공개 상태', '확인 시각']].concat(out));
+  YT_PRIV_ = null;
+  return out.filter(r => r[1] !== 'public').length;
+}
+let YT_PRIV_ = null;
+function ytPrivMap_() {
+  if (YT_PRIV_) return YT_PRIV_;
+  YT_PRIV_ = {};
+  try {
+    const sh = SpreadsheetApp.openById(SS_ID).getSheetByName(YT_PRIV_SHEET);
+    if (sh && sh.getLastRow() > 1) sh.getRange(2, 1, sh.getLastRow() - 1, 2).getValues().forEach(r => { if (r[0]) YT_PRIV_[String(r[0])] = String(r[1]); });
+  } catch (e) {}
+  return YT_PRIV_;
+}
+// 보드 항목이 일부 공개·비공개 유튜브 영상이면 true(상태를 모르면 그대로 둠)
+function ytHidden_(it) {
+  if (!it || it.c !== '유튜브') return false;
+  const m = String(it.u || '').match(/(?:v=|shorts\/|youtu\.be\/)([\w-]{11})/), st = m ? ytPrivMap_()[m[1]] : '';
+  return !!st && st !== 'public';
+}
 function ytaRecent_(days, today) {
   const ch = ytaGet_('https://www.googleapis.com/youtube/v3/channels?part=contentDetails&mine=true');
   const up = ch.items[0].contentDetails.relatedPlaylists.uploads;
@@ -3712,6 +3752,7 @@ function ytaStep_(ss, today, logs) {
   ensureWeeklyTrigger_();
   const parts = [];
   const run = (name, fn) => { try { parts.push(name + ' ' + fn()); } catch (e) { parts.push(name + ' 오류: ' + String(e.message).slice(0, 120)); } };
+  run('공개 상태', () => '일부 공개·비공개 ' + ytaPrivacy_(ss, today) + '개(보드·메일에서 뺌)');
   run('채널 일별', () => ytaChannelDaily_(ss, today) + '일');
   run('시청자', () => { const a = ytaAudience_(ss, today, 2); return a.n + '줄' + (a.left ? '(지난달 ' + a.left + '개는 주간 수집에서)' : ''); });
   run('영상 분석', () => ytaVideoStats_(ss, today) + '개');
@@ -4631,8 +4672,8 @@ function briefYouTube_(today, from) {
   from = from || today;
   const ids = ytaRecent_(from === today ? 1 : 2, today).filter(v => v.date >= from && v.date <= today).map(v => v.id);
   if (!ids.length) return [];
-  const r = ytaGet_('https://www.googleapis.com/youtube/v3/videos?part=snippet,statistics,contentDetails&id=' + ids.join(','));
-  return (r.items || []).map(x => {
+  const r = ytaGet_('https://www.googleapis.com/youtube/v3/videos?part=snippet,statistics,contentDetails,status&id=' + ids.join(','));
+  return (r.items || []).filter(x => x.status && x.status.privacyStatus === 'public').map(x => {
     const st = x.statistics || {}, sec = isoDur_(x.contentDetails && x.contentDetails.duration);
     return { ch: '유튜브', id: x.id, at: new Date(x.snippet.publishedAt), type: lengthBucket_(sec), title: String(x.snippet.title || ''), url: 'https://youtu.be/' + x.id,
       views: Number(st.viewCount) || 0, likes: Number(st.likeCount) || 0, comments: Number(st.commentCount) || 0, shares: '', saves: '', reach: '', follows: '', pact: '', avgw: '' };
