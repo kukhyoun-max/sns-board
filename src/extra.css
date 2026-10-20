@@ -858,3 +858,4 @@ button.wa-r { cursor: pointer; }
 .wa-r.good b { color: var(--up); }
 .wa-r.bad b { color: var(--down); }
 @media (hover: hover) { button.wa-r:hover .wa-t { text-decoration: underline; text-underline-offset: 3px; } }
+.co-x { align-self: flex-start; margin-top: 4px; font-size: var(--fs-tag); font-weight: 700; padding: 2px 8px; border-radius: 999px; background: var(--tile); }

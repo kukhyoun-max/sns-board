@@ -1132,6 +1132,7 @@ button.wa-r { cursor: pointer; }
 .wa-r.good b { color: var(--up); }
 .wa-r.bad b { color: var(--down); }
 @media (hover: hover) { button.wa-r:hover .wa-t { text-decoration: underline; text-underline-offset: 3px; } }
+.co-x { align-self: flex-start; margin-top: 4px; font-size: var(--fs-tag); font-weight: 700; padding: 2px 8px; border-radius: 999px; background: var(--tile); }
 </style>
 
 <div class="app" id="app">
@@ -3992,6 +3993,14 @@ button.wa-r { cursor: pointer; }
       h += secOpen('이번 달 닿은 사람', (d.reachD && d.reachD[ch] ? dot(d.reachD[ch]) + ' 기록' : '최근 기록') + ' · 도달·반응한 사람 분포 · 매주 월요일');
       [...new Set(rd.map(r => r[1]))].forEach(m => [...new Set(rd.filter(r => r[1] === m).map(r => r[2]))].forEach(k => { h += stackRow(m.replace('한 사람', '') + ' · ' + k, rd.filter(r => r[1] === m && r[2] === k).map(r => [r[3], r[4]]), chColor(ch)); }));
       h += secClose;
+    }
+    // 상대 계정이 올린 공동작업(2026-10-21): API는 좋아요·댓글만, 조회는 「공동작업(상대 게시)」 탭에 사람이 적은 값. 평소 계산에는 넣지 않음
+    const co = ch === '인스타그램' ? (d.collab || []) : [];
+    if (co.length) {
+      const lk = medOf(D.items.filter(it => it.c === ch && !it.ad && it.t !== '스토리' && it.d >= addDays(D.updated, -365) && it.d <= addDays(D.updated, -AGE_MIN)).map(it => { const v = last(it); return v ? v[1] : null; }));
+      h += secOpen('상대 계정이 올린 공동작업', '좋아요·댓글은 매시간 · 조회는 앱에서 보고 「공동작업(상대 게시)」 탭에 적은 값 · 우리 평소 계산에는 넣지 않아요');
+      h += '<ul class="cml co">' + co.slice(0, 10).map(r => '<li><a href="' + esc(r[0]) + '" target="_blank" rel="noopener"><span class="cml-t">' + esc(r[4] || r[0]) + '</span><small>@' + esc(r[1]) + (r[3] ? ' · ' + esc(dot(r[3])) : '') + (r[2] != null ? ' · 조회 ' + fmtK(r[2]) : '') + (r[5] != null ? ' · 좋아요 ' + fmtK(r[5]) : '') + (r[6] != null ? ' · 댓글 ' + fmt(r[6]) : '') + '</small>' +
+        (r[5] != null && lk ? '<span class="co-x ' + xCls(r[5] / lk) + '">좋아요 우리 평소의 ' + xf(r[5] / lk) + '</span>' : '') + '</a></li>').join('') + '</ul>' + secClose;
     }
     return h;
   }
