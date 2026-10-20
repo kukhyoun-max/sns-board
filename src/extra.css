@@ -829,3 +829,32 @@ details.fold[open] > summary { padding-bottom: 10px; }
 .td-bt s { position: absolute; top: -3px; bottom: -3px; width: 2px; margin-left: -1px; background: var(--muted); border-radius: 1px; }
 .td-bar b { font-size: var(--fs-tag); white-space: nowrap; }
 .td-ch { margin-top: 18px; }
+/* 이번 주(달력 주) 칸 막대: 회색 = 지난주 같은 요일, 진한 = 오늘 · 요일 글자 */
+.kbars.wk rect { fill: var(--jj); opacity: .45; }
+.kbars.wk rect.pv { fill: var(--muted); opacity: .22; }
+.kbars.wk rect.on { opacity: 1; }
+.kbars.pm rect.up { fill: var(--up); opacity: .8; }
+.kbars.pm rect.dn { fill: var(--down); opacity: .8; }
+.kbars .zl { stroke: var(--line); stroke-width: 1; vector-effect: non-scaling-stroke; }
+.kpi-t .kbars { margin-top: auto; padding-top: 10px; }
+.kb-l { display: grid; grid-template-columns: repeat(7, 1fr); margin-top: 4px; font-size: 11px; color: var(--muted); text-align: center; }
+.kb-l .on { color: var(--fg); font-weight: 700; }
+.kpi-t:first-child .kbars.wk rect, .kpi-t:first-child .kbars.wk rect.on { fill: #fff; }
+.kpi-t:first-child .kbars.wk rect.pv { fill: #fff; opacity: .25; }
+.kpi-t:first-child .kb-l, .kpi-t:first-child .kb-l .on { color: rgba(255, 255, 255, .85); }
+.td-sec .kpi-t:first-child .kbars rect { fill: var(--jj); }
+.tdots { margin-top: auto; padding-top: 10px; display: flex; flex-wrap: wrap; gap: 6px; }
+.tdots i.tier { width: 14px; height: 14px; padding: 0; margin: 0; border-radius: 50%; display: block; }
+/* 지금 볼 것 */
+.wa { margin-top: 16px; background: var(--bg); border: 1px solid var(--line); border-radius: var(--r-lg); padding: 16px 18px 8px; }
+.wa-r { display: grid; grid-template-columns: 8px minmax(0, 1fr) auto; align-items: center; gap: 10px; width: 100%; padding: 11px 0; border: 0; border-top: 1px solid var(--line); background: none; text-align: left; font: inherit; color: inherit; }
+.wa-r:first-of-type { border-top: 0; }
+button.wa-r { cursor: pointer; }
+.wa-d { width: 8px; height: 8px; border-radius: 50%; background: var(--muted); }
+.wa-r.good .wa-d { background: var(--up); }
+.wa-r.bad .wa-d { background: var(--down); }
+.wa-t { font-size: var(--fs-sm); line-height: 1.6; min-width: 0; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+.wa-r b { font-size: var(--fs-sm); white-space: nowrap; }
+.wa-r.good b { color: var(--up); }
+.wa-r.bad b { color: var(--down); }
+@media (hover: hover) { button.wa-r:hover .wa-t { text-decoration: underline; text-underline-offset: 3px; } }

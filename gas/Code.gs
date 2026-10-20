@@ -4562,21 +4562,33 @@ function backfillExtras() {
   }
   p.setProperty('BACKFILL_DONE', JSON.stringify(done));
   const all = done.aud2 && done.vid2 && done.ig && done.cm2 && done.chOld && done.igHist && done.ytr && done.vidAud2 && done.igFt && done.aud3 && done.rep2 && done.igMore && done.igPm2 && done.igCm2 && done.vidOld;
-  logRows_(ss, [[new Date(), '과거 채우기', 0, parts.join(' · ') + ytaFailText_() + ' — ' + Math.round((Date.now() - t0) / 1000) + '초' + (all ? ' · 전부 끝남' : ' · 1분 뒤 자동으로 이어서')]]);
-  Logger.log(parts.join(' · ') + (all ? ' · 전부 끝남' : ' · 1분 뒤 자동으로 이어서'));
+  const nextAt = backfillNext_();
+  const tail = all ? ' · 전부 끝남' : nextAt ? ' · 오늘 밤 0시에 이어서(낮에는 쉼)' : ' · 1분 뒤 자동으로 이어서';
+  logRows_(ss, [[new Date(), '과거 채우기', 0, parts.join(' · ') + ytaFailText_() + ' — ' + Math.round((Date.now() - t0) / 1000) + '초' + tail]]);
+  Logger.log(parts.join(' · ') + tail);
   // 끝나지 않았으면 1분 뒤 자기 자신을 다시 예약(한 번만 실행하면 끝까지 감). 끝났으면 예약을 지움
   ScriptApp.getProjectTriggers().filter(t => t.getHandlerFunction() === 'backfillExtras').forEach(t => ScriptApp.deleteTrigger(t));
-  const runs = Number(p.getProperty('BACKFILL_RUNS') || 0) + 1; // 같은 단계가 계속 실패해도 무한히 돌지 않게 80번에서 멈춤
-  p.setProperty('BACKFILL_RUNS', String(all ? 0 : runs));
-  if (!all && runs < 80) ScriptApp.newTrigger('backfillExtras').timeBased().after(60 * 1000).create();
-  else if (!all) logRows_(ss, [[new Date(), '과거 채우기', 0, '자동 반복 80번에서 멈춤 — 실행 로그의 오류를 확인하세요']]);
+  // 같은 단계가 계속 실패해도 무한히 돌지 않게 하룻밤 80번에서 멈춤(날짜가 바뀌면 다시 셈)
+  const rd = p.getProperty('BACKFILL_RUNS_DAY') === today ? Number(p.getProperty('BACKFILL_RUNS') || 0) : 0, runs = rd + 1;
+  p.setProperty('BACKFILL_RUNS', String(all ? 0 : runs)); p.setProperty('BACKFILL_RUNS_DAY', today);
+  if (!all && nextAt) ScriptApp.newTrigger('backfillExtras').timeBased().at(nextAt).create();
+  else if (!all && runs < 80) ScriptApp.newTrigger('backfillExtras').timeBased().after(60 * 1000).create();
+  else if (!all) logRows_(ss, [[new Date(), '과거 채우기', 0, '오늘 밤 자동 반복 80번에서 멈춤 — 실행 로그의 오류를 확인하세요(다음 날 밤 다시 시작)']]);
+  if (!all && !nextAt && runs >= 80) { const d = shiftDate_(today, 1); ScriptApp.newTrigger('backfillExtras').timeBased().at(new Date(d + 'T00:05:00+09:00')).create(); }
 }
 // 과거 채우기에 아직 안 끝난 항목이 있는데 예약이 없으면 1분 뒤로 예약(새 항목을 추가해 배포했을 때 사람이 누르지 않아도 시작)
 function ensureBackfill_() {
   const d = JSON.parse(PropertiesService.getScriptProperties().getProperty('BACKFILL_DONE') || '{}');
   if (d.aud2 && d.vid2 && d.ig && d.cm2 && d.chOld && d.igHist && d.ytr && d.vidAud2 && d.igFt && d.aud3 && d.rep2 && d.igMore && d.igPm2 && d.igCm2 && d.vidOld) return;
   if (ScriptApp.getProjectTriggers().some(t => t.getHandlerFunction() === 'backfillExtras')) return;
-  ScriptApp.newTrigger('backfillExtras').timeBased().after(60 * 1000).create();
+  const at = backfillNext_();
+  if (at) ScriptApp.newTrigger('backfillExtras').timeBased().at(at).create(); else ScriptApp.newTrigger('backfillExtras').timeBased().after(60 * 1000).create();
+}
+// 과거 채우기 다음 시각: 0~6시면 null(1분 뒤 바로), 7시 이후면 다음 날 0시 5분
+function backfillNext_() {
+  const now = new Date(), h = Number(Utilities.formatDate(now, TZ, 'H'));
+  if (h < 7) return null;
+  return new Date(shiftDate_(Utilities.formatDate(now, TZ, 'yyyy-MM-dd'), 1) + 'T00:05:00+09:00');
 }
 // 「인스타 계정 일별」에 줄을 합쳐 씀(같은 채널·날짜면 빈칸이 아닌 값만 덮어씀)
 function igxAccountMerge_(ss, rows) {
