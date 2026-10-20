@@ -5206,7 +5206,9 @@ const COLLAB_HEAD = ['게시물 주소', '올린 계정', '조회(앱에서 보�
 // 담당자가 대화로 알려 준 게시물(2026-10-21). 게시물마다 한 번만 넣고(COLLAB_SEEDED = 넣은 짧은 코드 목록), 그 뒤 수정·삭제는 탭에서
 const COLLAB_SEED = [["https://www.instagram.com/p/Dd8bnHhk_cF/", "jeonbuk1994", 445600, "앱 인사이트 조회 2026-10-21 0시 기준"],
   ["https://www.instagram.com/p/DWVkHDCkc9T/", "jumfesta", "", "JUMF 공동작업(2026-10-21 담당자 알려 줌)"],
-  ["https://www.instagram.com/p/DZoYIqHkaZ-/", "jumfesta", "", "2026-10-21 담당자 알려 줌 · 올린 계정 확인 필요(jumfesta로 가정)"]];
+  ["https://www.instagram.com/p/DZoYIqHkaZ-/", "", "", "2026-10-21 담당자 알려 줌"],
+  ["https://www.instagram.com/p/DaRk21FkWpB/", "", "", "2026-10-21 담당자 알려 줌"],
+  ["https://www.instagram.com/p/DbNVeWiESYA/", "", "", "2026-10-21 담당자 알려 줌"]];
 const igShort_ = u => (String(u || '').match(/\/(?:p|reel|reels|tv)\/([^/?#]+)/) || [])[1] || '';
 function collabStep_(ss) {
   let sh = ss.getSheetByName(COLLAB_SHEET);
@@ -5218,7 +5220,10 @@ function collabStep_(ss) {
   if (sh.getLastRow() < 2) return 0;
   const rows = sh.getRange(2, 1, sh.getLastRow() - 1, COLLAB_HEAD.length).getValues();
   const now = Utilities.formatDate(new Date(), TZ, 'yyyy-MM-dd HH:mm'), byAcc = {};
-  rows.forEach((r, i) => { const u = String(r[1]).trim().replace(/^@/, ''), k = igShort_(r[0]); if (u && k) (byAcc[u] = byAcc[u] || []).push([i, k]); });
+  // 올린 계정이 빈 줄은 탭에 나온 모든 계정(없으면 COLLAB_ACCOUNTS)의 게시물에서 찾아 B열을 채움
+  const accs = {}; rows.forEach(r => { const u = String(r[1]).trim().replace(/^@/, ''); if (u) accs[u] = 1; });
+  String(pp.getProperty('COLLAB_ACCOUNTS') || '').split(',').map(x => x.trim()).filter(Boolean).forEach(u => { accs[u] = 1; });
+  rows.forEach((r, i) => { const u = String(r[1]).trim().replace(/^@/, ''), k = igShort_(r[0]); if (!k) return; (u ? [u] : Object.keys(accs)).forEach(a => (byAcc[a] = byAcc[a] || []).push([i, k, !u])); });
   let n = 0;
   Object.keys(byAcc).forEach(u => {
     let media = [];
@@ -5226,10 +5231,12 @@ function collabStep_(ss) {
     const idx = {}; media.forEach(x => { idx[igShort_(x.m.permalink)] = x; });
     byAcc[u].forEach(x => {
       const m = idx[x[1]], r = rows[x[0]];
-      if (!m) { r[8] = '최근 300개 안에 없음 · ' + now; return; }
+      if (!m) { if (!x[2] || !r[6]) r[8] = (x[2] ? '올린 계정을 B열에 적어 주세요(아는 계정에서 못 찾음)' : '최근 300개 안에 없음') + ' · ' + now; return; }
+      if (x[2]) r[1] = u;
       r[4] = m.date; r[5] = String(m.m.caption || '').split('\n')[0].slice(0, 80); r[6] = Number(m.m.like_count) || 0; r[7] = Number(m.m.comments_count) || 0; r[8] = now; n++;
     });
   });
+  sh.getRange(2, 2, rows.length, 1).setValues(rows.map(r => [r[1]]));
   sh.getRange(2, 5, rows.length, 5).setValues(rows.map(r => r.slice(4, 9)));
   return n;
 }
