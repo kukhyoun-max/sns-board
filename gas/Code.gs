@@ -263,6 +263,22 @@ function withLock_(name, fn) {
   finally { LOCK_DEPTH_--; lock.releaseLock(); }
 }
 
+// 확인용 실행 로그(2026-10-21): 「실행 로그」 최근 300줄을 작은 별도 시트에 복사 — 스냅샷 시트가 커서 드라이브 연결로 행을 못 읽어, Claude가 캡처 없이 결과를 확인하려고.
+// 첫 탭에 [실행 시각, 단계, 줄 수, 상태]. 시트 ID는 스크립트 속성 LOG_MIRROR_ID(없으면 새로 만듦). 10분에 한 번까지
+function logMirror_(force) {
+  const p = PropertiesService.getScriptProperties(), now = Date.now();
+  if (!force && now - Number(p.getProperty("LOG_MIRROR_AT") || 0) < 10 * 60 * 1000) return;
+  p.setProperty("LOG_MIRROR_AT", String(now));
+  const ss = SpreadsheetApp.openById(SS_ID), log = ss.getSheetByName(LOG);
+  if (!log || log.getLastRow() < 2) return;
+  const n = Math.min(300, log.getLastRow() - 1), rows = log.getRange(log.getLastRow() - n + 1, 1, n, 4).getDisplayValues().reverse();
+  let id = p.getProperty("LOG_MIRROR_ID"), m = null;
+  try { if (id) m = SpreadsheetApp.openById(id); } catch (e) { m = null; }
+  if (!m) { m = SpreadsheetApp.create("SNS 보드 실행 로그(확인용)"); p.setProperty("LOG_MIRROR_ID", m.getId()); }
+  const sh = m.getSheets()[0];
+  sh.clearContents();
+  sh.getRange(1, 1, rows.length + 1, 4).setValues([["실행 시각(최근 순)", "단계", "줄 수", "상태"]].concat(rows.map(r => r.map(x => String(x).slice(0, 20000)))));
+}
 function logRows_(ss, rows) {
   if (!rows || !rows.length) return;
   let log = ss.getSheetByName(LOG);
@@ -3485,6 +3501,7 @@ function igxStep_(ss, today, logs) {
 function storySnapshot() {
   const ss = SpreadsheetApp.getActive() || SpreadsheetApp.openById(SS_ID);
   try { ensureTriggers_(); } catch (e) {}
+  try { logMirror_(); } catch (e) {}
   try { ensureBackfill_(); } catch (e) {}
   try { ensureFbBackfill_(); } catch (e) {}
   try {
@@ -4387,6 +4404,7 @@ function collectMoreNow() {
 // 진행 상황은 스크립트 속성 BACKFILL_DONE(끝난 항목)·BACKFILL_IG_DAY(인스타 다음에 받을 날짜)에 둠
 function backfillExtras() {
   try { ensureTriggers_(); } catch (e) {}
+  try { logMirror_(); } catch (e) {}
   const t0 = Date.now(), deadline = t0 + 5 * 60 * 1000;
   const ss = SpreadsheetApp.getActive() || SpreadsheetApp.openById(SS_ID);
   const p = PropertiesService.getScriptProperties();
@@ -5203,4 +5221,5 @@ function collabCheck() {
   });
   L.forEach(x => Logger.log(x));
   try { logRows_(SpreadsheetApp.getActive() || SpreadsheetApp.openById(SS_ID), [[new Date(), '공동작업 확인', L.length, L.join(' / ').slice(0, 45000)]]); } catch (e) {}
+  try { logMirror_(true); } catch (e) {}
 }
