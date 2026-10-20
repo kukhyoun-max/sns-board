@@ -5173,3 +5173,34 @@ function partToday_(ss) {
   try { const ids = {}; p.forEach(x => { ids[String(x.id)] = 1; }); hr = hourlyFor_(ss, ids); } catch (e) {}
   return { ts: now.getTime(), at: Utilities.formatDate(now, TZ, 'yyyy-MM-dd HH:mm'), today: today, posts: p, acct: acct, story: briefStories_(ss, today), hist: hr.hist, hbase: hr.base, notes: notes };
 }
+
+// ───────── 공동작업 게시물 확인(2026-10-21): 편집기에서 collabCheck 실행 → 실행 로그에 결과 ─────────
+// ① 우리 게시물 중 공동작업(collaborators) ② 상대 계정이 올리고 우리를 초대한 게시물이 우리 목록에 있는지 ③ 그 게시물 인사이트를 우리 토큰으로 받을 수 있는지
+// 상대 계정은 스크립트 속성 COLLAB_ACCOUNTS(쉼표로 여러 개, 없으면 jeonbuk1994)
+function collabCheck() {
+  const L = [], p = PropertiesService.getScriptProperties();
+  const partners = String(p.getProperty('COLLAB_ACCOUNTS') || 'jeonbuk1994').split(',').map(x => x.trim()).filter(Boolean);
+  igxChannels_().forEach(c => {
+    const mine = igxGet_(c.conf, c.user + '/media', { fields: 'id,permalink,timestamp', limit: 50 }).data || [];
+    const ids = {}; mine.forEach(x => { ids[String(x.id)] = 1; });
+    let n = 0;
+    mine.forEach(x => { try { const k = igxGet_(c.conf, x.id + '/collaborators', {}).data || []; if (k.length) { n++; if (n <= 5) L.push(c.ch + ' 우리가 올린 공동작업 ' + x.permalink + ' · 함께: ' + k.map(y => y.username).join(', ')); } } catch (e) { if (!n) L.push(c.ch + ' collaborators 실패: ' + e.message); n = -999; } });
+    L.push(c.ch + ' 최근 50개 중 공동작업 ' + Math.max(0, n) + '개');
+    partners.forEach(u => {
+      try {
+        const b = igxGet_(c.conf, c.user, { fields: 'business_discovery.username(' + u + '){media.limit(30){id,permalink,timestamp,like_count,comments_count}}' }).business_discovery;
+        const ms = (b && b.media && b.media.data) || [];
+        L.push(c.ch + ' ← ' + u + ' 최근 게시물 ' + ms.length + '개 · 우리 목록에도 있는 것 ' + ms.filter(m => ids[String(m.id)]).length + '개');
+        ms.slice(0, 30).forEach(m => {
+          let ins = '';
+          try { const v = igxGet_(c.conf, m.id + '/insights', { metric: 'views,reach' }).data || []; ins = '인사이트 됨 ' + v.map(d => d.name + ' ' + (d.values ? d.values[0].value : d.total_value && d.total_value.value)).join(' · '); }
+          catch (e) { ins = '인사이트 안 됨(' + String(e.message).slice(0, 60) + ')'; }
+          if (ids[String(m.id)] || /됨 /.test(ins)) L.push('  ' + m.permalink + ' · 좋아요 ' + m.like_count + ' · ' + (ids[String(m.id)] ? '우리 목록에 있음 · ' : '') + ins);
+        });
+        const one = ms[0]; if (one && !L.some(x => x.indexOf(one.permalink) >= 0)) { try { igxGet_(c.conf, one.id + '/insights', { metric: 'views' }); } catch (e) { L.push('  (예시) ' + one.permalink + ' 인사이트: ' + String(e.message).slice(0, 80)); } }
+      } catch (e) { L.push(c.ch + ' ← ' + u + ' 조회 실패: ' + e.message); }
+    });
+  });
+  L.forEach(x => Logger.log(x));
+  try { logRows_(SpreadsheetApp.getActive() || SpreadsheetApp.openById(SS_ID), [[new Date(), '공동작업 확인', L.length, L.join(' / ').slice(0, 45000)]]); } catch (e) {}
+}
