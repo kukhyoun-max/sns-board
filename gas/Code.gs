@@ -5109,7 +5109,7 @@ function partIg_(ss) {
   });
   todo.sort((a, b) => a[1] < b[1] ? 1 : -1);
   // 상대 계정이 올린 공동작업 [주소, 올린 계정, 조회(사람이 적음), 게시일, 캡션, 좋아요, 댓글]
-  const collab = partRows_(ss, COLLAB_SHEET, COLLAB_HEAD.length).filter(r => r[0] && r[1]).map(r => [String(r[0]).trim(), String(r[1]).trim().replace(/^@/, ''), partN_(r[2]), partD_(r[4]), String(r[5] || ''), partN_(r[6]), partN_(r[7])])
+  const collab = partRows_(ss, COLLAB_SHEET, COLLAB_HEAD.length).filter(r => r[0] && r[1]).map(r => [String(r[0]).trim(), String(r[1]).trim().replace(/^@/, ''), partN_(r[2]), partD_(r[4]), String(r[5] || ''), partN_(r[6]), partN_(r[7]), partN_(r[9]), partN_(r[10]), partN_(r[11])])
     .sort((a, b) => a[3] < b[3] ? 1 : -1);
   return { day: day, post: post, demo: demo, demoD: lastD, story: story, ft: ft, fol: fol, reachDemo: reachDemo, reachD: rdD, pm: pm, cmt: cmt, todo: todo.slice(0, 40), collab: collab };
 }
@@ -5204,7 +5204,35 @@ function partToday_(ss) {
 // 그래서 사람이 「공동작업(상대 게시)」 탭에 게시물 주소·올린 계정을 적으면, 1시간마다 business_discovery로 공개 숫자(좋아요·댓글)·게시일·캡션을 채움.
 // 조회는 앱 인사이트에서 보고 사람이 적음. 보드는 인스타 화면에 따로 보여 주고 우리 게시물의 평소 계산에는 넣지 않음
 const COLLAB_SHEET = '공동작업(상대 게시)';
-const COLLAB_HEAD = ['게시물 주소', '올린 계정', '조회(앱에서 보고 적기)', '메모', '게시일', '캡션 앞부분', '좋아요', '댓글', '받은 시각'];
+const COLLAB_HEAD = ['게시물 주소', '올린 계정', '조회(앱에서 보고 적기)', '메모', '게시일', '캡션 앞부분', '좋아요', '댓글', '받은 시각', '도달(조회한 사람)', '공유', '저장', '인사이트 본 날'];
+// 인사이트 캡처(2026-10-21): 담당자가 앱 인사이트 캡처를 보내면 Claude가 내 드라이브에 「공동작업 인사이트.csv」(게시물 주소,조회,도달,공유,저장,본 날)를 만들고,
+// 1시간마다 collabStep_이 읽어 C·J~M열에 넣은 뒤 그 파일을 휴지통으로 보냄(Claude 드라이브 연결은 새 파일만 만들 수 있어서)
+const COLLAB_INBOX = '공동작업 인사이트.csv';
+function collabInbox_(sh) {
+  const files = [], it = DriveApp.getFilesByName(COLLAB_INBOX);
+  while (it.hasNext()) files.push(it.next());
+  if (!files.length) return 0;
+  files.sort((a, b) => a.getLastUpdated() - b.getLastUpdated());
+  const vals = {};
+  files.forEach(f => Utilities.parseCsv(f.getBlob().getDataAsString('UTF-8').replace(/^﻿/, '')).slice(1).forEach(r => { const k = igShort_(r[0]); if (k) vals[k] = r; }));
+  const W = COLLAB_HEAD.length, rows = sh.getLastRow() > 1 ? sh.getRange(2, 1, sh.getLastRow() - 1, W).getValues() : [], at = {};
+  rows.forEach((r, i) => { at[igShort_(r[0])] = i; });
+  const num = x => { const t = String(x == null ? '' : x).replace(/[,s]/g, ''); return t === '' || isNaN(Number(t)) ? '' : Number(t); };
+  let n = 0;
+  Object.keys(vals).forEach(k => {
+    const v = vals[k];
+    let i = at[k];
+    if (i == null) { const r = new Array(W).fill(''); r[0] = 'https://www.instagram.com/p/' + k + '/'; r[3] = '인사이트 캡처로 추가'; rows.push(r); i = at[k] = rows.length - 1; }
+    const r = rows[i];
+    [[1, 2], [2, 9], [3, 10], [4, 11]].forEach(p => { const x = num(v[p[0]]); if (x !== '') r[p[1]] = x; });
+    if (v[5]) r[12] = String(v[5]).trim();
+    n++;
+  });
+  sh.getRange(2, 13, rows.length, 1).setNumberFormat('@');
+  sh.getRange(2, 1, rows.length, W).setValues(rows);
+  files.forEach(f => { try { f.setTrashed(true); } catch (e) {} });
+  return n;
+}
 // 담당자가 대화로 알려 준 게시물(2026-10-21). 게시물마다 한 번만 넣고(COLLAB_SEEDED = 넣은 짧은 코드 목록), 그 뒤 수정·삭제는 탭에서
 const COLLAB_SEED = [["https://www.instagram.com/p/Dd8bnHhk_cF/", "jeonbuk1994", 445600, "앱 인사이트 조회 2026-10-21 0시 기준"],
   ["https://www.instagram.com/p/DWVkHDCkc9T/", "jumfesta", "", "JUMF 공동작업(2026-10-21 담당자 알려 줌)"],
@@ -5222,6 +5250,9 @@ function collabStep_(ss) {
   let done = []; try { done = JSON.parse(pp.getProperty('COLLAB_SEEDED') || '[]'); } catch (e) { done = []; } if (!Array.isArray(done)) done = [igShort_(COLLAB_SEED[0][0])];
   const todoS = COLLAB_SEED.filter(r => done.indexOf(igShort_(r[0])) < 0);
   if (todoS.length) { const have = sh.getLastRow() > 1 ? sh.getRange(2, 1, sh.getLastRow() - 1, 1).getValues().map(r => igShort_(r[0])) : []; const add = todoS.filter(r => have.indexOf(igShort_(r[0])) < 0); if (add.length) sh.getRange(sh.getLastRow() + 1, 1, add.length, 4).setValues(add); pp.setProperty('COLLAB_SEEDED', JSON.stringify(done.concat(todoS.map(r => igShort_(r[0]))))); }
+  if (sh.getRange(1, COLLAB_HEAD.length).getValue() !== COLLAB_HEAD[COLLAB_HEAD.length - 1]) { sh.getRange(1, 1, 1, COLLAB_HEAD.length).setValues([COLLAB_HEAD]); sh.getRange(1, 10, 1, 4).setBackground('#fff4d6'); }
+  let got = 0; try { got = collabInbox_(sh); } catch (e) { logRows_(ss, [[new Date(), COLLAB_SHEET, 0, '인사이트 파일 읽기 오류: ' + String(e.message).slice(0, 120)]]); }
+  if (got) logRows_(ss, [[new Date(), COLLAB_SHEET, got, '인사이트 캡처 값 ' + got + '개 넣음(조회·도달·공유·저장)']]);
   if (sh.getLastRow() < 2) return 0;
   const rows = sh.getRange(2, 1, sh.getLastRow() - 1, COLLAB_HEAD.length).getValues();
   const now = Utilities.formatDate(new Date(), TZ, 'yyyy-MM-dd HH:mm'), byAcc = {};
@@ -5244,8 +5275,8 @@ function collabStep_(ss) {
   sh.getRange(2, 2, rows.length, 1).setValues(rows.map(r => [r[1]]));
   sh.getRange(2, 5, rows.length, 5).setValues(rows.map(r => r.slice(4, 9)));
   // 채운 결과를 실행 로그에 남김(확인용 시트로 바로 보이게). 계정·찾음 여부가 바뀌거나 날짜가 바뀔 때만
-  const st = rows.map(r => igShort_(r[0]) + ' @' + (String(r[1]).trim() || '?') + ' ' + (r[6] !== '' && r[6] != null ? '좋아요 ' + r[6] + '·댓글 ' + r[7] : String(r[8]).split(' · ')[0]));
-  const key = now.slice(0, 10) + '|' + rows.map(r => igShort_(r[0]) + String(r[1]).trim() + (r[6] !== '' && r[6] != null ? 1 : 0)).join(',');
+  const st = rows.map(r => igShort_(r[0]) + ' @' + (String(r[1]).trim() || '?') + ' ' + (r[6] !== '' && r[6] != null ? '좋아요 ' + r[6] + '·댓글 ' + r[7] : String(r[8]).split(' · ')[0]) + (r[2] !== '' ? '·조회 ' + r[2] : '') + (r[9] !== '' ? '·도달 ' + r[9] : ''));
+  const key = now.slice(0, 10) + '|' + rows.map(r => igShort_(r[0]) + String(r[1]).trim() + (r[6] !== '' && r[6] != null ? 1 : 0) + (r[9] !== '' ? 'r' : '')).join(',');
   if (key !== pp.getProperty('COLLAB_LOGKEY')) { pp.setProperty('COLLAB_LOGKEY', key); logRows_(ss, [[new Date(), COLLAB_SHEET, n, st.join(' / ').slice(0, 480)]]); }
   return n;
 }
