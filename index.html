@@ -4222,8 +4222,13 @@ button.wa-r { cursor: pointer; }
     const y = acct('유튜브');
     if (chs.includes('유튜브') && y && y.subs != null && T.length < 4) {
       const AA = (D.acct || []).filter(x => x.ch === '유튜브' && x.m['Channel total subscribers'] != null).sort((p, q) => p.d < q.d ? -1 : 1), A = AA[AA.length - 1];
-      T.push(kpiTile('유튜브 구독자', fmt(y.subs) + '<small>명</small>', A ? md2(A.d) + ' 기록 대비 ' + dNum(y.subs - A.m['Channel total subscribers'], '명') : '지금 구독자 수', '',
-        spark(AA.map(x => x.m['Channel total subscribers']).concat([y.subs]), '기록별 구독자 수')));
+      // 최근 1년 추이(서버가 하루 구독 증감으로 거슬러 계산한 y.hist) — 지금이 1년 중 어느 정도인지
+      const H = (y.hist || []).filter(x => x[0] >= addDays(today, -365)), yr = H[0], m30 = H.find(x => x[0] >= addDays(today, -30));
+      const hv = H.map(x => x[1]).concat([y.subs]), hi = H.length ? Math.max.apply(null, hv) : null;
+      T.push(kpiTile('유튜브 구독자', fmt(y.subs) + '<small>명</small>', yr ? '1년 전보다 ' + dNum(y.subs - yr[1], '명') : A ? md2(A.d) + ' 기록 대비 ' + dNum(y.subs - A.m['Channel total subscribers'], '명') : '지금 구독자 수', '',
+        H.length > 1 ? spark(hv, '최근 1년 구독자 수 · 하루 구독 증감으로 거슬러 계산(유튜브 분석은 1~2일 늦음)') +
+          '<div class="td-foot">' + (m30 ? '30일 전보다 ' + dNum(y.subs - m30[1], '명') + ' · ' : '') + (y.subs >= hi ? '1년 중 가장 많아요' : '1년 최고 ' + fmt(hi) + '명') + '</div>'
+          : spark(AA.map(x => x.m['Channel total subscribers']).concat([y.subs]), '기록별 구독자 수')));
     }
     const st = (d.story || []).filter(x => chs.includes(x.ch));
     if (st.length && T.length < 4) T.push(kpiTile('오늘 스토리 조회', fmtK(sum(st.map(x => x.views))), '스토리 ' + st.length + '개 · 1시간마다 받아요'));
