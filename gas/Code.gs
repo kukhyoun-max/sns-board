@@ -5194,6 +5194,18 @@ function partToday_(ss) {
     acct.forEach(a => { const b = base[a.c]; if (b) { a.base = b.v; a.baseAt = b.at || b.d; } });
   } catch (e) {}
   try { const y = ytaGet_('https://www.googleapis.com/youtube/v3/channels?part=statistics&mine=true').items[0].statistics; acct.push({ c: '유튜브', subs: n(y.subscriberCount), views: n(y.viewCount) }); } catch (e) { notes.push('유튜브 구독자 확인 실패'); }
+  // 유튜브 구독자 추이(2026-10-21): 「구독자 수」 기록이 수집 오류로 비어 있어서, 지금 구독자 수에서 「유튜브 채널 일별」 하루 증감(구독 증가 − 감소)을 거슬러 빼 날마다 값을 만듦(최근 400일)
+  try {
+    const ya = acct.filter(a => a.c === '유튜브')[0];
+    if (ya && ya.subs != null) {
+      const net = {};
+      partRows_(ss, '유튜브 채널 일별', 6).forEach(r => { const d = partD_(r[0]); if (d) net[d] = (Number(r[4]) || 0) - (Number(r[5]) || 0); });
+      const days = Object.keys(net).sort(), h = [];
+      let v = ya.subs;
+      for (let i = days.length - 1; i >= 0 && h.length < 400; i--) { h.push([days[i], v]); v -= net[days[i]]; }
+      if (h.length) ya.hist = h.reverse();
+    }
+  } catch (e) {}
   let hr = { hist: {}, base: {} };
   try { const ids = {}; p.forEach(x => { ids[String(x.id)] = 1; }); hr = hourlyFor_(ss, ids); } catch (e) {}
   return { ts: now.getTime(), at: Utilities.formatDate(now, TZ, 'yyyy-MM-dd HH:mm'), today: today, posts: p, acct: acct, story: briefStories_(ss, today), hist: hr.hist, hbase: hr.base, notes: notes };
