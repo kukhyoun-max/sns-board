@@ -1890,6 +1890,9 @@ button.wa-r { cursor: pointer; }
     const b = baseFor(it);
     return b && b.v > 0 && v != null ? { r: v / b.v, base: 1, v0: b.v } : null;
   }
+  // 조회 모이는 중 게시물의 평소 대비: 같은 날수 평소가 있을 때만 배수(다 자란 게시물의 최종 조회와 견주면 늘 0.1배처럼 낮게 보임, 2026-10-21)
+  function youngTxt(it) { const p = paceOf(it); return p && !p.base ? agName(p.e) + ' 조회 평소의 ' + xf(p.r) : ''; }
+  const youngWait = it => daysBetween(it.d, D.updated) < 1 ? '하루가 지나면 같은 날수 평소와 견줘요' : '같은 날수 평소 자료가 아직 적어요';
   function raceHtml(chs, w) {
     const all = D.items.filter(it => chs.includes(it.c) && OWN.includes(it.c) && it.t !== '스토리' && (S.ads || !it.ad)).sort((a, b) => a.d < b.d ? 1 : a.d > b.d ? -1 : 0);
     const wk = w ? all.filter(it => it.d >= w.mon) : [];
@@ -4427,7 +4430,7 @@ button.wa-r { cursor: pointer; }
     });
     // 결과 + 요약
     if (r != null) {
-      if (young(it)) out.push(['info', '결과', (age <= 0 ? '오늘 올려서' : '올린 지 ' + age + '일째라') + ' 아직 판정 전이에요.', '지금까지 평소의 ' + xf(r) + ' · ' + AGE_MIN + '일이 지나면 판정해요']);
+      if (young(it)) out.push(['info', '결과', (age <= 0 ? '오늘 올려서' : '올린 지 ' + age + '일째라') + ' 아직 판정 전이에요.', (youngTxt(it) || youngWait(it)) + ' · ' + AGE_MIN + '일이 지나면 판정해요']);
       else out.push([r >= HIT ? 'good' : r < 0.5 ? 'bad' : 'info', '결과', MN[mainM(it.c)] + '가 평소의 ' + xf(r) + (r >= HIT ? '로 잘 된 게시물이에요.' : r < 0.5 ? '로 절반에 못 미쳤어요.' : r >= 1 ? '로 평소보다 조금 높아요.' : '로 평소보다 조금 낮아요.'), baseTxt]);
       const use = F.filter(x => !x.ext), pos = use.filter(x => x.m >= 1.2).sort((a, b) => b.m - a.m), neg = use.filter(x => x.m <= 0.85).sort((a, b) => a.m - b.m);
       const names = L => L.slice(0, 3).map(x => x.nm).join(' · ');
@@ -4484,9 +4487,10 @@ button.wa-r { cursor: pointer; }
     const parts = [];
     const bs = baseFor(it);
     // 「조회 모이는 중」 설명은 진단 「참고」 카드 한 곳에만 · 괄호 대신 두 문장
-    if (r != null) parts.push((young(it) ? '지금까지 ' : '지금 ') + MN[mainM(it.c)] + ' ' + fmtK(mainVal(it)) + ', 평소의 ' + xf(r) + (young(it) ? '예요.' : r >= HIT ? '예요. 잘 된 게시물 기준 1.5배를 넘었어요.' : r >= 1 ? '로 평소보다 조금 잘 됐어요.' : r >= 0.5 ? '로 평소보다 조금 낮아요.' : '로 평소의 절반에 못 미쳤어요.') + ' 평소는 ' + (bs.by === '형식' ? '같은 형식 최근 1년 중간값' : '채널 중간값') + ' ' + fmtK(bs.v) + '이에요.');
+    if (r != null && young(it)) { const yt = youngTxt(it); parts.push('지금까지 ' + MN[mainM(it.c)] + ' ' + fmtK(mainVal(it)) + (yt ? '로 ' + yt + '예요.' : '예요. 아직 다 자란 게시물과 견주기엔 일러요.')); }
+    else if (r != null) parts.push('지금 ' + MN[mainM(it.c)] + ' ' + fmtK(mainVal(it)) + ', 평소의 ' + xf(r) + (r >= HIT ? '예요. 잘 된 게시물 기준 1.5배를 넘었어요.' : r >= 1 ? '로 평소보다 조금 잘 됐어요.' : r >= 0.5 ? '로 평소보다 조금 낮아요.' : '로 평소의 절반에 못 미쳤어요.') + ' 평소는 ' + (bs.by === '형식' ? '같은 형식 최근 1년 중간값' : '채널 중간값') + ' ' + fmtK(bs.v) + '이에요.');
     else if (it.hid) parts.push('조회 ' + fmt(mainVal(it)) + '로 비공개·일부 공개나 중복 업로드로 보여요. 평소 계산에서 뺐어요.');
-    if (g && g.idx != null) parts.push('「' + it.g + '」 분류 게시물은 보통 ' + mW(it.c) + '가 평소의 ' + xf(g.idx) + '인데, 이 콘텐츠는 ' + (r != null && r > g.idx ? '그보다 높아요.' : '그보다 낮아요.'));
+    if (g && g.idx != null && !young(it)) parts.push('「' + it.g + '」 분류 게시물은 보통 ' + mW(it.c) + '가 평소의 ' + xf(g.idx) + '인데, 이 콘텐츠는 ' + (r != null && r > g.idx ? '그보다 높아요.' : '그보다 낮아요.'));
     if (it.c === '인스타그램' && it.r > 0) parts.push('도달한 ' + fmtK(it.r) + '명 중 ' + pct(engagement(it)) + '가 좋아요·댓글·공유·저장으로 반응했어요.');
     if (it.w && it.w.length) parts.push('만든 사람: ' + it.w.join(', ') + ' · ' + it.p + '.');
     return parts.join(' ');
@@ -4515,12 +4519,12 @@ button.wa-r { cursor: pointer; }
       '<div class="dh"><button type="button" id="dClose" aria-label="뒤로">‹</button><div class="ctr"><small>' + esc(chName(it.c)) + ' · ' + esc(glab(it)) + '</small><b class="num ' + cls + '">' + MN[m] + ' ' + fmtK(mainVal(it)) + (d == null ? (it.hid ? ' · 비공개로 보임' : '') : young(it) ? ' · 모이는 중' : ' · 평소의 ' + xf(d + 1)) + '</b></div><span></span></div>' +
       '<div class="dtabs" role="tablist"><button type="button" role="tab" aria-selected="true" data-s="dChart">성과</button><button type="button" role="tab" aria-selected="false" data-s="dSig">성과 진단</button><button type="button" role="tab" aria-selected="false" data-s="dMet">지표</button><button type="button" role="tab" aria-selected="false" data-s="dSim">비슷한 콘텐츠</button></div>' +
       '<section class="dsec" id="dChart"><h1 class="dtitle">' + line(it) + '</h1>' +
-        '<div class="dbig num">' + fmt(mainVal(it)) + '<small class="' + cls + '">' + (it.ad ? '광고 영상이라 평소 대비는 계산하지 않아요' : it.hid ? '비공개로 보임 · 평소 계산에서 뺌' : d == null ? '' : (young(it) ? '지금까지 ' + MN[m] + ' 평소의 ' + xf(d + 1) + ' · 조회 모이는 중' : MN[m] + ' 평소의 ' + xf(d + 1))) + '</small></div>' +
+        '<div class="dbig num">' + fmt(mainVal(it)) + '<small class="' + cls + '">' + (it.ad ? '광고 영상이라 평소 대비는 계산하지 않아요' : it.hid ? '비공개로 보임 · 평소 계산에서 뺌' : d == null ? '' : (young(it) ? (youngTxt(it) ? youngTxt(it) + ' · 조회 모이는 중' : '조회 모이는 중 · ' + youngWait(it)) : MN[m] + ' 평소의 ' + xf(d + 1))) + '</small></div>' +
         (wk != null ? '<div class="num ' + (wk >= 0 ? 'up' : 'down') + '" style="font-weight:700;margin-top:2px">이번 주 ' + MN[m] + ' ' + sgn(wk) + fmt(wk) + '</div>' : '') +
         '<div class="dtags"><span class="tag">' + esc(glab(it)) + '</span>' + ptag(it.p) + adtag(it) + coTag(it) + susTag(it) + hidTag(it) + histTag(it) + '<span class="tag">' + esc(fmtType(it.t)) + '</span>' + (it.w || []).map(n => '<span class="tag">' + esc(n) + '</span>').join('') + '</div>' +
         '<div class="cmp"><canvas id="dCanvas"></canvas></div>' +
         // 누를 수 없는 토글 대신 실제로 그린 차트 이름 한 줄
-        '<p class="note" style="text-align:center">' + (detailLine(it) ? '기록 날짜별 누적 ' + MN[m] : '이 콘텐츠 · 같은 분류 · 같은 형식 중간값') + '</p></section>' +
+        '<p class="note" style="text-align:center">' + (detailLine(it) ? '기록 날짜별 누적 ' + MN[m] : '이 콘텐츠 · 같은 분류 · 같은 형식 중간값' + (young(it) ? ' · 중간값은 다 자란 게시물의 최종 조회' : '')) + '</p></section>' +
       '<div class="gap"></div><section class="dsec why"><div class="lb"><span>' + ICO.spark + ' ' + (it.ad ? '광고 집행 정보' : d == null || young(it) ? '성과 요약' : d >= 0 ? '왜 잘 됐을까?' : '왜 아쉬웠을까?') + '</span><small>' + mdLabel(D.updated) + ' 기준</small></div><p>' + esc(whyText(it)) + '</p></section>' +
       '<div class="gap"></div><section class="dsec sig" id="dSig"><h3>성과 진단</h3><div class="h">' + (OWN.includes(it.c) ? '우리 과거 게시물·타 대학 게시물과 견준 결과' : '이 학교 과거 게시물과 견준 결과') + '</div>' +
         signals(it).map(s => '<div class="sg"><span class="k ' + s[0] + '">' + s[1] + '</span><div><b>' + esc(s[2]) + '</b>' + (s[3] ? '<span>' + esc(s[3]) + '</span>' : '') + (s[4] || '') + '</div></div>').join('') +

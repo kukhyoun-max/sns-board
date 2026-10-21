@@ -4822,9 +4822,13 @@ function briefReactOf_(ch, l, c, sh, sv, reach, views) {
   if (ch === '인스타그램') return Number(reach) > 0 ? (n(l) + n(c) + n(sh) + n(sv)) / Number(reach) : null;
   return Number(views) > 0 ? (n(l) + n(c)) / Number(views) : null;
 }
+// 도달·조회가 이보다 적으면 판정하지 않고 「모으는 중」(보드 오늘 칸 TD_MIN과 같은 값) — 조회 52·좋아요 3으로 「대박」, 조회 20·좋아요 0으로 「낮음」이 나왔음(2026-10-21)
+const BRIEF_RX_MIN = [300, 100]; // 인스타 도달 · 유튜브·hong 조회
 function briefReactCmp_(x) {
   const v = briefReactOf_(x.ch, x.likes, x.comments, x.shares, x.saves, x.reach, x.views), b = x.usual && x.usual.react;
-  return v != null && b > 0 ? { r: v / b, v: v, base: b } : null;
+  if (v == null || !(b > 0)) return null;
+  const den = Number(x.ch === '인스타그램' ? x.reach : x.views) || 0, min = BRIEF_RX_MIN[x.ch === '인스타그램' ? 0 : 1];
+  return den < min ? { few: true, den: den, min: min, v: v, base: b } : { r: v / b, v: v, base: b };
 }
 const briefDen_ = ch => ch === '인스타그램' ? '도달 대비' : '조회 대비';
 function briefLastRow_(it) { for (let i = (it.h || []).length - 1; i >= 0; i--) if (it.h[i] && it.h[i][0] != null) return it.h[i]; return null; }
@@ -4852,9 +4856,10 @@ const BR = { fg: '#191f28', sub: '#4e5968', mu: '#8b95a1', line: '#e5e8eb', soft
 const BR_CH = { '인스타그램': ['인스타', '#d6336c'], '유튜브': ['유튜브', '#1864ab'], 'hong._.video': ['hong', '#0ca678'] };
 const BR_TIER = [[0.7, '평소보다 낮음', '#c2410c', '#fdeee6'], [1.3, '평소 수준', '#4e5968', '#f2f4f6'], [2, '잘 됨', '#0078ad', '#e6f2f8'], [5, '아주 잘 됨', '#ffffff', '#0078ad'], [Infinity, '대박', '#ffffff', '#005494']];
 function briefTier_(r) { return BR_TIER.filter(t => r < t[0])[0]; }
-function briefRatioText_(r) { return r >= 2 ? (Math.round(r * 10) / 10) + '배' : Math.round(r * 100) + '%'; }
+// 배수는 늘 「배」(122%와 7.4배가 섞여 보이던 것을 통일, 2026-10-21) · 0.1배 미만은 「0.1배 미만」
+function briefRatioText_(r) { return r < 0.1 ? '0.1배 미만' : (Math.round(r * 10) / 10) + '배'; }
 function briefChipTier_(r, grow) {
-  const t = grow ? [0, '아직 느는 중', BR.sub, BR.soft] : briefTier_(r);
+  const t = grow ? [0, typeof grow === 'string' ? grow : '아직 느는 중', BR.sub, BR.soft] : briefTier_(r);
   return '<span style="display:inline-block;padding:2px 10px;border-radius:999px;font-size:12px;font-weight:800;white-space:nowrap;background:' + t[3] + ';color:' + t[2] + '">' + t[1] + '</span>';
 }
 // 이 게시물 조회수가 평소의 몇 배인지. 올린 날 밤 기록이 쌓였으면 그것, 아니면 다 늘어난 평소 조회수(fin)
@@ -4902,14 +4907,15 @@ function briefHtml_(posts, stories, recent, notes, today, stamp) {
   const tbl = s => '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse">' + s + '</table>';
   posts.forEach(x => {
     x.cmp = briefRatio_(x); x.rc = briefReactCmp_(x); x.ms = briefMetrics_(x);
-    const judged = x.ms.filter(m => m.r != null && !m.grow && m.name !== '조회수' && m.name !== '반응률'); // 강점·약점은 반응률을 이루는 세부 지표에서
+    const judged = x.rc && x.rc.few ? [] : x.ms.filter(m => m.r != null && !m.grow && m.name !== '조회수' && m.name !== '반응률'); // 강점·약점은 반응률을 이루는 세부 지표에서(표본이 적으면 안 고름)
     x.best = judged.slice().sort((a, b) => b.r - a.r)[0] || null;
     x.worst = judged.slice().sort((a, b) => a.r - b.r)[0] || null;
   });
-  posts = posts.slice().sort((a, b) => (b.rc ? 1 : 0) - (a.rc ? 1 : 0) || (a.rc && b.rc ? b.rc.r - a.rc.r : 0) || (Number(b.views) || 0) - (Number(a.views) || 0));
-  const withRc = posts.filter(x => x.rc), goodRc = withRc.filter(x => x.rc.r >= 1.3).length;
+  const rk = x => x.rc ? (x.rc.few ? 1 : 2) : 0; // 판정된 것 → 모으는 중 → 비교 불가
+  posts = posts.slice().sort((a, b) => rk(b) - rk(a) || (rk(a) === 2 && rk(b) === 2 ? b.rc.r - a.rc.r : 0) || (Number(b.views) || 0) - (Number(a.views) || 0));
+  const withRc = posts.filter(x => x.rc), judgedRc = withRc.filter(x => !x.rc.few), goodRc = judgedRc.filter(x => x.rc.r >= 1.3).length;
   const sumV = posts.reduce((a, x) => a + (Number(x.views) || 0), 0), sumF = posts.reduce((a, x) => a + (Number(x.follows) || 0), 0), hasF = posts.some(x => x.follows !== '' && x.follows != null);
-  const top = withRc[0];
+  const top = judgedRc[0];
   let h = '';
   // 머리: 오늘의 한 줄
   h += '<div style="background:' + BR.up + ';background:linear-gradient(135deg,' + BR.up + ',' + BR.navy + ');border-radius:18px;padding:20px 22px;color:#fff;margin-bottom:6px">'
@@ -4923,11 +4929,14 @@ function briefHtml_(posts, stories, recent, notes, today, stamp) {
       const bd = i ? 'border-top:1px solid ' + BR.line + ';' : '';
       const strong = x.best && x.best.r >= 1.3 ? ' · 강점 <b style="color:' + BR.up + '">' + x.best.name + '</b> 평소의 ' + briefRatioText_(x.best.r) : '';
       g += '<tr><td style="' + bd + 'padding:12px 0 2px;line-height:1.5"><span style="font-size:15px;font-weight:800;margin-right:8px">' + (i + 1) + '</span>' + briefChip_(x.ch, x.type) + '</td>'
-        + '<td style="' + bd + 'padding:12px 0 2px;text-align:right;line-height:1.5">' + briefChipTier_(x.rc.r) + '</td></tr>'
+        + '<td style="' + bd + 'padding:12px 0 2px;text-align:right;line-height:1.5">' + (x.rc.few ? briefChipTier_(0, '모으는 중') : briefChipTier_(x.rc.r)) + '</td></tr>'
         + '<tr><td colspan="2" style="padding:4px 0 0;font-size:14px;font-weight:700;line-height:1.5">' + briefEsc_(briefTitle_(x.title, 40)) + '</td></tr>'
-        + '<tr><td colspan="2" style="padding:4px 0 12px;font-size:12px;color:' + BR.sub + ';line-height:1.5">반응률 평소의 <b style="color:' + BR.fg + '">' + briefRatioText_(x.rc.r) + '</b>' + strong + '</td></tr>';
+        // 반응이 좋아도 조회가 적을 수 있어 조회·경과 시간을 같은 줄에(2026-10-21)
+        + '<tr><td colspan="2" style="padding:4px 0 12px;font-size:12px;color:' + BR.sub + ';line-height:1.5">'
+        + (x.rc.few ? (x.ch === '인스타그램' ? '도달 ' : '조회 ') + briefNum_(x.rc.den) + ' · ' + x.rc.min + ' 넘으면 반응을 판정해요' : '반응률 평소의 <b style="color:' + BR.fg + '">' + briefRatioText_(x.rc.r) + '</b>' + strong)
+        + (x.rc.few && x.ch !== '인스타그램' ? '' : ' · 조회 ' + briefNum_(x.views)) + ' · ' + Math.floor(x.hours) + '시간째</td></tr>';
     });
-    h += h2('오늘의 반응 순위', '반응률로 매긴 순위 · 비율이라 올린 지 얼마 안 돼도 견줄 수 있어요');
+    h += h2('오늘의 반응 순위', '반응률로 매긴 순위 · 올린 직후엔 높게 나오는 편이라 내일 다시 봐요');
     h += card(tbl(g) + '<div style="margin-top:4px;padding-top:12px;border-top:1px solid ' + BR.line + ';font-size:11px;color:' + BR.mu + ';line-height:2.4">'
       + BR_TIER.map((t, i) => '<span style="white-space:nowrap;margin-right:10px"><span style="display:inline-block;padding:0 8px;border-radius:999px;line-height:1.8;background:' + t[3] + ';color:' + t[2] + ';font-weight:700">' + t[1] + '</span> '
         + (i === 0 ? '0.7배 미만' : i === 4 ? '5배 이상' : BR_TIER[i - 1][0] + '~' + t[0] + '배') + '</span>').join(' ') + '</div>');
@@ -4936,7 +4945,7 @@ function briefHtml_(posts, stories, recent, notes, today, stamp) {
   const sv = stories.reduce((a, s) => a + s.views, 0);
   h += '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;margin:0 -6px"><tr>'
     + briefTile_('오늘 게시물 조회수 합계', briefNum_(sumV), '게시물 ' + posts.length + '개')
-    + briefTile_('반응률 잘 됨 이상', withRc.length ? goodRc + ' / ' + withRc.length : '–', '평소의 1.3배 이상') + '</tr><tr>'
+    + briefTile_('반응률 잘 됨 이상', judgedRc.length ? goodRc + ' / ' + judgedRc.length : '–', '평소의 1.3배 이상 · 판정된 것만') + '</tr><tr>'
     + briefTile_('오늘 게시물로 새 팔로우', hasF ? briefNum_(sumF) + '명' : '–', hasF ? '인스타·hong 피드 게시물' : '릴스는 메타가 주지 않음')
     + briefTile_('오늘 스토리 조회수', stories.length ? briefNum_(sv) : '–', '스토리 ' + stories.length + '개') + '</tr></table>';
   // 게시물별 카드
