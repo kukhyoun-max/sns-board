@@ -3013,6 +3013,7 @@
   // 반응률 = 인스타 (좋아요+댓글+공유+저장) ÷ 도달, 유튜브·hong (좋아요+댓글) ÷ 조회 — 밤 브리핑과 같은 기준. 비율이라 올린 지 몇 시간이어도 견줄 수 있음
   const tdReact = (c, l, cm, sh, sv, r, v) => c === '인스타그램' ? (r > 0 ? ((l || 0) + (cm || 0) + (sh || 0) + (sv || 0)) / r : null) : (v > 0 ? ((l || 0) + (cm || 0)) / v : null);
   const TD_RX = {};
+  const TD_MIN = [300, 100]; // 반응 판정 최소: 인스타 도달 · 유튜브·hong 조회
   function tdUsual(c, t) {
     const k = c + '|' + t; if (k in TD_RX) return TD_RX[k];
     const same = x => x === t || (c === 'hong._.video' && /릴스/.test(x) && /릴스/.test(t));
@@ -3076,12 +3077,14 @@
     if (T.length % 2) { const h = +d.at.slice(11, 13), nx = [8, 12, 16, 20].find(x => x > h); T.push(kpiTile('다음 기록', (nx ? '오늘 ' + nx : '내일 8') + '<small>시</small>', '하루 4번 · 8·12·16·20시')); }
     window.__td = P;
     const L = P.slice(0, 6).map((p, i) => {
-      const rx = tdReact(p.c, p.l, p.cm, p.sh, p.sv, p.r, p.v), u = tdUsual(p.c, p.t), r = rx != null && u ? rx / u : null, t = r == null ? null : tierOf(r);
+      // 조회(인스타는 도달)가 너무 적으면 좋아요 하나로 「대박」·「낮음」이 갈려서 판정하지 않음(유튜브는 공개 조회수가 올린 직후 늦게 올라가 더 들쭉날쭉)
+      const den = p.c === '인스타그램' ? p.r : p.v, few = den != null && den < TD_MIN[p.c === '인스타그램' ? 0 : 1];
+      const rx = tdReact(p.c, p.l, p.cm, p.sh, p.sv, p.r, p.v), u = tdUsual(p.c, p.t), r = rx != null && u && !few ? rx / u : null, t = r == null ? null : tierOf(r);
       const was = sn && sn.p && sn.p[p.id] ? p.v - sn.p[p.id][0] : null;
-      const tip = rx == null ? '' : '반응률 ' + pctA(rx) + (u ? ' · 평소 ' + pctA(u) + ' · 평소 = 같은 형식 최근 1년 중간값' : ' · 같은 형식 게시물이 적어 비교 전');
+      const tip = few ? (p.c === '인스타그램' ? '도달 ' : '조회 ') + fmt(den) + ' · ' + TD_MIN[p.c === '인스타그램' ? 0 : 1] + ' 넘으면 반응을 판정해요' : rx == null ? '' : '반응률 ' + pctA(rx) + (u ? ' · 평소 ' + pctA(u) + ' · 평소 = 같은 형식 최근 1년 중간값' : ' · 같은 형식 게시물이 적어 비교 전');
       const nums = [['조회', p.v], ['좋아요', p.l], ['댓글', p.cm], ['공유', p.sh], ['저장', p.sv]].filter(x => x[1] != null && (x[0] !== '댓글' || x[1] > 0)).map(x => x[0] + ' ' + fmtK(x[1])).join(' · ');
       return '<li data-td="' + i + '" tabindex="0" role="button" aria-label="' + esc(title(p.n)) + ' 열기"><div class="race-t">' + badge(p.c) + '<span class="rt">' + esc(title(p.n)) + '</span>' +
-        '<b class="tier ' + (t ? t[1] : 'na') + '"' + (tip ? ' title="' + esc(tip) + '"' : '') + '>' + (t ? '반응 ' + t[0] + (t[1] === 'mid' ? '' : ' ' + xf(r)) : '비교 전') + '</b></div>' +
+        '<b class="tier ' + (t ? t[1] : 'na') + '"' + (tip ? ' title="' + esc(tip) + '"' : '') + '>' + (t ? '반응 ' + t[0] + (t[1] === 'mid' ? '' : ' ' + xf(r)) : few ? '모으는 중' : '비교 전') + '</b></div>' +
         '<small>' + tdAgo(p.at, now) + ' 올림 · ' + ((tdItem(p) || {}).co ? '공동작업 · ' : '') + nums + (was > 0 ? ' · <span class="up">지난번보다 +' + fmtK(was) + '</span>' : '') + '</small>' + tdRowBar(p, now) + '</li>';
     }).join('');
     const since = sn ? '<span class="td-since">지난번 확인 ' + esc(sn.at.slice(11, 16)) + '</span>' : '';
@@ -3112,7 +3115,8 @@
   }
   // 목록 한 줄의 조회 막대: 평소 같은 시간(없으면 첫날) 대비
   function tdRowBar(p, now) {
-    const b = tdBase(p, now); if (!b || p.v == null) return '';
+    const b = tdBase(p, now); if (p.v == null) return '';
+    if (!b) return '<div class="td-bar"><span class="td-bt"></span><b class="num mu" title="같은 형식 게시물의 첫날 조회 기록이 5개 넘게 쌓이면 보여요">평소 조회 자료 모으는 중</b></div>';
     const r = p.v / b.v, w = Math.min(100, r / 3 * 100);
     // 올린 지 20시간 전인데 첫날(하루) 평소와 견줄 때는 아직 덜 모인 게 당연해서, 낮음 대신 「첫날 평소까지 N%」 진행률로
     if (b.k === 'd' && b.h < 20 && r < 1) return '<div class="td-bar" title="' + esc('조회 ' + fmt(p.v) + ' · 같은 형식 첫날 평소 ' + fmt(b.v) + ' · 올린 지 ' + Math.round(b.h) + '시간') + '"><span class="td-bt"><i class="pg" style="width:' + (r * 100).toFixed(1) + '%"></i></span><b class="num mu">첫날 평소까지 ' + Math.round(r * 100) + '%</b></div>';
