@@ -3091,7 +3091,7 @@
     return '<section class="sec td-sec"><div class="sh"><div><h2>오늘</h2><p>' + esc(d.at.slice(11, 16)) + ' 지금 값 · 10분마다 새로 받아요</p></div><div class="top-act">' + since + '<button type="button" class="btn sm" id="tdRe">새로 받기</button></div></div>' +
       '<div class="kpi-row td-k n' + T.length + '">' + T.join('') + '</div>' +
       (L ? '<div class="race td-r"><div class="race-h"><h3>' + (tp.length ? '어제·오늘 올린 게시물' : '어제 올린 게시물') + '</h3><span>칩 = 반응률 · 막대 = 조회, 같은 형식 평소 대비</span></div><ol class="race-l">' + L + '</ol>' +
-        (tdCurves(P).length ? '<h3 class="sub td-ch">올린 뒤 시간별 조회</h3><div class="chart" style="height:220px"><canvas id="tdC"></canvas></div><p class="note">1시간마다 받아 둔 값 · 점선 = 같은 형식 평소(시간별 기록이 쌓이기 전엔 첫날 평소)</p>' : '') + '</div>' : '') + secClose;
+        (tdCurves(P).length ? '<h3 class="sub td-ch">올린 뒤 시간별 조회</h3><div class="chart" style="height:220px"><canvas id="tdC"></canvas></div><p class="note">1시간마다 받아 둔 값 · 점선 = 같은 형식 평소 · 채널마다 조회 크기가 달라 작은 쪽은 바닥에 붙어 보여요</p>' : '') + '</div>' : '') + secClose;
   }
   // 평소 조회: 서버의 「게시물 시간별」로 만든 같은 채널·형식·같은 경과 시간 중간값(k='h') → 없고 올린 지 20시간 넘었으면 평소 첫날 조회(k='d')
   function tdBase(p, now) {
@@ -3131,17 +3131,19 @@
     if (!$('tdC') || !TD.d) return;
     const P = (TD.d.posts || []).filter(p => TD.chs.includes(p.c)).sort((a, b) => a.at < b.at ? 1 : -1), C = tdCurves(P), hb = TD.d.hbase || {};
     const dash = [[], [6, 3], [2, 2], [8, 3, 2, 3], [1, 3]], ds = [];
+    let XM = 0;
     C.forEach((c, i) => {
       const col = chColor(c.p.c);
-      ds.push({ label: chName(c.p.c) + ' ' + title(c.p.n).slice(0, 8), data: c.a.map(x => ({ x: x[0], y: x[1] })), borderColor: col, backgroundColor: col, borderWidth: 2, borderDash: dash[i % 5], pointRadius: 0, tension: 0.3 });
+      ds.push({ label: chName(c.p.c) + ' ' + title(c.p.n).slice(0, 5), data: c.a.map(x => ({ x: x[0], y: x[1] })), borderColor: col, backgroundColor: col, borderWidth: 2, borderDash: dash[i % 5], pointRadius: 0, tension: 0.3 });
       const mx = Math.ceil(c.a[c.a.length - 1][0]), bl = [];
+      XM = Math.max(XM, mx);
       for (let h = 0; h <= mx; h++) { const v = hb[c.p.c + '|' + c.p.t + '|' + h]; if (v != null) bl.push({ x: h, y: v }); }
       if (i === 0 && bl.length >= 2) ds.push({ label: '평소', data: bl, borderColor: css('--muted'), borderWidth: 1.5, borderDash: [4, 4], pointRadius: 0, tension: 0.3 });
-      else if (i === 0) { const a = agAt(c.p.c, c.p.t, 1); if (a && a.m > 0) ds.push({ label: '첫날 평소', data: [{ x: 0, y: a.m }, { x: Math.max(24, mx), y: a.m }], borderColor: css('--muted'), borderWidth: 1.5, borderDash: [4, 4], pointRadius: 0 }); }
+      else if (i === 0 && mx >= 20) { const a = agAt(c.p.c, c.p.t, 1); if (a && a.m > 0) ds.push({ label: '첫날 평소', data: [{ x: 0, y: a.m }, { x: mx, y: a.m }], borderColor: css('--muted'), borderWidth: 1.5, borderDash: [4, 4], pointRadius: 0 }); }
     });
     draw('tdC', { type: 'line', data: { datasets: ds }, plugins: [endLabels],
-      options: chartOpts({ layout: { padding: { top: 12, right: 92 } }, plugins: { endLabels: { max: 11 }, tooltip: { callbacks: { title: it => '올린 지 ' + it[0].raw.x + '시간', label: c => c.dataset.label + ' 조회 ' + fmt(c.raw.y) } } },
-        scales: { x: { type: 'linear', min: 0, ticks: { maxTicksLimit: 7, callback: v => v + '시간' } }, y: { display: true, position: 'right', grid: { color: css('--line') }, border: { display: false }, ticks: { maxTicksLimit: 4, font: { size: 13 }, color: css('--muted'), callback: v => fmtK(v) } } } }) });
+      options: chartOpts({ layout: { padding: { top: 12, right: 104 } }, plugins: { endLabels: { max: 9 }, tooltip: { callbacks: { title: it => '올린 지 ' + it[0].raw.x + '시간', label: c => c.dataset.label + ' 조회 ' + fmt(c.raw.y) } } },
+        scales: { x: { type: 'linear', min: 0, max: Math.max(6, XM + 1), ticks: { maxTicksLimit: 7, callback: v => v + '시간' } }, y: { display: true, position: 'right', grid: { color: css('--line') }, border: { display: false }, ticks: { maxTicksLimit: 4, font: { size: 13 }, color: css('--muted'), callback: v => fmtK(v) } } } }) });
   }
   function tdSaveSeen() {
     const d = TD.d; if (!d) return;
@@ -3533,7 +3535,10 @@
     const LMAX = (po && po.max) || 5;
     const x = c.ctx, a = c.chartArea, X = (c.scales.y && c.scales.y.position === 'right' ? c.scales.y.right : a.right) + 6, L = [];
     c.data.datasets.forEach((d, i) => { const m = c.getDatasetMeta(i); if (m.hidden) return; let j = d.data.length - 1; while (j >= 0 && d.data[j] == null) j--; if (j < 0 || !m.data[j]) return; L.push({ y: m.data[j].y, t: d.label, col: d.borderColor }); });
+    L.forEach(l => { l.y = Math.min(Math.max(l.y, a.top + 6), a.bottom - 6); });
     L.sort((p, q) => p.y - q.y); for (let i = 1; i < L.length; i++) if (L[i].y - L[i - 1].y < 14) L[i].y = L[i - 1].y + 14;
+    // 아래로 밀려 칸 밖으로 나가면 아래에서부터 위로 다시 쌓아 겹치지 않게
+    for (let i = L.length - 1; i >= 0; i--) { const lim = i === L.length - 1 ? a.bottom - 6 : L[i + 1].y - 14; if (L[i].y > lim) L[i].y = lim; }
     x.save(); x.textAlign = 'left'; x.textBaseline = 'middle';
     L.forEach(l => { x.font = '700 12px ' + css('--font'); x.fillStyle = typeof l.col === 'string' ? l.col : css('--sub'); x.fillText(l.t.length > LMAX ? l.t.slice(0, LMAX) : l.t, X, Math.min(Math.max(l.y, a.top + 6), a.bottom)); });
     x.restore(); } };
