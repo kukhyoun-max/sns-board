@@ -863,3 +863,5 @@ button.wa-r { cursor: pointer; }
 .tag.p-co { background: transparent; color: var(--ch-ig, var(--sub)); box-shadow: inset 0 0 0 1px currentColor; }
 /* 숫자 칸이 2개뿐인 줄(예: 오늘 칸 유튜브, 2026-10-21): 반폭 정사각형이 너무 커서, 4칸 줄과 같은 높이가 되게 가로로 긴 칸 */
 @media (min-width: 561px) { .kpi-row.n2 .kpi-t { aspect-ratio: 2 / 1; } }
+/* 첫날 평소까지 진행률(2026-10-21): 아직 덜 모인 게시물은 회색 막대 */
+.td-bt i.pg { background: var(--muted); opacity: .55; }
