@@ -5206,11 +5206,13 @@ function partToday_(ss) {
 const COLLAB_SHEET = '공동작업(상대 게시)';
 const COLLAB_HEAD = ['게시물 주소', '올린 계정', '조회(앱에서 보고 적기)', '메모', '게시일', '캡션 앞부분', '좋아요', '댓글', '받은 시각', '도달(조회한 사람)', '공유', '저장', '인사이트 본 날'];
 // 인사이트 캡처(2026-10-21): 담당자가 앱 인사이트 캡처를 보내면 Claude가 내 드라이브에 「공동작업 인사이트.csv」(게시물 주소,조회,도달,공유,저장,본 날)를 만들고,
-// 1시간마다 collabStep_이 읽어 C·J~M열에 넣은 뒤 그 파일을 휴지통으로 보냄(Claude 드라이브 연결은 새 파일만 만들 수 있어서)
+// 1시간마다 collabStep_이 읽어 C·J~M열에 넣음. 읽은 파일 ID는 COLLAB_INBOX_DONE에 기억(읽기 권한 drive.readonly만 쓰려고 지우지 않음)
 const COLLAB_INBOX = '공동작업 인사이트.csv';
 function collabInbox_(sh) {
+  const pp = PropertiesService.getScriptProperties();
+  let seen = []; try { seen = JSON.parse(pp.getProperty('COLLAB_INBOX_DONE') || '[]'); } catch (e) { seen = []; }
   const files = [], it = DriveApp.getFilesByName(COLLAB_INBOX);
-  while (it.hasNext()) files.push(it.next());
+  while (it.hasNext()) { const f = it.next(); if (seen.indexOf(f.getId()) < 0) files.push(f); }
   if (!files.length) return 0;
   files.sort((a, b) => a.getLastUpdated() - b.getLastUpdated());
   const vals = {};
@@ -5230,7 +5232,7 @@ function collabInbox_(sh) {
   });
   sh.getRange(2, 13, rows.length, 1).setNumberFormat('@');
   sh.getRange(2, 1, rows.length, W).setValues(rows);
-  files.forEach(f => { try { f.setTrashed(true); } catch (e) {} });
+  pp.setProperty('COLLAB_INBOX_DONE', JSON.stringify(seen.concat(files.map(f => f.getId())).slice(-200)));
   return n;
 }
 // 담당자가 대화로 알려 준 게시물(2026-10-21). 게시물마다 한 번만 넣고(COLLAB_SEEDED = 넣은 짧은 코드 목록), 그 뒤 수정·삭제는 탭에서
