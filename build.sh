@@ -30,7 +30,9 @@ if ($mode eq 'preview') {
     for my $p (qw(yt ig yv today)) { wr(".preview/part_$p.json", rd("sample/part_$p.json")) if -e "sample/part_$p.json"; }
     print ".preview/index.html (샘플 데이터)\n";
 } else {
-    my $inj = '<script>window.SNS_API_URL = "' . $api . '";</script>' . "\n";
+    # 새 버전 알림(2026-10-23): 내용 해시를 version.txt에 쓰고, 화면은 돌아올 때마다 비교해 다르면 새로고침(휴대폰이 예전 화면을 붙잡고 있지 않게)
+    require Digest::MD5; my $bid = substr(Digest::MD5::md5_hex($html), 0, 10); wr('version.txt', $bid . "\n");
+    my $inj = '<script>window.SNS_API_URL = "' . $api . '"; window.SNS_BUILD = "' . $bid . '";</script>' . "\n";
     $html =~ s/\Q$tag\E/$inj$tag/;
     $html = $pre . $html . $post;
     wr('index.html', $html);

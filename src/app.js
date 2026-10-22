@@ -3298,7 +3298,18 @@
   window.addEventListener('pagehide', tdSaveSeen);
   // 기본 기록 다시 받기: 서버가 하루 4번(8·12·16·20시) 기록하므로 연 지 30분이 지나면 조용히 새로 받아 바꿈(상세를 보고 있으면 닫을 때까지 기다림)
   let mainAt = Date.now(), mainNext = null;
+  // 새 버전 확인(2026-10-23 「휴대폰이 예전 화면을 보여 줌」): version.txt가 지금 화면의 SNS_BUILD와 다르면 새로고침. 상세를 보는 중이면 다음에
+  let verAt = 0;
+  function checkVersion() {
+    if (!window.SNS_BUILD || Date.now() - verAt < 60 * 1000) return;
+    verAt = Date.now();
+    fetch('version.txt?t=' + Date.now(), { cache: 'no-store' }).then(r => r.ok ? r.text() : '').then(t => {
+      t = (t || '').trim(); const det = $('detail');
+      if (t && t !== window.SNS_BUILD && !(det && !det.hidden)) location.reload();
+    }).catch(() => {});
+  }
   function refreshMain() {
+    checkVersion();
     if (!window.SNS_API_URL || !D || Date.now() - mainAt < 30 * 60 * 1000) return;
     mainAt = Date.now();
     const cb = '__sbP' + (++partSeq), sc = document.createElement('script');
