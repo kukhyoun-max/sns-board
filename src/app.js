@@ -1142,7 +1142,7 @@
     const ttl = SD ? (M.hasSum ? '우리 채널 전체 현황' : SD.map(x => x.label).join(' · ') + (SD.length > 1 ? ' 합산' : ' 현황')) : (S.ch === '타 대학' ? '타 대학 비교' : chName(S.ch)) + ' 현황';
     const benchNote = SD && SD.some(x => x.id === 'bench') && !M.hasSum && ['views', 'per'].includes(M.def[0]) ? ' · 타 대학 조회는 릴스만 공개돼 릴스 기준' : SD && SD.some(x => x.id === 'bench') && ['views', 'per'].includes(M.def[0]) ? ' · 큰 숫자는 우리 채널 합계 · 타 대학 조회는 릴스 기준' : SD && M.hasSum && SD.length > 1 ? ' · 큰 숫자는 우리 채널 합계' : '';
     const pl = (PERIODS.find(p => p[0] === CS.period) || PERIODS[3]);
-    const sub = M.growth ? '기록 사이에 늘어난 ' + M.def[1] + '(막대는 하루 평균 · 괄호는 기간 일수) · ' + adWord() : (pl[0] === 'all' ? '전체' : '최근 ' + pl[1]) + ' 게시물의 ' + (M.def[2] === 'sum' ? '현재 누적 ' : '') + M.def[1] + ' · ' + adWord() + (benchMode() ? ' · 큰 숫자는 우리 인스타 기준' : '') + (benchNote || '');
+    const sub = M.growth ? '기록 사이에 늘어난 ' + M.def[1] + '(막대는 하루 평균 · 괄호는 기간 일수) · ' + adWord() : (pl[0] === 'all' ? '전체' : '최근 ' + pl[1]) + ' 게시물의 ' + (M.def[2] === 'sum' ? '지금까지 받은 ' : '') + M.def[1] + ' · ' + adWord() + (benchMode() ? ' · 큰 숫자는 우리 인스타 기준' : '') + (benchNote || '');
     const canGrowth = weekly() && M.def[2] === 'sum';
     let h = '<section class="sec" id="chartSec"><div class="cs-head"><div><div class="cs-t">' + esc(ttl) + '</div>' +
       '<div class="cs-big num">' + mfmt(M.def, M.big) + '</div>' +
