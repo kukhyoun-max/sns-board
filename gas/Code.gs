@@ -5186,6 +5186,7 @@ function hourlyFor_(ss, ids) {
 // ───────── 오늘 지금(2026-10-20): ?part=today ─────────
 // 어제·오늘 올린 게시물(인스타·hong·유튜브)의 지금 값과 계정 숫자를 API로 바로 받음. 캐시 10분(TODAY_TTL), 보드가 화면을 연 동안 10분마다 다시 받음
 const TODAY_TTL = 600;
+const PLAN_CAL = '공식 SNS 발행 일정';
 function partToday_(ss) {
   const now = new Date(), today = Utilities.formatDate(now, TZ, 'yyyy-MM-dd'), yday = shiftDate_(today, -1), notes = [];
   let posts = [];
@@ -5217,7 +5218,14 @@ function partToday_(ss) {
   } catch (e) {}
   let hr = { hist: {}, base: {} };
   try { const ids = {}; p.forEach(x => { ids[String(x.id)] = 1; }); hr = hourlyFor_(ss, ids); } catch (e) {}
-  return { ts: now.getTime(), at: Utilities.formatDate(now, TZ, 'yyyy-MM-dd HH:mm'), today: today, posts: p, acct: acct, story: briefStories_(ss, today), hist: hr.hist, hbase: hr.base, notes: notes };
+  // 게시 예정(2026-10-22): 「공식 SNS 발행 일정」 캘린더의 오늘~7일 뒤 [날짜, 제목]. 설명(드라이브 주소·제작자)은 보내지 않음
+  let plan = [];
+  try {
+    const cal = CalendarApp.getCalendarsByName(PLAN_CAL)[0];
+    if (cal) plan = cal.getEvents(new Date(today + 'T00:00:00+09:00'), new Date(shiftDate_(today, 8) + 'T00:00:00+09:00'))
+      .map(e => [Utilities.formatDate(e.getStartTime(), TZ, 'yyyy-MM-dd'), String(e.getTitle()).slice(0, 80)]).slice(0, 12);
+  } catch (e) { notes.push('게시 예정 확인 실패'); }
+  return { ts: now.getTime(), at: Utilities.formatDate(now, TZ, 'yyyy-MM-dd HH:mm'), today: today, posts: p, acct: acct, story: briefStories_(ss, today), hist: hr.hist, hbase: hr.base, plan: plan, notes: notes };
 }
 
 // ───────── 상대 계정이 올린 공동작업 게시물(2026-10-21) ─────────

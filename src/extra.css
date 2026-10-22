@@ -865,3 +865,15 @@ button.wa-r { cursor: pointer; }
 @media (min-width: 561px) { .kpi-row.n2 .kpi-t { aspect-ratio: 2 / 1; } }
 /* 첫날 평소까지 진행률(2026-10-21): 아직 덜 모인 게시물은 회색 막대 */
 .td-bt i.pg { background: var(--muted); opacity: .55; }
+
+/* 오늘 칸: 칸에 못 들어간 팔로워·구독자 한 줄, 오늘 게시물 없을 때 마지막 게시·게시 예정(2026-10-22) */
+.td-acct { margin: 10px 2px 0; font-size: var(--fs-tag); color: var(--muted); line-height: 1.5; }
+.td-acct b { color: var(--fg); font-weight: 700; }
+.td-last { margin: 14px 2px 0; font-size: var(--fs-tag); color: var(--sub); line-height: 1.6; }
+.td-last em { font-style: normal; font-weight: 700; }
+.td-plan { margin-top: 14px; }
+.td-plan h3 { font-size: var(--fs-tag); color: var(--muted); font-weight: 700; margin: 0 0 6px; }
+.td-plan ol { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.td-plan li { display: flex; align-items: center; gap: 8px; font-size: var(--fs-tag); color: var(--fg); min-width: 0; }
+.td-plan li > span { color: var(--muted); min-width: 3.4em; }
+.td-plan li .tag { font-style: normal; flex: none; }
