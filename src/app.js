@@ -3090,6 +3090,8 @@
     return TD.d ? todayInner(chs) : '<section class="sec td-sec"><div class="sh"><div><h2>오늘</h2><p>지금 값을 받는 중이에요</p></div></div><div class="wait sm">잠시만요</div>' + secClose;
   }
   // 오늘 칸(2026-10-22 홈 위계 시안 반영 「바꾸자」): 큰 숫자 하나(어제·오늘 게시물 조회와 평소 비교) → 카드 없는 지표 한 줄 → 게시물 목록 줄 → 게시 예정 → 팔로워 한 줄. 그래프·팔로워 추이는 접어 둠
+  // 목록 썸네일(2026-10-22, 토스·Stripe 목록처럼 왼쪽 작은 그림): 인스타·hong = 서버가 받은 img, 유튜브 = 영상 번호로 만든 주소
+  const tdThumb = p => { const src = p.img || (p.c === '유튜브' && /^[w-]{11}$/.test(p.id) ? 'https://i.ytimg.com/vi/' + p.id + '/mqdefault.jpg' : ''); return '<span class="td2-th" style="--c:' + chColor(p.c) + '" aria-hidden="true">' + (src ? '<img src="' + esc(src) + '" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.remove()">' : '') + '</span>'; };
   function todayInner(chs) {
     const d = TD.d, now = new Date(d.ts || Date.now()), today = d.today;
     const P = (d.posts || []).filter(p => chs.includes(p.c)).sort((a, b) => a.at < b.at ? 1 : -1), tp = P.filter(p => p.at.slice(0, 10) === today);
@@ -3138,10 +3140,10 @@
       const was = sn && sn.p && sn.p[p.id] ? p.v - sn.p[p.id][0] : null;
       const tip = (vb ? '조회 ' + fmt(p.v) + ' · 평소 ' + (vb.k === 'h' ? '올린 지 ' + Math.round(vb.h) + '시간' : '첫날') + ' 조회 ' + fmt(vb.v) : '') + (rx != null ? ' · 반응률 ' + pctA(rx) + (u ? '(평소 ' + pctA(u) + ')' : '') : '');
       const more = [['좋아요', p.l], ['댓글', p.cm], ['공유', p.sh], ['저장', p.sv]].filter(x => x[1] != null && x[1] > 0).map(x => x[0] + ' ' + fmtK(x[1])).join(' · ');
-      return '<li data-td="' + i + '" tabindex="0" role="button" aria-label="' + esc(title(p.n)) + ' 열기"' + (tip ? ' title="' + esc(tip) + '"' : '') + '><div class="td2-r1"><span class="td2-c" style="--c:' + chColor(p.c) + '">' + esc(chName(p.c)) + '</span><span class="rt">' + esc(title(p.n)) + '</span>' +
+      return '<li data-td="' + i + '" tabindex="0" role="button" aria-label="' + esc(title(p.n)) + ' 열기"' + (tip ? ' title="' + esc(tip) + '"' : '') + '>' + tdThumb(p) + '<div class="td2-b"><div class="td2-r1"><span class="td2-c" style="--c:' + chColor(p.c) + '">' + esc(chName(p.c)) + '</span><span class="rt">' + esc(title(p.n)) + '</span>' +
         (vr != null ? '<b class="num ' + xCls(vr) + '">' + vsP(vr) + '</b>' : '<b class="mu" title="' + esc(wait) + '">' + (yt6 ? '6시간 뒤' : '모으는 중') + '</b>') + '</div><div class="td2-r2">' +
         '<small class="td2-s1">' + tdAgo(p.at, now) + (r == null || few ? '' : ' · <span class="' + xCls(r) + '">반응 ' + vsP(r) + '</span>') + ((tdItem(p) || {}).co ? ' · 공동작업' : '') + '</small>' +
-        '<small class="td2-v">조회 ' + fmtK(p.v) + (was > 0 ? ' <span class="up">+' + fmtK(was) + '</span>' : '') + '</small></div></li>';
+        '<small class="td2-v">조회 ' + fmtK(p.v) + (was > 0 ? ' <span class="up">+' + fmtK(was) + '</span>' : '') + '</small></div></div></li>';
     }).join('');
     const C = tdCurves(P);
     let mo = false; try { mo = localStorage.getItem('sb-td-ch') === '1'; } catch (e) {}
