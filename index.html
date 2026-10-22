@@ -1310,6 +1310,14 @@ p.howto-only .howto { margin-left: 0; }
 @media (max-width: 560px) { .status:has(#tdRe) #st2 { display: none; } }
 .kpi-t.kpi-none:first-child .kbars.wk rect, .kpi-t.kpi-none:first-child .kbars.wk rect.on { fill: var(--line); }
 .kpi-t.kpi-none:first-child .kbars.wk rect.pv { fill: var(--line); opacity: 1; }
+/* 마지막 게시 줄(2026-10-23): 목록 줄과 같은 모양, 누르면 상세 */
+.td-last { display: flex; align-items: center; gap: 12px; width: 100%; margin: 14px 0 0; padding: 12px 0; border: 0; border-top: 1px solid var(--line); background: none; font: inherit; color: inherit; text-align: left; cursor: pointer; }
+.tl-b { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.tl-b small { font-size: 14px; color: var(--muted); font-weight: 600; }
+.tl-b > span { font-size: 15px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.td-last b { flex: none; font-size: 16px; font-weight: 800; }
+.td-last b.up { color: var(--up); } .td-last b.down { color: var(--down); } .td-last b.flat { color: var(--sub); }
+.td2-m + .td-last { border-top: 0; margin-top: 0; }
 </style>
 
 <div class="app" id="app">
@@ -4508,7 +4516,9 @@ p.howto-only .howto { margin-left: 0; }
   function tdPlan(d, P) {
     const chs = TD.chs.filter(c => OWN.includes(c)), lp = P.length ? null : D.items.filter(it => chs.includes(it.c) && it.t !== '스토리' && !it.ad).sort((a, b) => a.d < b.d ? 1 : -1)[0];
     let h = '';
-    if (lp) { const p = paceOf(lp), dd = daysBetween(lp.d, d.today); h += '<p class="td-last">마지막 게시 <b>' + (dd <= 0 ? '오늘' : dd + '일 전') + '</b> · ' + badge(lp.c) + ' ' + esc(title(lp.n).slice(0, 24)) + (p && !p.base ? ' · <em class="' + xCls(p.r) + '">' + agName(p.e) + ' 조회 ' + vsTxt(p.r) + '</em>' : '') + '</p>'; }
+    if (lp) { const p = paceOf(lp), dd = daysBetween(lp.d, d.today); // 목록 줄과 같은 모양(2026-10-23): 위 작은 이름표, 아래 채널 색 글자 + 제목 한 줄, 오른쪽 평소 대비
+      h += '<button type="button" class="td-last" id="tdLast"><span class="tl-b"><small>마지막 게시 · ' + (dd <= 0 ? '오늘' : dd + '일 전') + '</small><span>' + chTxt(lp.c) + esc(title(lp.n)) + '</span></span>' + (p && !p.base ? '<b class="num ' + xCls(p.r) + '" title="' + esc(agName(p.e) + ' 조회 평소 대비') + '">' + vsP(p.r) + '</b>' : '') + '</button>';
+      window.__tdLast = lp; }
     const pl = (d.plan || []).filter(x => x[0] >= d.today);
     // 캘린더 제목 「(인스타) 제목」·「(유튜브/인스타) 제목」 → 채널 색 칩 + 제목 한 줄
     const pch = k => /유튜브|숏츠|쇼츠/.test(k) ? '유튜브' : /hong|홍/.test(k) ? 'hong._.video' : '인스타그램';
@@ -4606,6 +4616,7 @@ p.howto-only .howto { margin-left: 0; }
     if (!TD.d) { box.innerHTML = '<section class="sec td-sec"><div class="sh"><div><h2>오늘</h2><p>지금 값을 받지 못했어요 · 10분 뒤 다시 받아요</p></div></div>' + secClose; return; }
     box.innerHTML = todayInner(TD.chs);
     tdDraw();
+    const tl = $('tdLast'); if (tl && window.__tdLast) tl.addEventListener('click', () => openDetail(window.__tdLast));
     const fd = $('tdChF'); if (fd) fd.addEventListener('toggle', () => { try { localStorage.setItem('sb-td-ch', fd.open ? '1' : '0'); } catch (e) {} if (fd.open) tdDraw(); });
     const L = window.__td || [];
     box.querySelectorAll('li[data-td]').forEach(li => { const go = () => { const p = L[+li.dataset.td], it = p && tdItem(p); if (it) openDetail(it); else if (p && p.u) window.open(p.u, '_blank', 'noopener'); }; li.addEventListener('click', go); li.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); go(); } }); });
