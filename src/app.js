@@ -3050,7 +3050,7 @@
     for (let i = 13; i >= 0; i--) days.push(addDays(today, -i));
     const cnt = days.map(x => x === today ? tp.length : D.items.filter(it => own.includes(it.c) && it.t !== '스토리' && it.d === x).length);
     const avg = sum(cnt.slice(0, 13)) / 13;
-    T.push(kpiTile('오늘 올린 게시물', tp.length + '<small>개</small>', tp.length ? [...new Set(tp.map(p => p.c))].map(c => chName(c) + ' ' + tp.filter(p => p.c === c).length).join(' · ') : P.length ? '어제 올린 ' + P.length + '개를 보여 줘요' : '아직 없어요', '',
+    T.push(kpiTile('오늘 올린 게시물', tp.length + '<small>개</small>', tp.length ? [...new Set(tp.map(p => p.c))].map(c => chName(c) + ' ' + tp.filter(p => p.c === c).length).join(' · ') : P.length ? '오늘은 아직 없어요 · 아래 목록은 어제 올린 ' + P.length + '개' : '아직 없어요', '',
       tdBars(cnt, '최근 2주 하루 게시 수 · 평소 하루 ' + (Math.round(avg * 10) / 10) + '개')));
     // ② 조회: 지금 vs 평소 같은 시간(지난 게시물이 올린 지 같은 시간에 받은 조회) — 없으면 평소 첫날 조회
     const vs = sum(P.map(p => p.v));
