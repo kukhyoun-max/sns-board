@@ -4366,9 +4366,11 @@ button.wa-r { cursor: pointer; }
       if (i === 0 && bl.length >= 2) ds.push({ label: '평소', data: bl, borderColor: css('--muted'), borderWidth: 1.5, borderDash: [4, 4], pointRadius: 0, tension: 0.3 });
       else if (i === 0 && mx >= 20) { const a = agAt(c.p.c, c.p.t, 1); if (a && a.m > 0) ds.push({ label: '첫날 평소', data: [{ x: 0, y: a.m }, { x: mx, y: a.m }], borderColor: css('--muted'), borderWidth: 1.5, borderDash: [4, 4], pointRadius: 0 }); }
     });
+    // 가로축 끝을 눈금 간격의 배수로(끝 눈금이 「25시간」처럼 앞 눈금과 겹치지 않게)
+    const x1 = Math.max(6, XM), xSt = x1 <= 6 ? 2 : x1 <= 12 ? 3 : x1 <= 24 ? 6 : 12, xMax = Math.ceil(x1 / xSt) * xSt;
     draw('tdC', { type: 'line', data: { datasets: ds }, plugins: [endLabels],
       options: chartOpts({ layout: { padding: { top: 12, right: 104 } }, plugins: { endLabels: { max: 9 }, tooltip: { callbacks: { title: it => '올린 지 ' + it[0].raw.x + '시간', label: c => c.dataset.label + ' 조회 ' + fmt(c.raw.y) } } },
-        scales: { x: { type: 'linear', min: 0, max: Math.max(6, XM + 1), ticks: { maxTicksLimit: 7, callback: v => v + '시간' } }, y: { display: true, position: 'right', grid: { color: css('--line') }, border: { display: false }, ticks: { maxTicksLimit: 4, font: { size: 13 }, color: css('--muted'), callback: v => fmtK(v) } } } }) });
+        scales: { x: { type: 'linear', min: 0, max: xMax, ticks: { stepSize: xSt, maxRotation: 0, autoSkip: true, maxTicksLimit: 6, callback: v => v + '시간' } }, y: { display: true, position: 'right', grid: { color: css('--line') }, border: { display: false }, ticks: { maxTicksLimit: 4, font: { size: 13 }, color: css('--muted'), callback: v => fmtK(v) } } } }) });
   }
   function tdSaveSeen() {
     const d = TD.d; if (!d) return;
