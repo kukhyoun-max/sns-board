@@ -4210,11 +4210,11 @@ button.wa-r { cursor: pointer; }
       .map(x => { const h = last(x); return h ? tdReact(c, h[1], h[2], h[3], h[4], x.r, h[0]) : null; }).filter(v => v != null);
     return (TD_RX[k] = a.length >= MIN_N ? median(a) : null);
   }
-  // 도달 대비 공유율(j=3)·저장률(j=4) 평소: 같은 채널·형식 최근 1년(다 자란 게시물) 중간값
+  // 도달 대비 공유율(j=3)·반응률(j=0, 좋아요+댓글+공유+저장) 평소: 같은 채널·형식 최근 1년(다 자란 게시물) 중간값
   function tdRate(c, t, j) {
     const k = c + '|' + t + '|' + j; if (k in TD_RX) return TD_RX[k];
     const a = D.items.filter(x => x.c === c && x.t === t && !x.ad && !x.hid && x.r > 0 && x.d >= addDays(D.updated, -365) && x.d <= addDays(D.updated, -AGE_MIN))
-      .map(x => { const h = last(x); return h && h[j] != null ? h[j] / x.r : null; }).filter(v => v != null);
+      .map(x => { const h = last(x); return !h ? null : j === 0 ? ((h[1] || 0) + (h[2] || 0) + (h[3] || 0) + (h[4] || 0)) / x.r : h[j] != null ? h[j] / x.r : null; }).filter(v => v != null);
     return (TD_RX[k] = a.length >= MIN_N ? median(a) : null);
   }
   const tdAgo = (at, now) => { const m = Math.max(0, Math.round((now - new Date(at + ':00+09:00')) / 60000)); return m < 60 ? m + '분 전' : m < 24 * 60 ? Math.floor(m / 60) + '시간 ' + (m % 60) + '분 전' : '어제 ' + at.slice(11, 16); };
@@ -4247,12 +4247,12 @@ button.wa-r { cursor: pointer; }
       T.push(kpiTile((tp.length === P.length ? '오늘' : tp.length ? '어제·오늘' : '어제') + ' 게시물 조회', fmtK(vs), was != null && was > 0 ? '지난번에 본 뒤 <span class="up">▲ ' + fmtK(was) + '</span>' : '게시물 ' + P.length + '개 합계', '',
         bs.length ? tdCmp('평소 ' + kind + '과', bv, bb, bs.length < P.length ? bs.length + '개' : '') : ''));
     }
-    // ③ 핵심 지표(00_현재 전략 KPI, 2026-10-22): 도달 대비 공유율·저장률. 인스타·hong 게시물 합 ÷ 도달 합, 평소 = 게시물마다 같은 형식 평소를 도달로 가중
+    // ③ 핵심 지표(00_현재 전략 KPI, 2026-10-22): 도달 대비 공유율·반응률(저장률은 릴스 평소 0.07%라 0에 붙어 보여 「성과가 미미한 건 다른 데이터로」 반응률로 바꿈). 인스타·hong 게시물 합 ÷ 도달 합, 평소 = 게시물마다 같은 형식 평소를 도달로 가중
     const RP = P.filter(p => p.c !== '유튜브' && p.r >= TD_MIN[0]);
     if (RP.length) {
       const R = sum(RP.map(p => p.r));
-      [['공유율', 'sh', 3, '공유', 0.01], ['저장률', 'sv', 4, '저장']].forEach(([nm, f, j, w, goal]) => {
-        const n = sum(RP.map(p => p[f] || 0)), v = n / R, us = RP.map(p => [p, tdRate(p.c, p.t, j)]).filter(x => x[1] != null);
+      [['공유율', 'sh', 3, '공유', 0.01], ['반응률', 'rx', 0, '반응']].forEach(([nm, f, j, w, goal]) => {
+        const n = sum(RP.map(p => f === 'rx' ? (p.l || 0) + (p.cm || 0) + (p.sh || 0) + (p.sv || 0) : p[f] || 0)), v = n / R, us = RP.map(p => [p, tdRate(p.c, p.t, j)]).filter(x => x[1] != null);
         const u = us.length ? sum(us.map(x => x[1] * x[0].r)) / sum(us.map(x => x[0].r)) : null;
         T.push(kpiTile('도달 대비 ' + nm, pctA(v), '도달 ' + fmtK(R) + ' · ' + w + ' ' + fmt(n), '',
           u ? tdCmp('평소와' + (goal ? ' · 목표 ' + pctA(goal) : ''), v, u, us.length < RP.length ? us.length + '개' : '', pctA) : ''));
