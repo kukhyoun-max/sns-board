@@ -4734,7 +4734,7 @@ function briefInstagram_(today, notes, from) {
   from = from || today;
   const out = [];
   igxChannels_().forEach(c => {
-    const list = igxGet_(c.conf, c.user + '/media', { fields: 'id,caption,timestamp,permalink,media_type,media_product_type,like_count,comments_count', limit: 25 }).data || [];
+    const list = igxGet_(c.conf, c.user + '/media', { fields: 'id,caption,timestamp,permalink,media_type,media_product_type,like_count,comments_count,media_url,thumbnail_url', limit: 25 }).data || [];
     list.filter(x => { const d = Utilities.formatDate(new Date(x.timestamp), TZ, 'yyyy-MM-dd'); return d >= from && d <= today; }).forEach(x => {
       const miss = [];
       const reel = x.media_product_type === 'REELS';
@@ -4742,7 +4742,8 @@ function briefInstagram_(today, notes, from) {
       const msg = '일부 지표 없음: ' + miss.join(',');
       if (miss.length && notes.indexOf(msg) < 0) notes.push(msg);
       const g = k => v[k] === undefined ? '' : v[k];
-      out.push({ ch: c.ch, id: String(x.id), at: new Date(x.timestamp), type: typeLabel_(x.media_product_type, x.media_type), title: String(x.caption || ''), url: x.permalink || '',
+      // img: 보드 「오늘」 목록 썸네일(2026-10-22) — 영상은 thumbnail_url, 사진·캐러셀은 media_url(메타 CDN 주소, 며칠 뒤 만료되지만 10분마다 새로 받음)
+      out.push({ ch: c.ch, id: String(x.id), at: new Date(x.timestamp), type: typeLabel_(x.media_product_type, x.media_type), title: String(x.caption || ''), url: x.permalink || '', img: x.thumbnail_url || (x.media_type === 'VIDEO' ? '' : x.media_url) || '',
         views: g('views'), likes: Number(x.like_count) || 0, comments: Number(x.comments_count) || 0, shares: g('shares'), saves: g('saved'), reach: g('reach'),
         follows: g('follows'), pact: g('profile_activity'), avgw: v.ig_reels_avg_watch_time === undefined || v.ig_reels_avg_watch_time === '' ? '' : Math.round(Number(v.ig_reels_avg_watch_time) / 100) / 10 });
     });
@@ -5204,7 +5205,7 @@ function partToday_(ss) {
   try { posts = posts.concat(briefYouTube_(today, yday)); } catch (e) { notes.push('유튜브 확인 실패'); }
   const n = v => v === '' || v == null || isNaN(Number(v)) ? null : Number(v);
   const p = posts.map(x => ({ c: x.ch, id: x.id, at: Utilities.formatDate(x.at, TZ, "yyyy-MM-dd'T'HH:mm"), t: x.type, n: briefTitle_(x.title, 80), u: x.url,
-    v: n(x.views), l: n(x.likes), cm: n(x.comments), sh: n(x.shares), sv: n(x.saves), r: n(x.reach), f: n(x.follows), pa: n(x.pact), aw: n(x.avgw) }));
+    v: n(x.views), l: n(x.likes), cm: n(x.comments), sh: n(x.shares), sv: n(x.saves), r: n(x.reach), f: n(x.follows), pa: n(x.pact), aw: n(x.avgw), img: x.img || '' }));
   // 계정: 인스타 팔로워 지금 vs 「인스타 계정 일별」 오늘 아침(없으면 그 전) 기록, 유튜브 구독자·전체 조회 지금
   const acct = [];
   try { igxChannels_().forEach(c => { const u = igxGet_(c.conf, c.user, { fields: 'followers_count' }); acct.push({ c: c.ch, fol: n(u.followers_count) }); }); } catch (e) { notes.push('인스타 팔로워 확인 실패'); }
