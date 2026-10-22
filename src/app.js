@@ -3172,7 +3172,7 @@
     const r = p.v / b.v, w = Math.min(100, r / 3 * 100);
     // 올린 지 20시간 전인데 첫날(하루) 평소와 견줄 때는 아직 덜 모인 게 당연해서, 낮음 대신 「첫날 평소까지 N%」 진행률로
     if (b.k === 'd' && b.h < 20 && r < 1) return '<div class="td-bar" title="' + esc('조회 ' + fmt(p.v) + ' · 같은 형식 첫날 평소 ' + fmt(b.v) + ' · 올린 지 ' + Math.round(b.h) + '시간') + '"><span class="td-bt"><i class="pg" style="width:' + (r * 100).toFixed(1) + '%"></i></span><b class="num mu">첫날 평소까지 ' + Math.round(r * 100) + '%</b></div>';
-    return '<div class="td-bar" title="' + esc('조회 ' + fmt(p.v) + ' · 평소 ' + (b.k === 'h' ? '올린 지 ' + Math.round(b.h) + '시간' : '첫날') + ' 조회 ' + fmt(b.v)) + '"><span class="td-bt"><i class="' + (r >= 1 ? 'up' : 'down') + '" style="width:' + w.toFixed(1) + '%"></i><s style="left:33.3%"></s></span><b class="num ' + xCls(r) + '">조회 평소 ' + (b.k === 'h' ? '같은 시간' : '첫날') + '의 ' + xf(r) + '</b></div>';
+    return '<div class="td-bar" title="' + esc('조회 ' + fmt(p.v) + ' · 평소 ' + (b.k === 'h' ? '올린 지 ' + Math.round(b.h) + '시간' : '첫날') + ' 조회 ' + fmt(b.v)) + '"><span class="td-bt"><i class="' + (r >= 1 ? 'up' : 'down') + '" style="width:' + w.toFixed(1) + '%"></i><s style="left:33.3%"></s></span><b class="num ' + xCls(r) + '">' + (b.k === 'h' ? '같은 시간까지 조회 평소의 ' : '첫날 조회 평소의 ') + xf(r) + '</b></div>';
   }
   // 시간별 곡선: 게시물마다 [경과(시간), 조회] + 지금 값. 점이 2개 이상인 것만
   function tdCurves(P) {
