@@ -1160,6 +1160,10 @@ button.wa-r { cursor: pointer; }
 .td-plan li > a, .td-plan li > div { display: grid; grid-template-columns: 4.2em auto minmax(0, 1fr) auto; align-items: center; gap: 10px; padding: 10px 0; font-size: 14px; color: var(--fg); text-decoration: none; }
 .td-plan li > a:active { opacity: .6; }
 .tp-go { color: var(--muted); font-size: 18px; line-height: 1; }
+.td-plan li > a, .td-plan li > div { grid-template-columns: 4.2em auto minmax(0, 1fr) auto auto; }
+.tp-k i.ok { color: #fff; background: var(--c); box-shadow: none; }
+.tp-ok { font-size: 12px; font-weight: 700; color: var(--up); background: var(--plane); border-radius: 999px; padding: 3px 9px; white-space: nowrap; }
+.td-plan li.done .tp-t { color: var(--muted); }
 .td-plan li:first-child { border-top: 0; }
 .tp-d { color: var(--muted); font-size: 13px; white-space: nowrap; }
 .td-plan li.now .tp-d { color: var(--up); font-weight: 700; }
@@ -4302,7 +4306,7 @@ button.wa-r { cursor: pointer; }
     }).join('');
     const since = sn ? '<span class="td-since">지난번 확인 ' + esc(sn.at.slice(11, 16)) + '</span>' : '';
     return '<section class="sec td-sec"><div class="sh"><div><h2>오늘</h2><p>' + esc(d.at.slice(11, 16)) + ' 지금 값 · 10분마다 새로 받아요</p></div><div class="top-act">' + since + '<button type="button" class="btn sm" id="tdRe">새로 받기</button></div></div>' +
-      '<div class="kpi-row td-k n' + T.length + '">' + T.join('') + '</div>' + (AL.length ? '<div class="td-acct">' + AL.map(x => '<div><span class="ta-l" style="--c:' + chColor(x[0]) + '">' + esc(chName(x[0])) + ' ' + x[1] + '</span><b class="num">' + fmt(x[2]) + '<small>명</small></b>' + (x[3] ? '<em>' + x[3] + '</em>' : '') + '</div>').join('') + '</div>' : '') + (tp.length ? '' : tdPlan(d, P)) +
+      '<div class="kpi-row td-k n' + T.length + '">' + T.join('') + '</div>' + (AL.length ? '<div class="td-acct">' + AL.map(x => '<div><span class="ta-l" style="--c:' + chColor(x[0]) + '">' + esc(chName(x[0])) + ' ' + x[1] + '</span><b class="num">' + fmt(x[2]) + '<small>명</small></b>' + (x[3] ? '<em>' + x[3] + '</em>' : '') + '</div>').join('') + '</div>' : '') + tdPlan(d, P) +
       (L ? '<div class="race td-r"><div class="race-h"><h3>' + (tp.length ? '어제·오늘 올린 게시물' : '어제 올린 게시물') + '</h3><span>오른쪽 표시 = 반응, 막대 = 조회 · 둘 다 같은 형식 평소와 비교</span></div><ol class="race-l">' + L + '</ol>' +
         (tdCurves(P).length ? '<h3 class="sub td-ch">올린 뒤 시간별 조회</h3><div class="chart" style="height:220px"><canvas id="tdC"></canvas></div><p class="note">1시간마다 받아 둔 값 · 점선 = 같은 형식 평소 · 채널마다 조회 크기가 달라 작은 쪽은 바닥에 붙어 보여요</p>' : '') + '</div>' : '') + secClose;
   }
@@ -4315,9 +4319,22 @@ button.wa-r { cursor: pointer; }
     // 캘린더 제목 「(인스타) 제목」·「(유튜브/인스타) 제목」 → 채널 색 칩 + 제목 한 줄
     const pch = k => /유튜브|숏츠|쇼츠/.test(k) ? '유튜브' : /hong|홍/.test(k) ? 'hong._.video' : '인스타그램';
     const wd = x => '일월화수목금토'[new Date(x + 'T00:00:00Z').getUTCDay()];
-    if (d.plan) h += '<div class="td-plan"><div class="tp-h"><h3>게시 예정</h3><span>공식 SNS 발행 일정 · 7일</span></div>' + (pl.length ? '<ol>' + pl.slice(0, 6).map(x => {
-      const m = String(x[1]).match(/^\(([^)]+)\)\s*(.*)$/), ks = m ? m[1].split('/') : [];
-      return '<li' + (x[0] === d.today ? ' class="now"' : '') + '>' + (x[2] ? '<a href="' + esc(x[2]) + '" target="_blank" rel="noopener" title="업로드 폴더 열기">' : '<div>') + '<span class="tp-d num">' + (x[0] === d.today ? '오늘' : md2(x[0]) + ' ' + wd(x[0])) + '</span><span class="tp-k">' + ks.map(k => '<i style="--c:' + chColor(pch(k)) + '">' + esc(k.trim()) + '</i>').join('') + '</span><span class="tp-t">' + esc(m ? m[2] : x[1]) + '</span>' + (x[2] ? '<span class="tp-go" aria-hidden="true">›</span></a>' : '</div>') + '</li>';
+    const PL = pl.slice(0, 6).map(x => { const m = String(x[1]).match(/^\(([^)]+)\)\s*(.*)$/); return { x, m, ks: m ? m[1].split('/').map(k => k.trim()) : [], ok: [] }; });
+    // 오늘 예정이 실제로 올라갔는지(2026-10-22): 오늘 올린 게시물·스토리와 채널로 맞춤. 제목 낱말이 캡션에 겹치는 게시물을 먼저, 없으면 같은 채널 아무거나(게시물 하나는 한 예정에만)
+    const pool = (d.posts || []).filter(p => p.at.slice(0, 10) === d.today), words = t => (String(t).match(/[가-힣A-Za-z0-9]{2,}/g) || []);
+    let stLeft = (d.story || []).length;
+    [true, false].forEach(strict => PL.forEach(q => {
+      if (q.x[0] !== d.today) return;
+      q.ks.forEach((k, j) => {
+        if (q.ok[j]) return;
+        if (/스토리/.test(k)) { if (!strict && stLeft > 0) { stLeft--; q.ok[j] = 1; } return; }
+        const W = words(q.m ? q.m[2] : q.x[1]), i = pool.findIndex(p => p.c === pch(k) && (!strict || W.some(w => String(p.n).includes(w))));
+        if (i >= 0) { pool.splice(i, 1); q.ok[j] = 1; }
+      });
+    }));
+    if (d.plan) h += '<div class="td-plan"><div class="tp-h"><h3>게시 예정</h3><span>공식 SNS 발행 일정 · 7일</span></div>' + (pl.length ? '<ol>' + PL.map(({ x, m, ks, ok }) => {
+      const done = ks.length && ks.every((k, j) => ok[j]);
+      return '<li class="' + (x[0] === d.today ? 'now' : '') + (done ? ' done' : '') + '">' + (x[2] ? '<a href="' + esc(x[2]) + '" target="_blank" rel="noopener" title="업로드 폴더 열기">' : '<div>') + '<span class="tp-d num">' + (x[0] === d.today ? '오늘' : md2(x[0]) + ' ' + wd(x[0])) + '</span><span class="tp-k">' + ks.map((k, j) => '<i' + (ok[j] ? ' class="ok" title="올라간 것 확인"' : '') + ' style="--c:' + chColor(pch(k)) + '">' + esc(k) + '</i>').join('') + '</span><span class="tp-t">' + esc(m ? m[2] : x[1]) + '</span>' + (done ? '<b class="tp-ok">게시 완료</b>' : '') + (x[2] ? '<span class="tp-go" aria-hidden="true">›</span></a>' : '</div>') + '</li>';
     }).join('') + '</ol>' : '<p class="note">7일 안에 잡힌 게시 일정이 없어요</p>') + '</div>';
     return h;
   }
