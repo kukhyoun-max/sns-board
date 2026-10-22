@@ -4238,9 +4238,9 @@ button.wa-r { cursor: pointer; }
     const own = chs.filter(c => OWN.includes(c)), days = [];
     for (let i = 13; i >= 0; i--) days.push(addDays(today, -i));
     const cnt = days.map(x => x === today ? tp.length : D.items.filter(it => own.includes(it.c) && it.t !== '스토리' && it.d === x).length);
-    const avg = sum(cnt.slice(0, 13)) / 13;
+    const avg = sum(cnt.slice(0, 13)) / 13, dow = (new Date(today + 'T00:00:00Z').getUTCDay() + 6) % 7, wk = sum(cnt.slice(13 - dow)); // 이번 주 = 월요일~오늘
     T.push(kpiTile('오늘 올린 게시물', tp.length + '<small>개</small>', tp.length ? [...new Set(tp.map(p => p.c))].map(c => chName(c) + ' ' + tp.filter(p => p.c === c).length).join(' · ') : P.length ? '오늘은 아직 없어요 · 아래 목록은 어제 올린 ' + P.length + '개' : '아직 없어요', '',
-      tdBars(cnt, '최근 2주 하루 게시 수 · 평소 하루 ' + (Math.round(avg * 10) / 10) + '개')));
+      tdBars(cnt, '최근 2주 하루 게시 수 · 이번 주 ' + wk + '개 · 평소 하루 ' + (Math.round(avg * 10) / 10))));
     // ② 조회: 지금 vs 평소 같은 시간(지난 게시물이 올린 지 같은 시간에 받은 조회) — 없으면 평소 첫날 조회
     const vs = sum(P.map(p => p.v));
     if (P.length) {
@@ -4334,7 +4334,7 @@ button.wa-r { cursor: pointer; }
   function tdBars(v, lbl) {
     if (!v.length) return '';
     const mx = Math.max(1, ...v), w = 100 / v.length;
-    return '<svg class="kbars" viewBox="0 0 100 28" preserveAspectRatio="none" role="img" aria-label="' + esc(lbl) + '"><title>' + esc(lbl) + '</title>' + v.map((x, i) => { const hh = x ? Math.max(2, x / mx * 26) : 1; return '<rect x="' + (i * w + w * 0.15).toFixed(2) + '" y="' + (28 - hh).toFixed(2) + '" width="' + (w * 0.7).toFixed(2) + '" height="' + hh.toFixed(2) + '" rx="0.8"' + (i === v.length - 1 ? ' class="on"' : '') + '/>'; }).join('') + '</svg><div class="td-foot">' + esc(lbl.split(' · ')[1] || '') + '</div>';
+    return '<svg class="kbars" viewBox="0 0 100 28" preserveAspectRatio="none" role="img" aria-label="' + esc(lbl) + '"><title>' + esc(lbl) + '</title>' + v.map((x, i) => { const hh = x ? Math.max(2, x / mx * 26) : 1; return '<rect x="' + (i * w + w * 0.15).toFixed(2) + '" y="' + (28 - hh).toFixed(2) + '" width="' + (w * 0.7).toFixed(2) + '" height="' + hh.toFixed(2) + '" rx="0.8"' + (i === v.length - 1 ? ' class="on"' : '') + '/>'; }).join('') + '</svg><div class="td-foot">' + esc(lbl.split(' · ').slice(1).join(' · ')) + '</div>';
   }
   // 지금 vs 평소 막대(30일 최고 칸과 같은 모양)
   function tdCmp(head, v, b, note, fm) {
