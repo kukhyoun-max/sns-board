@@ -3674,11 +3674,18 @@
     document.querySelectorAll('.sh p:not([data-tidy]), .race-d:not([data-tidy]), p.note:not([data-tidy])').forEach(p => {
       p.dataset.tidy = '1';
       const t = p.textContent.trim(); if (t.length <= 30 || p.querySelector('a,button,select')) return;
-      const i = p.innerHTML.indexOf(' · '); if (i < 0) return;
-      const head = p.innerHTML.slice(0, i), rest = p.innerHTML.slice(i + 3);
-      p.innerHTML = head + ' <button type="button" class="howto" aria-expanded="false">기준</button><span class="howto-t" hidden> · ' + rest + '</span>';
+      // 가운뎃점이 있으면 첫 마디만 보이고 나머지는 「기준」 뒤로. 가운뎃점 없이 긴 설명(부제 24자·주석 40자 넘음)은 통째로 「설명」 뒤로(2026-10-22 회색 글 줄이기)
+      const i = p.innerHTML.indexOf(' · '), isNote = p.classList.contains('note');
+      if (i < 0) {
+        if (t.length <= (isNote ? 40 : 24) || p.closest('.lt, .pl')) return;
+        p.innerHTML = '<button type="button" class="howto" aria-expanded="false">설명</button><span class="howto-t" hidden> ' + p.innerHTML + '</span>';
+        p.classList.add('howto-only');
+      } else {
+        const head = p.innerHTML.slice(0, i), rest = p.innerHTML.slice(i + 3);
+        p.innerHTML = head + ' <button type="button" class="howto" aria-expanded="false">기준</button><span class="howto-t" hidden> · ' + rest + '</span>';
+      }
       const b = p.querySelector('.howto'), x = p.querySelector('.howto-t');
-      b.addEventListener('click', e => { e.stopPropagation(); x.hidden = !x.hidden; b.setAttribute('aria-expanded', String(!x.hidden)); b.textContent = x.hidden ? '기준' : '접기'; });
+      b.addEventListener('click', e => { e.stopPropagation(); x.hidden = !x.hidden; b.setAttribute('aria-expanded', String(!x.hidden)); b.textContent = x.hidden ? (p.classList.contains('howto-only') ? '설명' : '기준') : '접기'; });
     });
   }
   new MutationObserver(() => { wireScroll(); wireKeys(); tidySubs(); }).observe(document.body, { childList: true, subtree: true });
