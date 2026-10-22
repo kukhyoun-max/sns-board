@@ -3166,7 +3166,7 @@
     }
     const fol = FL.length ? '<details class="td2-fold td2-fol"><summary><span class="td2-fl">' + FL.join('<i class="sep"></i>') + '</span></summary>' + (FT.length ? '<div class="kpi-row td-k n' + FT.length + '">' + FT.join('') + '</div>' : '') + '</details>' : '';
 
-    return '<section class="sec td-sec td2">' + hero.replace('<!--re-->', '<button type="button" class="td2-re" id="tdRe" title="' + (sn ? '지난번 확인 ' + esc(sn.at.slice(11, 16)) : '') + '">' + esc(d.at.slice(11, 16)) + ' · 새로 받기</button>') + met + list + tdPlan(d, P) + fol + secClose;
+    return '<section class="sec td-sec td2">' + hero.replace('<!--re-->', '') + met + list + tdPlan(d, P) + fol + secClose;
   }
   // 오늘 올린 게 없을 때: 마지막 게시물 한 줄(어제 것도 없을 때) + 게시 예정(「공식 SNS 발행 일정」 오늘~7일)
   function tdPlan(d, P) {
@@ -3272,7 +3272,9 @@
     const fd = $('tdChF'); if (fd) fd.addEventListener('toggle', () => { try { localStorage.setItem('sb-td-ch', fd.open ? '1' : '0'); } catch (e) {} if (fd.open) tdDraw(); });
     const L = window.__td || [];
     box.querySelectorAll('li[data-td]').forEach(li => { const go = () => { const p = L[+li.dataset.td], it = p && tdItem(p); if (it) openDetail(it); else if (p && p.u) window.open(p.u, '_blank', 'noopener'); }; li.addEventListener('click', go); li.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); go(); } }); });
-    const b = $('tdRe'); if (b) b.addEventListener('click', () => { b.disabled = true; b.textContent = '받는 중'; loadToday(true).then(paintToday); });
+    const ctl = document.querySelector('.status .ctl');
+    let b = $('tdRe'); if (!b && ctl) { b = document.createElement('button'); b.type = 'button'; b.id = 'tdRe'; b.className = 'adtg td-re2'; ctl.prepend(b); }
+    if (b) { const sn = TD.seen; b.disabled = false; b.innerHTML = '<svg viewBox="0 0 20 20" width="15" height="15" aria-hidden="true"><path d="M16 10a6 6 0 1 1-1.8-4.3M16 3.5v3.2h-3.2" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>' + TD.d.at.slice(11, 16); b.setAttribute('aria-label', '오늘 값 새로 받기 · ' + TD.d.at.slice(11, 16) + ' 기준'); b.title = '오늘 값을 지금 다시 받아요' + (sn && sn.at ? ' · 지난번 확인 ' + sn.at.slice(11, 16) : ''); b.onclick = () => { b.disabled = true; b.textContent = '받는 중'; loadToday(true).then(paintToday); }; }
   }
   function wireToday(chs) {
     TD.chs = chs;
@@ -3693,6 +3695,7 @@
   new MutationObserver(() => { wireScroll(); wireKeys(); tidySubs(); }).observe(document.body, { childList: true, subtree: true });
   function render() {
     renderBell();
+    if (S.view !== 'brief' && $('tdRe')) $('tdRe').remove();
     Object.keys(charts).forEach(k => { if (k !== 'dCanvas') { charts[k].destroy(); delete charts[k]; } });
     save(); syncChrome();
     ({ brief: viewBrief, strategy: viewStrategy, maker: viewMaker, season: viewSeason, ads: viewAds, explore: viewExplore, export: viewExport }[S.view] || viewBrief)();
