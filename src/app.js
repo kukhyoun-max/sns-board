@@ -734,25 +734,62 @@
   // 조회 모이는 중 게시물의 평소 대비: 같은 날수 평소가 있을 때만 배수(다 자란 게시물의 최종 조회와 견주면 늘 0.1배처럼 낮게 보임, 2026-10-21)
   function youngTxt(it) { const p = paceOf(it); return p && !p.base ? agName(p.e) + ' 조회 ' + vsTxt(p.r) : ''; }
   const youngWait = it => daysBetween(it.d, D.updated) < 1 ? '하루 지나면 올린 지 같은 날의 평소와 비교해요' : '올린 지 같은 날의 평소 자료가 아직 적어요';
+  // 이번 주 게시물 목록에서 볼 값 고르기(2026-10-22 「조회 있는 부분을 누르면 목록이 뜨고 도달·좋아요·공유 등으로 볼 수 있게」)
+  // 조회 = 올린 지 같은 날 평소와(paceOf). 도달 = 조회 비교에 「조회 대비 도달」이 평소보다 많고 적은 만큼을 곱해 짐작.
+  // 좋아요·댓글·공유·저장 = 도달(유튜브는 조회) 대비 비율을 같은 형식 평소 비율과 비교(비율이라 올린 지 며칠이어도 견줄 수 있음)
+  const RACE_M = [['v', '조회'], ['reach', '도달'], ['l', '좋아요', 1], ['cm', '댓글', 2], ['sh', '공유', 3], ['sv', '저장', 4]];
+  const RCB = {};
+  const rcDen = it => { const v = last(it); if (!v) return null; return it.c === '유튜브' ? (v[0] >= 100 ? v[0] : null) : (it.r >= 300 ? it.r : null); };
+  const rcRate = (it, j) => { const v = last(it), d = rcDen(it); return !v || !d || v[j] == null ? null : v[j] / d; };
+  const rcRv = it => { const v = last(it); return v && v[0] > 0 && it.r > 0 ? it.r / v[0] : null; }; // 조회 대비 도달
+  function rcBase(it, k, fn) {
+    const key = it.c + '|' + it.t + '|' + k;
+    if (!(key in RCB)) {
+      const pk = g => D.items.filter(x => x.c === it.c && !x.ad && !x.hid && x.t !== '스토리' && !young(x) && x.d >= addDays(D.updated, -365) && g(x)).map(fn).filter(v => v != null);
+      let a = pk(x => x.t === it.t); if (a.length < BASE_T_MIN) a = pk(() => true);
+      RCB[key] = a.length >= MIN_N ? median(a) : null;
+    }
+    return RCB[key];
+  }
+  function raceVal(it, m) {
+    const v = last(it);
+    if (m === 'v') { const p = paceOf(it); return { n: mainVal(it), r: p ? p.r : null, tip: p ? paceTip(p) + (p.base ? ' · 다 자란 평소 게시물과 비교' : p.b.mixed ? ' · 같은 형식이 적어 채널 전체와 비교' : '') : '' }; }
+    if (m === 'reach') {
+      if (!(it.r > 0)) return { n: null, r: null, tip: '이 채널은 도달 자료가 없어요' };
+      const p = paceOf(it), rv = rcRv(it), b = rv == null ? null : rcBase(it, 'rv', rcRv), old = !young(it), r = old ? reachRatio(it) : p && !p.base && b ? p.r * rv / b : null;
+      return { n: it.r, r, tip: r == null ? '비교할 평소 자료가 아직 적어요' : old ? '같은 형식 최근 1년 도달 중간값 대비' : '올린 지 같은 날 조회 평소 대비에 「조회 대비 도달」(평소 ' + pctA(b) + ', 이 게시물 ' + pctA(rv) + ')을 곱해 짐작' };
+    }
+    const j = RACE_M.find(x => x[0] === m)[2], n = v ? v[j] : null, rt = rcRate(it, j), b = rt == null ? null : rcBase(it, m, x => rcRate(x, j)), dn = it.c === '유튜브' ? '조회' : '도달';
+    return { n, rt, r: b ? rt / b : null, tip: rt == null ? (n == null ? '이 채널은 자료가 없어요' : dn + '가 적어 비율을 아직 안 봐요') : dn + ' 대비 ' + pctA(rt) + (b ? ' · 같은 형식 평소 ' + pctA(b) : ' · 같은 형식 게시물이 적어 비교 전') };
+  }
   function raceHtml(chs, w) {
+    window.__raceArgs = [chs, w];
+    const m = RACE_M.some(x => x[0] === S.raceM) ? S.raceM : 'v', mn = RACE_M.find(x => x[0] === m)[1];
     const all = D.items.filter(it => chs.includes(it.c) && OWN.includes(it.c) && it.t !== '스토리' && (S.ads || !it.ad)).sort((a, b) => a.d < b.d ? 1 : a.d > b.d ? -1 : 0);
     const wk = w ? all.filter(it => it.d >= w.mon) : [];
     const L = wk.length ? wk.slice(0, 8) : all.filter(it => daysBetween(it.d, D.updated) <= 14).slice(0, 4);
     window.__race = L;
     if (!L.length) return '';
     // 한 줄 = 채널 · 제목 · 판정 칩(밤 브리핑과 같은 단계). 비교 기준은 칩에 마우스를 올리면
-    return '<div class="race"><div class="race-h"><h3>' + (wk.length ? '이번 주 올린 게시물' : '최근 게시물') + '</h3><span>조회 · 같은 형식 평소 대비</span></div><ol class="race-l">' + L.map((it, i) => {
-      const p = paceOf(it), r = p ? p.r : null, t = r == null ? null : tierOf(r);
-      const tip = p ? paceTip(p) + (p.base ? ' · 다 자란 평소 게시물과 비교' : p.b.mixed ? ' · 같은 형식이 적어 채널 전체와 비교' : '') : '';
+    const sel = '<label class="race-m"><select id="raceM" aria-label="볼 값 고르기">' + RACE_M.map(x => '<option value="' + x[0] + '"' + (x[0] === m ? ' selected' : '') + '>' + x[1] + '</option>').join('') + '</select></label>';
+    const how = m === 'v' || m === 'reach' ? '같은 형식 평소 대비' : '도달(유튜브는 조회) 대비 비율 · 같은 형식 평소 대비';
+    return '<div class="race"><div class="race-h"><h3>' + (wk.length ? '이번 주 올린 게시물' : '최근 게시물') + '</h3><span>' + sel + ' · ' + how + '</span></div><ol class="race-l">' + L.map((it, i) => {
+      const q = raceVal(it, m), r = q.r, t = r == null ? null : tierOf(r), tip = q.tip;
       return '<li data-r="' + i + '" tabindex="0" role="button" aria-label="' + esc(title(it.n)) + ' 상세 보기"><div class="race-t">' + badge(it.c) + '<span class="rt">' + esc(title(it.n)) + '</span>' +
         '<b class="tier ' + (t ? t[1] : 'na') + '"' + (tip ? ' title="' + esc(tip) + '"' : '') + '>' + (t ? t[0] + (t[1] === 'mid' ? '' : ' ' + vsP(r)) : '비교 전') + '</b></div>' +
-        '<small>' + whenTxt(it.d) + ' · 조회 ' + fmtK(mainVal(it)) + '</small></li>';
+        '<small>' + whenTxt(it.d) + ' · ' + mn + ' ' + (q.n == null ? '자료 없음' : fmtK(q.n)) + (q.rt != null ? ' · ' + (it.c === '유튜브' ? '조회' : '도달') + ' 대비 ' + pctA(q.rt) : '') + (m !== 'v' ? ' · 조회 ' + fmtK(mainVal(it)) : '') + '</small></li>';
     }).join('') + '</ol></div>';
   }
   // 판정 단계(밤 10시 브리핑 BR_TIER와 같은 기준): 평소의 0.7배 미만 낮음 · 1.3배 미만 평소 수준 · 2배 잘 됨 · 5배 아주 잘 됨 · 그 이상 대박
   const tierOf = r => r < 0.7 ? ['낮음', 'lo'] : r < 1.3 ? ['평소 수준', 'mid'] : r < 2 ? ['잘 됨', 'hi'] : r < 5 ? ['아주 잘 됨', 'hi2'] : ['대박', 'hi3'];
   function wireRace() {
-    const L = window.__race || [];
+    const L = window.__race || [], ms = $('raceM');
+    if (ms) ms.addEventListener('change', () => {
+      S.raceM = ms.value; save();
+      const box = ms.closest('.race'), a = window.__raceArgs; if (!box || !a) return;
+      const tmp = document.createElement('div'); tmp.innerHTML = raceHtml(a[0], a[1]); box.replaceWith(tmp.firstChild); wireRace();
+      const n = $('raceM'); if (n) n.focus();
+    });
     document.querySelectorAll('.race-l li[data-r]').forEach(li => { const go = () => openDetail(L[+li.dataset.r]); li.addEventListener('click', go); li.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); go(); } }); });
   }
   function wireTop(chs) {

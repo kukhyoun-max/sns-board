@@ -900,3 +900,9 @@ button.wa-r { cursor: pointer; }
 /* 오늘 시간별 조회: 채널별 그래프 머리(2026-10-22) */
 .td-chh { margin: 10px 0 2px; }
 .td-chh + .chart { margin-top: 0; }
+
+/* 이번 주 게시물: 볼 값 고르기(2026-10-22) */
+.race-m { display: inline-flex; align-items: center; position: relative; }
+.race-m select { appearance: none; -webkit-appearance: none; font: inherit; font-weight: 700; color: var(--fg); background: var(--plane); border: 0; border-radius: 999px; padding: 4px 24px 4px 11px; cursor: pointer; }
+.race-m::after { content: "\25BE"; position: absolute; right: 9px; pointer-events: none; color: var(--muted); font-size: 11px; }
+.race-m select:focus-visible { outline: 2px solid var(--up); outline-offset: 2px; }
