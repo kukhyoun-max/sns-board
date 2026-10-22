@@ -972,3 +972,6 @@ button.wa-r { cursor: pointer; }
 .td2-attn { margin-top: 12px; }
 .td2-attn .wa { background: var(--down-soft); border-radius: 16px; padding: 16px 18px; }
 @media (max-width: 560px) { .td2-big b { font-size: 46px; } }
+.td2-h { flex-wrap: nowrap; }
+.td2-h > span { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.td2-h .top-act { flex: none; flex-wrap: nowrap; }
