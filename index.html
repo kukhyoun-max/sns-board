@@ -1246,6 +1246,9 @@ button.wa-r { cursor: pointer; }
 .td2-attn { margin-top: 12px; }
 .td2-attn .wa { background: var(--down-soft); border-radius: 16px; padding: 16px 18px; }
 @media (max-width: 560px) { .td2-big b { font-size: 46px; } }
+.td2-h { flex-wrap: nowrap; }
+.td2-h > span { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.td2-h .top-act { flex: none; flex-wrap: nowrap; }
 </style>
 
 <div class="app" id="app">
@@ -4377,7 +4380,7 @@ button.wa-r { cursor: pointer; }
     if (P.length) {
       hero += '<div class="td2-hl">' + who + ' 올린 게시물 ' + P.length + '개 조회</div><div class="td2-big"><b class="num">' + fmtK(vs) + '</b><span>조회</span></div>' +
         (hr != null ? '<div class="td2-vs ' + xCls(hr) + '">' + (kind === '같은 시간' ? '같은 시간 평소' : '첫날 평소') + ' 대비 ' + vsP(hr) + '</div>' : '<div class="td2-vs flat">평소 자료 모으는 중</div>') +
-        '<div class="td2-sub">' + [bs.length && bs.length < P.length ? P.length + '개 중 ' + bs.length + '개만 비교' : '', kind === '첫날' && hr != null ? '하루치 평소와 비교 중 · 시간별 기록이 쌓이면 같은 시간과 비교' : '', was > 0 ? '지난번 본 뒤 <span class="up">+' + fmtK(was) + '</span>' : ''].filter(Boolean).join(' · ') + '</div>';
+        '<div class="td2-sub">' + [bs.length && bs.length < P.length ? P.length + '개 중 ' + bs.length + '개 비교' : '', kind === '첫날' && hr != null ? '하루치 평소 기준' : '', was > 0 ? '지난번 본 뒤 <span class="up">+' + fmtK(was) + '</span>' : ''].filter(Boolean).join(' · ') + '</div>';
     } else hero += '<div class="td2-hl">오늘</div><div class="td2-big"><b class="num">0</b><span>개 올림</span></div><div class="td2-sub">어제·오늘 올린 게시물이 없어요</div>';
     hero += '</div>';
     // ② 지표 한 줄(카드 없이): 공유율(목표 1.0%) · 반응률(평소 대비) · 이번 주 게시 수. 인스타·hong 게시물 합 ÷ 도달 합, 평소 = 게시물마다 같은 형식 평소를 도달로 가중
@@ -4431,8 +4434,8 @@ button.wa-r { cursor: pointer; }
       if (H.length > 1) FT.push(kpiTile('유튜브 구독자', fmt(y.subs) + '<small>명</small>', yr ? '1년 전보다 ' + dNum(y.subs - yr[1], '명') : '', '', spark(hv, '최근 1년 구독자 수 · 날마다 늘고 준 수로 거꾸로 계산(유튜브 분석은 1~2일 늦음)') + '<div class="td-foot">' + (y.subs >= hi ? '1년 중 가장 많아요' : '1년 최고 ' + fmt(hi) + '명') + '</div>'));
     }
     const fol = FL.length ? '<details class="td2-fold td2-fol"><summary><span>' + FL.join(' · ') + '</span></summary>' + (FT.length ? '<div class="kpi-row td-k n' + FT.length + '">' + FT.join('') + '</div>' : '') + '</details>' : '';
-    const since = sn ? '<span class="td-since">지난번 확인 ' + esc(sn.at.slice(11, 16)) + '</span>' : '';
-    return '<section class="sec td-sec td2"><div class="td2-h"><span>' + esc(d.at.slice(11, 16)) + ' 지금 값 · 10분마다 새로</span><div class="top-act">' + since + '<button type="button" class="btn sm" id="tdRe">새로 받기</button></div></div>' +
+
+    return '<section class="sec td-sec td2"><div class="td2-h"><span>' + esc(d.at.slice(11, 16)) + ' 기준' + (sn ? ' · 지난번 ' + esc(sn.at.slice(11, 16)) : '') + '</span><div class="top-act"><button type="button" class="btn sm" id="tdRe">새로 받기</button></div></div>' +
       hero + met + list + tdPlan(d, P) + fol + secClose;
   }
   // 오늘 올린 게 없을 때: 마지막 게시물 한 줄(어제 것도 없을 때) + 게시 예정(「공식 SNS 발행 일정」 오늘~7일)
