@@ -919,15 +919,15 @@ button.wa-r { cursor: pointer; }
 .home-more > summary span { font-size: var(--fs-tag); color: var(--muted); flex: 1; min-width: 0; }
 .home-more > summary::after { content: "\25BE"; color: var(--muted); }
 .home-more[open] > summary::after { content: "\25B4"; }
-.kpi-t.empty:first-child { background: var(--tile); color: inherit; box-shadow: none; border-color: var(--line); }
-.kpi-t.empty:first-child .kpi-l { color: var(--sub); }
-.kpi-t.empty:first-child .kpi-s { color: var(--muted); }
-.kpi-t.empty:first-child .kpi-v { color: var(--muted); }
+.kpi-t.kpi-none:first-child { background: var(--tile); color: inherit; box-shadow: none; border-color: var(--line); }
+.kpi-t.kpi-none:first-child .kpi-l { color: var(--sub); }
+.kpi-t.kpi-none:first-child .kpi-s { color: var(--muted); }
+.kpi-t.kpi-none:first-child .kpi-v { color: var(--muted); }
 @media (max-width: 560px) { .kpi-row.n3 > .kpi-t:last-child, .kpi-row.n5 > .kpi-t:last-child { grid-column: span 2; } }
 /* 점검 C(2026-10-22): 표 머리 정렬 버튼은 손가락으로 누르기 쉽게 40px, 요일 글자 12px */
 .tbl th > button, thead th > button { min-height: 40px; padding-top: 8px; padding-bottom: 8px; }
 .kb-l { font-size: 12px; }
-.kpi-t.empty:first-child .kb-l, .kpi-t.empty:first-child .kb-l .on { color: var(--muted); }
+.kpi-t.kpi-none:first-child .kb-l, .kpi-t.kpi-none:first-child .kb-l .on { color: var(--muted); }
 
 /* 홈 위계 시안 반영(2026-10-22): 오늘 칸 = 큰 숫자 하나 · 카드 없는 지표 한 줄 · 목록 줄 · 접는 그래프·팔로워 추이 */
 .td2-h { display: flex; align-items: center; justify-content: space-between; gap: 10px; font-size: var(--fs-tag); color: var(--muted); }
@@ -1034,3 +1034,5 @@ p.howto-only .howto { margin-left: 0; }
 .td-re2 svg { color: var(--up); }
 /* 휴대폰 홈: 새로 받기 버튼이 있을 땐 「지난 기록」은 숨겨 기준일이 잘리지 않게 */
 @media (max-width: 560px) { .status:has(#tdRe) #st2 { display: none; } }
+.kpi-t.kpi-none:first-child .kbars.wk rect, .kpi-t.kpi-none:first-child .kbars.wk rect.on { fill: var(--line); }
+.kpi-t.kpi-none:first-child .kbars.wk rect.pv { fill: var(--line); opacity: 1; }
