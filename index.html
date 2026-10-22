@@ -1140,17 +1140,29 @@ button.wa-r { cursor: pointer; }
 /* 첫날 평소까지 진행률(2026-10-21): 아직 덜 모인 게시물은 회색 막대 */
 .td-bt i.pg { background: var(--muted); opacity: .55; }
 
-/* 오늘 칸: 칸에 못 들어간 팔로워·구독자 한 줄, 오늘 게시물 없을 때 마지막 게시·게시 예정(2026-10-22) */
-.td-acct { margin: 10px 2px 0; font-size: var(--fs-tag); color: var(--muted); line-height: 1.5; }
-.td-acct b { color: var(--fg); font-weight: 700; }
+/* 오늘 칸: 칸에 못 들어간 팔로워·구독자 작은 칸, 오늘 게시물 없을 때 마지막 게시·게시 예정(2026-10-22) */
+.td-acct { display: grid; grid-template-columns: repeat(auto-fit, minmax(0, 1fr)); gap: 8px; margin-top: 10px; }
+.td-acct > div { background: var(--plane); border-radius: 14px; padding: 10px 12px; display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.ta-l { font-size: 12px; color: var(--muted); font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ta-l::before { content: ''; display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: var(--c); margin-right: 5px; vertical-align: 2px; }
+.td-acct b { font-size: 17px; color: var(--fg); font-weight: 700; letter-spacing: -0.01em; }
+.td-acct b small { font-size: 12px; font-weight: 600; color: var(--muted); margin-left: 1px; }
+.td-acct em { font-style: normal; font-size: 12px; white-space: nowrap; }
+.td-acct em i { font-style: normal; color: var(--muted); }
 .td-last { margin: 14px 2px 0; font-size: var(--fs-tag); color: var(--sub); line-height: 1.6; }
 .td-last em { font-style: normal; font-weight: 700; }
-.td-plan { margin-top: 14px; }
-.td-plan h3 { font-size: var(--fs-tag); color: var(--muted); font-weight: 700; margin: 0 0 6px; }
-.td-plan ol { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
-.td-plan li { display: flex; align-items: center; gap: 8px; font-size: var(--fs-tag); color: var(--fg); min-width: 0; }
-.td-plan li > span { color: var(--muted); min-width: 3.4em; }
-.td-plan li .tag { font-style: normal; flex: none; }
+.td-plan { margin-top: 12px; border: 1px solid var(--line); border-radius: 16px; padding: 14px 16px 6px; }
+.tp-h { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; margin-bottom: 4px; }
+.tp-h h3 { font-size: 15px; color: var(--fg); font-weight: 700; margin: 0; }
+.tp-h span { font-size: 12px; color: var(--muted); }
+.td-plan ol { list-style: none; margin: 0; padding: 0; }
+.td-plan li { display: grid; grid-template-columns: 4.2em auto minmax(0, 1fr); align-items: center; gap: 10px; padding: 10px 0; border-top: 1px solid var(--line); font-size: 14px; color: var(--fg); }
+.td-plan li:first-child { border-top: 0; }
+.tp-d { color: var(--muted); font-size: 13px; white-space: nowrap; }
+.td-plan li.now .tp-d { color: var(--up); font-weight: 700; }
+.tp-k { display: flex; gap: 4px; }
+.tp-k i { font-style: normal; font-size: 11px; font-weight: 700; color: var(--c); box-shadow: inset 0 0 0 1px var(--c); border-radius: 6px; padding: 2px 6px; white-space: nowrap; }
+.tp-t { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 </style>
 
 <div class="app" id="app">
@@ -4250,7 +4262,7 @@ button.wa-r { cursor: pointer; }
     // ④ 팔로워: 최근 30일 팔로워 선(끝 = 지금) — 핵심 지표 칸이 없을 때(게시물이 없거나 도달이 적을 때)만 칸으로
     ['인스타그램', 'hong._.video'].filter(c => chs.includes(c)).forEach(c => {
       const a = acct(c); if (!a || a.fol == null) return;
-      if (T.length >= 4) { const b = a.base != null ? a.fol - a.base : null; AL.push(chName(c) + ' 팔로워 <b class="num">' + fmt(a.fol) + '</b>명' + (b ? ' ' + dNum(b, '') : '')); return; }
+      if (T.length >= 4) { const b = a.base != null ? a.fol - a.base : null; AL.push([c, '팔로워', a.fol, b ? dNum(b, '') + ' <i>오늘</i>' : '']); return; }
       const base = a.base != null ? a.fol - a.base : null, was = sn && sn.a && sn.a[c] != null ? a.fol - sn.a[c] : null;
       const F = (D.fol || []).filter(r => r[1] === c && r[0] >= addDays(today, -30) && r[0] < today).map(r => r[2]).concat([a.fol]);
       const wk = (D.fol || []).filter(r => r[1] === c && r[0] <= addDays(today, -7)).pop();
@@ -4258,7 +4270,7 @@ button.wa-r { cursor: pointer; }
         spark(F, '최근 30일 팔로워 수') + (wk ? '<div class="td-foot">1주 전보다 ' + dNum(a.fol - wk[2], '명') + '</div>' : '')));
     });
     const y = acct('유튜브');
-    if (chs.includes('유튜브') && y && y.subs != null && T.length >= 4) AL.push('유튜브 구독자 <b class="num">' + fmt(y.subs) + '</b>명');
+    if (chs.includes('유튜브') && y && y.subs != null && T.length >= 4) AL.push(['유튜브', '구독자', y.subs, '']);
     if (chs.includes('유튜브') && y && y.subs != null && T.length < 4) {
       const AA = (D.acct || []).filter(x => x.ch === '유튜브' && x.m['Channel total subscribers'] != null).sort((p, q) => p.d < q.d ? -1 : 1), A = AA[AA.length - 1];
       // 최근 1년 추이(서버가 하루 구독 증감으로 거슬러 계산한 y.hist) — 지금이 1년 중 어느 정도인지
@@ -4287,7 +4299,7 @@ button.wa-r { cursor: pointer; }
     }).join('');
     const since = sn ? '<span class="td-since">지난번 확인 ' + esc(sn.at.slice(11, 16)) + '</span>' : '';
     return '<section class="sec td-sec"><div class="sh"><div><h2>오늘</h2><p>' + esc(d.at.slice(11, 16)) + ' 지금 값 · 10분마다 새로 받아요</p></div><div class="top-act">' + since + '<button type="button" class="btn sm" id="tdRe">새로 받기</button></div></div>' +
-      '<div class="kpi-row td-k n' + T.length + '">' + T.join('') + '</div>' + (AL.length ? '<p class="td-acct">' + AL.join(' · ') + '</p>' : '') + (tp.length ? '' : tdPlan(d, P)) +
+      '<div class="kpi-row td-k n' + T.length + '">' + T.join('') + '</div>' + (AL.length ? '<div class="td-acct">' + AL.map(x => '<div><span class="ta-l" style="--c:' + chColor(x[0]) + '">' + esc(chName(x[0])) + ' ' + x[1] + '</span><b class="num">' + fmt(x[2]) + '<small>명</small></b>' + (x[3] ? '<em>' + x[3] + '</em>' : '') + '</div>').join('') + '</div>' : '') + (tp.length ? '' : tdPlan(d, P)) +
       (L ? '<div class="race td-r"><div class="race-h"><h3>' + (tp.length ? '어제·오늘 올린 게시물' : '어제 올린 게시물') + '</h3><span>칩 = 반응률 · 막대 = 조회, 같은 형식 평소 대비</span></div><ol class="race-l">' + L + '</ol>' +
         (tdCurves(P).length ? '<h3 class="sub td-ch">올린 뒤 시간별 조회</h3><div class="chart" style="height:220px"><canvas id="tdC"></canvas></div><p class="note">1시간마다 받아 둔 값 · 점선 = 같은 형식 평소 · 채널마다 조회 크기가 달라 작은 쪽은 바닥에 붙어 보여요</p>' : '') + '</div>' : '') + secClose;
   }
@@ -4297,7 +4309,13 @@ button.wa-r { cursor: pointer; }
     let h = '';
     if (lp) { const p = paceOf(lp), dd = daysBetween(lp.d, d.today); h += '<p class="td-last">마지막 게시 <b>' + (dd <= 0 ? '오늘' : dd + '일 전') + '</b> · ' + badge(lp.c) + ' ' + esc(title(lp.n).slice(0, 24)) + (p && !p.base ? ' · <em class="' + xCls(p.r) + '">' + agName(p.e) + ' 조회 평소의 ' + xf(p.r) + '</em>' : '') + '</p>'; }
     const pl = (d.plan || []).filter(x => x[0] >= d.today);
-    if (d.plan) h += '<div class="td-plan"><h3>게시 예정</h3>' + (pl.length ? '<ol>' + pl.slice(0, 6).map(x => { const m = String(x[1]).match(/^\(([^)]+)\)\s*(.*)$/); return '<li><span class="num">' + (x[0] === d.today ? '오늘' : md2(x[0])) + '</span>' + (m ? '<i class="tag">' + esc(m[1]) + '</i>' + esc(m[2]) : esc(x[1])) + '</li>'; }).join('') + '</ol>' : '<p class="note">7일 안에 잡힌 게시 일정이 없어요 · 「공식 SNS 발행 일정」 캘린더 기준</p>') + '</div>';
+    // 캘린더 제목 「(인스타) 제목」·「(유튜브/인스타) 제목」 → 채널 색 칩 + 제목 한 줄
+    const pch = k => /유튜브|숏츠|쇼츠/.test(k) ? '유튜브' : /hong|홍/.test(k) ? 'hong._.video' : '인스타그램';
+    const wd = x => '일월화수목금토'[new Date(x + 'T00:00:00Z').getUTCDay()];
+    if (d.plan) h += '<div class="td-plan"><div class="tp-h"><h3>게시 예정</h3><span>공식 SNS 발행 일정 · 7일</span></div>' + (pl.length ? '<ol>' + pl.slice(0, 6).map(x => {
+      const m = String(x[1]).match(/^\(([^)]+)\)\s*(.*)$/), ks = m ? m[1].split('/') : [];
+      return '<li' + (x[0] === d.today ? ' class="now"' : '') + '><span class="tp-d num">' + (x[0] === d.today ? '오늘' : md2(x[0]) + ' ' + wd(x[0])) + '</span><span class="tp-k">' + ks.map(k => '<i style="--c:' + chColor(pch(k)) + '">' + esc(k.trim()) + '</i>').join('') + '</span><span class="tp-t">' + esc(m ? m[2] : x[1]) + '</span></li>';
+    }).join('') + '</ol>' : '<p class="note">7일 안에 잡힌 게시 일정이 없어요</p>') + '</div>';
     return h;
   }
   // 평소 조회: 서버의 「게시물 시간별」로 만든 같은 채널·형식·같은 경과 시간 중간값(k='h') → 없고 올린 지 20시간 넘었으면 평소 첫날 조회(k='d')
