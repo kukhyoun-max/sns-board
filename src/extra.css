@@ -906,3 +906,7 @@ button.wa-r { cursor: pointer; }
 .race-m select { appearance: none; -webkit-appearance: none; font: inherit; font-weight: 700; color: var(--fg); background: var(--plane); border: 0; border-radius: 999px; padding: 4px 24px 4px 11px; cursor: pointer; }
 .race-m::after { content: "\25BE"; position: absolute; right: 9px; pointer-events: none; color: var(--muted); font-size: 11px; }
 .race-m select:focus-visible { outline: 2px solid var(--up); outline-offset: 2px; }
+.race-h .race-m { align-self: center; }
+.race-d { margin: 0 0 4px; font-size: var(--fs-tag); color: var(--muted); }
+.race-m select { padding-right: 22px; }
+.race-m select { font-size: 14px; padding: 5px 22px 5px 12px; }
