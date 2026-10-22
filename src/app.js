@@ -50,9 +50,9 @@
   const pctA = v => (v == null || isNaN(v)) ? '–' : (v * 100).toFixed(Math.abs(v) < 0.01 ? 2 : 1) + '%';
   const pct0 = v => (v == null || isNaN(v)) ? '–' : Math.round(v * 100) + '%';
   // 0.1배 미만은 「0.00배」처럼 보이지 않게 「0.1배 미만」으로
-  // 평소와 비교(2026-10-22 「평소 대비 -00% 이렇게 쓰면 이해하기 쉬울 것 같아」): 2배 미만은 「평소 대비 −70%」·「+30%」, 2배부터는 「평소의 3.5배」(%가 너무 커져 읽기 어려움)
-  const vsP = r => r == null || isNaN(r) ? '–' : r >= 2 ? xf(r) : Math.round((r - 1) * 100) === 0 ? '±0%' : (r > 1 ? '+' : '−') + Math.abs(Math.round((r - 1) * 100)) + '%';
-  const vsTxt = r => r != null && r >= 2 ? '평소의 ' + xf(r) : '평소 대비 ' + vsP(r);
+  // 평소와 비교(2026-10-22 「평소 대비 -00% 이렇게 쓰면 이해하기 쉬울 것 같아」): 「평소 대비 −70%」·「+30%」, 평소보다 많이 높아도 「+200%」(같은 날 「평소보다 잘된 것도 % 표시」)
+  const vsP = r => r == null || isNaN(r) ? '–' : Math.round((r - 1) * 100) === 0 ? '±0%' : (r > 1 ? '+' : '−') + fmt(Math.abs(Math.round((r - 1) * 100))) + '%';
+  const vsTxt = r => '평소 대비 ' + vsP(r);
   const xf = v => (v == null || isNaN(v)) ? '–' : v < 0.1 ? '0.1배 미만' : v.toFixed(1) + '배';
   // 평소 대비의 기준 지표: 우리 채널 = 조회, 타 대학 = 좋아요
   const mW = ch => MN[mainM(ch)], vW = () => S.ch === '타 대학' ? '좋아요' : '조회';
@@ -662,7 +662,7 @@
     const J = w.posts.map(it => ({ it, p: paceOf(it) })).filter(x => x.p).sort((a, b) => b.p.r - a.p.r);
     if (J.length && J[0].p.r >= 1.3) row('good', '가장 잘 되는 이번 주 게시물 · ' + badge(J[0].it.c) + esc(title(J[0].it.n)), '' + vsTxt(J[0].p.r), J[0].it);
     const lo = J.filter(x => x.p.r < 0.7).pop();
-    if (lo) row('bad', '평소보다 낮은 게시물 · 제목·첫 장 점검 · ' + badge(lo.it.c) + esc(title(lo.it.n)), '' + vsTxt(lo.p.r), lo.it);
+    if (lo) row('bad', '평소보다 낮은 게시물 · ' + badge(lo.it.c) + esc(title(lo.it.n)), '' + vsTxt(lo.p.r), lo.it);
     // 예전 게시물이 이번 주 다시 크게 늘었나(이번 주 늘어난 조회의 20% 이상 또는 5천 이상)
     if (j >= 0 && j < n) {
       const p = weekPart(chs, n, j);
@@ -679,7 +679,7 @@
     if (daysBetween(w.mon, w.end) >= 2) chs.filter(c => OWN.includes(c)).forEach(c => {
       if (w.posts.some(it => it.c === c)) return;
       const per = D.items.filter(it => it.c === c && it.t !== '스토리' && !it.ad && it.d >= addDays(w.mon, -56) && it.d < w.mon).length / 8;
-      if (per >= 1) row('info', chName(c) + ' 이번 주 아직 안 올렸어요', '평소 주 ' + (Math.round(per * 10) / 10) + '개');
+      if (per >= 1) row('info', chName(c) + ' 이번 주 아직 안 올렸어요', (Math.round(per * 10) / 10) + '개/주');
     });
     if (!A.length) return '';
     return '<div class="wa"><div class="race-h"><h3>지금 볼 것</h3><span>' + esc(String(D.built || D.updated).slice(5).replace('-', '/')) + ' 기록 기준 · 기록마다 다시 골라요</span></div>' + A.slice(0, 4).join('') + '</div>';
