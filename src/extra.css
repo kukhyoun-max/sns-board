@@ -886,6 +886,10 @@ button.wa-r { cursor: pointer; }
 .td-plan li > a, .td-plan li > div { display: grid; grid-template-columns: 4.2em auto minmax(0, 1fr) auto; align-items: center; gap: 10px; padding: 10px 0; font-size: 14px; color: var(--fg); text-decoration: none; }
 .td-plan li > a:active { opacity: .6; }
 .tp-go { color: var(--muted); font-size: 18px; line-height: 1; }
+.td-plan li > a, .td-plan li > div { grid-template-columns: 4.2em auto minmax(0, 1fr) auto auto; }
+.tp-k i.ok { color: #fff; background: var(--c); box-shadow: none; }
+.tp-ok { font-size: 12px; font-weight: 700; color: var(--up); background: var(--plane); border-radius: 999px; padding: 3px 9px; white-space: nowrap; }
+.td-plan li.done .tp-t { color: var(--muted); }
 .td-plan li:first-child { border-top: 0; }
 .tp-d { color: var(--muted); font-size: 13px; white-space: nowrap; }
 .td-plan li.now .tp-d { color: var(--up); font-weight: 700; }
