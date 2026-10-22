@@ -975,3 +975,28 @@ button.wa-r { cursor: pointer; }
 .td2-h { flex-wrap: nowrap; }
 .td2-h > span { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .td2-h .top-act { flex: none; flex-wrap: nowrap; }
+
+/* 가독성(2026-10-22 캡처 6장) */
+.td2-hl { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.td2-hl > span { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.td2-re { flex: none; border: 0; background: var(--plane); color: var(--sub); font: inherit; font-size: 13px; font-weight: 700; border-radius: 999px; padding: 0 12px; min-height: 36px; cursor: pointer; }
+.td2-re:disabled { opacity: .6; }
+.wa-t { display: flex; flex-direction: column; gap: 2px; -webkit-line-clamp: unset; }
+.wa-t > small { font-size: 13px; color: var(--muted); font-weight: 600; }
+.wa-t > span { font-size: 15px; font-weight: 700; color: var(--fg); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.wa-r b { font-size: 16px; font-weight: 800; }
+.wa .race-h span { font-size: 12px; }
+.td2-fl { display: flex; align-items: baseline; gap: 6px; white-space: nowrap; overflow: hidden; font-size: 14px; color: var(--sub); }
+.td2-fl i { font-style: normal; color: var(--muted); font-size: 13px; }
+.td2-fl i.sep { width: 1px; height: 12px; background: var(--line); align-self: center; margin: 0 4px; }
+.td2-fl small { font-size: 12px; margin-left: 2px; }
+.td2-fl small.up { color: var(--up); } .td2-fl small.down { color: var(--down); }
+.td2-fol > summary { display: flex; align-items: center; gap: 6px; }
+.td2-fol > summary::after { flex: none; }
+.td2-btn { display: flex !important; align-items: center; justify-content: center; gap: 8px; border: 1px solid var(--line); border-radius: 12px; min-height: 44px; padding: 0 14px !important; color: var(--sub) !important; background: var(--tile); }
+.td2-btn svg { color: var(--up); }
+.td2-fold[open] > .td2-btn { margin-bottom: 8px; }
+.td2-s1 { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 14px !important; }
+.td2-fl { gap: 4px; font-size: 13.5px; }
+.td2-fl i.sep { margin: 0 5px; }
+.home-more > summary span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
