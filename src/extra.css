@@ -1013,3 +1013,8 @@ body { word-break: keep-all; overflow-wrap: anywhere; }
 .td2-m span { font-size: 14px; }
 .td2-l li small { font-size: 14px; }
 .wa-t > small { font-size: 14px; }
+/* 회색 글 줄이기(2026-10-22): 실행할 조언은 본문색, 설명만 남은 줄은 버튼만 */
+.rx-n, .lt .note { color: var(--fg) !important; font-weight: 500; }
+p.howto-only { margin-top: 4px; }
+p.howto-only .howto { margin-left: 0; }
+.bnav button, .bnav a { font-size: 13px !important; white-space: nowrap; }
