@@ -681,7 +681,7 @@
       const F = {}; (D.fol || []).filter(r => r[1] === c).forEach(r => { F[r[0]] = r[2]; });
       let worst = null;
       for (let k = 0; k < 7; k++) { const d = addDays(w.mon, k); if (d >= w.end) break; const a = F[d], b = F[addDays(d, 1)]; if (a != null && b != null && b - a <= -5 && (!worst || b - a < worst[1])) worst = [d, b - a]; }
-      if (worst) row('bad', chName(c) + ' 팔로워가 줄어든 날§' + md2(worst[0]) + '(' + WK_D[(wdOf(worst[0]) + 6) % 7] + ') 올린 게시물·스토리 확인', worst[1] + '명');
+      if (worst) row('bad', chName(c) + ' 팔로워가 줄어든 날§' + md2(worst[0]) + '(' + WK_D[(wdOf(worst[0]) + 6) % 7] + ')', worst[1] + '명');
     });
     // 이번 주 아직 안 올린 채널(평소 주 1개 이상, 3일 이상 지남)
     if (daysBetween(w.mon, w.end) >= 2) chs.filter(c => OWN.includes(c)).forEach(c => {
@@ -1507,7 +1507,7 @@
       const paced = ['n', 'views', 'fol'].includes(mk);
       const ok = r == null ? null : paced ? r >= pace * 0.95 : r >= 0.95;
       const f = mk === 'hit' ? (v => v == null ? '–' : Math.round(v) + '%') : mk === 'views' || mk === 'avg' ? fmtK : fmt;
-      return '<div class="gl"><div class="gl-h">' + badge(c) + esc({ '잘 된 비율': '히트율', '팔로워 순증': '팔로워 증감', '구독 순증': '구독자 증감' }[g.metric] || g.metric) + '</div><div class="gl-v"><b>' + f(a) + '</b> / ' + f(g.target) + '</div><div class="pbar wide"><i style="width:' + Math.min(100, (r || 0) * 100) + '%;background:' + (ok == null ? 'var(--muted)' : ok ? 'var(--jj)' : 'var(--down-bar)') + '"></i>' + (paced ? '<em style="left:' + (pace * 100) + '%"></em>' : '') + '</div><small class="' + (ok ? 'up' : 'down') + '">' + (r == null ? '아직 데이터가 없어요' : pct0(r) + ' 채움' + (paced ? ' · 오늘 기준 ' + pct0(pace) : '') + (ok ? ' · 순조로움' : '')) + '</small>' + (g.memo ? '<small class="hint">' + esc(g.memo) + '</small>' : '') + '</div>';
+      return '<div class="gl"><div class="gl-h">' + badge(c) + esc({ '잘 된 비율': '히트율', '팔로워 순증': '팔로워 증감', '구독 순증': '구독자 증감' }[g.metric] || g.metric) + '</div><div class="gl-v"><b>' + f(a) + '</b> / ' + f(g.target) + '</div><div class="pbar wide"><i style="width:' + Math.min(100, (r || 0) * 100) + '%;background:' + (ok == null ? 'var(--muted)' : ok ? 'var(--jj)' : 'var(--down-bar)') + '"></i>' + (paced ? '<em style="left:' + (pace * 100) + '%"></em>' : '') + '</div><small class="' + (ok ? 'up' : 'down') + '">' + (r == null ? '아직 데이터가 없어요' : pct0(r) + (paced ? ' · 오늘 목표 ' + pct0(pace) : ' 채움') + (ok ? ' · 순조로움' : '')) + '</small>' + (g.memo ? '<small class="hint">' + esc(g.memo) + '</small>' : '') + '</div>';
     }).join('') + '</div><p class="note">' + (+ym.slice(5, 7)) + '월 · ' + day + '일 기록 기준 · 목표는 스냅샷 시트 「채널 목표」 탭에서 바꿀 수 있어요 · 조회는 이번 달 올린 게시물이 지금까지 받은 조회예요</p>';
   }
 
@@ -3139,13 +3139,13 @@
       const tip = (vb ? '조회 ' + fmt(p.v) + ' · 평소 ' + (vb.k === 'h' ? '올린 지 ' + Math.round(vb.h) + '시간' : '첫날') + ' 조회 ' + fmt(vb.v) : '') + (rx != null ? ' · 반응률 ' + pctA(rx) + (u ? '(평소 ' + pctA(u) + ')' : '') : '');
       const more = [['좋아요', p.l], ['댓글', p.cm], ['공유', p.sh], ['저장', p.sv]].filter(x => x[1] != null && x[1] > 0).map(x => x[0] + ' ' + fmtK(x[1])).join(' · ');
       return '<li data-td="' + i + '" tabindex="0" role="button" aria-label="' + esc(title(p.n)) + ' 열기"' + (tip ? ' title="' + esc(tip) + '"' : '') + '><div class="td2-r1"><span class="td2-c" style="--c:' + chColor(p.c) + '">' + esc(chName(p.c)) + '</span><span class="rt">' + esc(title(p.n)) + '</span>' +
-        (vr != null ? '<b class="num ' + xCls(vr) + '">' + vsP(vr) + '</b>' : '<b class="mu" title="' + esc(wait) + '">' + (yt6 ? '6시간 뒤 비교' : '모으는 중') + '</b>') + '</div>' +
-        '<small class="td2-s1">' + tdAgo(p.at, now) + ' · 조회 ' + fmtK(p.v) + (was > 0 ? '<span class="up">(+' + fmtK(was) + ')</span>' : '') + (r == null || few ? '' : ' · <span class="' + xCls(r) + '">반응 ' + vsP(r) + '</span>') + ((tdItem(p) || {}).co ? ' · 공동작업' : '') + '</small>' +
-        (more ? '<small class="td2-more">' + more + '</small>' : '') + '</li>';
+        (vr != null ? '<b class="num ' + xCls(vr) + '">' + vsP(vr) + '</b>' : '<b class="mu" title="' + esc(wait) + '">' + (yt6 ? '6시간 뒤' : '모으는 중') + '</b>') + '</div><div class="td2-r2">' +
+        '<small class="td2-s1">' + tdAgo(p.at, now) + (r == null || few ? '' : ' · <span class="' + xCls(r) + '">반응 ' + vsP(r) + '</span>') + ((tdItem(p) || {}).co ? ' · 공동작업' : '') + '</small>' +
+        '<small class="td2-v">조회 ' + fmtK(p.v) + (was > 0 ? ' <span class="up">+' + fmtK(was) + '</span>' : '') + '</small></div></li>';
     }).join('');
     const C = tdCurves(P);
     let mo = false; try { mo = localStorage.getItem('sb-td-ch') === '1'; } catch (e) {}
-    const list = L ? '<div class="td2-l"><h3>' + (tp.length ? '어제·오늘 올린 게시물' : '어제 올린 게시물') + '<small>오른쪽 = 조회 평소 대비</small></h3><ol>' + L + '</ol>' +
+    const list = L ? '<div class="td2-l"><h3>' + (tp.length ? '어제·오늘 올린 게시물' : '어제 올린 게시물') + '<small>오른쪽 = 조회 · 평소 대비</small></h3><ol>' + L + '</ol>' +
       (C.length ? '<details class="td2-fold" id="tdChF"' + (mo ? ' open' : '') + '><summary class="td2-btn"><svg viewBox="0 0 20 20" width="18" height="18" aria-hidden="true"><path d="M3 16h14M5 13l4-4 3 3 4-6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>시간별 조회 그래프 보기</summary>' + tdGroups(C).map((g, k, A) => '<div class="td-chh">' + badge(g.c) + '</div><div class="chart" style="height:' + (A.length > 1 ? 160 : 220) + 'px"><canvas id="tdC' + k + '"></canvas></div>').join('') + '<p class="note">1시간마다 받아 둔 값 · 점선 = 같은 형식 평소</p></details>' : '') + '</div>' : '';
     // ⑤ 팔로워 한 줄 + 접은 추이(팔로워 30일 · 유튜브 구독자 1년)
     const FL = [], FT = [];
@@ -3670,7 +3670,18 @@
   const KB_SEL = 'tr.click, tr[data-i], tr[data-s], th[data-bi], .mx td[data-k]:not(.none)';
   function wireKeys() { document.querySelectorAll(KB_SEL).forEach(el => { if (el.hasAttribute('tabindex')) return; el.setAttribute('tabindex', '0'); el.setAttribute('role', 'button'); }); }
   document.addEventListener('keydown', e => { if ((e.key === 'Enter' || e.key === ' ') && e.target.matches && e.target.matches(KB_SEL)) { e.preventDefault(); e.target.click(); } });
-  new MutationObserver(() => { wireScroll(); wireKeys(); }).observe(document.body, { childList: true, subtree: true });
+  function tidySubs() {
+    document.querySelectorAll('.sh p:not([data-tidy]), .race-d:not([data-tidy]), p.note:not([data-tidy])').forEach(p => {
+      p.dataset.tidy = '1';
+      const t = p.textContent.trim(); if (t.length <= 30 || p.querySelector('a,button,select')) return;
+      const i = p.innerHTML.indexOf(' · '); if (i < 0) return;
+      const head = p.innerHTML.slice(0, i), rest = p.innerHTML.slice(i + 3);
+      p.innerHTML = head + ' <button type="button" class="howto" aria-expanded="false">기준</button><span class="howto-t" hidden> · ' + rest + '</span>';
+      const b = p.querySelector('.howto'), x = p.querySelector('.howto-t');
+      b.addEventListener('click', e => { e.stopPropagation(); x.hidden = !x.hidden; b.setAttribute('aria-expanded', String(!x.hidden)); b.textContent = x.hidden ? '기준' : '접기'; });
+    });
+  }
+  new MutationObserver(() => { wireScroll(); wireKeys(); tidySubs(); }).observe(document.body, { childList: true, subtree: true });
   function render() {
     renderBell();
     Object.keys(charts).forEach(k => { if (k !== 'dCanvas') { charts[k].destroy(); delete charts[k]; } });

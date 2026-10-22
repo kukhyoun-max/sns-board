@@ -10,7 +10,7 @@
   --tile: #f9fafb;
   --fg: #191f28;
   --sub: #4e5968;
-  --muted: #5f6b78; /* 글자 대비 4.5:1 이상(이전 #8b95a1은 3.0:1) */
+  --muted: #4e5968; /* 2026-10-22 회색 하나로(토스 grey700, 대비 7.1:1) · 위계는 회색 대신 크기·굵기로 */
   --line: #e5e8eb;
   /* 전주대학교 UI 컬러 — 메인 JJ 블루 #0078AD, 서브 골드 #CAAE65 · 퍼플 #8F7EAB · 그린 #83B093 · 코랄 #D1906A */
   --jj: #0078ad;
@@ -48,8 +48,8 @@
   --chb-bench: #4e5968;
   --font: "Noto Sans KR", "Apple SD Gothic Neo", "Malgun Gothic", system-ui, sans-serif;
   /* 글자 크기 단계 — 화면의 모든 글자는 이 8단계만 쓴다(최소 13px, 본문 16px) */
-  --fs-tag: 13px;   /* 배지·태그·그래프 축 */
-  --fs-xs: 14px;    /* 주석·표 머리·보조 정보 */
+  --fs-tag: 14px;   /* 배지·태그·그래프 축(2026-10-22 13→14: 13px은 「안 읽어도 되는 글」 크기) */
+  --fs-xs: 15px;    /* 주석·표 머리·보조 정보(2026-10-22 14→15) */
   --fs-sm: 15px;    /* 버튼·보조 본문 */
   --fs-md: 16px;    /* 본문·목록 제목 */
   --fs-lg: 18px;    /* 소제목·강조 */
@@ -59,7 +59,7 @@
 }
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
-    --bg: #17171c; --plane: #101013; --tile: #202027; --fg: #f2f3f5; --sub: #c3c8cf; --muted: #8b929c; --line: #2c2c35;
+    --bg: #17171c; --plane: #101013; --tile: #202027; --fg: #f2f3f5; --sub: #c3c8cf; --muted: #aab1ba; --line: #2c2c35;
     --up: #4fb0dd; --up-soft: #12293a; --down: #ff8a5c; --down-soft: #3a2118; --ok: #38d9a9; --ok-soft: #12302a; --ai: #ab9dd6; --ai-soft: #252036; --coral: #ff8a5c; --coral-soft: #3a2118; --jj: #4fb0dd; --navy: #6fa3d6;
     --ch-ig: #f06595; --ch-yt: #74a9e8; --ch-hong: #38d9a9; --ch-b1: #c3c8cf; --ch-b2: #9aa4b1; --ch-b3: #7d8590; --chb-hong: #38d9a9; --chb-bench: #9aa4b1; --st-danger: #ff6b72; --st-danger-soft: #3a1a1d; --ad: rgba(79, 176, 221, .4);
     --down-bar: #ff8a5c; --cat-1: #4fb0dd; --cat-2: #6fa3d6; --cat-3: #ab9dd6; --cat-4: #38d9a9; --cat-5: #5fd3c6; --cat-6: #c3c8cf; --cat-7: #7d8590; --cat-8: #9ccbe3; --cat-9: #d0c4f0; --ws: #5fd3c6; --ws-soft: #12302e;
@@ -68,7 +68,7 @@
   }
 }
 :root[data-theme="dark"] {
-  --bg: #17171c; --plane: #101013; --tile: #202027; --fg: #f2f3f5; --sub: #c3c8cf; --muted: #8b929c; --line: #2c2c35;
+  --bg: #17171c; --plane: #101013; --tile: #202027; --fg: #f2f3f5; --sub: #c3c8cf; --muted: #aab1ba; --line: #2c2c35;
   --up: #4fb0dd; --up-soft: #12293a; --down: #ff8a5c; --down-soft: #3a2118; --ok: #38d9a9; --ok-soft: #12302a; --ai: #ab9dd6; --ai-soft: #252036; --coral: #ff8a5c; --coral-soft: #3a2118; --jj: #4fb0dd; --navy: #6fa3d6;
   --ch-ig: #f06595; --ch-yt: #74a9e8; --ch-hong: #38d9a9; --ch-b1: #c3c8cf; --ch-b2: #9aa4b1; --ch-b3: #7d8590; --chb-hong: #38d9a9; --chb-bench: #9aa4b1; --st-danger: #ff6b72; --st-danger-soft: #3a1a1d; --ad: rgba(79, 176, 221, .4);
   --down-bar: #ff8a5c; --cat-1: #4fb0dd; --cat-2: #6fa3d6; --cat-3: #ab9dd6; --cat-4: #38d9a9; --cat-5: #5fd3c6; --cat-6: #c3c8cf; --cat-7: #7d8590; --cat-8: #9ccbe3; --cat-9: #d0c4f0; --ws: #5fd3c6; --ws-soft: #12302e;
