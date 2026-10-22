@@ -1036,3 +1036,11 @@ p.howto-only .howto { margin-left: 0; }
 @media (max-width: 560px) { .status:has(#tdRe) #st2 { display: none; } }
 .kpi-t.kpi-none:first-child .kbars.wk rect, .kpi-t.kpi-none:first-child .kbars.wk rect.on { fill: var(--line); }
 .kpi-t.kpi-none:first-child .kbars.wk rect.pv { fill: var(--line); opacity: 1; }
+/* 마지막 게시 줄(2026-10-23): 목록 줄과 같은 모양, 누르면 상세 */
+.td-last { display: flex; align-items: center; gap: 12px; width: 100%; margin: 14px 0 0; padding: 12px 0; border: 0; border-top: 1px solid var(--line); background: none; font: inherit; color: inherit; text-align: left; cursor: pointer; }
+.tl-b { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.tl-b small { font-size: 14px; color: var(--muted); font-weight: 600; }
+.tl-b > span { font-size: 15px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.td-last b { flex: none; font-size: 16px; font-weight: 800; }
+.td-last b.up { color: var(--up); } .td-last b.down { color: var(--down); } .td-last b.flat { color: var(--sub); }
+.td2-m + .td-last { border-top: 0; margin-top: 0; }
