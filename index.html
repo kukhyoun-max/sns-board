@@ -2065,7 +2065,10 @@ p.howto-only .howto { margin-left: 0; }
   // 최근 게시물이 평소보다 빠른가(YouTube Realtime 방식) — 지금 조회(올린 지 e일) 또는 기록된 1·3·7일 뒤 값 중 가장 늦은 것 ÷ 같은 형식의 같은 날수 중간값
   function paceOf(it) {
     const age = daysBetween(it.d, D.updated), v = mainVal(it), cand = [];
-    if (age >= 1 && v > 0) cand.push([v, age]);
+    // 유튜브: 평소(「게시 후 조회」)는 분석 API 값이라 1~2일 늦게 채워짐 → 지금 값도 같은 분석 값(기록 it.h)으로 견줌.
+    // 공개 조회수(it.L, 실시간)로 견주면 「실시간 3일치 ÷ 늦은 1~2일치」가 돼 늘 크게 나옴(2026-10-22 「세자리수 퍼센트가 나오는 이유」)
+    const vNow = it.c === '유튜브' ? ((last0(it) || [])[0] || null) : v;
+    if (age >= 1 && vNow > 0) cand.push([vNow, age]);
     (it.ag || []).slice().reverse().forEach(x => { if (x && x[0] > 0 && x[1] >= 1 && x[1] !== age) cand.push(x); });
     for (const [x, e] of cand) { const b = agAt(it.c, it.t, e); if (b && b.m > 0) return { r: x / b.m, e, b }; }
     // 같은 날수 비교 자료가 없으면: 지금까지 조회 ÷ 같은 형식 평소 게시물의 최종 조회(「평소 최종 조회 대비」로 따로 표시)
@@ -4537,7 +4540,8 @@ p.howto-only .howto { margin-left: 0; }
     const b = hb[p.c + '|' + p.t + '|' + Math.round(h)];
     if (b > 0) return { v: b, k: 'h', h: h };
     // 같은 시간 평소가 아직 없으면(시간별 기록은 2026-10-20부터라 같은 형식 3개가 덜 쌓임) 첫날 평소와 견줌
-    const a = agAt(p.c, p.t, 1); if (a && a.m > 0) return { v: a.m, k: 'd', h: h };
+    // 유튜브 첫날 평소는 분석 값이라 늦게 채워져 낮음 → 오늘 칸(공개 조회수)과 견줄 땐 3일째 기록을 첫날 대신 씀(늦은 1~2일 보정)
+    const a = agAt(p.c, p.t, p.c === '유튜브' ? 3 : 1); if (a && a.m > 0) return { v: a.m, k: 'd', h: h };
     return null;
   }
   // 작은 막대 묶음(마지막 = 오늘 진하게) · 칸 폭 전체
@@ -4581,7 +4585,7 @@ p.howto-only .howto { margin-left: 0; }
       const c = g.C[0], mx = Math.ceil(c.a[c.a.length - 1][0]), bl = [];
       for (let h = 0; h <= mx; h++) { const v = hb[c.p.c + '|' + c.p.t + '|' + h]; if (v != null) bl.push({ x: h, y: v }); }
       if (bl.length >= 2) ds.push({ label: '평소', data: bl, borderColor: css('--muted'), borderWidth: 1.5, borderDash: [4, 4], pointRadius: 0, tension: 0.3 });
-      else if (mx >= 20) { const a = agAt(c.p.c, c.p.t, 1); if (a && a.m > 0) ds.push({ label: '첫날 평소', data: [{ x: 0, y: a.m }, { x: mx, y: a.m }], borderColor: css('--muted'), borderWidth: 1.5, borderDash: [4, 4], pointRadius: 0 }); }
+      else if (mx >= 20) { const a = agAt(c.p.c, c.p.t, c.p.c === '유튜브' ? 3 : 1); if (a && a.m > 0) ds.push({ label: '첫날 평소', data: [{ x: 0, y: a.m }, { x: mx, y: a.m }], borderColor: css('--muted'), borderWidth: 1.5, borderDash: [4, 4], pointRadius: 0 }); }
       tdChart('tdC' + k, ds, xMax, xSt);
     });
   }
