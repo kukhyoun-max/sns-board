@@ -788,7 +788,7 @@
       S.raceM = ms.value; save();
       const box = ms.closest('.race'), a = window.__raceArgs; if (!box || !a) return;
       const tmp = document.createElement('div'); tmp.innerHTML = raceHtml(a[0], a[1]); box.replaceWith(tmp.firstChild); wireRace();
-      const n = $('raceM'); if (n) n.focus();
+      // 새 고르기에 focus를 주지 않음(아이폰은 focus만으로 선택 목록이 다시 열림)
     });
     document.querySelectorAll('.race-l li[data-r]').forEach(li => { const go = () => openDetail(L[+li.dataset.r]); li.addEventListener('click', go); li.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); go(); } }); });
   }
