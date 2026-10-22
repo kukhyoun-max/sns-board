@@ -3115,7 +3115,7 @@
     return '<section class="sec td-sec"><div class="sh"><div><h2>오늘</h2><p>' + esc(d.at.slice(11, 16)) + ' 지금 값 · 10분마다 새로 받아요</p></div><div class="top-act">' + since + '<button type="button" class="btn sm" id="tdRe">새로 받기</button></div></div>' +
       '<div class="kpi-row td-k n' + T.length + '">' + T.join('') + '</div>' + (AL.length ? '<div class="td-acct">' + AL.map(x => '<div><span class="ta-l" style="--c:' + chColor(x[0]) + '">' + esc(chName(x[0])) + ' ' + x[1] + '</span><b class="num">' + fmt(x[2]) + '<small>명</small></b>' + (x[3] ? '<em>' + x[3] + '</em>' : '') + '</div>').join('') + '</div>' : '') + tdPlan(d, P) +
       (L ? '<div class="race td-r"><div class="race-h"><h3>' + (tp.length ? '어제·오늘 올린 게시물' : '어제 올린 게시물') + '</h3><span>오른쪽 표시 = 반응, 막대 = 조회 · 둘 다 같은 형식 평소와 비교</span></div><ol class="race-l">' + L + '</ol>' +
-        (tdCurves(P).length ? '<h3 class="sub td-ch">올린 뒤 시간별 조회</h3><div class="chart" style="height:220px"><canvas id="tdC"></canvas></div><p class="note">1시간마다 받아 둔 값 · 점선 = 같은 형식 평소 · 채널마다 조회 크기가 달라 작은 쪽은 바닥에 붙어 보여요</p>' : '') + '</div>' : '') + secClose;
+        (tdCurves(P).length ? '<h3 class="sub td-ch">올린 뒤 시간별 조회</h3>' + tdGroups(tdCurves(P)).map((g, k, A) => '<div class="td-chh">' + badge(g.c) + '</div><div class="chart" style="height:' + (A.length > 1 ? 160 : 220) + 'px"><canvas id="tdC' + k + '"></canvas></div>').join('') + '<p class="note">1시간마다 받아 둔 값 · 점선 = 같은 형식 평소 · 채널마다 조회 크기가 달라 그래프를 나눴어요</p>' : '') + '</div>' : '') + secClose;
   }
   // 오늘 올린 게 없을 때: 마지막 게시물 한 줄(어제 것도 없을 때) + 게시 예정(「공식 SNS 발행 일정」 오늘~7일)
   function tdPlan(d, P) {
@@ -3179,25 +3179,29 @@
     const H = (TD.d && TD.d.hist) || {}, now = new Date(TD.d.ts);
     return P.slice(0, 5).map(p => { const a = (H[p.id] || []).slice(); if (p.v != null) a.push([Math.round((now - new Date(p.at + ':00+09:00')) / 360000) / 10, p.v]); return { p, a }; }).filter(x => x.a.length >= 2);
   }
+  // 채널별로 그래프를 나눔(2026-10-22 「유튜브 그래프도 잘 보이게」): 인스타 수천과 유튜브 수십을 한 세로축에 그리면 유튜브가 바닥에 붙음
+  function tdGroups(C) { return ['인스타그램', 'hong._.video', '유튜브'].map(c => ({ c, C: C.filter(x => x.p.c === c) })).filter(g => g.C.length); }
   function tdDraw() {
-    if (!$('tdC') || !TD.d) return;
-    const P = (TD.d.posts || []).filter(p => TD.chs.includes(p.c)).sort((a, b) => a.at < b.at ? 1 : -1), C = tdCurves(P), hb = TD.d.hbase || {};
-    const dash = [[], [6, 3], [2, 2], [8, 3, 2, 3], [1, 3]], ds = [];
-    let XM = 0;
-    C.forEach((c, i) => {
-      const col = chColor(c.p.c);
-      ds.push({ label: chName(c.p.c) + ' ' + title(c.p.n).slice(0, 5), data: c.a.map(x => ({ x: x[0], y: x[1] })), borderColor: col, backgroundColor: col, borderWidth: 2, borderDash: dash[i % 5], pointRadius: 0, tension: 0.3 });
-      const mx = Math.ceil(c.a[c.a.length - 1][0]), bl = [];
-      XM = Math.max(XM, mx);
+    if (!$('tdC0') || !TD.d) return;
+    const P = (TD.d.posts || []).filter(p => TD.chs.includes(p.c)).sort((a, b) => a.at < b.at ? 1 : -1), G = tdGroups(tdCurves(P)), hb = TD.d.hbase || {};
+    // 가로축은 모든 그래프가 같게(위아래로 시간을 맞춰 보게). 끝은 눈금 간격의 배수로(「25시간」처럼 앞 눈금과 겹치지 않게)
+    const XM = Math.max(...G.map(g => Math.max(...g.C.map(c => Math.ceil(c.a[c.a.length - 1][0])))));
+    const x1 = Math.max(6, XM), xSt = x1 <= 6 ? 2 : x1 <= 12 ? 3 : x1 <= 30 ? 6 : x1 <= 48 ? 12 : 24, xMax = Math.ceil(x1 / xSt) * xSt;
+    G.forEach((g, k) => {
+      const col = chColor(g.c), ds = [];
+      // 같은 채널 안 게시물은 실선 · 두 번째부터 옅게(점선은 평소 표시에만)
+      g.C.forEach((c, i) => ds.push({ label: title(c.p.n).slice(0, 7), data: c.a.map(x => ({ x: x[0], y: x[1] })), borderColor: i ? col + '80' : col, backgroundColor: col, borderWidth: i ? 2 : 2.5, pointRadius: 0, tension: 0.3 }));
+      const c = g.C[0], mx = Math.ceil(c.a[c.a.length - 1][0]), bl = [];
       for (let h = 0; h <= mx; h++) { const v = hb[c.p.c + '|' + c.p.t + '|' + h]; if (v != null) bl.push({ x: h, y: v }); }
-      if (i === 0 && bl.length >= 2) ds.push({ label: '평소', data: bl, borderColor: css('--muted'), borderWidth: 1.5, borderDash: [4, 4], pointRadius: 0, tension: 0.3 });
-      else if (i === 0 && mx >= 20) { const a = agAt(c.p.c, c.p.t, 1); if (a && a.m > 0) ds.push({ label: '첫날 평소', data: [{ x: 0, y: a.m }, { x: mx, y: a.m }], borderColor: css('--muted'), borderWidth: 1.5, borderDash: [4, 4], pointRadius: 0 }); }
+      if (bl.length >= 2) ds.push({ label: '평소', data: bl, borderColor: css('--muted'), borderWidth: 1.5, borderDash: [4, 4], pointRadius: 0, tension: 0.3 });
+      else if (mx >= 20) { const a = agAt(c.p.c, c.p.t, 1); if (a && a.m > 0) ds.push({ label: '첫날 평소', data: [{ x: 0, y: a.m }, { x: mx, y: a.m }], borderColor: css('--muted'), borderWidth: 1.5, borderDash: [4, 4], pointRadius: 0 }); }
+      tdChart('tdC' + k, ds, xMax, xSt);
     });
-    // 가로축 끝을 눈금 간격의 배수로(끝 눈금이 「25시간」처럼 앞 눈금과 겹치지 않게)
-    const x1 = Math.max(6, XM), xSt = x1 <= 6 ? 2 : x1 <= 12 ? 3 : x1 <= 24 ? 6 : 12, xMax = Math.ceil(x1 / xSt) * xSt;
-    draw('tdC', { type: 'line', data: { datasets: ds }, plugins: [endLabels],
+  }
+  function tdChart(id, ds, xMax, xSt) {
+    draw(id, { type: 'line', data: { datasets: ds }, plugins: [endLabels],
       options: chartOpts({ layout: { padding: { top: 12, right: 104 } }, plugins: { endLabels: { max: 9 }, tooltip: { callbacks: { title: it => '올린 지 ' + it[0].raw.x + '시간', label: c => c.dataset.label + ' 조회 ' + fmt(c.raw.y) } } },
-        scales: { x: { type: 'linear', min: 0, max: xMax, ticks: { stepSize: xSt, maxRotation: 0, autoSkip: true, maxTicksLimit: 6, callback: v => v + '시간' } }, y: { display: true, position: 'right', grid: { color: css('--line') }, border: { display: false }, ticks: { maxTicksLimit: 4, font: { size: 13 }, color: css('--muted'), callback: v => fmtK(v) } } } }) });
+        scales: { x: { type: 'linear', min: 0, max: xMax, ticks: { stepSize: xSt, maxRotation: 0, autoSkip: false, callback: v => v === xMax ? v + '시간' : v } }, y: { display: true, position: 'right', afterFit: sc => { sc.width = 52; }, grid: { color: css('--line') }, border: { display: false }, ticks: { maxTicksLimit: 4, font: { size: 13 }, color: css('--muted'), callback: v => fmtK(v) } } } }) });
   }
   function tdSaveSeen() {
     const d = TD.d; if (!d) return;
