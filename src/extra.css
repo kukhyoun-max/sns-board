@@ -1000,3 +1000,16 @@ button.wa-r { cursor: pointer; }
 .td2-fl { gap: 4px; font-size: 13.5px; }
 .td2-fl i.sep { margin: 0 5px; }
 .home-more > summary span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+/* 가독성 기준(2026-10-22 레퍼런스 조사): 줄 간격 1.5·낱말 단위 줄바꿈, 읽는 글은 14px 이상, 목록 한 칸 2줄, 긴 부제는 「기준」으로 접기 */
+body { word-break: keep-all; overflow-wrap: anywhere; }
+.sh p, .race-d, .note, .kpi-s, .wa-t, .td2-sub { line-height: 1.5; }
+.howto { border: 0; background: var(--plane); color: var(--sub); font: inherit; font-size: 13px; font-weight: 700; border-radius: 999px; padding: 2px 9px; margin-left: 4px; cursor: pointer; vertical-align: 1px; }
+.td2-r2 { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
+.td2-r2 .td2-s1 { flex: 1; min-width: 0; }
+.td2-v { flex: none; font-size: 14px !important; color: var(--sub) !important; }
+.td2-c { font-size: 13px; }
+.td2-m small, .td2-l h3 small, .td2-fl small { font-size: 13px; }
+.td2-m span { font-size: 14px; }
+.td2-l li small { font-size: 14px; }
+.wa-t > small { font-size: 14px; }
