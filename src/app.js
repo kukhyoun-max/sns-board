@@ -50,6 +50,9 @@
   const pctA = v => (v == null || isNaN(v)) ? '–' : (v * 100).toFixed(Math.abs(v) < 0.01 ? 2 : 1) + '%';
   const pct0 = v => (v == null || isNaN(v)) ? '–' : Math.round(v * 100) + '%';
   // 0.1배 미만은 「0.00배」처럼 보이지 않게 「0.1배 미만」으로
+  // 평소와 비교(2026-10-22 「평소 대비 -00% 이렇게 쓰면 이해하기 쉬울 것 같아」): 2배 미만은 「평소 대비 −70%」·「+30%」, 2배부터는 「평소의 3.5배」(%가 너무 커져 읽기 어려움)
+  const vsP = r => r == null || isNaN(r) ? '–' : r >= 2 ? xf(r) : Math.round((r - 1) * 100) === 0 ? '±0%' : (r > 1 ? '+' : '−') + Math.abs(Math.round((r - 1) * 100)) + '%';
+  const vsTxt = r => r != null && r >= 2 ? '평소의 ' + xf(r) : '평소 대비 ' + vsP(r);
   const xf = v => (v == null || isNaN(v)) ? '–' : v < 0.1 ? '0.1배 미만' : v.toFixed(1) + '배';
   // 평소 대비의 기준 지표: 우리 채널 = 조회, 타 대학 = 좋아요
   const mW = ch => MN[mainM(ch)], vW = () => S.ch === '타 대학' ? '좋아요' : '조회';
@@ -3108,7 +3111,7 @@
       const tip = few ? (p.c === '인스타그램' ? '도달 ' : '조회 ') + fmt(den) + ' · ' + TD_MIN[p.c === '인스타그램' ? 0 : 1] + ' 넘으면 반응을 판정해요' : rx == null ? '' : '반응률 ' + pctA(rx) + (u ? ' · 평소 ' + pctA(u) + ' · 평소 = 같은 형식 최근 1년 중간값' : ' · 같은 형식 게시물이 적어 비교 전');
       const nums = [['조회', p.v], ['좋아요', p.l], ['댓글', p.cm], ['공유', p.sh], ['저장', p.sv]].filter(x => x[1] != null && (x[0] !== '댓글' || x[1] > 0)).map(x => x[0] + ' ' + fmtK(x[1])).join(' · ');
       return '<li data-td="' + i + '" tabindex="0" role="button" aria-label="' + esc(title(p.n)) + ' 열기"><div class="race-t">' + badge(p.c) + '<span class="rt">' + esc(title(p.n)) + '</span>' +
-        '<b class="tier ' + (t ? t[1] : 'na') + '"' + (tip ? ' title="' + esc(tip) + '"' : '') + '>' + (t ? '반응 ' + t[0] + (t[1] === 'mid' ? '' : ' ' + xf(r)) : few ? '모으는 중' : '비교 전') + '</b></div>' +
+        '<b class="tier ' + (t ? t[1] : 'na') + '"' + (tip ? ' title="' + esc(tip) + '"' : '') + '>' + (t ? '반응 ' + t[0] + (t[1] === 'mid' ? '' : ' ' + vsP(r)) : few ? '모으는 중' : '비교 전') + '</b></div>' +
         '<small>' + tdAgo(p.at, now) + ' 올림 · ' + ((tdItem(p) || {}).co ? '공동작업 · ' : '') + nums + (was > 0 ? ' · <span class="up">지난번보다 +' + fmtK(was) + '</span>' : '') + '</small>' + tdRowBar(p, now) + '</li>';
     }).join('');
     const since = sn ? '<span class="td-since">지난번 확인 ' + esc(sn.at.slice(11, 16)) + '</span>' : '';
@@ -3172,7 +3175,7 @@
     const r = p.v / b.v, w = Math.min(100, r / 3 * 100);
     // 올린 지 20시간 전인데 첫날(하루) 평소와 견줄 때는 아직 덜 모인 게 당연해서, 낮음 대신 「첫날 평소까지 N%」 진행률로
     if (b.k === 'd' && b.h < 20 && r < 1) return '<div class="td-bar" title="' + esc('조회 ' + fmt(p.v) + ' · 같은 형식 첫날 평소 ' + fmt(b.v) + ' · 올린 지 ' + Math.round(b.h) + '시간') + '"><span class="td-bt"><i class="pg" style="width:' + (r * 100).toFixed(1) + '%"></i></span><b class="num mu">첫날 평소까지 ' + Math.round(r * 100) + '%</b></div>';
-    return '<div class="td-bar" title="' + esc('조회 ' + fmt(p.v) + ' · 평소 ' + (b.k === 'h' ? '올린 지 ' + Math.round(b.h) + '시간' : '첫날') + ' 조회 ' + fmt(b.v)) + '"><span class="td-bt"><i class="' + (r >= 1 ? 'up' : 'down') + '" style="width:' + w.toFixed(1) + '%"></i><s style="left:33.3%"></s></span><b class="num ' + xCls(r) + '">' + (b.k === 'h' ? '같은 시간까지 조회 평소의 ' : '첫날 조회 평소의 ') + xf(r) + '</b></div>';
+    return '<div class="td-bar" title="' + esc('조회 ' + fmt(p.v) + ' · 평소 ' + (b.k === 'h' ? '올린 지 ' + Math.round(b.h) + '시간' : '첫날') + ' 조회 ' + fmt(b.v)) + '"><span class="td-bt"><i class="' + (r >= 1 ? 'up' : 'down') + '" style="width:' + w.toFixed(1) + '%"></i><s style="left:33.3%"></s></span><b class="num ' + xCls(r) + '">' + (b.k === 'h' ? '같은 시간까지 조회 ' : '첫날 조회 ') + vsTxt(r) + '</b></div>';
   }
   // 시간별 곡선: 게시물마다 [경과(시간), 조회] + 지금 값. 점이 2개 이상인 것만
   function tdCurves(P) {
