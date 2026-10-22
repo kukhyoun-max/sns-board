@@ -1184,6 +1184,20 @@ button.wa-r { cursor: pointer; }
 .race-d { margin: 0 0 4px; font-size: var(--fs-tag); color: var(--muted); }
 .race-m select { padding-right: 22px; }
 .race-m select { font-size: 14px; padding: 5px 22px 5px 12px; }
+
+/* 점검 B(2026-10-22): 홈 아래 구역 접기 · 값 없는 첫 칸은 강조 안 함 · 홀수 칸은 마지막 칸을 넓게 */
+.home-more { margin-top: 16px; }
+.home-more > summary { list-style: none; cursor: pointer; display: flex; align-items: baseline; gap: 10px; padding: 16px 18px; background: var(--tile); border: 1px solid var(--line); border-radius: 16px; }
+.home-more > summary::-webkit-details-marker { display: none; }
+.home-more > summary b { font-size: var(--fs-md); color: var(--fg); }
+.home-more > summary span { font-size: var(--fs-tag); color: var(--muted); flex: 1; min-width: 0; }
+.home-more > summary::after { content: "\25BE"; color: var(--muted); }
+.home-more[open] > summary::after { content: "\25B4"; }
+.kpi-t.empty:first-child { background: var(--tile); color: inherit; box-shadow: none; border-color: var(--line); }
+.kpi-t.empty:first-child .kpi-l { color: var(--sub); }
+.kpi-t.empty:first-child .kpi-s { color: var(--muted); }
+.kpi-t.empty:first-child .kpi-v { color: var(--muted); }
+@media (max-width: 560px) { .kpi-row.n3 > .kpi-t:last-child, .kpi-row.n5 > .kpi-t:last-child { grid-column: span 2; } }
 </style>
 
 <div class="app" id="app">
@@ -1504,21 +1518,26 @@ button.wa-r { cursor: pointer; }
     const chs = viewChannels();
     const cur = pool({ channels: chs, since: addDays(D.updated, -30) });
     const low = cur.filter(it => judged(it) && ratio(it) < 0.5).sort((a, b) => ratio(a) - ratio(b)).slice(0, 3);
-    let html = '<div id="today">' + todayShell(chs) + '</div>' + topHtml(chs) + '<div class="gap"></div>' + weekHtml(chs) + '<div class="gap"></div>' + trendHtml(chs) + (chs.length === 1 ? '<div id="deep"></div>' : '');
+    let html = '<div id="today">' + todayShell(chs) + '</div>' + topHtml(chs);
     // 용어 뜻은 맨 아래 접은 칸으로, 조건 설명 줄은 제목에 마우스를 올리면
     html += '<div class="gap"></div><section class="sec"><div class="sh"><div><h2>점검할 것</h2><p>최근 3달 분류별 · 평소보다 낮은 콘텐츠</p></div></div>' +
       briefText(chs).replace('style="padding:18px 0 0"', 'style="padding:0 0 18px"') +
       '<h3 class="sub" title="최근 30일 · 올린 지 ' + AGE_MIN + '일 지남 · 조회 평소 대비 −50% 아래 · 다음 기획 때 제목·첫 장·썸네일 점검">평소보다 낮은 콘텐츠</h3><ol class="rank" id="bLow">' + (low.length ? rankRows(low) : '<li class="empty">' + ICO.check + ' 평소보다 낮은 콘텐츠가 없어요</li>') + '</ol>' +
       '<details class="fold"><summary>용어 뜻</summary>' + defsHtml() + '</details>' + secClose;
     if (S.ch !== '전체') html += secOpen('최근 3달 분류별 성과', '분류별 조회 평소 대비 중간값 · 누르면 그 분류 콘텐츠') + '<div class="bars" id="bCat"></div>' + secClose;
-    html += yearlyHtml(S.ch === '전체' ? OWN : chs);
-    if (S.ch === '전체' && benchNames().length) html += '<div class="gap"></div>' + benchCmpHtml();
+    // 홈이 휴대폰에서 7,000px 넘게 길어서(점검 6번) 아래 구역은 접어 둠
+    const more = [['채널별 증가', weekHtml(chs)], ['채널 현황', trendHtml(chs) + (chs.length === 1 ? '<div id="deep"></div>' : '')], ['연도별', yearlyHtml(S.ch === '전체' ? OWN : chs)]]
+      .concat(S.ch === '전체' && benchNames().length ? [['타 대학 비교', benchCmpHtml()]] : []).filter(x => x[1]);
+    let mo = false; try { mo = localStorage.getItem('sb-home-more') === '1'; } catch (e) {}
+    html += '<details class="home-more"' + (mo ? ' open' : '') + ' id="homeMore"><summary><b>더 보기</b><span>' + more.map(x => x[0]).join(' · ') + '</span></summary>' + more.map(x => '<div class="gap"></div>' + x[1]).join('') + '</details>';
     html += advHtml();
     $('view').innerHTML = html;
     wireWeek(); wireTrend(); wireBenchCmp(); wireAdv(); wireTop(chs);
     wireRank($('bLow'), low);
     if (S.ch !== '전체') bars('bCat', groupBy(pool({ channels: chs, since: addDays(D.updated, -90) }), 'g').filter(r => r.n >= MIN_N).sort(byIdx), subN, k => { S.view = 'explore'; S.g = k; render(); window.scrollTo({ top: 0 }); });
     wireBrief(); wireDeep(chs); wireToday(chs);
+    // 접힌 칸 안 그래프는 폭이 0으로 그려져서, 펼칠 때 크기를 다시 잼
+    const hm = $('homeMore'); if (hm) hm.addEventListener('toggle', () => { try { localStorage.setItem('sb-home-more', hm.open ? '1' : '0'); } catch (e) {} if (hm.open) Object.keys(charts).forEach(k => { try { charts[k].resize(); } catch (e) {} }); });
   }
   // 연도별 추이 — 게시일 기준 연간 요약. 인스타 과거 기록(엑셀 기록 시기)까지 포함
   function yearlyHtml(chs) {
@@ -1581,7 +1600,7 @@ button.wa-r { cursor: pointer; }
       // 채널마다 한 줄: 분류 이름 + 판정 칩(조회 평소 대비), 게시물 수·히트율은 마우스 올림
       const t = g[0], w = g.length > 1 ? g[g.length - 1] : null;
       const cell = (lab, r) => { const tr = tierOf(r.idx); return '<div class="ir-c" title="' + esc(lab + ' · 조회 ' + vsTxt(r.idx) + ' · 게시물 ' + r.n + '개 · 히트율 ' + pct0(r.hit)) + '"><span class="ir-l">' + lab + '</span><b>' + esc(r.k) + '</b><span class="tier ' + tr[1] + '">' + vsP(r.idx) + '</span></div>'; };
-      R.push('<div class="ir">' + badge(ch) + '<div class="ir-g">' + cell(t && t.idx != null && t.idx < 1 ? '그나마 나은' : '가장 나은', t) + (w ? cell('가장 약한', w) : '') + '</div></div>');
+      R.push('<div class="ir">' + badge(ch) + '<div class="ir-g">' + cell(t && t.idx != null && t.idx < 1 ? '덜 낮은' : '가장 나은', t) + (w ? cell('가장 약한', w) : '') + '</div></div>');
     });
     const ig = pool({ channels: ['인스타그램'], since: addDays(D.updated, -90) }).filter(it => ratio(it) != null);
     const ft = own.includes('인스타그램') ? groupBy(ig.filter(it => it.r > 0), 't').map(r => ({ k: r.k, n: r.n, rv: median(r.arr.map(it => it.r)) })).filter(r => r.n >= 5 && r.rv > 0).sort((a, b) => b.rv - a.rv) : [];
@@ -1857,7 +1876,7 @@ button.wa-r { cursor: pointer; }
       t.push(kpiTile('이번 주 게시물 판정', w.posts.length ? good + '<small>개 잘 됨</small>' : '–', w.posts.length ? w.posts.length + '개 중 · 낮음 ' + low + '개' : '아직 없어요', '',
         w.posts.length ? '<div class="tdots">' + J.map((x, i) => '<i class="tier ' + (x ? x[1] : 'na') + '" title="' + esc(title(w.posts[i].n) + ' · ' + (x ? x[0] : '비교 전')) + '"></i>').join('') + '</div>' : ''));
     }
-    if (t.length % 2) t.push(kpiTile('다음 기록', '<small>하루 4번</small>', '8·12·16·20시에 새로 받아요'));
+    if (w.cur == null && t.length) t[0] = t[0].replace('<div class="kpi-t', '<div class="kpi-t empty');
     return '<div class="kpi-row n' + t.length + '">' + t.join('') + '</div>';
   }
   // 지금 볼 것: 갱신할 때마다 다시 계산하는 주의 목록(최대 4줄). 게시물 줄은 누르면 상세
@@ -1973,14 +1992,16 @@ button.wa-r { cursor: pointer; }
     window.__raceArgs = [chs, w];
     const m = RACE_M.some(x => x[0] === S.raceM) ? S.raceM : 'v', mn = RACE_M.find(x => x[0] === m)[1];
     const all = D.items.filter(it => chs.includes(it.c) && OWN.includes(it.c) && it.t !== '스토리' && (S.ads || !it.ad)).sort((a, b) => a.d < b.d ? 1 : a.d > b.d ? -1 : 0);
-    const wk = w ? all.filter(it => it.d >= w.mon) : [];
-    const L = wk.length ? wk.slice(0, 8) : all.filter(it => daysBetween(it.d, D.updated) <= 14).slice(0, 4);
+    // 어제·오늘 올린 건 위 「오늘」 목록에 있어 뺌(점검 7번: 홈에 같은 게시물이 세 번 나옴)
+    const kst = new Date(Date.now() + 9 * 3600000).toISOString().slice(0, 10), y1 = addDays(kst, -1), cut = it => it.d < y1;
+    const wk = w ? all.filter(it => it.d >= w.mon && cut(it)) : [];
+    const L = wk.length ? wk.slice(0, 8) : all.filter(it => cut(it) && daysBetween(it.d, D.updated) <= 14).slice(0, 4);
     window.__race = L;
     if (!L.length) return '';
     // 한 줄 = 채널 · 제목 · 판정 칩(밤 브리핑과 같은 단계). 비교 기준은 칩에 마우스를 올리면
     const sel = '<label class="race-m"><select id="raceM" aria-label="볼 값 고르기">' + RACE_M.map(x => '<option value="' + x[0] + '"' + (x[0] === m ? ' selected' : '') + '>' + x[1] + '</option>').join('') + '</select></label>';
     const how = m === 'v' || m === 'reach' ? '칩 = 같은 형식 평소와 비교' : '칩 = 도달(유튜브는 조회) 대비 비율을 같은 형식 평소와 비교';
-    return '<div class="race"><div class="race-h"><h3>' + (wk.length ? '이번 주 올린 게시물' : '최근 게시물') + '</h3>' + sel + '</div><p class="race-d">' + how + '</p><ol class="race-l">' + L.map((it, i) => {
+    return '<div class="race"><div class="race-h"><h3>' + (wk.length ? '이번 주 올린 게시물' : '최근 게시물') + '</h3>' + sel + '</div><p class="race-d">' + how + ' · 어제·오늘 것은 위 「오늘」에</p><ol class="race-l">' + L.map((it, i) => {
       const q = raceVal(it, m), r = q.r, t = r == null ? null : tierOf(r), tip = q.tip;
       return '<li data-r="' + i + '" tabindex="0" role="button" aria-label="' + esc(title(it.n)) + ' 상세 보기"><div class="race-t">' + badge(it.c) + '<span class="rt">' + esc(title(it.n)) + '</span>' +
         '<b class="tier ' + (t ? t[1] : 'na') + '"' + (tip ? ' title="' + esc(tip) + '"' : '') + '>' + (t ? t[0] + (t[1] === 'mid' ? '' : ' ' + vsP(r)) : '비교 전') + '</b></div>' +
@@ -2704,7 +2725,7 @@ button.wa-r { cursor: pointer; }
       const paced = ['n', 'views', 'fol'].includes(mk);
       const ok = r == null ? null : paced ? r >= pace * 0.95 : r >= 0.95;
       const f = mk === 'hit' ? (v => v == null ? '–' : Math.round(v) + '%') : mk === 'views' || mk === 'avg' ? fmtK : fmt;
-      return '<div class="gl"><div class="gl-h">' + badge(c) + esc({ '잘 된 비율': '히트율', '팔로워 순증': '팔로워 증감', '구독 순증': '구독자 증감' }[g.metric] || g.metric) + '</div><div class="gl-v"><b>' + f(a) + '</b> / ' + f(g.target) + '</div><div class="pbar wide"><i style="width:' + Math.min(100, (r || 0) * 100) + '%;background:' + (ok == null ? 'var(--muted)' : ok ? 'var(--jj)' : 'var(--down-bar)') + '"></i>' + (paced ? '<em style="left:' + (pace * 100) + '%"></em>' : '') + '</div><small class="' + (ok ? 'up' : 'down') + '">' + (r == null ? '아직 데이터가 없어요' : '목표의 ' + pct0(r) + (paced ? ' · 오늘까지 ' + pct0(pace) + '쯤 와 있으면 돼요' : '') + (ok ? ' · 순조로워요' : ' · 조금 더 속도를 내야 해요')) + '</small>' + (g.memo ? '<small class="hint">' + esc(g.memo) + '</small>' : '') + '</div>';
+      return '<div class="gl"><div class="gl-h">' + badge(c) + esc({ '잘 된 비율': '히트율', '팔로워 순증': '팔로워 증감', '구독 순증': '구독자 증감' }[g.metric] || g.metric) + '</div><div class="gl-v"><b>' + f(a) + '</b> / ' + f(g.target) + '</div><div class="pbar wide"><i style="width:' + Math.min(100, (r || 0) * 100) + '%;background:' + (ok == null ? 'var(--muted)' : ok ? 'var(--jj)' : 'var(--down-bar)') + '"></i>' + (paced ? '<em style="left:' + (pace * 100) + '%"></em>' : '') + '</div><small class="' + (ok ? 'up' : 'down') + '">' + (r == null ? '아직 데이터가 없어요' : pct0(r) + ' 채움' + (paced ? ' · 오늘 기준 ' + pct0(pace) : '') + (ok ? ' · 순조로움' : '')) + '</small>' + (g.memo ? '<small class="hint">' + esc(g.memo) + '</small>' : '') + '</div>';
     }).join('') + '</div><p class="note">' + (+ym.slice(5, 7)) + '월 · ' + day + '일 기록 기준 · 목표는 스냅샷 시트 「채널 목표」 탭에서 바꿀 수 있어요 · 조회는 이번 달 올린 게시물이 지금까지 받은 조회예요</p>';
   }
 
@@ -2809,7 +2830,7 @@ button.wa-r { cursor: pointer; }
     if (own) {
       const gh = goalsHtml();
       // 빈 설정 안내는 종 알림으로 옮기고 화면에는 한 줄만(원칙 9)
-      top += secOpen('이번 달 목표', gh ? '목표를 얼마나 채웠는지 · 세로선 = 오늘 날짜면 와 있어야 할 위치' : '') + (gh || '<p class="note">목표가 아직 없어요 · 오른쪽 위 알림에서 적는 법을 볼 수 있어요</p>') + secClose;
+      top += secOpen('이번 달 목표', gh ? '목표를 얼마나 채웠는지 · 세로선(오늘 기준) = 오늘까지 와 있어야 할 위치 · 주황 = 뒤처짐' : '') + (gh || '<p class="note">목표가 아직 없어요 · 오른쪽 위 알림에서 적는 법을 볼 수 있어요</p>') + secClose;
       top += secOpen('이번 주 처방', (ch ? '' : esc(scopeLabel()) + ' · ') + '잘 되는데 최근 2달 덜 올린 것 · 많이 올렸는데 약한 것') + rxHtml(RX) + secClose;
       top += secOpen('시도한 전략 채점', '「전략 기록」 탭에 적은 시도가 평소보다 잘 됐는지 채점해요') + stratHtml() + secClose;
       top += secOpen('잘 되는 조건', '해당 게시물과 나머지가 25% 넘게 차이 나는 조건만 골랐어요') + rulesHtml(chs) + secClose;
@@ -3096,8 +3117,8 @@ button.wa-r { cursor: pointer; }
     let html = '<section class="sec"><div class="sh"><div><h2>입시 시즌 리포트</h2><p>수시 8~9월 · 정시 12~1월 · ' + esc(scopeLabel()) + ' · 수치는 ' + mdLabel(D.updated) + '까지 받은 값</p></div>' + selHtml + '</div>' +
       // 홈과 같은 정사각형 KPI 4장(짝수) · 이름·설명은 한 줄, 정의는 마우스 올림
       '<div class="kpi-row n4">' +
-        kpiTile('시즌 게시물', st.org.length + '<small>개</small>', '입시·모집 ' + st.adm.length + '개' + (st.admIdx == null ? '' : ' · 조회 ' + vsTxt(st.admIdx))) +
-        kpiTile('<span title="광고 영상 조회 제외">광고 뺀 조회</span>', fmtK(st.orgV), '' + vsTxt(st.idx) + ' · 히트율 ' + pct0(st.hit)) +
+        kpiTile('시즌 게시물', st.org.length + '<small>개</small>', '입시·모집 ' + st.adm.length + '개' + (st.admIdx == null ? '' : ' · 평소 ' + vsP(st.admIdx))) +
+        kpiTile('<span title="광고 영상 조회 제외">광고 뺀 조회</span>', fmtK(st.orgV), '평소 ' + vsP(st.idx) + ' · 히트율 ' + pct0(st.hit)) +
         kpiTile('<span title="구글애즈 계정 전체 · 동영상·디스플레이 · 위 채널 탭과 관계없음">구글애즈 광고비</span>', st.covered ? fmtK(st.cost) + '<small>원</small>' : '–', st.covered ? (st.adV ? '조회 1회당 ' + fmt(st.cost / st.adV) + '원' : '연결된 광고 영상 없음') : (D.ads && D.ads.end ? '광고 보고서 ' + dot(D.ads.end) + '까지' : '광고 보고서 없음')) +
         kpiTile('광고 영상', st.ad.length + '<small>개</small>', '조회 ' + fmtK(st.adV) + (st.covered ? ' · 캠페인 ' + st.camps.length + '개' : '')) +
       '</div></section>';
@@ -4298,7 +4319,7 @@ button.wa-r { cursor: pointer; }
     const cnt = days.map(x => x === today ? tp.length : D.items.filter(it => own.includes(it.c) && it.t !== '스토리' && it.d === x).length);
     const avg = sum(cnt.slice(0, 13)) / 13, dow = (new Date(today + 'T00:00:00Z').getUTCDay() + 6) % 7, wk = sum(cnt.slice(13 - dow)); // 이번 주 = 월요일~오늘
     T.push(kpiTile('오늘 올린 게시물', tp.length + '<small>개</small>', tp.length ? [...new Set(tp.map(p => p.c))].map(c => chName(c) + ' ' + tp.filter(p => p.c === c).length).join(' · ') : P.length ? '오늘은 아직 없어요 · 아래 목록은 어제 올린 ' + P.length + '개' : '아직 없어요', '',
-      tdBars(cnt, '최근 2주 하루 게시 수 · 이번 주 ' + wk + '개 · 평소 하루 ' + (Math.round(avg * 10) / 10))));
+      tdBars(cnt, '최근 2주 하루 게시 수 · 이번 주 ' + wk + '개 · ' + (Math.round(avg * 10) / 10) + '개/일')));
     // ② 조회: 지금 vs 평소 같은 시간(지난 게시물이 올린 지 같은 시간에 받은 조회) — 없으면 평소 첫날 조회
     const vs = sum(P.map(p => p.v));
     if (P.length) {
@@ -4345,7 +4366,7 @@ button.wa-r { cursor: pointer; }
     const st = (d.story || []).filter(x => chs.includes(x.ch));
     if (st.length && T.length < 4) T.push(kpiTile('오늘 스토리 조회', fmtK(sum(st.map(x => x.views))), '스토리 ' + st.length + '개 · 1시간마다 받아요'));
     // 칸이 홀수면 「다음 기록」으로 짝을 맞춤(기본 기록은 하루 4번, 이 칸의 값은 10분마다)
-    if (T.length % 2) { const h = +d.at.slice(11, 13), nx = [8, 12, 16, 20].find(x => x > h); T.push(kpiTile('다음 기록', (nx ? '오늘 ' + nx : '내일 8') + '<small>시</small>', '하루 4번 · 8·12·16·20시')); }
+    if (false) { const h = +d.at.slice(11, 13), nx = [8, 12, 16, 20].find(x => x > h); T.push(kpiTile('다음 기록', (nx ? '오늘 ' + nx : '내일 8') + '<small>시</small>', '하루 4번 · 8·12·16·20시')); }
     window.__td = P;
     const L = P.slice(0, 6).map((p, i) => {
       // 조회(인스타는 도달)가 너무 적으면 좋아요 하나로 「대박」·「낮음」이 갈려서 판정하지 않음(유튜브는 공개 조회수가 올린 직후 늦게 올라가 더 들쭉날쭉)

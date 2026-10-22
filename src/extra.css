@@ -910,3 +910,17 @@ button.wa-r { cursor: pointer; }
 .race-d { margin: 0 0 4px; font-size: var(--fs-tag); color: var(--muted); }
 .race-m select { padding-right: 22px; }
 .race-m select { font-size: 14px; padding: 5px 22px 5px 12px; }
+
+/* 점검 B(2026-10-22): 홈 아래 구역 접기 · 값 없는 첫 칸은 강조 안 함 · 홀수 칸은 마지막 칸을 넓게 */
+.home-more { margin-top: 16px; }
+.home-more > summary { list-style: none; cursor: pointer; display: flex; align-items: baseline; gap: 10px; padding: 16px 18px; background: var(--tile); border: 1px solid var(--line); border-radius: 16px; }
+.home-more > summary::-webkit-details-marker { display: none; }
+.home-more > summary b { font-size: var(--fs-md); color: var(--fg); }
+.home-more > summary span { font-size: var(--fs-tag); color: var(--muted); flex: 1; min-width: 0; }
+.home-more > summary::after { content: "\25BE"; color: var(--muted); }
+.home-more[open] > summary::after { content: "\25B4"; }
+.kpi-t.empty:first-child { background: var(--tile); color: inherit; box-shadow: none; border-color: var(--line); }
+.kpi-t.empty:first-child .kpi-l { color: var(--sub); }
+.kpi-t.empty:first-child .kpi-s { color: var(--muted); }
+.kpi-t.empty:first-child .kpi-v { color: var(--muted); }
+@media (max-width: 560px) { .kpi-row.n3 > .kpi-t:last-child, .kpi-row.n5 > .kpi-t:last-child { grid-column: span 2; } }
