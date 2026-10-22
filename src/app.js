@@ -772,8 +772,8 @@
     if (!L.length) return '';
     // 한 줄 = 채널 · 제목 · 판정 칩(밤 브리핑과 같은 단계). 비교 기준은 칩에 마우스를 올리면
     const sel = '<label class="race-m"><select id="raceM" aria-label="볼 값 고르기">' + RACE_M.map(x => '<option value="' + x[0] + '"' + (x[0] === m ? ' selected' : '') + '>' + x[1] + '</option>').join('') + '</select></label>';
-    const how = m === 'v' || m === 'reach' ? '같은 형식 평소 대비' : '도달(유튜브는 조회) 대비 비율 · 같은 형식 평소 대비';
-    return '<div class="race"><div class="race-h"><h3>' + (wk.length ? '이번 주 올린 게시물' : '최근 게시물') + '</h3><span>' + sel + ' · ' + how + '</span></div><ol class="race-l">' + L.map((it, i) => {
+    const how = m === 'v' || m === 'reach' ? '칩 = 같은 형식 평소와 비교' : '칩 = 도달(유튜브는 조회) 대비 비율을 같은 형식 평소와 비교';
+    return '<div class="race"><div class="race-h"><h3>' + (wk.length ? '이번 주 올린 게시물' : '최근 게시물') + '</h3>' + sel + '</div><p class="race-d">' + how + '</p><ol class="race-l">' + L.map((it, i) => {
       const q = raceVal(it, m), r = q.r, t = r == null ? null : tierOf(r), tip = q.tip;
       return '<li data-r="' + i + '" tabindex="0" role="button" aria-label="' + esc(title(it.n)) + ' 상세 보기"><div class="race-t">' + badge(it.c) + '<span class="rt">' + esc(title(it.n)) + '</span>' +
         '<b class="tier ' + (t ? t[1] : 'na') + '"' + (tip ? ' title="' + esc(tip) + '"' : '') + '>' + (t ? t[0] + (t[1] === 'mid' ? '' : ' ' + vsP(r)) : '비교 전') + '</b></div>' +
