@@ -657,7 +657,7 @@
       t.push(kpiTile('이번 주 게시물 판정', w.posts.length ? good + '<small>개 잘 됨</small>' : '–', w.posts.length ? w.posts.length + '개 중 · 낮음 ' + low + '개' : '아직 없어요', '',
         w.posts.length ? '<div class="tdots">' + J.map((x, i) => '<i class="tier ' + (x ? x[1] : 'na') + '" title="' + esc(title(w.posts[i].n) + ' · ' + (x ? x[0] : '비교 전')) + '"></i>').join('') + '</div>' : ''));
     }
-    if (w.cur == null && t.length) t[0] = t[0].replace('<div class="kpi-t', '<div class="kpi-t empty');
+    if (w.cur == null && t.length) t[0] = t[0].replace('<div class="kpi-t', '<div class="kpi-t kpi-none');
     return '<div class="kpi-row n' + t.length + '">' + t.join('') + '</div>';
   }
   // 지금 볼 것: 갱신할 때마다 다시 계산하는 주의 목록(최대 4줄). 게시물 줄은 누르면 상세
