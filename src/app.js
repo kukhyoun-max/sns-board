@@ -3128,7 +3128,7 @@
     const wd = x => '일월화수목금토'[new Date(x + 'T00:00:00Z').getUTCDay()];
     if (d.plan) h += '<div class="td-plan"><div class="tp-h"><h3>게시 예정</h3><span>공식 SNS 발행 일정 · 7일</span></div>' + (pl.length ? '<ol>' + pl.slice(0, 6).map(x => {
       const m = String(x[1]).match(/^\(([^)]+)\)\s*(.*)$/), ks = m ? m[1].split('/') : [];
-      return '<li' + (x[0] === d.today ? ' class="now"' : '') + '><span class="tp-d num">' + (x[0] === d.today ? '오늘' : md2(x[0]) + ' ' + wd(x[0])) + '</span><span class="tp-k">' + ks.map(k => '<i style="--c:' + chColor(pch(k)) + '">' + esc(k.trim()) + '</i>').join('') + '</span><span class="tp-t">' + esc(m ? m[2] : x[1]) + '</span></li>';
+      return '<li' + (x[0] === d.today ? ' class="now"' : '') + '>' + (x[2] ? '<a href="' + esc(x[2]) + '" target="_blank" rel="noopener" title="업로드 폴더 열기">' : '<div>') + '<span class="tp-d num">' + (x[0] === d.today ? '오늘' : md2(x[0]) + ' ' + wd(x[0])) + '</span><span class="tp-k">' + ks.map(k => '<i style="--c:' + chColor(pch(k)) + '">' + esc(k.trim()) + '</i>').join('') + '</span><span class="tp-t">' + esc(m ? m[2] : x[1]) + '</span>' + (x[2] ? '<span class="tp-go" aria-hidden="true">›</span></a>' : '</div>') + '</li>';
     }).join('') + '</ol>' : '<p class="note">7일 안에 잡힌 게시 일정이 없어요</p>') + '</div>';
     return h;
   }
