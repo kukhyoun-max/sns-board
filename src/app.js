@@ -1359,7 +1359,7 @@
     const v310 = median(own.filter(it => it.c === '유튜브' && it.t === '3~10분' && it.d >= d90).map(completion));
     const cv = expCover(q0, today);
     const yr = own.filter(it => it.d >= y1), dep = new Set(); yr.forEach(it => (EXP.depts || []).forEach(n => { if (String(it.n || '').indexOf(n) >= 0) dep.add(n); }));
-    const stu = yr.length ? yr.filter(it => it.p === '홍보대사' || it.p === '학생 크리에이터').length / yr.length : null;
+    const yi = yr.filter(it => it.c === '인스타그램'), stu = yi.length ? yi.filter(it => it.p === '홍보대사').length / yi.length : null; // 인스타만·홍보대사만(sns-ea 정의, 2026-10-23)
     const row = (nm, def, v, tgt, ok, note) => '<div class="k7-r"><div class="k7-l"><b>' + nm + '</b><small>' + def + '</small></div><div class="k7-v"><b class="num ' + (v == null ? 'mu' : ok === null ? 'flat' : ok ? 'up' : 'down') + '">' + (v == null ? '–' : v) + '</b><small>목표 ' + tgt + (note ? ' · ' + note : '') + '</small></div></div>';
     const sv = rate(carC.length >= 3 ? carC : car, 4), sh = rate(ig, 3);
     const h = [
@@ -1369,7 +1369,7 @@
       row('3~10분 평균 시청 비율', '평균 시청 ÷ 영상 길이(완료율 아님) · 최근 90일', v310 == null ? null : pct0(v310), pct0(KPI_D20.view310), v310 >= KPI_D20.view310),
       row('경험 지도 커버리지', '이번 분기 · 18개 영역 중 2건 이상', cv.n + '/' + cv.all, KPI_D20.cover + '/' + cv.all, cv.n >= KPI_D20.cover, cv.sug ? '자동 제안 섞임' : ''),
       row('노출 학과 수', '최근 1년 제목·캡션 앞부분에 나온 학과(하한값)', dep.size + '곳', '2년 안에 전 학과(' + (EXP.depts || []).length + ')', null),
-      row('학생 제작 비율', '최근 1년 · 제작 주체 홍보대사·학생 크리에이터', stu == null ? null : pct0(stu), pct0(KPI_D20.student) + ' 이상', stu >= KPI_D20.student)
+      row('학생 제작 비율', '인스타 최근 1년 · 제작 주체 홍보대사', stu == null ? null : pct0(stu), pct0(KPI_D20.student) + ' 이상', stu >= KPI_D20.student)
     ].join('');
     const emp = cv.empty.length ? '<p class="note">이번 분기 빈 영역: ' + esc(cv.empty.join(', ')) + (cv.sug ? ' · 확정 ' + own.filter(it => it.ex && it.d >= q0).length + '개, 나머지는 캡션 낱말로 고른 자동 제안' : '') + '</p>' : '';
     return secOpen('KPI 7개', '2026-10-23 승인(결정 대기 D20) · 히트율은 관찰 지표라 목표 없음') + '<div class="k7">' + h + '</div>' + emp + secClose;
