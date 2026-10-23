@@ -1044,3 +1044,11 @@ p.howto-only .howto { margin-left: 0; }
 .td-last b { flex: none; font-size: 16px; font-weight: 800; }
 .td-last b.up { color: var(--up); } .td-last b.down { color: var(--down); } .td-last b.flat { color: var(--sub); }
 .td2-m + .td-last { border-top: 0; margin-top: 0; }
+/* 어제·오늘 게시물이 없을 때 「참고하면 좋을 것」(2026-10-23) */
+.td2-ideas { margin-top: 10px; }
+.td2-ideas h3 { margin: 0 0 2px; font-size: var(--fs-md); font-weight: 800; }
+.td2-id { display: flex; align-items: center; gap: 12px; width: 100%; padding: 12px 0; border: 0; border-bottom: 1px solid var(--line); background: none; font: inherit; color: inherit; text-align: left; }
+button.td2-id { cursor: pointer; }
+.td2-id:last-child { border-bottom: 0; }
+.td2-id b { flex: none; font-size: 16px; font-weight: 800; }
+.td2-id b.up { color: var(--up); } .td2-id b.down { color: var(--down); } .td2-id b.flat { color: var(--sub); }
