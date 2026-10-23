@@ -1351,7 +1351,7 @@ button.td2-id { cursor: pointer; }
 
 <div class="detail" id="detail" hidden role="dialog" aria-modal="true" aria-label="콘텐츠 상세"></div>
 
-<script>window.SNS_API_URL = "https://script.google.com/macros/s/AKfycbyGL0h1nmGMIMiG0KsZksAyOUaxcdwKiXLysmB2ExGLEhVX3eUiwmRbv7uTPhsWf6Q6/exec"; window.SNS_BUILD = "e9f0b6c431";</script>
+<script>window.SNS_API_URL = "https://script.google.com/macros/s/AKfycbyGL0h1nmGMIMiG0KsZksAyOUaxcdwKiXLysmB2ExGLEhVX3eUiwmRbv7uTPhsWf6Q6/exec"; window.SNS_BUILD = "d6cc7cb1e5";</script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.js" integrity="sha384-dug+JxfBvklEQdJ4AYuBBAIScUz0bVN73xpy273gcAwHjb3qI0fXmuYNaNfdyYJG" crossorigin="anonymous"></script>
 <script>
 (function () {
@@ -1976,7 +1976,8 @@ button.td2-id { cursor: pointer; }
     const by = {}; rows.forEach(r => { (by[r[0]] = by[r[0]] || {})[r[1]] = r; });
     const okc = chs.filter(c => rows.some(r => r[1] === c));
     const tot = (d, cs) => { const o = by[d]; if (!o || !cs.every(c => o[c] && o[c][3] != null)) return null; return sum(cs.map(c => o[c][3])); };
-    const span = (a, b, cs) => { const x = tot(b, cs), y = tot(addDays(a, -1), cs); return x != null && y != null ? Math.max(0, x - y) : null; };
+    const totLE = (d, cs) => { for (let k = 0; k <= 3; k++) { const v = tot(addDays(d, -k), cs); if (v != null) return v; } return null; };
+    const span = (a, b, cs) => { const x = tot(b, cs) != null ? tot(b, cs) : (a === b ? null : totLE(b, cs)), y = totLE(addDays(a, -1), cs); return x != null && y != null ? Math.max(0, x - y) : null; };
     const dayInc = (d, cs) => span(d, d, cs);
     const days = WK_D.map((n, k) => { const d = addDays(mon, k); return { d, n, v: d <= end ? dayInc(d, okc) : undefined, pv: dayInc(addDays(d, -7), okc) }; });
     const cur = span(mon, end, okc), prev = span(pm, pe, okc);
