@@ -182,6 +182,11 @@
     return p.r < 0.5 ? { r: p.r, age } : null;
   }
   const archTag = it => { const a = archRec(it); return a ? '<span class="tag arch" title="' + esc('기간이 끝났을 이벤트·모집 게시물 · 올린 지 ' + a.age + '일 · 조회 평소 대비 ' + vsP(a.r) + '(같은 형식 평소의 절반 아래) · 당첨 발표까지 끝났으면 보관해도 돼요') + '">보관 후보</span>' : ''; };
+  const credTag = it => {
+    if (!OWN.includes(it.c) || !it.w || !it.w.length || !['자체 제작', '근로장학생'].includes(it.p)) return '';
+    const amb = it.w.filter(n => (D.roles || {})[n] === '홍보대사');
+    return amb.length ? '<span class="tag chk" title="' + esc('크레딧에 홍보대사 ' + amb.join(', ') + '이(가) 있는데 제작 주체가 「' + it.p + '」예요 · 맞으면 스냅샷 시트 「태그 수정」에 제작=홍보대사로 적어 주세요') + '">제작 확인</span>' : '';
+  };
   const coTag = it => it.co ? '<span class="tag p-co" title="' + esc('함께 올린 계정: ' + it.co) + '">공동작업</span>' : '';
   const adtag = it => it.ad ? '<span class="tag ' + (it.ad.s === '확인' ? 'p-ad' : 'p-ad p-guess') + '" title="' + esc(it.ad.s === '패턴' ? '광고 보고서 기간 뒤 영상 · 조회 흐름으로 짐작' : it.ad.x && !it.ad.k.length && !it.ad.mk ? it.ad.x + ' (캠페인 정보 없음)' : it.ad.mk && !it.ad.k.length ? '메타 광고(게시물 홍보): ' + it.ad.mk.map(metaLabel).join(', ') : '구글애즈 캠페인 연결(' + it.ad.s + '): ' + it.ad.k.join(', ')) + '">광고' + (it.ad.s === '확인' ? '' : ' 추정') + '</span>' : '';
 
@@ -217,7 +222,7 @@
       const right = opt.right ? opt.right(it) : mName(it) + ' <span class="num">' + mvTxt + '</span>' + (tag ? ' · <em class="' + (it.ad || yg || it.hid ? 'flat' : xCls(r)) + '"' + (yg ? ' title="올린 지 ' + AGE_MIN + '일이 안 돼 조회가 아직 쌓이는 중이에요"' : it.hid ? ' title="' + HID_TIP + '"' : '') + '>' + tag + '</em>' : '');
       return '<li class="rk" tabindex="0" data-i="' + i + '"><span class="no">' + (i + 1) + '</span>' +
         '<span class="t"><b>' + line(it) + '</b><span>' + right + ' · <span title="' + esc(dot(it.d)) + '">' + whenTxt(it.d) + '</span></span></span>' +
-        '<span class="tg"><span class="tag">' + esc(glab(it)) + '</span>' + ptag(it.p) + adtag(it) + coTag(it) + archTag(it) + susTag(it) + hidTag(it) + histTag(it) + '</span></li>';
+        '<span class="tg"><span class="tag">' + esc(glab(it)) + '</span>' + ptag(it.p) + adtag(it) + coTag(it) + archTag(it) + credTag(it) + susTag(it) + hidTag(it) + histTag(it) + '</span></li>';
     }).join('') || '<li class="empty">조건에 맞는 콘텐츠가 없어요.</li>';
   }
   function wireRank(el, L) {
@@ -1335,6 +1340,40 @@
   const dow = d => new Date(d + 'T00:00:00Z').getUTCDay();
 
   // 1) 처방 카드
+  // 분기 경험 지도: 18개 영역 중 2건 이상 다룬 영역 수. 확정(ex)과 자동 제안(exs)을 함께 세고, 제안이 섞였으면 표시
+  function expCover(from, to) {
+    const P = D.items.filter(it => OWN.includes(it.c) && it.t !== '스토리' && !it.ad && it.d >= from && it.d <= to), cnt = {}, sug = {};
+    P.forEach(it => { const v = expOf(it); if (!v) return; v.split(',').forEach(c => { cnt[c] = (cnt[c] || 0) + 1; if (!it.ex) sug[c] = 1; }); });
+    const codes = Object.keys(EXP.names).sort(), hit = codes.filter(c => (cnt[c] || 0) >= 2);
+    return { n: hit.length, all: codes.length, sug: hit.some(c => sug[c]), empty: codes.filter(c => !(cnt[c] >= 2)).map(c => EXP.names[c]), tagged: P.filter(it => expOf(it)).length, total: P.length };
+  }
+  const KPI_D20 = { save: 0.003, share: 0.01, ytLong: 1, view310: 0.25, cover: 14, student: 0.6 }; // 결정 대기 D20(2026-10-23 승인) 목표값
+  function kpi7Html(chs) {
+    const today = D.updated, q0 = today.slice(0, 5) + String(Math.floor((+today.slice(5, 7) - 1) / 3) * 3 + 1).padStart(2, '0') + '-01', d90 = addDays(today, -90), y1 = addDays(today, -365);
+    const own = D.items.filter(it => OWN.includes(it.c) && it.t !== '스토리' && !it.ad && !it.hid);
+    const rate = (L, j) => median(L.map(it => { const v = last(it); return v && it.r >= 300 && v[j] != null ? v[j] / it.r : null; }));
+    const ig = own.filter(it => it.c === '인스타그램' && it.d >= d90 && daysBetween(it.d, today) >= 7);
+    const car = ig.filter(it => it.t === '캐러셀'), carC = car.filter(it => it.cn && it.cn !== '없음');
+    const yt = own.filter(it => it.c === '유튜브' && it.t !== '1분 이하'), ytB = median(yt.filter(it => it.d >= y1 && !young(it)).map(mainVal));
+    const ytQ = yt.filter(it => it.d >= d90 && !young(it)), ytR = ytB ? median(ytQ.map(it => mainVal(it) / ytB)) : null;
+    const v310 = median(own.filter(it => it.c === '유튜브' && it.t === '3~10분' && it.d >= d90).map(completion));
+    const cv = expCover(q0, today);
+    const yr = own.filter(it => it.d >= y1), dep = new Set(); yr.forEach(it => (EXP.depts || []).forEach(n => { if (String(it.n || '').indexOf(n) >= 0) dep.add(n); }));
+    const stu = yr.length ? yr.filter(it => it.p === '홍보대사' || it.p === '학생 크리에이터').length / yr.length : null;
+    const row = (nm, def, v, tgt, ok, note) => '<div class="k7-r"><div class="k7-l"><b>' + nm + '</b><small>' + def + '</small></div><div class="k7-v"><b class="num ' + (v == null ? 'mu' : ok === null ? 'flat' : ok ? 'up' : 'down') + '">' + (v == null ? '–' : v) + '</b><small>목표 ' + tgt + (note ? ' · ' + note : '') + '</small></div></div>';
+    const sv = rate(carC.length >= 3 ? carC : car, 4), sh = rate(ig, 3);
+    const h = [
+      row('인스타 저장률', '코너 캐러셀 · 도달 대비 · 최근 90일 중간값', sv == null ? null : pctA(sv), pctA(KPI_D20.save), sv >= KPI_D20.save, carC.length >= 3 ? '' : '코너 전 · 캐러셀 전체'),
+      row('인스타 공유율', '도달 대비 · 최근 90일 중간값', sh == null ? null : pctA(sh), pctA(KPI_D20.share), sh >= KPI_D20.share),
+      row('유튜브 롱폼 평소 대비', '채널 롱폼 1년 중간값 대비 · 최근 90일', ytR == null ? null : vsP(ytR), '±0% 이상', ytR >= KPI_D20.ytLong),
+      row('3~10분 평균 시청 비율', '평균 시청 ÷ 영상 길이(완료율 아님) · 최근 90일', v310 == null ? null : pct0(v310), pct0(KPI_D20.view310), v310 >= KPI_D20.view310),
+      row('경험 지도 커버리지', '이번 분기 · 18개 영역 중 2건 이상', cv.n + '/' + cv.all, KPI_D20.cover + '/' + cv.all, cv.n >= KPI_D20.cover, cv.sug ? '자동 제안 섞임' : ''),
+      row('노출 학과 수', '최근 1년 제목·캡션 앞부분에 나온 학과(하한값)', dep.size + '곳', '2년 안에 전 학과(' + (EXP.depts || []).length + ')', null),
+      row('학생 제작 비율', '최근 1년 · 제작 주체 홍보대사·학생 크리에이터', stu == null ? null : pct0(stu), pct0(KPI_D20.student) + ' 이상', stu >= KPI_D20.student)
+    ].join('');
+    const emp = cv.empty.length ? '<p class="note">이번 분기 빈 영역: ' + esc(cv.empty.join(', ')) + (cv.sug ? ' · 확정 ' + own.filter(it => it.ex && it.d >= q0).length + '개, 나머지는 캡션 낱말로 고른 자동 제안' : '') + '</p>' : '';
+    return secOpen('KPI 7개', '2026-10-23 승인(결정 대기 D20) · 히트율은 관찰 지표라 목표 없음') + '<div class="k7">' + h + '</div>' + emp + secClose;
+  }
   function prescribe(chs) {
     const s365 = addDays(D.updated, -365), s60 = addDays(D.updated, -60);
     const L = pool({ channels: chs, since: s365 }).filter(it => ratio(it) != null);
@@ -1631,6 +1670,7 @@
     if (own) {
       const gh = goalsHtml();
       // 빈 설정 안내는 종 알림으로 옮기고 화면에는 한 줄만(원칙 9)
+      top += kpi7Html(chs);
       top += secOpen('이번 달 목표', gh ? '목표를 얼마나 채웠는지 · 세로선(오늘 기준) = 오늘까지 와 있어야 할 위치 · 주황 = 뒤처짐' : '') + (gh || '<p class="note">목표가 아직 없어요 · 오른쪽 위 알림에서 적는 법을 볼 수 있어요</p>') + secClose;
       top += secOpen('이번 주 처방', (ch ? '' : esc(scopeLabel()) + ' · ') + '잘 되는데 최근 2달 덜 올린 것 · 많이 올렸는데 약한 것') + rxHtml(RX) + secClose;
       top += secOpen('시도한 전략 채점', '「전략 기록」 탭에 적은 시도가 평소보다 잘 됐는지 채점해요') + stratHtml() + secClose;
@@ -2418,7 +2458,7 @@
     const L = pool({ channels: viewChannels(), ads: true, g: S.g || undefined }).sort((a, b) => { const x = col.v(a), y = col.v(b); if (x == null && y == null) return 0; if (x == null) return 1; if (y == null) return -1; return (x > y ? 1 : x < y ? -1 : 0) * dir; });
     $('tbody').innerHTML = L.slice(0, S.tblShown).map((it, i) => '<tr data-i="' + i + '">' + C.map(c => {
       const v = c.v(it);
-      if (c.k === 'p') return '<td>' + ptag(v) + adtag(it) + coTag(it) + archTag(it) + susTag(it) + hidTag(it) + '</td>';
+      if (c.k === 'p') return '<td>' + ptag(v) + adtag(it) + coTag(it) + archTag(it) + credTag(it) + susTag(it) + hidTag(it) + '</td>';
       if (c.k === 'n') return '<td class="tt2">' + line(it) + '</td>';
       if (c.n) return '<td class="n">' + (c.f ? c.f(v, it) : fmt(v)) + '</td>';
       if (c.f) return '<td title="' + esc(dot(v)) + '">' + c.f(v, it) + '</td>';
@@ -3547,14 +3587,14 @@
       '<section class="dsec" id="dChart"><h1 class="dtitle">' + line(it) + '</h1>' +
         '<div class="dbig num">' + fmt(mainVal(it)) + '<small class="' + cls + '">' + (it.ad ? '광고 영상이라 평소 대비는 계산하지 않아요' : it.hid ? '비공개로 보임 · 평소 계산에서 뺌' : d == null ? '' : (young(it) ? (youngTxt(it) ? youngTxt(it) + ' · 조회 모이는 중' : '조회 모이는 중 · ' + youngWait(it)) : MN[m] + ' ' + vsTxt(d + 1))) + '</small></div>' +
         (wk != null ? '<div class="num ' + (wk >= 0 ? 'up' : 'down') + '" style="font-weight:700;margin-top:2px">이번 주 ' + MN[m] + ' ' + sgn(wk) + fmt(wk) + '</div>' : '') +
-        '<div class="dtags"><span class="tag">' + esc(glab(it)) + '</span>' + ptag(it.p) + adtag(it) + coTag(it) + archTag(it) + susTag(it) + hidTag(it) + histTag(it) + '<span class="tag">' + esc(fmtType(it.t)) + '</span>' + (it.w || []).map(n => '<span class="tag">' + esc(n) + '</span>').join('') + '</div>' +
+        '<div class="dtags"><span class="tag">' + esc(glab(it)) + '</span>' + ptag(it.p) + adtag(it) + coTag(it) + archTag(it) + credTag(it) + susTag(it) + hidTag(it) + histTag(it) + '<span class="tag">' + esc(fmtType(it.t)) + '</span>' + (it.w || []).map(n => '<span class="tag">' + esc(n) + '</span>').join('') + '</div>' +
         '<div class="cmp"><canvas id="dCanvas"></canvas></div>' +
         // 누를 수 없는 토글 대신 실제로 그린 차트 이름 한 줄
         '<p class="note" style="text-align:center">' + (detailLine(it) ? '기록 날짜별 쌓인 값 ' + MN[m] : '이 콘텐츠 · 같은 분류 · 같은 형식 중간값' + (young(it) ? ' · 중간값은 다 자란 게시물의 최종 조회' : '')) + '</p></section>' +
       '<div class="gap"></div><section class="dsec why"><div class="lb"><span>' + ICO.spark + ' ' + (it.ad ? '광고 집행 정보' : d == null || young(it) ? '성과 요약' : d >= 0 ? '왜 잘 됐을까?' : '왜 아쉬웠을까?') + '</span><small>' + mdLabel(D.updated) + ' 기준</small></div><p>' + esc(whyText(it)) + '</p></section>' +
       '<div class="gap"></div><section class="dsec sig" id="dSig"><h3>성과 진단</h3><div class="h">' + (OWN.includes(it.c) ? '우리 과거 게시물·타 대학 게시물과 견준 결과' : '이 학교 과거 게시물과 견준 결과') + '</div>' +
         signals(it).map(s => '<div class="sg"><span class="k ' + s[0] + '">' + s[1] + '</span><div><b>' + esc(s[2]) + '</b>' + (s[3] ? '<span>' + esc(s[3]) + '</span>' : '') + (s[4] || '') + '</div></div>').join('') +
-        '<p class="note">우리 자료는 최근 2년 게시물 중간값이에요 · 타 대학 제목·소재는 2026년 10월 대학·입시 채널 15곳 유튜브 조사 · 함께 나타난 특징이라 원인이라고 단정하진 않아요</p></section>' +
+        '<p class="note">우리 자료는 최근 2년 게시물 중간값이에요 · 타 대학 제목·소재는 2026년 10월 대학·입시 채널 15곳 유튜브 조사 · 함께 나타난 특징이라 원인이라고 단정하진 않아요 · 평균 차이일 뿐 게시물 하나를 맞히는 힘은 약해요(2026-10-23 시간 순서 검증, 인스타 저장률만 형식·분류로 오차 13~20% 줄어요)</p></section>' +
       deepDetailHtml(it) +
       '<div class="gap"></div><section class="dsec" id="dMet"><h3 style="margin:0 0 6px;font-size:var(--fs-xl);font-weight:700">지표</h3><div class="mgrid">' + metrics.map(m2 => '<div><span>' + esc(m2[0]) + '</span><b>' + esc(m2[1]) + '</b></div>').join('') + '</div>' +
         '<h3 style="margin:22px 0 10px;font-size:var(--fs-lg);font-weight:700">캡션</h3><p class="caption">' + esc(String(it.n || '').trim()) + '</p></section>' +
@@ -3842,7 +3882,10 @@
   }
   const nz = x => String(x || '').replace(/(\.\.\.|…)\s*$/, '').replace(/[\s⠀.]+/g, '');
   const metaLabel = n => { const m = /^(?:Instagram (?:게시물|post)|게시물):\s*"?([\s\S]*?)"?$/i.exec(n || ''); return (m ? m[1] : n || '').split('\n')[0].replace(/(\.\.\.|…)$/, '').trim() || n; };
+  const EXP = window.SNS_EXP || { names: {}, s: {}, depts: [] };
+  const expOf = it => it.ex || it.exs || ''; // 「E04,E05」
   function prep() {
+    D.items.forEach(it => { if (it.ex || !(EXP.s)) return; const k = it.c === '유튜브' ? 'yt:' + ytId(it.u) : 'ig:' + igCode(it.u); if (EXP.s[k]) it.exs = EXP.s[k]; });
     if (D.items.some(it => it.L)) { D.coverage = D.coverage || {}; D.coverage['유튜브'] = '2012-01-01'; }
     const igMin = D.items.filter(it => it.c === '인스타그램').map(it => it.d).sort()[0];
     if (igMin && D.coverage && D.coverage['인스타그램'] && igMin < D.coverage['인스타그램']) D.coverage['인스타그램'] = igMin.slice(0, 7) + '-01';
