@@ -1052,3 +1052,6 @@ button.td2-id { cursor: pointer; }
 .td2-id:last-child { border-bottom: 0; }
 .td2-id b { flex: none; font-size: 16px; font-weight: 800; }
 .td2-id b.up { color: var(--up); } .td2-id b.down { color: var(--down); } .td2-id b.flat { color: var(--sub); }
+/* 보관 권고 라벨(2026-10-23) */
+.tag.arch { background: transparent; color: var(--down); box-shadow: inset 0 0 0 1px currentColor; }
+.arch-t { color: var(--down); font-weight: 700; }

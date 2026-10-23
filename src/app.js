@@ -170,6 +170,16 @@
   // 광고 의심(it.sus): 광고 표시는 없지만 좋아요가 유난히 적고 조회가 멈춘 영상 — 표시만, 계산에는 그대로 넣음
   const susTag = it => it.sus ? '<span class="tag p-guess" title="' + esc(it.sus) + '">광고 의심</span>' : '';
   // 공동작업(it.co = 함께한 계정, 2026-10-21): 우리 계정이 올리고 다른 계정과 함께 게시한 것
+  // 보관 권고(2026-10-23 「홍비디오는 1주에 1만 못 넘으면 보관 — 우리 인스타도 보관 권고 라벨」): 홍비디오 1만은 평소(1년 중간값 약 1.8만)의 절반 남짓이라,
+  // 인스타는 올린 지 7일 지나 조회가 같은 형식 평소의 절반 아래(평소 대비 −50% 이하)면 권고. 광고·공동작업·정보 안내(입시·모집, 학사·생활 안내)는 남겨야 해서 뺌
+  const ARCH_SKIP = ['입시·모집', '학사·생활 안내'];
+  function archRec(it) {
+    if (it.c !== '인스타그램' || it.t === '스토리' || it.ad || it.co || it.hid || it.x || ARCH_SKIP.includes(it.g)) return null;
+    const age = daysBetween(it.d, D.updated); if (age < 7) return null;
+    const p = paceOf(it); if (!p || (p.base && young(it))) return null; // 다 자란 평소와 견주는 어린 게시물은 늘 낮게 나와 뺌
+    return p.r < 0.5 ? { r: p.r, age } : null;
+  }
+  const archTag = it => { const a = archRec(it); return a ? '<span class="tag arch" title="' + esc('올린 지 ' + a.age + '일 · 조회 평소 대비 ' + vsP(a.r) + ' · 같은 형식 평소의 절반 아래(홍비디오 「1주 1만」과 같은 수준)') + '">보관 권고</span>' : ''; };
   const coTag = it => it.co ? '<span class="tag p-co" title="' + esc('함께 올린 계정: ' + it.co) + '">공동작업</span>' : '';
   const adtag = it => it.ad ? '<span class="tag ' + (it.ad.s === '확인' ? 'p-ad' : 'p-ad p-guess') + '" title="' + esc(it.ad.s === '패턴' ? '광고 보고서 기간 뒤 영상 · 조회 흐름으로 짐작' : it.ad.x && !it.ad.k.length && !it.ad.mk ? it.ad.x + ' (캠페인 정보 없음)' : it.ad.mk && !it.ad.k.length ? '메타 광고(게시물 홍보): ' + it.ad.mk.map(metaLabel).join(', ') : '구글애즈 캠페인 연결(' + it.ad.s + '): ' + it.ad.k.join(', ')) + '">광고' + (it.ad.s === '확인' ? '' : ' 추정') + '</span>' : '';
 
@@ -205,7 +215,7 @@
       const right = opt.right ? opt.right(it) : mName(it) + ' <span class="num">' + mvTxt + '</span>' + (tag ? ' · <em class="' + (it.ad || yg || it.hid ? 'flat' : xCls(r)) + '"' + (yg ? ' title="올린 지 ' + AGE_MIN + '일이 안 돼 조회가 아직 쌓이는 중이에요"' : it.hid ? ' title="' + HID_TIP + '"' : '') + '>' + tag + '</em>' : '');
       return '<li class="rk" tabindex="0" data-i="' + i + '"><span class="no">' + (i + 1) + '</span>' +
         '<span class="t"><b>' + line(it) + '</b><span>' + right + ' · <span title="' + esc(dot(it.d)) + '">' + whenTxt(it.d) + '</span></span></span>' +
-        '<span class="tg"><span class="tag">' + esc(glab(it)) + '</span>' + ptag(it.p) + adtag(it) + coTag(it) + susTag(it) + hidTag(it) + histTag(it) + '</span></li>';
+        '<span class="tg"><span class="tag">' + esc(glab(it)) + '</span>' + ptag(it.p) + adtag(it) + coTag(it) + archTag(it) + susTag(it) + hidTag(it) + histTag(it) + '</span></li>';
     }).join('') || '<li class="empty">조건에 맞는 콘텐츠가 없어요.</li>';
   }
   function wireRank(el, L) {
@@ -670,6 +680,9 @@
     const J = w.posts.map(it => ({ it, p: paceOf(it) })).filter(x => x.p).sort((a, b) => b.p.r - a.p.r);
     if (J.length && J[0].p.r >= 1.3) row('good', '이번 주 가장 잘 된 게시물§' + chTxt(J[0].it.c) + esc(title(J[0].it.n)), vsP(J[0].p.r), J[0].it);
     const lo = J.filter(x => x.p.r < 0.7).pop();
+    // 보관 권고(최근 60일): 몇 개인지 + 가장 낮은 것
+    const AR = D.items.filter(it => chs.includes(it.c) && it.d >= addDays(D.updated, -60) && archRec(it)).sort((a, b) => archRec(a).r - archRec(b).r);
+    if (AR.length) row('bad', '보관 권고 · 인스타 최근 60일 ' + AR.length + '개§' + chTxt(AR[0].c) + esc(title(AR[0].n)), vsP(archRec(AR[0]).r), AR[0]);
     if (lo) row('bad', '평소보다 낮은 게시물§' + chTxt(lo.it.c) + esc(title(lo.it.n)), vsP(lo.p.r), lo.it);
     // 예전 게시물이 이번 주 다시 크게 늘었나(이번 주 늘어난 조회의 20% 이상 또는 5천 이상)
     if (j >= 0 && j < n) {
@@ -790,7 +803,7 @@
       const q = raceVal(it, m), r = q.r, t = r == null ? null : tierOf(r), tip = q.tip;
       return '<li data-r="' + i + '" tabindex="0" role="button" aria-label="' + esc(title(it.n)) + ' 상세 보기"><div class="race-t">' + badge(it.c) + '<span class="rt">' + esc(title(it.n)) + '</span>' +
         '<b class="tier ' + (t ? t[1] : 'na') + '"' + (tip ? ' title="' + esc(tip) + '"' : '') + '>' + (t ? t[0] + (t[1] === 'mid' ? '' : ' ' + vsP(r)) : '비교 전') + '</b></div>' +
-        '<small>' + whenTxt(it.d) + ' · ' + mn + ' ' + (q.n == null ? '자료 없음' : fmtK(q.n)) + (q.rt != null ? ' · ' + (it.c === '유튜브' ? '조회' : '도달') + ' 대비 ' + pctA(q.rt) : '') + (m !== 'v' ? ' · 조회 ' + fmtK(mainVal(it)) : '') + '</small></li>';
+        '<small>' + (archRec(it) ? '<span class="arch-t">보관 권고</span> · ' : '') + whenTxt(it.d) + ' · ' + mn + ' ' + (q.n == null ? '자료 없음' : fmtK(q.n)) + (q.rt != null ? ' · ' + (it.c === '유튜브' ? '조회' : '도달') + ' 대비 ' + pctA(q.rt) : '') + (m !== 'v' ? ' · 조회 ' + fmtK(mainVal(it)) : '') + '</small></li>';
     }).join('') + '</ol></div>';
   }
   // 판정 단계(밤 10시 브리핑 BR_TIER와 같은 기준): 평소의 0.7배 미만 낮음 · 1.3배 미만 평소 수준 · 2배 잘 됨 · 5배 아주 잘 됨 · 그 이상 대박
@@ -2402,7 +2415,7 @@
     const L = pool({ channels: viewChannels(), ads: true, g: S.g || undefined }).sort((a, b) => { const x = col.v(a), y = col.v(b); if (x == null && y == null) return 0; if (x == null) return 1; if (y == null) return -1; return (x > y ? 1 : x < y ? -1 : 0) * dir; });
     $('tbody').innerHTML = L.slice(0, S.tblShown).map((it, i) => '<tr data-i="' + i + '">' + C.map(c => {
       const v = c.v(it);
-      if (c.k === 'p') return '<td>' + ptag(v) + adtag(it) + coTag(it) + susTag(it) + hidTag(it) + '</td>';
+      if (c.k === 'p') return '<td>' + ptag(v) + adtag(it) + coTag(it) + archTag(it) + susTag(it) + hidTag(it) + '</td>';
       if (c.k === 'n') return '<td class="tt2">' + line(it) + '</td>';
       if (c.n) return '<td class="n">' + (c.f ? c.f(v, it) : fmt(v)) + '</td>';
       if (c.f) return '<td title="' + esc(dot(v)) + '">' + c.f(v, it) + '</td>';
@@ -3506,7 +3519,7 @@
       '<section class="dsec" id="dChart"><h1 class="dtitle">' + line(it) + '</h1>' +
         '<div class="dbig num">' + fmt(mainVal(it)) + '<small class="' + cls + '">' + (it.ad ? '광고 영상이라 평소 대비는 계산하지 않아요' : it.hid ? '비공개로 보임 · 평소 계산에서 뺌' : d == null ? '' : (young(it) ? (youngTxt(it) ? youngTxt(it) + ' · 조회 모이는 중' : '조회 모이는 중 · ' + youngWait(it)) : MN[m] + ' ' + vsTxt(d + 1))) + '</small></div>' +
         (wk != null ? '<div class="num ' + (wk >= 0 ? 'up' : 'down') + '" style="font-weight:700;margin-top:2px">이번 주 ' + MN[m] + ' ' + sgn(wk) + fmt(wk) + '</div>' : '') +
-        '<div class="dtags"><span class="tag">' + esc(glab(it)) + '</span>' + ptag(it.p) + adtag(it) + coTag(it) + susTag(it) + hidTag(it) + histTag(it) + '<span class="tag">' + esc(fmtType(it.t)) + '</span>' + (it.w || []).map(n => '<span class="tag">' + esc(n) + '</span>').join('') + '</div>' +
+        '<div class="dtags"><span class="tag">' + esc(glab(it)) + '</span>' + ptag(it.p) + adtag(it) + coTag(it) + archTag(it) + susTag(it) + hidTag(it) + histTag(it) + '<span class="tag">' + esc(fmtType(it.t)) + '</span>' + (it.w || []).map(n => '<span class="tag">' + esc(n) + '</span>').join('') + '</div>' +
         '<div class="cmp"><canvas id="dCanvas"></canvas></div>' +
         // 누를 수 없는 토글 대신 실제로 그린 차트 이름 한 줄
         '<p class="note" style="text-align:center">' + (detailLine(it) ? '기록 날짜별 쌓인 값 ' + MN[m] : '이 콘텐츠 · 같은 분류 · 같은 형식 중간값' + (young(it) ? ' · 중간값은 다 자란 게시물의 최종 조회' : '')) + '</p></section>' +
