@@ -3113,6 +3113,25 @@
   const tdThumb = p => { const src = p.img || (p.c === '유튜브' && /^[w-]{11}$/.test(p.id) ? 'https://i.ytimg.com/vi/' + p.id + '/mqdefault.jpg' : ''); return '<span class="td2-th" style="--c:' + chColor(p.c) + '" aria-hidden="true">' + (src ? '<img src="' + esc(src) + '" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.remove()">' : '') + '</span>'; };
   // 어제·오늘 올린 게 없을 때(2026-10-23 「기간 상관없이 유의미한 데이터, 내가 참고하면 좋을 데이터 추천으로」):
   // 최근 30일 가장 잘 된 게시물 · 작년 이맘때 잘 된 게시물 · 더 만들면 좋은 조합 · 줄이면 좋은 조합(전략 화면 「이번 주 처방」과 같은 계산)
+  // 업로드 없는 날 맨 위(2026-10-23 「우리 채널 성장 데이터를 보여 주면 동기부여·사기 진작」): 팔로워·구독자 합계와 1년 전보다 늘어난 수, 채널별 1년 증감, 올해 히트 수
+  function tdGrow(chs, d, today) {
+    const ac = c => (d.acct || []).find(a => a.c === c), G = [];
+    ['인스타그램', 'hong._.video'].filter(c => chs.includes(c)).forEach(c => {
+      const a = ac(c); if (!a || a.fol == null) return;
+      const F = (D.fol || []).filter(r => r[1] === c), old = F.filter(r => r[0] <= addDays(today, -365)).pop() || F[0];
+      G.push({ c, now: a.fol, d: old ? a.fol - old[2] : null, since: old ? old[0] : null });
+    });
+    const y = ac('유튜브');
+    if (chs.includes('유튜브') && y && y.subs != null) { const H = (y.hist || []).filter(x => x[0] >= addDays(today, -365)); G.push({ c: '유튜브', now: y.subs, d: H.length ? y.subs - H[0][1] : null, since: H.length ? H[0][0] : null }); }
+    if (!G.length) return '<div class="td2-hl"><span>어제·오늘 올린 게시물이 없어요</span><!--re--></div>';
+    const tot = sum(G.map(g => g.now)), dd = G.filter(g => g.d != null), gd = sum(dd.map(g => g.d));
+    const hits = D.items.filter(it => OWN.includes(it.c) && chs.includes(it.c) && it.d >= today.slice(0, 4) + '-01-01' && isHit(it)).length;
+    const sgnN = v => (v > 0 ? '+' : v < 0 ? '−' : '±') + fmt(Math.abs(v));
+    return '<div class="td2-hero"><div class="td2-hl"><span>우리 채널을 구독·팔로우하는 사람</span><!--re--></div><div class="td2-big"><b class="num">' + fmt(tot) + '</b><span>명</span></div>' +
+      (dd.length ? '<div class="td2-vs ' + (gd >= 0 ? 'up' : 'down') + '">' + (dd.every(g => g.since <= addDays(today, -350)) ? '1년 전보다 ' : '기록을 시작한 뒤로 ') + sgnN(gd) + '명</div>' : '') +
+      '<div class="td2-sub">' + (hits ? '올해 히트 ' + hits + '개 · ' : '') + '어제·오늘 올린 게시물은 없어요</div></div>' +
+      '<div class="td2-m">' + G.map(g => '<div title="' + esc(g.since ? md2(g.since) + ' 대비' : '') + '"><span>' + chName(g.c) + (g.c === '유튜브' ? ' 구독자' : ' 팔로워') + '</span><b class="num">' + fmtK(g.now) + '</b><small' + (g.d == null ? '' : ' class="' + (g.d >= 0 ? 'up' : 'down') + '"') + '>' + (g.d == null ? '지난 기록 없음' : (g.since <= addDays(today, -350) ? '1년 ' : md2(g.since) + '부터 ') + sgnN(g.d)) + '</small></div>').join('') + '</div>';
+  }
   function tdIdeas(chs) {
     const own = chs.filter(c => OWN.includes(c)); if (!own.length) return '';
     const R = [], I = window.__tdIdea = [];
@@ -3146,7 +3165,7 @@
       hero += '<div class="td2-hl"><span>' + who + ' 올린 게시물 ' + P.length + '개 조회</span><!--re--></div><div class="td2-big"><b class="num">' + fmtK(vs) + '</b><span>조회</span></div>' +
         (hr != null ? '<div class="td2-vs ' + xCls(hr) + '">' + (kind === '같은 시간' ? '같은 시간 평소' : '첫날 평소') + ' 대비 ' + vsP(hr) + '</div>' : '<div class="td2-vs flat">평소 자료 모으는 중</div>') +
         '<div class="td2-sub">' + [bs.length && bs.length < P.length ? P.length + '개 중 ' + bs.length + '개 비교' : '', kind === '첫날' && hr != null ? '하루치 평소 기준' : '', was > 0 ? '지난번 본 뒤 <span class="up">+' + fmtK(was) + '</span>' : ''].filter(Boolean).join(' · ') + '</div>';
-    } else hero += '<div class="td2-hl"><span>어제·오늘 올린 게시물이 없어요</span><!--re--></div>' + tdIdeas(chs);
+    } else hero += tdGrow(chs, d, today) + tdIdeas(chs);
     hero += '</div>';
     // ② 지표 한 줄(카드 없이): 공유율(목표 1.0%) · 반응률(평소 대비) · 이번 주 게시 수. 인스타·hong 게시물 합 ÷ 도달 합, 평소 = 게시물마다 같은 형식 평소를 도달로 가중
     const M = [], RP = P.filter(p => p.c !== '유튜브' && p.r >= TD_MIN[0]);
@@ -3200,7 +3219,7 @@
     }
     const fol = FL.length ? '<details class="td2-fold td2-fol"><summary><span class="td2-fl">' + FL.map(x => '<span class="fi">' + x + '</span>').join('') + '</span></summary>' + (FT.length ? '<div class="kpi-row td-k n' + FT.length + '">' + FT.join('') + '</div>' : '') + '</details>' : '';
 
-    return '<section class="sec td-sec td2">' + hero.replace('<!--re-->', '') + met + list + tdPlan(d, P) + fol + secClose;
+    return '<section class="sec td-sec td2">' + hero.replace('<!--re-->', '') + met + list + tdPlan(d, P) + (P.length ? fol : "") + secClose;
   }
   // 오늘 올린 게 없을 때: 마지막 게시물 한 줄(어제 것도 없을 때) + 게시 예정(「공식 SNS 발행 일정」 오늘~7일)
   function tdPlan(d, P) {
