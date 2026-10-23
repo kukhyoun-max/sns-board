@@ -1336,7 +1336,7 @@ p.howto-only .howto { margin-left: 0; }
 
 <div class="detail" id="detail" hidden role="dialog" aria-modal="true" aria-label="콘텐츠 상세"></div>
 
-<script>window.SNS_API_URL = "https://script.google.com/macros/s/AKfycbyGL0h1nmGMIMiG0KsZksAyOUaxcdwKiXLysmB2ExGLEhVX3eUiwmRbv7uTPhsWf6Q6/exec"; window.SNS_BUILD = "239efa548e";</script>
+<script>window.SNS_API_URL = "https://script.google.com/macros/s/AKfycbyGL0h1nmGMIMiG0KsZksAyOUaxcdwKiXLysmB2ExGLEhVX3eUiwmRbv7uTPhsWf6Q6/exec"; window.SNS_BUILD = "2caabc7782";</script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.js" integrity="sha384-dug+JxfBvklEQdJ4AYuBBAIScUz0bVN73xpy273gcAwHjb3qI0fXmuYNaNfdyYJG" crossorigin="anonymous"></script>
 <script>
 (function () {
@@ -4796,7 +4796,8 @@ p.howto-only .howto { margin-left: 0; }
     const parts = [];
     const bs = baseFor(it);
     // 「조회 모이는 중」 설명은 진단 「참고」 카드 한 곳에만 · 괄호 대신 두 문장
-    if (r != null && young(it)) { const yt = youngTxt(it); parts.push('지금까지 ' + MN[mainM(it.c)] + ' ' + fmtK(mainVal(it)) + (yt ? '로 ' + yt + '예요.' : '예요. 아직 다 자란 게시물과 견주기엔 일러요.')); }
+    if (r != null && young(it)) { const yt = youngTxt(it); parts.push('지금까지 ' + MN[mainM(it.c)] + ' ' + fmtK(mainVal(it)) + (yt ? '로 ' + yt + '예요.' : '예요. 아직 다 자란 게시물과 견주기엔 일러요.'));
+      const pp = paceOf(it); if (pp && !pp.base) parts.push('비교: 이 게시물 ' + agName(pp.e) + ' ' + fmtK(Math.round(pp.r * pp.b.m)) + ' ÷ ' + (pp.b.mixed ? '채널 전체' : '같은 형식') + ' ' + pp.b.n + '개가 올린 지 ' + pp.b.lo + '~' + pp.b.hi + '일에 받은 ' + MN[mainM(it.c)] + ' 중간값 ' + fmtK(Math.round(pp.b.m)) + (it.c === '유튜브' ? ' · 둘 다 유튜브 분석 값' : '') + '.'); }
     else if (r != null) parts.push('지금 ' + MN[mainM(it.c)] + ' ' + fmtK(mainVal(it)) + ', ' + vsTxt(r) + (r >= HIT ? '예요. 히트 기준(평소의 1.5배)을 넘었어요.' : r >= 1 ? '로 평소보다 조금 잘 됐어요.' : r >= 0.5 ? '로 평소보다 조금 낮아요.' : '로 평소의 절반에 못 미쳤어요.') + ' 평소는 ' + (bs.by === '형식' ? '같은 형식 최근 1년 중간값' : '채널 중간값') + ' ' + fmtK(bs.v) + '이에요.');
     else if (it.hid) parts.push('조회 ' + fmt(mainVal(it)) + '로 비공개·일부 공개나 중복 업로드로 보여요. 평소 계산에서 뺐어요.');
     if (g && g.idx != null && !young(it)) parts.push('「' + it.g + '」 분류 게시물은 보통 ' + mW(it.c) + '가 ' + vsTxt(g.idx) + '인데, 이 콘텐츠는 ' + (r != null && r > g.idx ? '그보다 높아요.' : '그보다 낮아요.'));
