@@ -3732,7 +3732,7 @@
     if (s.length || a.length) {
       const d = (D.stale || {})[s[0]] || (D.acctStale || {})[a[0]];
       out.push({ id: 'stale:' + s.concat(a).join(',') + ':' + d.d1, t: s.concat(a).map(chName).join(' · ') + ' 데이터가 새로 안 들어왔어요',
-        b: (s.length ? s.map(chName).join(' · ') + ' 게시물 값' : '') + (s.length && a.length ? ', ' : '') + (a.length ? a.map(chName).join(' · ') + ' 계정 지표' : '') + '가 ' + mdLabel(d.d0) + '과 ' + mdLabel(d.d1) + ' 기록에서 똑같아요. 그래서 이 기간에 늘어난 조회는 0으로 치지 않고 합계에서 뺐어요. ' + (s.concat(a).every(isBench) ? '타 대학 자료는 인스타 API로 받아요. 계정이 비공개로 바뀌었거나 API가 막혔는지 확인할게요.' : '스냅샷 시트의 Supermetrics 예약 갱신이 돌았는지 확인해 주세요.') });
+        b: (s.length ? s.map(chName).join(' · ') + ' 게시물 값' : '') + (s.length && a.length ? ', ' : '') + (a.length ? a.map(chName).join(' · ') + ' 계정 지표' : '') + '가 ' + mdLabel(d.d0) + '과 ' + mdLabel(d.d1) + ' 기록에서 똑같아요. 그래서 이 기간에 늘어난 조회는 0으로 치지 않고 합계에서 뺐어요. ' + (s.concat(a).every(isBench) ? '타 대학은 좋아요·댓글을 인스타 API로 매일, 릴스 조회를 Supermetrics 공개 원본으로 월요일에 받아요. 계정이 비공개로 바뀌었거나 API가 막혔는지 확인할게요.' : '스냅샷 시트의 Supermetrics 예약 갱신이 돌았는지 확인해 주세요.') });
     }
     const A = D.ads || {};
     if (A.end && daysBetween(A.end, D.updated) > 14) {
