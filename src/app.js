@@ -620,7 +620,8 @@
     const by = {}; rows.forEach(r => { (by[r[0]] = by[r[0]] || {})[r[1]] = r; });
     const okc = chs.filter(c => rows.some(r => r[1] === c));
     const tot = (d, cs) => { const o = by[d]; if (!o || !cs.every(c => o[c] && o[c][3] != null)) return null; return sum(cs.map(c => o[c][3])); };
-    const span = (a, b, cs) => { const x = tot(b, cs), y = tot(addDays(a, -1), cs); return x != null && y != null ? Math.max(0, x - y) : null; };
+    const totLE = (d, cs) => { for (let k = 0; k <= 3; k++) { const v = tot(addDays(d, -k), cs); if (v != null) return v; } return null; };
+    const span = (a, b, cs) => { const x = tot(b, cs) != null ? tot(b, cs) : (a === b ? null : totLE(b, cs)), y = totLE(addDays(a, -1), cs); return x != null && y != null ? Math.max(0, x - y) : null; };
     const dayInc = (d, cs) => span(d, d, cs);
     const days = WK_D.map((n, k) => { const d = addDays(mon, k); return { d, n, v: d <= end ? dayInc(d, okc) : undefined, pv: dayInc(addDays(d, -7), okc) }; });
     const cur = span(mon, end, okc), prev = span(pm, pe, okc);
