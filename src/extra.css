@@ -1059,3 +1059,4 @@ button.td2-id { cursor: pointer; }
 .td2-fl { flex: 1; display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); gap: 0; }
 .td2-fl .fi { display: flex; align-items: baseline; gap: 4px; min-width: 0; padding-left: 12px; border-left: 1px solid var(--line); white-space: nowrap; overflow: hidden; }
 .td2-fl .fi:first-child { padding-left: 0; border-left: 0; }
+.td2-m small.up { color: var(--up); } .td2-m small.down { color: var(--down); }
