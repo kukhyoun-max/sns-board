@@ -3197,7 +3197,7 @@
       const H = (y.hist || []).filter(x => x[0] >= addDays(today, -365)), yr = H[0], hv = H.map(x => x[1]).concat([y.subs]), hi = H.length ? Math.max.apply(null, hv) : null;
       if (H.length > 1) FT.push(kpiTile('유튜브 구독자', fmt(y.subs) + '<small>명</small>', yr ? '1년 전보다 ' + dNum(y.subs - yr[1], '명') : '', '', spark(hv, '최근 1년 구독자 수 · 날마다 늘고 준 수로 거꾸로 계산(유튜브 분석은 1~2일 늦음)') + '<div class="td-foot">' + (y.subs >= hi ? '1년 중 가장 많아요' : '1년 최고 ' + fmt(hi) + '명') + '</div>'));
     }
-    const fol = FL.length ? '<details class="td2-fold td2-fol"><summary><span class="td2-fl">' + FL.join('<i class="sep"></i>') + '</span></summary>' + (FT.length ? '<div class="kpi-row td-k n' + FT.length + '">' + FT.join('') + '</div>' : '') + '</details>' : '';
+    const fol = FL.length ? '<details class="td2-fold td2-fol"><summary><span class="td2-fl">' + FL.map(x => '<span class="fi">' + x + '</span>').join('') + '</span></summary>' + (FT.length ? '<div class="kpi-row td-k n' + FT.length + '">' + FT.join('') + '</div>' : '') + '</details>' : '';
 
     return '<section class="sec td-sec td2">' + hero.replace('<!--re-->', '') + met + list + tdPlan(d, P) + fol + secClose;
   }

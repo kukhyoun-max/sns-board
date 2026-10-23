@@ -1329,6 +1329,10 @@ button.td2-id { cursor: pointer; }
 /* 보관 권고 라벨(2026-10-23) */
 .tag.arch { background: transparent; color: var(--down); box-shadow: inset 0 0 0 1px currentColor; }
 .arch-t { color: var(--down); font-weight: 700; }
+/* 팔로워 줄을 폭 전체에 고르게(2026-10-23 「오른쪽 여백이 신경 쓰인다」): 위 지표 줄처럼 같은 폭 칸 + 세로선 */
+.td2-fl { flex: 1; display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); gap: 0; }
+.td2-fl .fi { display: flex; align-items: baseline; gap: 4px; min-width: 0; padding-left: 12px; border-left: 1px solid var(--line); white-space: nowrap; overflow: hidden; }
+.td2-fl .fi:first-child { padding-left: 0; border-left: 0; }
 </style>
 
 <div class="app" id="app">
@@ -1347,7 +1351,7 @@ button.td2-id { cursor: pointer; }
 
 <div class="detail" id="detail" hidden role="dialog" aria-modal="true" aria-label="콘텐츠 상세"></div>
 
-<script>window.SNS_API_URL = "https://script.google.com/macros/s/AKfycbyGL0h1nmGMIMiG0KsZksAyOUaxcdwKiXLysmB2ExGLEhVX3eUiwmRbv7uTPhsWf6Q6/exec"; window.SNS_BUILD = "cb1558a6db";</script>
+<script>window.SNS_API_URL = "https://script.google.com/macros/s/AKfycbyGL0h1nmGMIMiG0KsZksAyOUaxcdwKiXLysmB2ExGLEhVX3eUiwmRbv7uTPhsWf6Q6/exec"; window.SNS_BUILD = "e9f0b6c431";</script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.js" integrity="sha384-dug+JxfBvklEQdJ4AYuBBAIScUz0bVN73xpy273gcAwHjb3qI0fXmuYNaNfdyYJG" crossorigin="anonymous"></script>
 <script>
 (function () {
@@ -4549,7 +4553,7 @@ button.td2-id { cursor: pointer; }
       const H = (y.hist || []).filter(x => x[0] >= addDays(today, -365)), yr = H[0], hv = H.map(x => x[1]).concat([y.subs]), hi = H.length ? Math.max.apply(null, hv) : null;
       if (H.length > 1) FT.push(kpiTile('유튜브 구독자', fmt(y.subs) + '<small>명</small>', yr ? '1년 전보다 ' + dNum(y.subs - yr[1], '명') : '', '', spark(hv, '최근 1년 구독자 수 · 날마다 늘고 준 수로 거꾸로 계산(유튜브 분석은 1~2일 늦음)') + '<div class="td-foot">' + (y.subs >= hi ? '1년 중 가장 많아요' : '1년 최고 ' + fmt(hi) + '명') + '</div>'));
     }
-    const fol = FL.length ? '<details class="td2-fold td2-fol"><summary><span class="td2-fl">' + FL.join('<i class="sep"></i>') + '</span></summary>' + (FT.length ? '<div class="kpi-row td-k n' + FT.length + '">' + FT.join('') + '</div>' : '') + '</details>' : '';
+    const fol = FL.length ? '<details class="td2-fold td2-fol"><summary><span class="td2-fl">' + FL.map(x => '<span class="fi">' + x + '</span>').join('') + '</span></summary>' + (FT.length ? '<div class="kpi-row td-k n' + FT.length + '">' + FT.join('') + '</div>' : '') + '</details>' : '';
 
     return '<section class="sec td-sec td2">' + hero.replace('<!--re-->', '') + met + list + tdPlan(d, P) + fol + secClose;
   }
