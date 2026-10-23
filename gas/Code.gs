@@ -4712,10 +4712,10 @@ function nightBrief(test) {
   let extra = {};
   try { extra = briefExtraBase_(ss, D, today); } catch (e) { notes.push('팔로우·시청 평소 읽기 실패'); }
   posts.forEach(x => { x.night = night[x.ch + '|' + x.type] || null; x.usual = briefUsual_(D, x.ch, x.type, today); x.ex = extra[x.ch + '|' + (x.ch === 'hong._.video' && /릴스/.test(x.type) ? '릴스' : x.type)] || null; });
-  const recent = posts.length ? [] : briefRecent_(D, today);
+  const recent = posts.length ? [] : briefRecent_(D, today), ideas = posts.length ? [] : briefIdeas_(D, today);
   const to = String(PropertiesService.getScriptProperties().getProperty('BRIEF_TO') || '').trim();
   const subject = '[SNS 브리핑] ' + briefDay_(today) + ' 오늘 올린 콘텐츠 ' + posts.length + '개' + (test ? ' (테스트)' : '');
-  if (to) MailApp.sendEmail({ to: to, subject: subject, htmlBody: briefHtml_(posts, stories, recent, notes, today, stamp), name: 'SNS 성과 보드' });
+  if (to) MailApp.sendEmail({ to: to, subject: subject, htmlBody: briefHtml_(posts, stories, recent, notes, today, stamp, ideas), name: 'SNS 성과 보드' });
   let saved = '';
   if (posts.length) {
     const rows = posts.map(x => [today, x.ch, x.id, x.type, Utilities.formatDate(x.at, TZ, 'yyyy-MM-dd HH:mm'), Math.round(x.hours * 10) / 10,
@@ -4834,6 +4834,31 @@ function briefReactCmp_(x) {
 const briefDen_ = ch => ch === '인스타그램' ? '도달 대비' : '조회 대비';
 function briefLastRow_(it) { for (let i = (it.h || []).length - 1; i >= 0; i--) if (it.h[i] && it.h[i][0] != null) return it.h[i]; return null; }
 function briefLast_(it) { const h = briefLastRow_(it); return h ? h[0] : null; }
+// 오늘 올린 게 없을 때 「참고하면 좋을 것」(2026-10-23 「기간 상관없이 내가 참고하면 좋을 데이터 추천으로」, 보드 오늘 칸과 같은 네 가지)
+//  평소 = 같은 채널·형식 최근 1년, 올린 지 14일 지난 게시물 조회 중간값(광고 빼고) · 배수 = 조회 ÷ 평소
+function briefIdeas_(D, today) {
+  if (!D || !D.items) return [];
+  const own = ['인스타그램', '유튜브', 'hong._.video'], y1 = shiftDate_(today, -365), d14 = shiftDate_(today, -14);
+  const L = D.items.filter(it => own.indexOf(it.c) >= 0 && it.t !== '스토리' && !it.ad && !it.hid && it.d >= shiftDate_(today, -400) && it.d <= d14).map(it => ({ it: it, v: briefLast_(it) })).filter(x => x.v > 0);
+  const pool = {}; L.filter(x => x.it.d >= y1).forEach(x => { const k = x.it.c + '|' + x.it.t; (pool[k] = pool[k] || []).push(x.v); });
+  const base = {}; Object.keys(pool).forEach(k => { if (pool[k].length >= 5) base[k] = briefMed_(pool[k]); });
+  L.forEach(x => { const b = base[x.it.c + '|' + x.it.t]; x.r = b ? x.v / b : null; });
+  const J = L.filter(x => x.r != null), out = [];
+  const best = J.filter(x => x.it.d >= shiftDate_(today, -30)).sort((a, b) => b.r - a.r)[0];
+  if (best) out.push(['최근 30일 가장 잘 된 게시물', best.it.c, briefTitle_(best.it.n, 26), best.r]);
+  const ago = J.filter(x => x.it.d >= shiftDate_(today, -372) && x.it.d <= shiftDate_(today, -320) && x.r >= 1.5).sort((a, b) => b.r - a.r)[0];
+  if (ago) out.push(['작년 이맘때 잘 된 게시물 · 올해 버전 후보', ago.it.c, briefTitle_(ago.it.n, 26), ago.r]);
+  const G = {}; J.filter(x => x.it.d >= y1).forEach(x => { const k = x.it.c + '|' + (x.it.g || '기타') + '|' + x.it.t; (G[k] = G[k] || []).push(x); });
+  const s60 = shiftDate_(today, -60), combos = Object.keys(G).filter(k => G[k].length >= 5).map(k => {
+    const p = k.split('|'), a = G[k], rc = D.items.filter(it => it.c === p[0] && (it.g || '기타') === p[1] && it.t === p[2] && it.d >= s60).length;
+    return { c: p[0], g: p[1], t: p[2], n: a.length, idx: briefMed_(a.map(x => x.r)), recent: rc, exp: a.length * 60 / 365 };
+  });
+  const more = combos.filter(r => r.idx >= 1.25 && r.recent <= Math.max(1, Math.floor(r.exp))).sort((a, b) => b.idx - a.idx)[0];
+  if (more) out.push(['더 만들면 좋은 조합 · 최근 2달 ' + more.recent + '개', more.c, more.g + ' × ' + more.t, more.idx]);
+  const less = combos.filter(r => r.idx <= 0.8 && r.recent >= Math.max(3, Math.ceil(r.exp * 1.2))).sort((a, b) => a.idx - b.idx)[0];
+  if (less) out.push(['줄이거나 바꿀 조합 · 최근 2달 ' + less.recent + '개', less.c, less.g + ' × ' + less.t, less.idx]);
+  return out;
+}
 // 오늘 올린 게 없을 때: 최근 3일 게시물(보드 데이터 = 오늘 아침 기록 값)
 function briefRecent_(D, today) {
   if (!D || !D.items) return [];
@@ -4903,7 +4928,7 @@ function briefMetrics_(x) {
   }
   return out.filter(m => m[1] != null && !isNaN(m[1])).map(m => ({ name: m[0], v: m[1], base: m[2], fmt: m[3], grow: !!m[4], r: m[2] > 0 ? m[1] / m[2] : null }));
 }
-function briefHtml_(posts, stories, recent, notes, today, stamp) {
+function briefHtml_(posts, stories, recent, notes, today, stamp, ideas) {
   const wrap = s => '<div style="background:' + BR.soft + ';padding:20px 12px"><div style="font-family:\'Noto Sans KR\',\'Apple SD Gothic Neo\',sans-serif;max-width:560px;margin:0 auto;color:' + BR.fg + ';line-height:1.7">' + s + '</div></div>';
   const card = s => '<div style="background:#fff;border:1px solid ' + BR.line + ';border-radius:16px;padding:16px 18px;margin:0 0 12px">' + s + '</div>';
   const h2 = (t, sub) => '<div style="margin:18px 4px 8px"><div style="font-size:16px;font-weight:800">' + t + '</div>' + (sub ? '<div style="font-size:12px;color:' + BR.mu + '">' + sub + '</div>' : '') + '</div>';
@@ -4983,7 +5008,11 @@ function briefHtml_(posts, stories, recent, notes, today, stamp) {
   });
   if (!posts.length) {
     let s = '<div style="font-size:16px;font-weight:800">오늘 올린 콘텐츠 없음</div>';
-    if (recent.length) {
+    if (ideas && ideas.length) {
+      s += '<div style="font-size:13px;color:' + BR.sub + ';margin:4px 0 6px">참고하면 좋을 것</div><table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse">';
+      ideas.forEach(r => { const up = r[3] >= 1; s += '<tr><td style="padding:10px 0;border-top:1px solid ' + BR.line + '"><div style="font-size:12px;color:' + BR.sub + '">' + briefEsc_(r[0]) + '</div><div style="font-size:14px;font-weight:700;color:' + BR.fg + '"><span style="color:' + (BR_CH[r[1]] || ['', BR.sub])[1] + '">' + (BR_CH[r[1]] || [r[1]])[0] + '</span> ' + briefEsc_(r[2]) + '</div></td><td style="padding:10px 0 10px 10px;border-top:1px solid ' + BR.line + ';text-align:right;white-space:nowrap;font-size:15px;font-weight:800;color:' + (up ? BR.up : BR.downTx) + '">' + briefRatioText_(r[3]) + '</td></tr>'; });
+      s += '</table>';
+    } else if (recent.length) {
       s += '<div style="font-size:12px;color:' + BR.mu + ';margin:4px 0 6px">최근 3일 게시물 · 오늘 아침 기록</div><table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;font-size:13px">';
       recent.slice(0, 10).forEach(r => { s += '<tr><td style="padding:4px 0;border-top:1px solid ' + BR.line + '">' + Number(r.d.slice(5, 7)) + '/' + Number(r.d.slice(8)) + ' ' + briefChip_(r.ch, '') + ' ' + briefEsc_(briefTitle_(r.title, 22)) + '</td><td style="padding:4px 0;border-top:1px solid ' + BR.line + ';text-align:right;font-weight:700;white-space:nowrap">조회수 ' + briefNum_(r.views) + '</td></tr>'; });
       s += '</table>';
