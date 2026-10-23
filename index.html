@@ -438,7 +438,7 @@ td.tt2 { max-width: 420px; }
 .tg2.ser[aria-pressed="true"] { background: var(--plane); border-color: var(--c); color: var(--fg); }
 .tg2.ser[aria-pressed="false"] i { background: transparent; box-shadow: inset 0 0 0 2px var(--c); opacity: .6; }
 .tg2.ser[aria-pressed="false"] { color: var(--muted); }
-sup.pt{font-size: var(--fs-tag);color:var(--muted,#8b95a1);margin-left:3px;font-weight:600}
+sup.pt {font-size: var(--fs-tag);color:var(--muted,#8b95a1);margin-left:3px;font-weight:600}
 .pfseg { display: flex; gap: 4px; padding: 4px; margin: 4px 0 6px; background: var(--plane); border-radius: 12px; }
 .pfseg button { flex: 1; border: 0; background: transparent; padding: 10px 8px; border-radius: 9px; font: inherit; font-weight: 700; font-size: var(--fs-sm); color: var(--muted); cursor: pointer; }
 .pfseg button[aria-selected="true"] { background: var(--bg); color: var(--fg); box-shadow: 0 1px 3px rgba(0,0,0,.08); }
@@ -1071,14 +1071,6 @@ details.fold[open] > summary { padding-bottom: 10px; }
 .tm-by .seg { margin: 0; }
 .tm-sel { font-size: var(--fs-sm); }
 /* 오늘(2026-10-20): 홈 맨 위 지금 값. 강조 면은 아래 「이번 주」 첫 칸 하나만이라 여기 칸은 평범하게 */
-.td-sec .kpi-row { margin-top: 2px; }
-.td-sec .kpi-t:first-child { background: var(--bg); border: 1px solid var(--line); box-shadow: none; color: inherit; }
-.td-sec .kpi-t:first-child .kpi-l { color: var(--sub); }
-.td-sec .kpi-t:first-child .kpi-v { color: var(--fg); }
-.td-sec .kpi-t:first-child .kpi-s, .td-sec .kpi-t:first-child .kpi-s .flat { color: var(--muted); }
-.td-sec .kpi-t:first-child .kpi-s .up { color: var(--up); }
-.td-sec .kpi-t:first-child .kpi-s .down { color: var(--down); }
-.td-sec .race-l li small { color: var(--muted); font-size: var(--fs-tag); line-height: 1.6; }
 .td-since { align-self: center; font-size: var(--fs-tag); color: var(--muted); white-space: nowrap; }
 .dp-top span { display: block; font-size: 13px; color: var(--sub); margin-top: 2px; }
 /* 댓글 목록(답 안 한 댓글 · 공감 많은 댓글) */
@@ -1091,7 +1083,6 @@ details.fold[open] > summary { padding-bottom: 10px; }
 .cml small { font-size: var(--fs-tag); color: var(--muted); }
 @media (hover: hover) { .cml a:hover .cml-t { text-decoration: underline; text-underline-offset: 3px; } }
 /* 오늘 칸 아래 그래프(2026-10-20 「밋밋하다」): 칸 바닥에 붙임 */
-.td-sec .kspark, .td-sec .kbars { margin-top: auto; padding-top: 10px; }
 .kbars { display: block; width: 100%; height: 38px; overflow: visible; }
 .kbars rect { fill: var(--jj); opacity: .28; }
 .kbars rect.on { opacity: 1; }
@@ -1116,22 +1107,9 @@ details.fold[open] > summary { padding-bottom: 10px; }
 .kpi-t:first-child .kbars.wk rect, .kpi-t:first-child .kbars.wk rect.on { fill: #fff; }
 .kpi-t:first-child .kbars.wk rect.pv { fill: #fff; opacity: .25; }
 .kpi-t:first-child .kb-l, .kpi-t:first-child .kb-l .on { color: rgba(255, 255, 255, .85); }
-.td-sec .kpi-t:first-child .kbars rect { fill: var(--jj); }
 .tdots { margin-top: auto; padding-top: 10px; display: flex; flex-wrap: wrap; gap: 6px; }
 .tdots i.tier { width: 14px; height: 14px; padding: 0; margin: 0; border-radius: 50%; display: block; }
 /* 지금 볼 것 */
-.wa { margin-top: 16px; background: var(--bg); border: 1px solid var(--line); border-radius: var(--r-lg); padding: 16px 18px 8px; }
-.wa-r { display: grid; grid-template-columns: 8px minmax(0, 1fr) auto; align-items: center; gap: 10px; width: 100%; padding: 11px 0; border: 0; border-top: 1px solid var(--line); background: none; text-align: left; font: inherit; color: inherit; }
-.wa-r:first-of-type { border-top: 0; }
-button.wa-r { cursor: pointer; }
-.wa-d { width: 8px; height: 8px; border-radius: 50%; background: var(--muted); }
-.wa-r.good .wa-d { background: var(--up); }
-.wa-r.bad .wa-d { background: var(--down); }
-.wa-t { font-size: var(--fs-sm); line-height: 1.6; min-width: 0; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
-.wa-r b { font-size: var(--fs-sm); white-space: nowrap; }
-.wa-r.good b { color: var(--up); }
-.wa-r.bad b { color: var(--down); }
-@media (hover: hover) { button.wa-r:hover .wa-t { text-decoration: underline; text-underline-offset: 3px; } }
 .co-x { align-self: flex-start; margin-top: 4px; font-size: var(--fs-tag); font-weight: 700; padding: 2px 8px; border-radius: 999px; background: var(--tile); }
 /* 공동작업 표시(2026-10-21): 학과·기관 협업(p-col)과 구분되게 테두리만 */
 .tag.p-co { background: transparent; color: var(--ch-ig, var(--sub)); box-shadow: inset 0 0 0 1px currentColor; }
@@ -1149,27 +1127,6 @@ button.wa-r { cursor: pointer; }
 .td-acct b small { font-size: 12px; font-weight: 600; color: var(--muted); margin-left: 1px; }
 .td-acct em { font-style: normal; font-size: 12px; white-space: nowrap; }
 .td-acct em i { font-style: normal; color: var(--muted); }
-.td-last { margin: 14px 2px 0; font-size: var(--fs-tag); color: var(--sub); line-height: 1.6; }
-.td-last em { font-style: normal; font-weight: 700; }
-.td-plan { margin-top: 12px; border: 1px solid var(--line); border-radius: 16px; padding: 14px 16px 6px; }
-.tp-h { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; margin-bottom: 4px; }
-.tp-h h3 { font-size: 15px; color: var(--fg); font-weight: 700; margin: 0; }
-.tp-h span { font-size: 12px; color: var(--muted); }
-.td-plan ol { list-style: none; margin: 0; padding: 0; }
-.td-plan li { border-top: 1px solid var(--line); }
-.td-plan li > a, .td-plan li > div { display: grid; grid-template-columns: 4.2em auto minmax(0, 1fr) auto; align-items: center; gap: 10px; padding: 10px 0; font-size: 14px; color: var(--fg); text-decoration: none; }
-.td-plan li > a:active { opacity: .6; }
-.tp-go { color: var(--muted); font-size: 18px; line-height: 1; }
-.td-plan li > a, .td-plan li > div { grid-template-columns: 4.2em auto minmax(0, 1fr) auto auto; }
-.tp-k i.ok { color: #fff; background: var(--c); box-shadow: none; }
-.tp-ok { font-size: 12px; font-weight: 700; color: var(--up); background: var(--plane); border-radius: 999px; padding: 3px 9px; white-space: nowrap; }
-.td-plan li.done .tp-t { color: var(--muted); }
-.td-plan li:first-child { border-top: 0; }
-.tp-d { color: var(--muted); font-size: 13px; white-space: nowrap; }
-.td-plan li.now .tp-d { color: var(--up); font-weight: 700; }
-.tp-k { display: flex; gap: 4px; }
-.tp-k i { font-style: normal; font-size: 11px; font-weight: 700; color: var(--c); box-shadow: inset 0 0 0 1px var(--c); border-radius: 6px; padding: 2px 6px; white-space: nowrap; }
-.tp-t { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
 /* 오늘 시간별 조회: 채널별 그래프 머리(2026-10-22) */
 .td-chh { margin: 10px 0 2px; }
@@ -1186,13 +1143,6 @@ button.wa-r { cursor: pointer; }
 .race-m select { font-size: 14px; padding: 5px 22px 5px 12px; }
 
 /* 점검 B(2026-10-22): 홈 아래 구역 접기 · 값 없는 첫 칸은 강조 안 함 · 홀수 칸은 마지막 칸을 넓게 */
-.home-more { margin-top: 16px; }
-.home-more > summary { list-style: none; cursor: pointer; display: flex; align-items: baseline; gap: 10px; padding: 16px 18px; background: var(--tile); border: 1px solid var(--line); border-radius: 16px; }
-.home-more > summary::-webkit-details-marker { display: none; }
-.home-more > summary b { font-size: var(--fs-md); color: var(--fg); }
-.home-more > summary span { font-size: var(--fs-tag); color: var(--muted); flex: 1; min-width: 0; }
-.home-more > summary::after { content: "\25BE"; color: var(--muted); }
-.home-more[open] > summary::after { content: "\25B4"; }
 .kpi-t.kpi-none:first-child { background: var(--tile); color: inherit; box-shadow: none; border-color: var(--line); }
 .kpi-t.kpi-none:first-child .kpi-l { color: var(--sub); }
 .kpi-t.kpi-none:first-child .kpi-s { color: var(--muted); }
@@ -1203,137 +1153,28 @@ button.wa-r { cursor: pointer; }
 .kb-l { font-size: 12px; }
 .kpi-t.kpi-none:first-child .kb-l, .kpi-t.kpi-none:first-child .kb-l .on { color: var(--muted); }
 
-/* 홈 위계 시안 반영(2026-10-22): 오늘 칸 = 큰 숫자 하나 · 카드 없는 지표 한 줄 · 목록 줄 · 접는 그래프·팔로워 추이 */
-.td2-h { display: flex; align-items: center; justify-content: space-between; gap: 10px; font-size: var(--fs-tag); color: var(--muted); }
-.td2-hero { padding: 14px 0 4px; display: flex; flex-direction: column; gap: 4px; }
-.td2-hl { font-size: 14px; font-weight: 700; color: var(--sub); }
-.td2-big { display: flex; align-items: baseline; gap: 8px; }
-.td2-big b { font-size: 52px; font-weight: 800; letter-spacing: -0.04em; line-height: 1.05; color: var(--fg); }
-.td2-big span { font-size: 17px; font-weight: 700; color: var(--sub); }
-.td2-vs { font-size: 17px; font-weight: 700; }
-.td2-vs.up { color: var(--up); } .td2-vs.down { color: var(--down); } .td2-vs.flat { color: var(--muted); }
-.td2-sub { font-size: var(--fs-tag); color: var(--muted); line-height: 1.6; }
-.td2-sub:empty { display: none; }
-.td2-m { margin-top: 14px; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); }
-.td2-m > div { padding: 12px 0 12px 14px; display: flex; flex-direction: column; gap: 2px; min-width: 0; border-left: 1px solid var(--line); }
-.td2-m > div:first-child { padding-left: 0; border-left: 0; }
-.td2-m span { font-size: 13px; color: var(--muted); }
-.td2-m b { font-size: 20px; font-weight: 800; color: var(--fg); }
-.td2-m small { font-size: 12px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.td2-l { margin-top: 20px; }
-.td2-l h3 { margin: 0 0 2px; font-size: var(--fs-md); font-weight: 800; display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
-.td2-l h3 small { font-size: 12px; font-weight: 500; color: var(--muted); }
-.td2-l ol { list-style: none; margin: 0; padding: 0; }
-.td2-l li { padding: 13px 0; border-bottom: 1px solid var(--line); cursor: pointer; display: flex; flex-direction: column; gap: 3px; }
-.td2-l li:last-child { border-bottom: 0; }
-.td2-r1 { display: flex; align-items: center; gap: 8px; min-width: 0; }
-.td2-c { font-size: 12px; font-weight: 700; color: var(--c); flex: none; }
-.td2-r1 .rt { flex: 1; min-width: 0; font-size: 15px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.td2-r1 b { font-size: 15px; font-weight: 800; flex: none; }
-.td2-r1 b.up { color: var(--up); } .td2-r1 b.down { color: var(--down); } .td2-r1 b.flat { color: var(--sub); } .td2-r1 b.mu { font-size: 13px; color: var(--muted); font-weight: 700; }
-.td2-l li small { font-size: 13px; color: var(--muted); line-height: 1.5; }
-.td2-l li small .up { color: var(--up); } .td2-l li small .down { color: var(--down); }
-.td2-l li .td2-more { font-size: 12px; }
-.td2-fold { margin-top: 12px; }
-.td2-fold > summary { cursor: pointer; font-size: 14px; font-weight: 700; color: var(--sub); padding: 10px 0; min-height: 24px; list-style: none; }
-.td2-fold > summary::-webkit-details-marker { display: none; }
-.td2-fold > summary::after { content: " \25BE"; color: var(--muted); }
-.td2-fold[open] > summary::after { content: " \25B4"; }
-.td2-fol > summary { font-weight: 500; color: var(--sub); line-height: 1.7; border-top: 1px solid var(--line); padding-top: 14px; }
-.td2-fol > summary b { color: var(--fg); }
-.td2-fol .kpi-row { margin-top: 6px; }
-.td2 .td-plan { border: 0; border-radius: 0; padding: 14px 0 4px; border-top: 1px solid var(--line); margin-top: 16px; }
-.td2-attn { margin-top: 12px; }
-.td2-attn .wa { background: var(--down-soft); border-radius: 16px; padding: 16px 18px; }
-@media (max-width: 560px) { .td2-big b { font-size: 46px; } }
-.td2-h { flex-wrap: nowrap; }
-.td2-h > span { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.td2-h .top-act { flex: none; flex-wrap: nowrap; }
-
-/* 가독성(2026-10-22 캡처 6장) */
-.td2-hl { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
-.td2-hl > span { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.td2-re { flex: none; border: 0; background: var(--plane); color: var(--sub); font: inherit; font-size: 13px; font-weight: 700; border-radius: 999px; padding: 0 12px; min-height: 36px; cursor: pointer; }
-.td2-re:disabled { opacity: .6; }
-.wa-t { display: flex; flex-direction: column; gap: 2px; -webkit-line-clamp: unset; }
-.wa-t > small { font-size: 13px; color: var(--muted); font-weight: 600; }
-.wa-t > span { font-size: 15px; font-weight: 700; color: var(--fg); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.wa-r b { font-size: 16px; font-weight: 800; }
-.wa .race-h span { font-size: 12px; }
-.td2-fl { display: flex; align-items: baseline; gap: 6px; white-space: nowrap; overflow: hidden; font-size: 14px; color: var(--sub); }
-.td2-fl i { font-style: normal; color: var(--muted); font-size: 13px; }
-.td2-fl i.sep { width: 1px; height: 12px; background: var(--line); align-self: center; margin: 0 4px; }
-.td2-fl small { font-size: 12px; margin-left: 2px; }
-.td2-fl small.up { color: var(--up); } .td2-fl small.down { color: var(--down); }
-.td2-fol > summary { display: flex; align-items: center; gap: 6px; }
-.td2-fol > summary::after { flex: none; }
-.td2-btn { display: flex !important; align-items: center; justify-content: center; gap: 8px; border: 1px solid var(--line); border-radius: 12px; min-height: 44px; padding: 0 14px !important; color: var(--sub) !important; background: var(--tile); }
-.td2-btn svg { color: var(--up); }
-.td2-fold[open] > .td2-btn { margin-bottom: 8px; }
-.td2-s1 { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 14px !important; }
-.td2-fl { gap: 4px; font-size: 13.5px; }
-.td2-fl i.sep { margin: 0 5px; }
-.home-more > summary span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-
 /* 가독성 기준(2026-10-22 레퍼런스 조사): 줄 간격 1.5·낱말 단위 줄바꿈, 읽는 글은 14px 이상, 목록 한 칸 2줄, 긴 부제는 「기준」으로 접기 */
 body { word-break: keep-all; overflow-wrap: anywhere; }
-.sh p, .race-d, .note, .kpi-s, .wa-t, .td2-sub { line-height: 1.5; }
+.sh p, .race-d, .note, .kpi-s { line-height: 1.5; }
 .howto { border: 0; background: var(--plane); color: var(--sub); font: inherit; font-size: 13px; font-weight: 700; border-radius: 999px; padding: 2px 9px; margin-left: 4px; cursor: pointer; vertical-align: 1px; }
-.td2-r2 { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
-.td2-r2 .td2-s1 { flex: 1; min-width: 0; }
-.td2-v { flex: none; font-size: 14px !important; color: var(--sub) !important; }
-.td2-c { font-size: 13px; }
-.td2-m small, .td2-l h3 small, .td2-fl small { font-size: 13px; }
-.td2-m span { font-size: 14px; }
-.td2-l li small { font-size: 14px; }
-.wa-t > small { font-size: 14px; }
 /* 회색 글 줄이기(2026-10-22): 실행할 조언은 본문색, 설명만 남은 줄은 버튼만 */
 .rx-n, .lt .note { color: var(--fg) !important; font-weight: 500; }
 p.howto-only { margin-top: 4px; }
 p.howto-only .howto { margin-left: 0; }
 .bnav button, .bnav a { font-size: 13px !important; white-space: nowrap; }
-/* 오늘 목록 썸네일(2026-10-22) */
-.td2-l li { flex-direction: row; align-items: center; gap: 12px; }
-.td2-b { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
-.td2-th { flex: none; width: 48px; height: 48px; border-radius: 10px; overflow: hidden; background: var(--plane); box-shadow: inset 0 0 0 1px var(--line); position: relative; }
-.td2-th::after { content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 3px; background: var(--c); }
-.td2-th img { width: 100%; height: 100%; object-fit: cover; display: block; }
-.td2-th:has(img)::after { display: none; }
 /* 기준일 줄에 「새로 받기」(광고 포함과 같은 모양), 오늘 칸 위 빈 공간 줄이기(2026-10-22) */
 .td-re2 { padding-left: 12px; margin-right: 6px; }
 .td-re2::before { display: none; }
 .status .ctl { display: flex; align-items: center; }
-.td-sec.td2 { padding-top: 6px; }
 .td-re2 { display: inline-flex; align-items: center; gap: 5px; }
 .td-re2 svg { color: var(--up); }
 /* 휴대폰 홈: 새로 받기 버튼이 있을 땐 「지난 기록」은 숨겨 기준일이 잘리지 않게 */
 @media (max-width: 560px) { .status:has(#tdRe) #st2 { display: none; } }
 .kpi-t.kpi-none:first-child .kbars.wk rect, .kpi-t.kpi-none:first-child .kbars.wk rect.on { fill: var(--line); }
 .kpi-t.kpi-none:first-child .kbars.wk rect.pv { fill: var(--line); opacity: 1; }
-/* 마지막 게시 줄(2026-10-23): 목록 줄과 같은 모양, 누르면 상세 */
-.td-last { display: flex; align-items: center; gap: 12px; width: 100%; margin: 14px 0 0; padding: 12px 0; border: 0; border-top: 1px solid var(--line); background: none; font: inherit; color: inherit; text-align: left; cursor: pointer; }
-.tl-b { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
-.tl-b small { font-size: 14px; color: var(--muted); font-weight: 600; }
-.tl-b > span { font-size: 15px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.td-last b { flex: none; font-size: 16px; font-weight: 800; }
-.td-last b.up { color: var(--up); } .td-last b.down { color: var(--down); } .td-last b.flat { color: var(--sub); }
-.td2-m + .td-last { border-top: 0; margin-top: 0; }
-/* 어제·오늘 게시물이 없을 때 「참고하면 좋을 것」(2026-10-23) */
-.td2-ideas { margin-top: 10px; }
-.td2-ideas h3 { margin: 0 0 2px; font-size: var(--fs-md); font-weight: 800; }
-.td2-id { display: flex; align-items: center; gap: 12px; width: 100%; padding: 12px 0; border: 0; border-bottom: 1px solid var(--line); background: none; font: inherit; color: inherit; text-align: left; }
-button.td2-id { cursor: pointer; }
-.td2-id:last-child { border-bottom: 0; }
-.td2-id b { flex: none; font-size: 16px; font-weight: 800; }
-.td2-id b.up { color: var(--up); } .td2-id b.down { color: var(--down); } .td2-id b.flat { color: var(--sub); }
 /* 보관 권고 라벨(2026-10-23) */
 .tag.arch { background: transparent; color: var(--down); box-shadow: inset 0 0 0 1px currentColor; }
 .arch-t { color: var(--down); font-weight: 700; }
-/* 팔로워 줄을 폭 전체에 고르게(2026-10-23 「오른쪽 여백이 신경 쓰인다」): 위 지표 줄처럼 같은 폭 칸 + 세로선 */
-.td2-fl { flex: 1; display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); gap: 0; }
-.td2-fl .fi { display: flex; align-items: baseline; gap: 4px; min-width: 0; padding-left: 12px; border-left: 1px solid var(--line); white-space: nowrap; overflow: hidden; }
-.td2-fl .fi:first-child { padding-left: 0; border-left: 0; }
-.td2-m small.up { color: var(--up); } .td2-m small.down { color: var(--down); }
 /* KPI 7개·제작 확인(2026-10-23) */
 .k7 { display: flex; flex-direction: column; }
 .k7-r { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 0; border-top: 1px solid var(--line); }
@@ -1344,21 +1185,77 @@ button.td2-id { cursor: pointer; }
 .k7-v b { font-size: 18px; font-weight: 800; } .k7-v b.up { color: var(--up); } .k7-v b.down { color: var(--down); } .k7-v b.mu { color: var(--muted); }
 .k7-v small { font-size: 13px; color: var(--muted); white-space: nowrap; }
 .tag.chk { background: transparent; color: var(--down); box-shadow: inset 0 0 0 1px currentColor; }
-/* 카드형(2026-10-23 「카드형으로 보이는 게 더 괜찮은 듯」): 오늘 칸 숫자 칸·참고하면 좋을 것·마지막 게시를 둥근 카드로 */
-.td2-m { gap: 8px; border: 0; }
-.td2-m > div, .td2-m > div:first-child { background: var(--plane); border: 0; border-radius: 14px; padding: 12px 14px; }
-.td2-ideas { display: flex; flex-direction: column; gap: 8px; }
-.td2-ideas h3 { margin-bottom: 0; }
-.td2-id, .td2-id:last-child { background: var(--plane); border: 0; border-radius: 14px; padding: 12px 14px; }
-.td-last, .td2-m + .td-last { background: var(--plane); border: 0; border-radius: 14px; padding: 12px 14px; margin-top: 12px; }
-.td2-m:has(> div:nth-child(2):last-child) { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-.td2-m:has(> div:only-child) { grid-template-columns: minmax(0, 1fr); }
-.td2-m .kbars { margin-top: 8px; width: 100%; height: 34px; }
-.td2-m .kb-l { margin-top: 2px; }
-/* 지금 볼 것 바탕(2026-10-23 「바탕 색깔 너무 별로」): 살구색 → 흰 바탕 + 줄마다 회색 카드(참고하면 좋을 것과 같은 모양) */
-.td2-attn .wa { background: var(--bg); border: 1px solid var(--line); padding: 16px 16px 14px; display: flex; flex-direction: column; gap: 8px; }
-.td2-attn .wa .race-h { margin-bottom: 0; }
-.td2-attn .wa-r, .td2-attn .wa-r:first-of-type { background: var(--plane); border: 0; border-radius: 14px; padding: 12px 14px; }
+
+/* ───── 홈 시안 2(2026-10-23 「이대로」, 캔버스 「디자인 기준」): 한 가지 기준으로 다시 짬 ─────
+   글자 40·20·16·14 · 굵기 400·700 · 색 = 바탕·카드·글자·보조·선·좋음·낮음(+채널 색) · 카드 둥글기 16 · 버튼 알약 · 간격 8·12·16·24.
+   목록은 .hm-row 한 모양(윗줄 제목 + 값, 아랫줄 채널 · 이름표 + 보조). 칩·테두리 상자·이모지 장식 없음. 옛 오늘 칸 규칙(td2·wa·td-plan 등)은 모두 걷어 냄 */
+.hm { --hm-card: #f2f4f6; --hm-thumb: #dfe3e8; padding-top: 16px; padding-bottom: 24px; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .hm { --hm-card: #202027; --hm-thumb: #2c2c35; } }
+:root[data-theme="dark"] .hm { --hm-card: #202027; --hm-thumb: #2c2c35; }
+.hm .up { color: var(--up); } .hm .down { color: var(--down); } .hm .flat, .hm .mu { color: var(--muted); }
+.hm-hero { display: flex; flex-direction: column; gap: 4px; }
+.hm-lab, .hm-note { font-size: 14px; font-weight: 400; line-height: 1.5; color: var(--muted); }
+.hm-big { font-size: 40px; font-weight: 700; line-height: 1.2; letter-spacing: -0.02em; color: var(--fg); }
+.hm-vs { font-size: 16px; font-weight: 700; line-height: 1.5; }
+.hm-cards { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin-top: 16px; }
+.hm-cards.n1 { grid-template-columns: minmax(0, 1fr); }
+.hm-cards.n2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.hm-card { min-width: 0; display: flex; flex-direction: column; gap: 4px; padding: 12px; border-radius: 16px; background: var(--hm-card); }
+.hm-card > b { font-size: 20px; font-weight: 700; line-height: 1.3; color: var(--fg); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.hm-cl, .hm-cs { font-size: 14px; font-weight: 400; line-height: 1.4; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.hm-cs.up { color: var(--up); } .hm-cs.down { color: var(--down); }
+.hm-sec { margin-top: 24px; display: flex; flex-direction: column; gap: 8px; }
+.hm-h { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; min-width: 0; }
+.hm-h h3 { margin: 0; flex: none; font-size: 20px; font-weight: 700; line-height: 1.4; color: var(--fg); }
+.hm-h span { min-width: 0; font-size: 14px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.hm-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.hm-row { box-sizing: border-box; width: 100%; min-width: 0; display: flex; align-items: center; gap: 12px; padding: 12px 16px; border: 0; border-radius: 16px; background: var(--hm-card); font: inherit; color: inherit; text-align: left; text-decoration: none; }
+button.hm-row, a.hm-row, li.hm-row { cursor: pointer; }
+button.hm-row:active, a.hm-row:active, li.hm-row:active { opacity: .7; }
+.hm-row:focus-visible { outline: 2px solid var(--jj); outline-offset: 2px; }
+@media (hover: hover) { button.hm-row:hover .hm-t, a.hm-row:hover .hm-t, li.hm-row:hover .hm-t { text-decoration: underline; text-underline-offset: 3px; } }
+.hm-rb { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+.hm-r1, .hm-r2 { display: flex; align-items: baseline; gap: 12px; min-width: 0; }
+.hm-t { flex: 1; min-width: 0; font-size: 16px; font-weight: 700; line-height: 1.4; color: var(--fg); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.hm-r1 > b { flex: none; font-size: 16px; font-weight: 700; color: var(--fg); }
+.hm-r1 > b.mu { font-size: 14px; }
+.hm-m { flex: 1; min-width: 0; font-size: 14px; line-height: 1.4; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.hm-x { flex: none; font-size: 14px; line-height: 1.4; color: var(--muted); white-space: nowrap; }
+.hm-ch { color: var(--c); font-weight: 700; }
+.hm-ch.ok { text-decoration: underline; text-underline-offset: 3px; }
+.hm-now { color: var(--up); font-weight: 700; }
+.hm-row.done .hm-t { color: var(--muted); }
+.hm-th { flex: none; width: 48px; height: 48px; border-radius: 12px; overflow: hidden; background: var(--hm-thumb); }
+.hm-th img { display: block; width: 100%; height: 100%; object-fit: cover; }
+.hm-fold > summary { list-style: none; cursor: pointer; }
+.hm-fold > summary::-webkit-details-marker { display: none; }
+.hm-btn { min-height: 44px; display: flex; align-items: center; justify-content: center; gap: 8px; border-radius: 16px; box-shadow: inset 0 0 0 1px var(--line); font-size: 14px; font-weight: 700; color: var(--fg); }
+.hm-btn svg { color: var(--up); }
+.hm-fold[open] > .hm-btn { margin-bottom: 8px; }
+.hm-fol { margin-top: 24px; }
+.hm-fol > summary .hm-cards { margin-top: 0; }
+.hm-fol .kpi-row { margin-top: 8px; }
+.hm-wk { padding: 16px; gap: 12px; }
+.hm-wh { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
+.hm-wh b { font-size: 20px; font-weight: 700; color: var(--fg); }
+.hm-wh span { font-size: 14px; color: var(--muted); white-space: nowrap; }
+.hm-wk .kbars { display: block; width: 100%; height: 56px; margin: 0; }
+.hm-wk .kbars rect { fill: var(--up); opacity: 1; }
+.hm-wk .kbars rect.pv { fill: var(--hm-thumb); }
+.hm-wk .kb-l { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); margin: 0; font-size: 14px; color: var(--muted); text-align: center; }
+.hm-wk .kb-l .on { font-weight: 700; color: var(--fg); }
+.home-more { margin-top: 16px; }
+.home-more > summary { list-style: none; cursor: pointer; min-height: 48px; display: flex; align-items: center; justify-content: center; gap: 8px; padding: 0 16px; border-radius: 16px; background: var(--bg); box-shadow: inset 0 0 0 1px var(--line); }
+.home-more > summary::-webkit-details-marker { display: none; }
+.home-more > summary span { min-width: 0; font-size: 14px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.home-more > summary b { flex: none; font-size: 16px; font-weight: 700; color: var(--fg); }
+.home-more[open] > summary span { display: none; }
+.home-more[open] > summary b { font-size: 0; }
+.home-more[open] > summary b::after { content: "접기"; font-size: 16px; }
+/* 카드 셋째 줄(목표 1.0% 아래 · 평소 대비 +80%)은 좁은 칸에서 잘리지 않게 두 줄까지 */
+.hm-cs { white-space: normal; word-break: keep-all; overflow-wrap: anywhere; }
+/* 휴대폰: 「더 보기」 버튼은 섹션 밖이라 좌우 16px 여백(펼친 안쪽 섹션은 그대로 폭 전체) */
+@media (max-width: 560px) { .home-more > summary { margin: 0 16px; } }
 </style>
 
 <div class="app" id="app">
@@ -1378,7 +1275,7 @@ button.td2-id { cursor: pointer; }
 <div class="detail" id="detail" hidden role="dialog" aria-modal="true" aria-label="콘텐츠 상세"></div>
 
 <script>window.SNS_EXP = {"made":"2026-10-23","names":{"E01":"수업·강의·실습","E02":"학과·전공 소개","E03":"동아리·학생자치","E04":"기숙사·생활관","E05":"학식·밥·카페","E06":"시험기간","E07":"수강신청·전과·학사","E08":"장학·등록","E09":"축제·공연","E10":"운동부·스포츠","E11":"해외·교환학생·유학생","E12":"취업·진로·현장실습","E13":"창업","E14":"봉사·국토대장정","E15":"전주·지역","E16":"연애·친구·관계","E17":"선배·재학생 조언","E18":"캠퍼스 공간·계절"},"s":{"yt:MJNjcYdqoFQ":"E03,E12","ig:DEjjD3-veid":"E18","ig:DEmaxfmPXkt":"E11,E14","yt:fpsHI-840ic":"E18","ig:DEwp3RTvkDv":"E18","yt:DC0J5x6Pw58":"E18","ig:DFG9bv_T98L":"E07","ig:DFJ8JDqPTpT":"E11","yt:GhCaLFO4F2k":"E18","yt:jMguLIlYbeI":"E07","ig:DFrztVnvW9S":"E15","":"E06","yt:S45XWgxL_mI":"E17","ig:DGANgR8P370":"E07,E08","ig:DGNfP0IP6dK":"E05,E07","ig:DGP9k-pPfwr":"E07","yt:02v5IuiRlxE":"E07","ig:DGcVRhXPX0L":"E17,E18","ig:DGfVncNvHbA":"E08,E12","yt:u-ORHDoLAcI":"E17","ig:DGkXy-_PWpf":"E09","ig:DGpetJ2vayI":"E10","yt:7X6pEFPYp6I":"E17","ig:DGzqaVFvZh4":"E05","ig:DG2azLOPgtj":"E01,E02","yt:X9-sH21_ib4":"E05","yt:TSYzAXKDiRQ":"E02","yt:sO_1i6NcvHU":"E09,E17","ig:DHS3DsnqPzK":"E10","yt:FUu8m96qxMA":"E10","yt:QG_b8-gOKxI":"E01,E02","yt:bE7CP2xlNY0":"E17","ig:DHvQ_Jqv7wZ":"E18","ig:DH-nDG9vpjf":"E15,E18","ig:DIBNcb9vo37":"E02","yt:QyKWzESapVw":"E02","ig:DIOAi_PqKa-":"E06,E17","yt:b4QYLlv6O7E":"E06,E18","yt:xQmopEzA8kg":"E18","ig:DIVpOQGP9mq":"E18","ig:DIa2qMLvwDb":"E06,E07","ig:DIgG97OKbWe":"E07,E17","ig:DIk2GBKP1xA":"E01","yt:64oEuqrBgkM":"E06","ig:DIyHFRSPeBG":"E06,E18","ig:DI0pfnCv0As":"E01,E02","ig:DJDfbH3PUqt":"E03","ig:DJD8rGLPcuN":"E01,E02","yt:UDobSHMVy-s":"E17","ig:DJL-edxv4pe":"E10","yt:nSKpIWigap4":"E10","yt:emx8DkcYPPs":"E02","ig:DJjBnrYvKX_":"E01,E02","ig:DJoSj7yP2MY":"E07,E12","yt:RXpzf1UX7WM":"E01","ig:DJqOetDP69y":"E01","ig:DJ3k9zCK14g":"E09,E17","yt:8vjaPEWq4_4":"E12","ig:DJ8Z9XjvYQx":"E09","yt:rsbQKfZNHHY":"E18","ig:DJ-9QJ1v6Ii":"E01","ig:DJ_W76AvUKk":"E09","yt:RDbdhmpreb8":"E17","ig:DKJea_TKPFw":"E09","yt:CYbAhGH9n-4":"E09","yt:KvwX3UgdFqM":"E09","yt:nqJq34b6Ogo":"E09","yt:VG_ouhkRnzE":"E09","ig:DKOl3qSPyov":"E09","yt:LSlOWVgZdrY":"E09","yt:SpjqLKT3KkQ":"E09","yt:VrVBKyCwMo8":"E09","yt:E1c5Ym_yKKY":"E09","yt:LeAXo6MMMyA":"E09","yt:MTj9CoBfRbk":"E09","yt:Rk3C4B3CAqI":"E09","yt:GCU7yqTc0Kc":"E09","yt:DNyOFnjZ870":"E09","yt:yulP4OH33qU":"E09,E17","yt:IkOmovwO6Lc":"E09","yt:skqnNr_7TLo":"E09","ig:DK1GxlTvedo":"E06,E18","yt:o_OpW3tkX04":"E06","ig:DK_obPsvYsR":"E06","ig:DLCLzOsvZAQ":"E07","ig:DLO5StvPd0J":"E01","yt:9eyJCQc05xw":"E02","ig:DLZFEW5vOGl":"E14","yt:fsA5opc2wS4":"E14","ig:DLyk4eAKlri":"E14","ig:DL4b8XvPo-H":"E02","yt:5mLsWMm29f8":"E02","ig:DMFQHHuvkyy":"E14","ig:DMKc5rEP6tS":"E14","yt:CxyQq7KEkk0":"E14","ig:DMcSNO-Po4y":"E01","ig:DMgwPNXz27f":"E09,E12","ig:DMrjUH4Pf55":"E11,E14","ig:DM7ILqBvWB8":"E07","yt:Nv2UZ5vZabs":"E01,E07","ig:DNAjUxkv7Z-":"E09,E15","ig:DNP8p7qvN8v":"E07","yt:sReS_dWrDp4":"E15","ig:DNSf_Stv1Hk":"E15","yt:-CUOzYNnf6g":"E15","ig:DNfZkNavl1x":"E07,E08","yt:_5InCbQecMM":"E01","ig:DN2jcidZksE":"E03","yt:199GpIfLcyQ":"E03,E09","yt:DY8mn8C6RSo":"E03,E09","yt:xtZhDj20z0A":"E03,E09","yt:Yz0FGdqwdv0":"E03,E09","ig:DODZMz1k-Gc":"E05","ig:DOF8v-OE5Oo":"E02,E07","ig:DOImk2PE8Ae":"E09,E10","ig:DOLGY7jEzr5":"E18","ig:DOOIx10Ezi8":"E02","yt:EITV0aduDvc":"E05","ig:DOYCkd3k5dl":"E03,E09","yt:R0yQ-UYHxpk":"E03","yt:ryZtUgoqxM0":"E03","ig:DOaiic_E99W":"E05","yt:J3KNEpkbX9k":"E05","ig:DOfmej8kzhl":"E09","ig:DOnemknE00B":"E05","yt:ZQ_-TwL0wHw":"E05","yt:RGzPvZNw1OY":"E09","yt:irVZxGItDQI":"E10","ig:DOvOijgE8XD":"E10","yt:Za5ECGKWoXY":"E10","yt:ahZcqSX-7RI":"E09,E12","yt:cRlDhfp87J0":"E02,E10","ig:DPQRpOSk0lb":"E08","yt:0tq7yrcG7Fk":"E17","yt:1YwgunkdRm8":"E02,E03","yt:wnjIHCJb6N4":"E02","ig:DP0t16zE5Vg":"E06","ig:DQJdO4Ck5WT":"E02,E10","yt:_bKjuxd4ujY":"E01","ig:DQlpcf5E7J3":"E02,E18","yt:tzg86wy_B0Y":"E18","yt:0xCzrnu1vSY":"E02","yt:fm8r7ytfdRw":"E12","ig:DQ_cxMCk9Bz":"E18","ig:DRMZEWbkwQx":"E11","ig:DReToDnk1mJ":"E09,E13","yt:HstqZ3ltnMk":"E05","ig:DRmBtbpk6rV":"E05","ig:DRwZUKek5up":"E02,E03","ig:DRy7dk_k0dm":"E18","yt:o-3tJFBeGlI":"E04","ig:DR_u861E9nu":"E15","ig:DSE5xHUkwBn":"E03","yt:YeMU_q7-KMw":"E03","yt:hemhUpG-Rrc":"E03","yt:43sNN8ST8eQ":"E03","yt:ktPD7OuthNY":"E06","yt:Wq_CjXZUSFA":"E03","ig:DSTq_jDE1KM":"E06","ig:DSW-wBqEzxZ":"E01","yt:BlWXgfGWl08":"E02","ig:DS1rODEE4Fr":"E04","yt:ANG_ya9mwKk":"E04","ig:DS6MzQfkxrB":"E01","yt:QfYIbe9ZOow":"E08","ig:DTfEy9sE9DN":"E12","yt:Bvln-mBNc8s":"E12","yt:8-In5fQdC4M":"E12","ig:DTkUKesEz0K":"E17,E18","ig:DTr7tmQk-qC":"E02,E18","yt:IvAZKA2y-Q4":"E15","yt:KuJ0Axiw3T8":"E15","yt:woN03we0iy4":"E15","ig:DTzmM_IE3uR":"E15","yt:z7OWzckgo7g":"E05","ig:DT2Pd3-kwXx":"E05,E15","yt:Qqm_gojy67Y":"E16,E18","yt:ZKwUaa64bpo":"E04","ig:DUDI3BJk5v6":"E01,E17","ig:DUFo0laE4m5":"E11,E17","yt:S7OjQip0Lmg":"E12","yt:08gyXnSVb4E":"E16","yt:_siSDaQQQ54":"E18","ig:DUXtiw5EyRz":"E11,E14","yt:1EXXvpy1gJY":"E15","yt:LIuFOb3vHaU":"E07,E17","ig:DUpuT7ikzNg":"E07,E18","ig:DVF1HEiE0Qf":"E07","yt:WCK7JK_Jp9Y":"E17","yt:ETFd8zVO1ug":"E07","yt:j2DVH_PQ1fE":"E17","ig:DVKuIPXk6lC":"E18","yt:YKZjZzAYN90":"E07","ig:DVNyD1LE43G":"E17","ig:DVQYSPRE80R":"E10","ig:DVdA1FYEzBF":"E17","ig:DVf0dH2E1Sx":"E05,E17","yt:uK_Np8wVjB8":"E05","yt:tZPsmRPgZiM":"E05","ig:DVx024sE0zW":"E05","ig:DV-swM1k4BM":"E01,E10","yt:LalWVaepGcM":"E05","yt:9t2loikdmt4":"E02,E17","ig:DWgK3bIkxG7":"E15","yt:v7WT0rv1CZ0":"E15","ig:DWnmKPSk3MU":"E15","yt:L1ygt9ctdxU":"E12","ig:DWqVqiIE7hM":"E18","ig:DWqseA5k_Zn":"E02,E11","yt:T4_aUpF1qsY":"E18","yt:g59LvN3MP3k":"E02","ig:DXYp4xcE2U3":"E02","yt:gLB5T_Y23I0":"E06","ig:DXbQ-cFk8j4":"E02,E06","ig:DXgjN9HE1hW":"E18","ig:DXv5DnIE-Xv":"E02,E17","yt:JwNGrrfvn5U":"E02","ig:DYBl-ZFk0Ww":"E10","yt:DYPEwaabu6c":"E02","ig:DYEjJr7zAGz":"E02","yt:h2i3xVJcjtE":"E02,E11","yt:CkGpo0zszls":"E10,E17","ig:DY6jksNzfOh":"E10","yt:CvqY5y9fjY0":"E10","ig:DZMuSzPkxcF":"E02","ig:DZUHFbAT3a_":"E06","ig:DZZiK3rTuCe":"E02,E10","ig:DZcLkB5z8Dk":"E06","yt:IxMXypz-Zfk":"E02,E07","ig:DZmLBask4jN":"E18","ig:DZwvHnLzB28":"E02","ig:DaUcPi_k9kw":"E18","ig:Daucapwk99F":"E18","yt:a5udxibGquU":"E07","yt:p8p43vRiD4w":"E02","ig:DbXun7tkwOT":"E01,E10","ig:DbsTHKUk35d":"E02","yt:Z3cePbXCCos":"E03","ig:Db2UUKoEyJ8":"E02","ig:Db5N4GSE8mb":"E02","ig:Db7vE42kzre":"E18","ig:Db-cn-yE7UL":"E09,E15","ig:DcGUT1ak2vu":"E09","ig:DcQP10kk-3G":"E07,E08","ig:DcdZQD1k_LL":"E02","ig:DcfuKTCk-08":"E18","yt:Ne8s86SQSaU":"E17","yt:GhPfW-RJORw":"E11","ig:Dcspac5E4rC":"E04","ig:Dc2_1-GKbIH":"E16","ig:Dc-sm9zE01-":"E06,E18","yt:P8Aswq_pcWE":"E16","yt:V6abjQpy-2I":"E18","ig:DdBWM2PE5Je":"E18","yt:2Jf7yD9sSM8":"E10","yt:spUqGt12lh0":"E10","ig:DdQTvb-k0od":"E05","ig:DdV6ChQKfb1":"E09,E18","ig:DdYof21k4bo":"E02","ig:DdlDfMnE5wr":"E09,E18","ig:Ddn7vwkk13M":"E09","ig:Dd0VG1FkyYM":"E15","yt:3b5THMJZrZo":"E03,E09","ig:Dd8eiwDk5HX":"E15","yt:HSCl8F3b4Fc":"E09","ig:Dd_HkROEx28":"E09","yt:dMMJ2J0TQA8":"E09","yt:nWWGkCbr6u4":"E09","yt:3dfJnFj2P5Y":"E15","ig:Ded_06iTVjV":"E13","ig:DeghX4_kyJP":"E13","yt:4xgaV6TM0mI":"E02,E10","ig:DejJVm0E8ZN":"E02","ig:DeqldZpkxWg":"E06,E18","yt:WtMCo8Usa1M":"E06,E17","ig:DeterXdE2rD":"E06","ig:Dev0naNqZxf":"E02,E06","yt:OUeQ02IaHdM":"E08,E17"},"depts":["신학과경배찬양학과","영어영문학과","일본언어문화학과","중국어중국학과","역사콘텐츠학과","웹툰만화콘텐츠학과","한국어문학창작학부","경찰학과","문헌정보학과","법학과","사회복지학과","상담심리학과","행정학과","경영학과","금융보험학과","물류무역학과","부동산국토정보학과","회계세무학과","금융학과","간호학과","물리치료학과","방사선학과","보건관리학과","작업치료학과","식품영양학과","재활학과","환경생명과학과","운동처방학과","건축공학과","건축학과","기계공학과","기계자동차공학과","산업공학과","소방안전공학과","신소재화학공학과","전기전자공학과","정보통신공학과","토목환경공학과","기초과학과","탄소융합공학과","데이터공학과","스마트미디어학과","인공지능학과","컴퓨터공학과","게임콘텐츠학과","공연방송연기학과","공연예술학과","산업디자인학과","생활체육학과","시각디자인학과","영화방송학과","예술심리치료학과","음악학과","축구학과","태권도학과","관광경영학과","외식산업조리학과","패션산업학과","한식조리학과","호텔경영학과","교육학과","농식품경영학과","창업경영금융학과","미네르바학부","반려동식물학과","친환경자동차학과","로컬벤처학부","융합학부","자유전공학부","반려동물산업학부","동물보건학과","펫산업학과","국제학부"]};</script>
-<script>window.SNS_API_URL = "https://script.google.com/macros/s/AKfycbyGL0h1nmGMIMiG0KsZksAyOUaxcdwKiXLysmB2ExGLEhVX3eUiwmRbv7uTPhsWf6Q6/exec"; window.SNS_BUILD = "717a486060";</script>
+<script>window.SNS_API_URL = "https://script.google.com/macros/s/AKfycbyGL0h1nmGMIMiG0KsZksAyOUaxcdwKiXLysmB2ExGLEhVX3eUiwmRbv7uTPhsWf6Q6/exec"; window.SNS_BUILD = "d8d78ebf71";</script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.js" integrity="sha384-dug+JxfBvklEQdJ4AYuBBAIScUz0bVN73xpy273gcAwHjb3qI0fXmuYNaNfdyYJG" crossorigin="anonymous"></script>
 <script>
 (function () {
@@ -1697,8 +1594,7 @@ button.td2-id { cursor: pointer; }
     const chs = viewChannels();
     const cur = pool({ channels: chs, since: addDays(D.updated, -30) });
     const low = cur.filter(it => judged(it) && ratio(it) < 0.5).sort((a, b) => ratio(a) - ratio(b)).slice(0, 3);
-    const wkc = calWeek(chs), attn = attnHtml(chs, wkc);
-    let html = '<div id="today">' + todayShell(chs) + '</div>' + (attn ? '<div class="td2-attn">' + attn + '</div>' : '');
+    let html = '<div id="today">' + todayShell(chs) + '</div>';
     const topH = topHtml(chs); let chk = '';
     // 용어 뜻은 맨 아래 접은 칸으로, 조건 설명 줄은 제목에 마우스를 올리면
     chk += '<section class="sec"><div class="sh"><div><h2>점검할 것</h2><p>최근 3달 분류별 · 평소보다 낮은 콘텐츠</p></div></div>' +
@@ -1710,7 +1606,7 @@ button.td2-id { cursor: pointer; }
     const more = [['이번 주', topH], ['점검할 것', chk], ['채널별 증가', weekHtml(chs)], ['채널 현황', trendHtml(chs) + (chs.length === 1 ? '<div id="deep"></div>' : '')], ['연도별', yearlyHtml(S.ch === '전체' ? OWN : chs)]]
       .concat(S.ch === '전체' && benchNames().length ? [['타 대학 비교', benchCmpHtml()]] : []).filter(x => x[1]);
     let mo = false; try { mo = localStorage.getItem('sb-home-more') === '1'; } catch (e) {}
-    html += '<details class="home-more"' + (mo ? ' open' : '') + ' id="homeMore"><summary><b>더 보기</b><span>' + more.map(x => x[0]).join(' · ') + '</span></summary>' + more.map(x => '<div class="gap"></div>' + x[1]).join('') + '</details>';
+    html += '<details class="home-more"' + (mo ? ' open' : '') + ' id="homeMore"><summary><span>' + more.map(x => x[0]).join(' · ') + '</span><b>더 보기</b></summary>' + more.map(x => '<div class="gap"></div>' + x[1]).join('') + '</details>';
     html += advHtml();
     $('view').innerHTML = html;
     wireWeek(); wireTrend(); wireBenchCmp(); wireAdv(); wireTop(chs);
@@ -2062,39 +1958,39 @@ button.td2-id { cursor: pointer; }
     return '<div class="kpi-row n' + t.length + '">' + t.join('') + '</div>';
   }
   // 지금 볼 것: 갱신할 때마다 다시 계산하는 주의 목록(최대 4줄). 게시물 줄은 누르면 상세
-  const chTxt = c => '<span class="td2-c" style="--c:' + chColor(c) + '">' + esc(chName(c)) + '</span> ';
+  const chTxt = c => '<span class="hm-ch" style="--c:' + chColor(c) + '">' + esc(chName(c)) + '</span>';
   function attnHtml(chs, w) {
     const A = [], n = D.dates.length - 1, mi = D.dates.indexOf(w.mon), j = mi >= 0 && mi < n ? mi : n - 1;
     window.__attn = [];
-    const row = (lv, txt, val, it) => { const i = it ? window.__attn.push(it) - 1 : -1; A.push('<' + (it ? 'button type="button" data-wa="' + i + '"' : 'div') + ' class="wa-r ' + lv + '"><span class="wa-d" aria-hidden="true"></span><span class="wa-t">' + (txt.indexOf('§') >= 0 ? '<small>' + txt.split('§')[0] + '</small><span>' + txt.split('§')[1] + '</span>' : '<span>' + txt + '</span>') + '</span>' + (val ? '<b class="num">' + val + '</b>' : '') + '</' + (it ? 'button' : 'div') + '>'); };
+    const row = (lv, lab, c, t, val, it) => A.push(hmRow({ tag: it ? 'button' : 'div', attr: it ? 'type="button" data-wa="' + (window.__attn.push(it) - 1) + '"' : '', c, t, m: lab, v: val, vc: lv }));
     // 이번 주 게시물 중 가장 잘 된 것 · 가장 낮은 것(같은 형식 같은 날수 평소 대비)
     const J = w.posts.map(it => ({ it, p: paceOf(it) })).filter(x => x.p).sort((a, b) => b.p.r - a.p.r);
-    if (J.length && J[0].p.r >= 1.3) row('good', '이번 주 가장 잘 된 게시물§' + chTxt(J[0].it.c) + esc(title(J[0].it.n)), vsP(J[0].p.r), J[0].it);
+    if (J.length && J[0].p.r >= 1.3) row('up', '이번 주 가장 잘 된 게시물', J[0].it.c, esc(title(J[0].it.n)), vsP(J[0].p.r), J[0].it);
     const lo = J.filter(x => x.p.r < 0.7).pop();
     // 보관 권고(최근 60일): 몇 개인지 + 가장 낮은 것
     const AR = D.items.filter(it => chs.includes(it.c) && it.d >= addDays(D.updated, -60) && archRec(it)).sort((a, b) => archRec(a).r - archRec(b).r);
-    if (AR.length) row('bad', '보관 후보 · 끝난 이벤트 ' + AR.length + '개§' + chTxt(AR[0].c) + esc(title(AR[0].n)), vsP(archRec(AR[0]).r), AR[0]);
-    if (lo) row('bad', '평소보다 낮은 게시물§' + chTxt(lo.it.c) + esc(title(lo.it.n)), vsP(lo.p.r), lo.it);
+    if (AR.length) row('down', '보관 후보 · 끝난 이벤트 ' + AR.length + '개', AR[0].c, esc(title(AR[0].n)), vsP(archRec(AR[0]).r), AR[0]);
+    if (lo) row('down', '평소보다 낮은 게시물', lo.it.c, esc(title(lo.it.n)), vsP(lo.p.r), lo.it);
     // 예전 게시물이 이번 주 다시 크게 늘었나(이번 주 늘어난 조회의 20% 이상 또는 5천 이상)
     if (j >= 0 && j < n) {
       const p = weekPart(chs, n, j);
-      if (p) { const old = p.old.filter(it => it.d < w.mon && p.inc0(it) > 0).sort((a, b) => p.inc0(b) - p.inc0(a))[0]; if (old && (p.inc0(old) >= 5000 || (p.v && p.inc0(old) / p.v >= 0.2))) row('info', '예전 게시물이 다시 늘어요§' + chTxt(old.c) + esc(title(old.n)), '+' + fmtK(p.inc0(old)), old); }
+      if (p) { const old = p.old.filter(it => it.d < w.mon && p.inc0(it) > 0).sort((a, b) => p.inc0(b) - p.inc0(a))[0]; if (old && (p.inc0(old) >= 5000 || (p.v && p.inc0(old) / p.v >= 0.2))) row('up', '예전 게시물이 다시 늘어요', old.c, esc(title(old.n)), '+' + fmtK(p.inc0(old)), old); }
     }
     // 팔로워가 크게 준 날(이번 주, 5명 이상 감소)
     chs.filter(c => c === '인스타그램' || c === 'hong._.video').forEach(c => {
       const F = {}; (D.fol || []).filter(r => r[1] === c).forEach(r => { F[r[0]] = r[2]; });
       let worst = null;
       for (let k = 0; k < 7; k++) { const d = addDays(w.mon, k); if (d >= w.end) break; const a = F[d], b = F[addDays(d, 1)]; if (a != null && b != null && b - a <= -5 && (!worst || b - a < worst[1])) worst = [d, b - a]; }
-      if (worst) row('bad', chName(c) + ' 팔로워가 줄어든 날§' + md2(worst[0]) + '(' + WK_D[(wdOf(worst[0]) + 6) % 7] + ')', worst[1] + '명');
+      if (worst) row('down', '하루 감소', c, md2(worst[0]) + '(' + WK_D[(wdOf(worst[0]) + 6) % 7] + ') 팔로워가 줄었어요', '−' + fmt(-worst[1]) + '명');
     });
     // 이번 주 아직 안 올린 채널(평소 주 1개 이상, 3일 이상 지남)
     if (daysBetween(w.mon, w.end) >= 2) chs.filter(c => OWN.includes(c)).forEach(c => {
       if (w.posts.some(it => it.c === c)) return;
       const per = D.items.filter(it => it.c === c && it.t !== '스토리' && !it.ad && it.d >= addDays(w.mon, -56) && it.d < w.mon).length / 8;
-      if (per >= 1) row('info', chName(c) + '§이번 주 아직 안 올렸어요', '평소 ' + (Math.round(per * 10) / 10) + '개/주');
+      if (per >= 1) row('', '평소 ' + (Math.round(per * 10) / 10) + '개/주', c, '이번 주 아직 안 올렸어요', '');
     });
     if (!A.length) return '';
-    return '<div class="wa"><div class="race-h"><h3>지금 볼 것</h3><span>' + esc(String(D.built || D.updated).slice(5).replace('-', '/')) + ' 기록</span></div>' + A.slice(0, 4).join('') + '</div>';
+    return hmSec('지금 볼 것', esc(String(D.built || D.updated).slice(5, 10).replace('-', '/')) + ' 기록', '<div class="hm-list">' + A.slice(0, 4).join('') + '</div>');
   }
   // 주간 보고: 카톡·메일에 붙일 글(맨 위 숫자 + 요약 + 많이 큰 콘텐츠 + 데이터 주의)
   function reportText(chs) {
@@ -4523,50 +4419,67 @@ button.td2-id { cursor: pointer; }
       .map(x => { const h = last(x); return !h ? null : j === 0 ? ((h[1] || 0) + (h[2] || 0) + (h[3] || 0) + (h[4] || 0)) / x.r : h[j] != null ? h[j] / x.r : null; }).filter(v => v != null);
     return (TD_RX[k] = a.length >= MIN_N ? median(a) : null);
   }
-  const tdAgo = (at, now) => { const m = Math.max(0, Math.round((now - new Date(at + ':00+09:00')) / 60000)); return m < 60 ? m + '분 전' : m < 24 * 60 ? Math.floor(m / 60) + '시간 ' + (m % 60) + '분 전' : '어제 ' + at.slice(11, 16); };
+  const tdAgo = (at, now) => { const m = Math.max(0, Math.round((now - new Date(at + ':00+09:00')) / 60000)); return m < 60 ? m + '분 전' : m < 24 * 60 ? Math.floor(m / 60) + '시간 전' : '어제 ' + at.slice(11, 16); }; // 목록 아랫줄이 한 줄에 들어가게 시간 단위까지만(2026-10-23)
   // 인스타 주소는 /p/·/reel/이 섞여 있어 짧은 코드로 맞춤
   const igCode = u => (String(u || '').match(/\/(?:p|reel|reels|tv)\/([^/?#]+)/) || [])[1] || igKey(u);
   const tdItem = p => D.items.find(it => it.c === p.c && (p.c === '유튜브' ? ytId(it.u) === p.id : igCode(it.u) === igCode(p.u)));
   function todayShell(chs) {
     TD.chs = chs;
-    return TD.d ? todayInner(chs) : '<section class="sec td-sec"><div class="sh"><div><h2>오늘</h2><p>지금 값을 받는 중이에요</p></div></div><div class="wait sm">잠시만요</div>' + secClose;
+    return TD.d ? todayInner(chs) : '<section class="sec hm"><div class="hm-hero"><span class="hm-lab">오늘</span><span class="hm-note">지금 값을 받는 중이에요</span></div>' + secClose;
   }
   // 오늘 칸(2026-10-22 홈 위계 시안 반영 「바꾸자」): 큰 숫자 하나(어제·오늘 게시물 조회와 평소 비교) → 카드 없는 지표 한 줄 → 게시물 목록 줄 → 게시 예정 → 팔로워 한 줄. 그래프·팔로워 추이는 접어 둠
   // 목록 썸네일(2026-10-22, 토스·Stripe 목록처럼 왼쪽 작은 그림): 인스타·hong = 서버가 받은 img, 유튜브 = 영상 번호로 만든 주소
-  const tdThumb = p => { const src = p.img || (p.c === '유튜브' && /^[w-]{11}$/.test(p.id) ? 'https://i.ytimg.com/vi/' + p.id + '/mqdefault.jpg' : ''); return '<span class="td2-th" style="--c:' + chColor(p.c) + '" aria-hidden="true">' + (src ? '<img src="' + esc(src) + '" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.remove()">' : '') + '</span>'; };
-  // 어제·오늘 올린 게 없을 때(2026-10-23 「기간 상관없이 유의미한 데이터, 내가 참고하면 좋을 데이터 추천으로」):
-  // 최근 30일 가장 잘 된 게시물 · 작년 이맘때 잘 된 게시물 · 더 만들면 좋은 조합 · 줄이면 좋은 조합(전략 화면 「이번 주 처방」과 같은 계산)
-  // 업로드 없는 날 맨 위(2026-10-23 「우리 채널 성장 데이터를 보여 주면 동기부여·사기 진작」): 팔로워·구독자 합계와 1년 전보다 늘어난 수, 채널별 1년 증감, 올해 히트 수
-  function tdGrow(chs, d, today) {
+  const tdThumb = p => { const src = p.img || (p.c === '유튜브' && /^[w-]{11}$/.test(p.id) ? 'https://i.ytimg.com/vi/' + p.id + '/mqdefault.jpg' : ''); return '<span class="hm-th" style="--c:' + chColor(p.c) + '" aria-hidden="true">' + (src ? '<img src="' + esc(src) + '" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.remove()">' : '') + '</span>'; };
+  // 홈 시안 2(2026-10-23 「이대로」, 캔버스 「디자인 기준」): 글자 40·20·16·14, 굵기 400·700, 카드 둥글기 16 · 버튼 알약, 간격 8·12·16·24.
+  // 목록은 모두 hmRow 한 모양 — 윗줄 = 제목 + 오른쪽 값, 아랫줄 = 채널 색 글자 · 이름표 + 오른쪽 보조
+  function hmRow(o) {
+    const tag = o.tag || 'div';
+    return '<' + tag + ' class="hm-row' + (o.cls ? ' ' + o.cls : '') + '"' + (o.attr ? ' ' + o.attr : '') + (o.tip ? ' title="' + esc(o.tip) + '"' : '') + '>' + (o.thumb || '') +
+      '<span class="hm-rb"><span class="hm-r1"><span class="hm-t">' + o.t + '</span>' + (o.v ? '<b class="num ' + (o.vc || '') + '">' + o.v + '</b>' : '') + '</span>' +
+      '<span class="hm-r2"><span class="hm-m">' + (o.c ? chTxt(o.c) + (o.m ? ' · ' : '') : '') + (o.m || '') + '</span>' + (o.r ? '<span class="hm-x">' + o.r + '</span>' : '') + '</span></span></' + tag + '>';
+  }
+  const hmSec = (h, right, body) => '<div class="hm-sec"><div class="hm-h"><h3>' + h + '</h3>' + (right ? '<span>' + right + '</span>' : '') + '</div>' + body + '</div>';
+  const hmCard = (lab, val, sub, cls, tip) => '<div class="hm-card"' + (tip ? ' title="' + esc(tip) + '"' : '') + '><span class="hm-cl">' + lab + '</span><b class="num">' + val + '</b><span class="hm-cs' + (cls ? ' ' + cls : '') + '">' + sub + '</span></div>';
+  const hmCards = A => A.length ? '<div class="hm-cards n' + A.length + '">' + A.join('') + '</div>' : '';
+  const sgnN = v => (v > 0 ? '+' : v < 0 ? '−' : '±') + fmt(Math.abs(v));
+  // 채널별 팔로워·구독자: 업로드 없는 날 = 1년 증감(mode 'year'), 올린 날 = 오늘 아침 대비(mode 'day'). 유튜브는 늘 1년(구독자 하루 값이 없음)
+  function hmFol(chs, d, today, mode) {
     const ac = c => (d.acct || []).find(a => a.c === c), G = [];
     ['인스타그램', 'hong._.video'].filter(c => chs.includes(c)).forEach(c => {
       const a = ac(c); if (!a || a.fol == null) return;
+      if (mode === 'day') { G.push({ c, now: a.fol, d: a.base != null ? a.fol - a.base : null, lab: '오늘 ' }); return; }
       const F = (D.fol || []).filter(r => r[1] === c), old = F.filter(r => r[0] <= addDays(today, -365)).pop() || F[0];
       G.push({ c, now: a.fol, d: old ? a.fol - old[2] : null, since: old ? old[0] : null });
     });
     const y = ac('유튜브');
     if (chs.includes('유튜브') && y && y.subs != null) { const H = (y.hist || []).filter(x => x[0] >= addDays(today, -365)); G.push({ c: '유튜브', now: y.subs, d: H.length ? y.subs - H[0][1] : null, since: H.length ? H[0][0] : null }); }
-    if (!G.length) return '<div class="td2-hl"><span>어제·오늘 올린 게시물이 없어요</span><!--re--></div>';
+    G.forEach(g => { if (g.lab == null) g.lab = !g.since ? '' : g.since <= addDays(today, -350) ? '1년 ' : md2(g.since) + '부터 '; });
+    return G;
+  }
+  const folCard = g => hmCard(chName(g.c), fmt(g.now), g.d == null ? '지난 기록 없음' : g.lab + sgnN(g.d), g.d ? (g.d > 0 ? 'up' : 'down') : '', (g.c === '유튜브' ? '구독자' : '팔로워') + (g.since ? ' · ' + md2(g.since) + ' 대비' : ''));
+  // 업로드 없는 날 맨 위(2026-10-23 「우리 채널 성장 데이터를 보여 주면 동기부여·사기 진작」): 팔로워·구독자 합계와 1년 전보다 늘어난 수, 채널별 카드, 올해 히트 수
+  function tdGrow(chs, d, today) {
+    const G = hmFol(chs, d, today, 'year');
+    if (!G.length) return '<div class="hm-hero"><span class="hm-lab">어제·오늘 올린 게시물이 없어요</span></div>';
     const tot = sum(G.map(g => g.now)), dd = G.filter(g => g.d != null), gd = sum(dd.map(g => g.d));
     const hits = D.items.filter(it => OWN.includes(it.c) && chs.includes(it.c) && it.d >= today.slice(0, 4) + '-01-01' && isHit(it)).length;
-    const sgnN = v => (v > 0 ? '+' : v < 0 ? '−' : '±') + fmt(Math.abs(v));
-    return '<div class="td2-hero"><div class="td2-hl"><span>우리 채널을 구독·팔로우하는 사람</span><!--re--></div><div class="td2-big"><b class="num">' + fmt(tot) + '</b><span>명</span></div>' +
-      (dd.length ? '<div class="td2-vs ' + (gd >= 0 ? 'up' : 'down') + '">' + (dd.every(g => g.since <= addDays(today, -350)) ? '1년 전보다 ' : '기록을 시작한 뒤로 ') + sgnN(gd) + '명</div>' : '') +
-      '<div class="td2-sub">' + (hits ? '올해 히트 ' + hits + '개 · ' : '') + '어제·오늘 올린 게시물은 없어요</div></div>' +
-      '<div class="td2-m">' + G.map(g => '<div title="' + esc(g.since ? md2(g.since) + ' 대비' : '') + '"><span>' + chName(g.c) + (g.c === '유튜브' ? ' 구독자' : ' 팔로워') + '</span><b class="num">' + fmtK(g.now) + '</b><small' + (g.d == null ? '' : ' class="' + (g.d >= 0 ? 'up' : 'down') + '"') + '>' + (g.d == null ? '지난 기록 없음' : (g.since <= addDays(today, -350) ? '1년 ' : md2(g.since) + '부터 ') + sgnN(g.d)) + '</small></div>').join('') + '</div>';
+    return '<div class="hm-hero"><span class="hm-lab">우리 채널을 구독·팔로우하는 사람</span><b class="hm-big num">' + fmt(tot) + '명</b>' +
+      (dd.length ? '<span class="hm-vs ' + (gd > 0 ? 'up' : gd < 0 ? 'down' : 'flat') + '">' + (dd.every(g => g.since <= addDays(today, -350)) ? '1년 전보다 ' : '기록을 시작한 뒤로 ') + sgnN(gd) + '명</span>' : '') +
+      '<span class="hm-note">' + (hits ? '올해 히트 ' + hits + '개 · ' : '') + '어제·오늘은 올린 게시물이 없어요</span></div>' + hmCards(G.map(folCard));
   }
+  // 어제·오늘 올린 게 없을 때(2026-10-23 「기간 상관없이 유의미한 데이터, 내가 참고하면 좋을 데이터 추천으로」):
+  // 최근 30일 가장 잘 된 게시물 · 작년 이맘때 잘 된 게시물 · 더 만들면 좋은 조합 · 줄이면 좋은 조합(전략 화면 「이번 주 처방」과 같은 계산)
   function tdIdeas(chs) {
     const own = chs.filter(c => OWN.includes(c)); if (!own.length) return '';
     const R = [], I = window.__tdIdea = [];
-    const row = (lab, main, val, cls, it) => { const i = it ? I.push(it) - 1 : -1; R.push('<' + (it ? 'button type="button" data-ti="' + i + '"' : 'div') + ' class="td2-id"><span class="tl-b"><small>' + lab + '</small><span>' + main + '</span></span>' + (val ? '<b class="num ' + (cls || '') + '">' + val + '</b>' : '') + '</' + (it ? 'button' : 'div') + '>'); };
+    const row = (lab, c, t, v, vc, it) => R.push(hmRow({ tag: it ? 'button' : 'div', attr: it ? 'type="button" data-ti="' + (I.push(it) - 1) + '"' : '', c, t, m: lab, v, vc }));
     const best = pool({ channels: own, since: addDays(D.updated, -30) }).filter(judged).sort((a, b) => ratio(b) - ratio(a))[0];
-    if (best) row('최근 30일 가장 잘 된 게시물', chTxt(best.c) + esc(title(best.n)), vsP(ratio(best)), xCls(ratio(best)), best);
+    if (best) row('최근 30일 가장 잘 된 게시물', best.c, esc(title(best.n)), vsP(ratio(best)), xCls(ratio(best)), best);
     const P = prescribe(own);
-    if (P.again[0]) row('작년 이맘때 잘 된 게시물 · 올해 버전 후보', chTxt(P.again[0].c) + esc(title(P.again[0].n)), vsP(ratio(P.again[0])), 'up', P.again[0]);
-    const cb = r => chTxt(r.c) + esc(r.g) + ' × ' + esc(r.t);
-    if (P.more[0]) row('더 만들면 좋은 조합 · 최근 2달 ' + P.more[0].recent + '개', cb(P.more[0]), vsP(P.more[0].idx), 'up');
-    if (P.less[0]) row('줄이거나 바꿀 조합 · 최근 2달 ' + P.less[0].recent + '개', cb(P.less[0]), vsP(P.less[0].idx), 'down');
-    return R.length ? '<div class="td2-ideas"><h3>참고하면 좋을 것</h3>' + R.join('') + '</div>' : '<div class="td2-sub">참고할 자료가 아직 적어요</div>';
+    if (P.again[0]) row('작년 이맘때 잘 된 게시물', P.again[0].c, esc(title(P.again[0].n)), vsP(ratio(P.again[0])), 'up', P.again[0]);
+    if (P.more[0]) row('더 만들면 좋은 조합 · 최근 2달 ' + P.more[0].recent + '개', P.more[0].c, esc(P.more[0].g) + ' × ' + esc(P.more[0].t), vsP(P.more[0].idx), 'up');
+    if (P.less[0]) row('줄이거나 바꿀 조합 · 최근 2달 ' + P.less[0].recent + '개', P.less[0].c, esc(P.less[0].g) + ' × ' + esc(P.less[0].t), vsP(P.less[0].idx), 'down');
+    return R.length ? hmSec('참고하면 좋을 것', '', '<div class="hm-list">' + R.join('') + '</div>') : '';
   }
   function todayInner(chs) {
     const d = TD.d, now = new Date(d.ts || Date.now()), today = d.today;
@@ -4577,83 +4490,81 @@ button.td2-id { cursor: pointer; }
     const own = chs.filter(c => OWN.includes(c)), days = [];
     for (let i = 13; i >= 0; i--) days.push(addDays(today, -i));
     const cnt = days.map(x => x === today ? tp.length : D.items.filter(it => own.includes(it.c) && it.t !== '스토리' && it.d === x).length);
-    const avg = sum(cnt.slice(0, 13)) / 13, dow = (new Date(today + 'T00:00:00Z').getUTCDay() + 6) % 7, wk = sum(cnt.slice(13 - dow));
+    const avg = sum(cnt.slice(0, 13)) / 13, dow = (new Date(today + 'T00:00:00Z').getUTCDay() + 6) % 7, wk = sum(cnt.slice(13 - dow)), lastW = sum(cnt.slice(6 - dow, 7));
+    const attn = attnHtml(chs, calWeek(chs));
+    if (!P.length) {
+      // 업로드 없는 날: 성장 → 지금 볼 것 → 참고하면 좋을 것 → 이번 주(요일 막대 + 마지막 게시) → 게시 예정
+      const lp = D.items.filter(it => own.includes(it.c) && it.t !== '스토리' && !it.ad).sort((a, b) => a.d < b.d ? 1 : -1)[0];
+      let last = '';
+      if (lp) { const p = paceOf(lp), dd = daysBetween(lp.d, today); window.__tdLast = lp;
+        last = hmRow({ tag: 'button', attr: 'type="button" id="tdLast"', c: lp.c, t: esc(title(lp.n)), m: '마지막 게시 · ' + (dd <= 0 ? '오늘' : dd + '일 전'), v: p && !p.base ? vsP(p.r) : '', vc: p ? xCls(p.r) : '' }); }
+      const bars = weekBars(WK_D.map((n, k) => k <= dow ? cnt[13 - dow + k] : undefined), WK_D.map((n, k) => cnt[6 - dow + k]), '요일별 게시 수 · 회색 = 지난주');
+      const wkS = hmSec('이번 주', '', '<div class="hm-list"><div class="hm-card hm-wk"><div class="hm-wh"><b class="num">' + wk + '개 올림</b><span>지난주 같은 때 ' + lastW + '개</span></div>' + bars + '</div>' + last + '</div>');
+      return '<section class="sec hm">' + tdGrow(chs, d, today) + attn + tdIdeas(chs) + wkS + tdPlan(d) + secClose;
+    }
     // ① 큰 숫자: 어제·오늘 게시물 조회 합 · 평소 같은 시간(없으면 첫날 평소)과 비교
     const vs = sum(P.map(p => p.v)), was = sn ? sum(P.map(p => sn.p && sn.p[p.id] ? p.v - sn.p[p.id][0] : 0)) : null;
     const bs = P.map(p => [p, tdBase(p, now)]).filter(x => x[1] && x[0].v != null), bv = sum(bs.map(x => x[0].v)), bb = sum(bs.map(x => x[1].v));
     const kind = bs.length && bs.every(x => x[1].k === 'h') ? '같은 시간' : '첫날', hr = bb > 0 ? bv / bb : null;
     const who = tp.length === P.length ? '오늘' : tp.length ? '어제·오늘' : '어제';
-    let hero = '<div class="td2-hero">';
-    if (P.length) {
-      hero += '<div class="td2-hl"><span>' + who + ' 올린 게시물 ' + P.length + '개 조회</span><!--re--></div><div class="td2-big"><b class="num">' + fmtK(vs) + '</b><span>조회</span></div>' +
-        (hr != null ? '<div class="td2-vs ' + xCls(hr) + '">' + (kind === '같은 시간' ? '같은 시간 평소' : '첫날 평소') + ' 대비 ' + vsP(hr) + '</div>' : '<div class="td2-vs flat">평소 자료 모으는 중</div>') +
-        '<div class="td2-sub">' + [bs.length && bs.length < P.length ? P.length + '개 중 ' + bs.length + '개 비교' : '', kind === '첫날' && hr != null ? '하루치 평소 기준' : '', was > 0 ? '지난번 본 뒤 <span class="up">+' + fmtK(was) + '</span>' : ''].filter(Boolean).join(' · ') + '</div>';
-    } else hero += tdGrow(chs, d, today) + tdIdeas(chs);
-    hero += '</div>';
-    // ② 지표 한 줄(카드 없이): 공유율(목표 1.0%) · 반응률(평소 대비) · 이번 주 게시 수. 인스타·hong 게시물 합 ÷ 도달 합, 평소 = 게시물마다 같은 형식 평소를 도달로 가중
+    const nt = [bs.length && bs.length < P.length ? P.length + '개 중 ' + bs.length + '개 비교' : '', kind === '첫날' && hr != null ? '하루치 평소 기준' : '', was > 0 ? '지난번 본 뒤 <span class="up">+' + fmtK(was) + '</span>' : ''].filter(Boolean).join(' · ');
+    const hero = '<div class="hm-hero"><span class="hm-lab">' + who + ' 올린 게시물 ' + P.length + '개 조회</span><b class="hm-big num">' + fmtK(vs) + '</b>' +
+      (hr != null ? '<span class="hm-vs ' + xCls(hr) + '">' + (kind === '같은 시간' ? '같은 시간 평소' : '첫날 평소') + ' 대비 ' + vsP(hr) + '</span>' : '<span class="hm-vs flat">평소 자료 모으는 중</span>') +
+      (nt ? '<span class="hm-note">' + nt + '</span>' : '') + '</div>';
+    // ② 카드 3칸: 공유율(목표 1.0%) · 반응률(평소 대비) · 이번 주 게시 수. 인스타·hong 게시물 합 ÷ 도달 합, 평소 = 게시물마다 같은 형식 평소를 도달로 가중
     const M = [], RP = P.filter(p => p.c !== '유튜브' && p.r >= TD_MIN[0]);
     if (RP.length) {
       const R = sum(RP.map(p => p.r));
       [['공유율', 'sh', 3, 0.01], ['반응률', 'rx', 0]].forEach(([nm, f, j, goal]) => {
         const n = sum(RP.map(p => f === 'rx' ? (p.l || 0) + (p.cm || 0) + (p.sh || 0) + (p.sv || 0) : p[f] || 0)), v = n / R, us = RP.map(p => [p, tdRate(p.c, p.t, j)]).filter(x => x[1] != null);
         const u = us.length ? sum(us.map(x => x[1] * x[0].r)) / sum(us.map(x => x[0].r)) : null;
-        const sub = goal ? (v >= goal ? '<span class="up">목표 ' + pctA(goal) + ' 넘음</span>' : '<span class="down">목표 ' + pctA(goal) + ' 아래</span>') : u ? '<span class="' + xCls(v / u) + '">평소 대비 ' + vsP(v / u) + '</span>' : '평소 자료 적음';
-        M.push([nm, pctA(v), sub, '도달 ' + fmt(R) + ' · ' + (f === 'rx' ? '반응' : '공유') + ' ' + fmt(n) + (u ? ' · 같은 형식 평소 ' + pctA(u) : '')]);
+        const sub = goal ? (v >= goal ? ['목표 ' + pctA(goal) + ' 넘음', 'up'] : ['목표 ' + pctA(goal) + ' 아래', 'down']) : u ? ['평소 대비 ' + vsP(v / u), xCls(v / u)] : ['평소 자료 적음', ''];
+        M.push(hmCard(nm, pctA(v), sub[0], sub[1], '도달 ' + fmt(R) + ' · ' + (f === 'rx' ? '반응' : '공유') + ' ' + fmt(n) + (u ? ' · 같은 형식 평소 ' + pctA(u) : '')));
       });
     }
-    const wkBars = weekBars(WK_D.map((n, k) => k <= dow ? cnt[13 - dow + k] : undefined), WK_D.map((n, k) => cnt[6 - dow + k]), '요일별 게시 수 · 회색 = 지난주');
-    M.push(['이번 주', wk + '개', (Math.round(avg * 10) / 10) + '개/일 · 지난주 같은 때 ' + sum(cnt.slice(6 - dow, 7)) + '개', '월요일부터 오늘까지 올린 게시물(스토리 빼고) · 최근 2주 하루 평균', wkBars]);
+    M.push(hmCard('이번 주', wk + '개', (Math.round(avg * 10) / 10) + '개/일', '', '월요일부터 오늘까지 올린 게시물(스토리 빼고) · 지난주 같은 때 ' + lastW + '개 · 최근 2주 하루 평균'));
     const st = (d.story || []).filter(x => chs.includes(x.ch));
-    if (M.length < 3 && st.length) M.push(['오늘 스토리', fmtK(sum(st.map(x => x.views))), st.length + '개', '1시간마다 받아요']);
-    const met = '<div class="td2-m">' + M.map(x => '<div title="' + esc(x[3]) + '"><span>' + x[0] + '</span><b class="num">' + x[1] + '</b><small>' + x[2] + '</small>' + (x[4] || '') + '</div>').join('') + '</div>';
-    // ③ 게시물 목록 줄: 오른쪽 = 조회 평소 대비(하루치 평소와 견줄 땐 20시간 뒤부터, 유튜브는 6시간 뒤부터), 아랫줄 = 시간·조회·반응
+    if (M.length < 3 && st.length) M.push(hmCard('오늘 스토리', fmtK(sum(st.map(x => x.views))), st.length + '개', '', '1시간마다 받아요'));
+    // ③ 게시물 목록: 오른쪽 = 조회 평소 대비(하루치 평소와 견줄 땐 20시간 뒤부터, 유튜브는 6시간 뒤부터), 아랫줄 = 채널·시간·반응 + 오른쪽 조회
     window.__td = P;
     const L = P.slice(0, 6).map((p, i) => {
       const den = p.c === '인스타그램' ? p.r : p.v, few = den != null && den < TD_MIN[p.c === '인스타그램' ? 0 : 1];
       const rx = tdReact(p.c, p.l, p.cm, p.sh, p.sv, p.r, p.v), u = tdUsual(p.c, p.t), r = rx != null && u && !few ? rx / u : null;
       const vb = p.v == null ? null : tdBase(p, now), yt6 = p.c === '유튜브' && vb && vb.h < 6;
       const vr = vb && (vb.k === 'h' || vb.h >= 20) && !yt6 ? p.v / vb.v : null;
-      const wait = vr != null ? '' : yt6 ? '6시간 뒤부터 비교' : vb ? '첫날 평소까지 ' + Math.round(p.v / vb.v * 100) + '%' : '평소 자료 모으는 중';
+      const wait = yt6 ? '6시간 뒤부터 비교' : vb ? '첫날 평소까지 ' + Math.round(p.v / vb.v * 100) + '%' : '평소 자료 모으는 중';
       const was = sn && sn.p && sn.p[p.id] ? p.v - sn.p[p.id][0] : null;
-      const tip = (vb ? '조회 ' + fmt(p.v) + ' · 평소 ' + (vb.k === 'h' ? '올린 지 ' + Math.round(vb.h) + '시간' : '첫날') + ' 조회 ' + fmt(vb.v) : '') + (rx != null ? ' · 반응률 ' + pctA(rx) + (u ? '(평소 ' + pctA(u) + ')' : '') : '');
-      const more = [['좋아요', p.l], ['댓글', p.cm], ['공유', p.sh], ['저장', p.sv]].filter(x => x[1] != null && x[1] > 0).map(x => x[0] + ' ' + fmtK(x[1])).join(' · ');
-      return '<li data-td="' + i + '" tabindex="0" role="button" aria-label="' + esc(title(p.n)) + ' 열기"' + (tip ? ' title="' + esc(tip) + '"' : '') + '>' + tdThumb(p) + '<div class="td2-b"><div class="td2-r1"><span class="td2-c" style="--c:' + chColor(p.c) + '">' + esc(chName(p.c)) + '</span><span class="rt">' + esc(title(p.n)) + '</span>' +
-        (vr != null ? '<b class="num ' + xCls(vr) + '">' + vsP(vr) + '</b>' : '<b class="mu" title="' + esc(wait) + '">' + (yt6 ? '6시간 뒤' : '모으는 중') + '</b>') + '</div><div class="td2-r2">' +
-        '<small class="td2-s1">' + tdAgo(p.at, now) + (r == null || few ? '' : ' · <span class="' + xCls(r) + '">반응 ' + vsP(r) + '</span>') + ((tdItem(p) || {}).co ? ' · 공동작업' : '') + '</small>' +
-        '<small class="td2-v">조회 ' + fmtK(p.v) + (was > 0 ? ' <span class="up">+' + fmtK(was) + '</span>' : '') + '</small></div></div></li>';
+      const tip = (vb ? '조회 ' + fmt(p.v) + ' · 평소 ' + (vb.k === 'h' ? '올린 지 ' + Math.round(vb.h) + '시간' : '첫날') + ' 조회 ' + fmt(vb.v) : '') + (rx != null ? ' · 반응률 ' + pctA(rx) + (u ? '(평소 ' + pctA(u) + ')' : '') : '') + (vr == null ? ' · ' + wait : '');
+      return hmRow({ tag: 'li', attr: 'data-td="' + i + '" tabindex="0" role="button" aria-label="' + esc(title(p.n)) + ' 열기"', tip, thumb: tdThumb(p), t: esc(title(p.n)),
+        v: vr != null ? vsP(vr) : yt6 ? '6시간 뒤' : '모으는 중', vc: vr != null ? xCls(vr) : 'mu', c: p.c,
+        m: tdAgo(p.at, now) + (r == null || few ? '' : ' · <span class="' + xCls(r) + '">반응 ' + vsP(r) + '</span>') + ((tdItem(p) || {}).co ? ' · 공동작업' : ''),
+        r: '조회 ' + fmtK(p.v) + (was > 0 ? ' <span class="up">+' + fmtK(was) + '</span>' : '') });
     }).join('');
     const C = tdCurves(P);
     let mo = false; try { mo = localStorage.getItem('sb-td-ch') === '1'; } catch (e) {}
-    const list = L ? '<div class="td2-l"><h3>' + (tp.length ? '어제·오늘 올린 게시물' : '어제 올린 게시물') + '<small>오른쪽 = 조회 · 평소 대비</small></h3><ol>' + L + '</ol>' +
-      (C.length ? '<details class="td2-fold" id="tdChF"' + (mo ? ' open' : '') + '><summary class="td2-btn"><svg viewBox="0 0 20 20" width="18" height="18" aria-hidden="true"><path d="M3 16h14M5 13l4-4 3 3 4-6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>시간별 조회 그래프 보기</summary>' + tdGroups(C).map((g, k, A) => '<div class="td-chh">' + badge(g.c) + '</div><div class="chart" style="height:' + (A.length > 1 ? 160 : 220) + 'px"><canvas id="tdC' + k + '"></canvas></div>').join('') + '<p class="note">1시간마다 받아 둔 값 · 점선 = 같은 형식 평소</p></details>' : '') + '</div>' : '';
-    // ⑤ 팔로워 한 줄 + 접은 추이(팔로워 30일 · 유튜브 구독자 1년)
-    const FL = [], FT = [];
+    const list = hmSec(tp.length ? who + ' 올린 게시물' : '어제 올린 게시물', '오른쪽 = 조회 평소 대비', '<ol class="hm-list">' + L + '</ol>' +
+      (C.length ? '<details class="hm-fold" id="tdChF"' + (mo ? ' open' : '') + '><summary class="hm-btn"><svg viewBox="0 0 20 20" width="18" height="18" aria-hidden="true"><path d="M3 16h14M5 13l4-4 3 3 4-6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>시간별 조회 그래프</summary>' + tdGroups(C).map((g, k, A) => '<div class="td-chh">' + badge(g.c) + '</div><div class="chart" style="height:' + (A.length > 1 ? 160 : 220) + 'px"><canvas id="tdC' + k + '"></canvas></div>').join('') + '<p class="note">1시간마다 받아 둔 값 · 점선 = 같은 형식 평소</p></details>' : ''));
+    // ⑤ 팔로워 카드(오늘 아침 대비) · 누르면 추이(팔로워 30일 · 유튜브 구독자 1년)
+    const FT = [];
     ['인스타그램', 'hong._.video'].filter(c => chs.includes(c)).forEach(c => {
       const a = acct(c); if (!a || a.fol == null) return;
-      const base = a.base != null ? a.fol - a.base : null;
-      FL.push(chName(c) + ' <b class="num">' + fmt(a.fol) + '</b>' + (base ? '<small class="' + (base > 0 ? 'up' : 'down') + '">' + (base > 0 ? '+' : '−') + fmt(Math.abs(base)) + '</small>' : ''));
       const F = (D.fol || []).filter(r => r[1] === c && r[0] >= addDays(today, -30) && r[0] < today).map(r => r[2]).concat([a.fol]), w7 = (D.fol || []).filter(r => r[1] === c && r[0] <= addDays(today, -7)).pop();
       FT.push(kpiTile(chName(c) + ' 팔로워', fmt(a.fol) + '<small>명</small>', w7 ? '1주 전보다 ' + dNum(a.fol - w7[2], '명') : '최근 30일', '', spark(F, '최근 30일 팔로워 수')));
     });
     const y = acct('유튜브');
     if (chs.includes('유튜브') && y && y.subs != null) {
-      FL.push('유튜브 <b class="num">' + fmt(y.subs) + '</b>');
       const H = (y.hist || []).filter(x => x[0] >= addDays(today, -365)), yr = H[0], hv = H.map(x => x[1]).concat([y.subs]), hi = H.length ? Math.max.apply(null, hv) : null;
       if (H.length > 1) FT.push(kpiTile('유튜브 구독자', fmt(y.subs) + '<small>명</small>', yr ? '1년 전보다 ' + dNum(y.subs - yr[1], '명') : '', '', spark(hv, '최근 1년 구독자 수 · 날마다 늘고 준 수로 거꾸로 계산(유튜브 분석은 1~2일 늦음)') + '<div class="td-foot">' + (y.subs >= hi ? '1년 중 가장 많아요' : '1년 최고 ' + fmt(hi) + '명') + '</div>'));
     }
-    const fol = FL.length ? '<details class="td2-fold td2-fol"><summary><span class="td2-fl">' + FL.map(x => '<span class="fi">' + x + '</span>').join('') + '</span></summary>' + (FT.length ? '<div class="kpi-row td-k n' + FT.length + '">' + FT.join('') + '</div>' : '') + '</details>' : '';
-
-    return '<section class="sec td-sec td2">' + hero.replace('<!--re-->', '') + met + list + tdPlan(d, P) + (P.length ? fol : "") + secClose;
+    const FG = hmFol(chs, d, today, 'day');
+    const fol = FG.length ? '<details class="hm-fold hm-fol"><summary title="누르면 추이">' + hmCards(FG.map(folCard)) + '</summary>' + (FT.length ? '<div class="kpi-row td-k n' + FT.length + '">' + FT.join('') + '</div>' : '') + '</details>' : '';
+    return '<section class="sec hm">' + hero + hmCards(M) + list + attn + tdPlan(d) + fol + secClose;
   }
-  // 오늘 올린 게 없을 때: 마지막 게시물 한 줄(어제 것도 없을 때) + 게시 예정(「공식 SNS 발행 일정」 오늘~7일)
-  function tdPlan(d, P) {
-    const chs = TD.chs.filter(c => OWN.includes(c)), lp = P.length ? null : D.items.filter(it => chs.includes(it.c) && it.t !== '스토리' && !it.ad).sort((a, b) => a.d < b.d ? 1 : -1)[0];
-    let h = '';
-    if (lp) { const p = paceOf(lp), dd = daysBetween(lp.d, d.today); // 목록 줄과 같은 모양(2026-10-23): 위 작은 이름표, 아래 채널 색 글자 + 제목 한 줄, 오른쪽 평소 대비
-      h += '<button type="button" class="td-last" id="tdLast"><span class="tl-b"><small>마지막 게시 · ' + (dd <= 0 ? '오늘' : dd + '일 전') + '</small><span>' + chTxt(lp.c) + esc(title(lp.n)) + '</span></span>' + (p && !p.base ? '<b class="num ' + xCls(p.r) + '" title="' + esc(agName(p.e) + ' 조회 평소 대비') + '">' + vsP(p.r) + '</b>' : '') + '</button>';
-      window.__tdLast = lp; }
-    const pl = (d.plan || []).filter(x => x[0] >= d.today);
-    // 캘린더 제목 「(인스타) 제목」·「(유튜브/인스타) 제목」 → 채널 색 칩 + 제목 한 줄
+  // 게시 예정(「공식 SNS 발행 일정」 오늘~7일). 오늘 예정이 실제로 올라갔으면 「게시 완료」, 누르면 업로드 폴더
+  function tdPlan(d) {
+    if (!d.plan) return '';
+    const pl = d.plan.filter(x => x[0] >= d.today);
+    // 캘린더 제목 「(인스타) 제목」·「(유튜브/인스타) 제목」 → 채널 색 글자 + 제목 한 줄
     const pch = k => /유튜브|숏츠|쇼츠/.test(k) ? '유튜브' : /hong|홍/.test(k) ? 'hong._.video' : '인스타그램';
     const wd = x => '일월화수목금토'[new Date(x + 'T00:00:00Z').getUTCDay()];
     const PL = pl.slice(0, 6).map(x => { const m = String(x[1]).match(/^\(([^)]+)\)\s*(.*)$/); return { x, m, ks: m ? m[1].split('/').map(k => k.trim()) : [], ok: [] }; });
@@ -4671,11 +4582,13 @@ button.td2-id { cursor: pointer; }
         if (i >= 0) { pool.splice(i, 1); q.ok[j] = 1; }
       });
     }));
-    if (d.plan) h += '<div class="td-plan"><div class="tp-h"><h3>게시 예정</h3><span>공식 SNS 발행 일정 · 7일</span></div>' + (pl.length ? '<ol>' + PL.map(({ x, m, ks, ok }) => {
-      const done = ks.length && ks.every((k, j) => ok[j]);
-      return '<li class="' + (x[0] === d.today ? 'now' : '') + (done ? ' done' : '') + '">' + (x[2] ? '<a href="' + esc(x[2]) + '" target="_blank" rel="noopener" title="업로드 폴더 열기">' : '<div>') + '<span class="tp-d num">' + (x[0] === d.today ? '오늘' : md2(x[0]) + ' ' + wd(x[0])) + '</span><span class="tp-k">' + ks.map((k, j) => '<i' + (ok[j] ? ' class="ok" title="올라간 것 확인"' : '') + ' style="--c:' + chColor(pch(k)) + '">' + esc(k) + '</i>').join('') + '</span><span class="tp-t">' + esc(m ? m[2] : x[1]) + '</span>' + (done ? '<b class="tp-ok">게시 완료</b>' : '') + (x[2] ? '<span class="tp-go" aria-hidden="true">›</span></a>' : '</div>') + '</li>';
-    }).join('') + '</ol>' : '<p class="note">7일 안에 잡힌 게시 일정이 없어요</p>') + '</div>';
-    return h;
+    const rows = pl.length ? PL.map(({ x, m, ks, ok }) => {
+      const done = ks.length && ks.every((k, j) => ok[j]), some = ok.some(Boolean), now = x[0] === d.today;
+      const meta = '<span class="' + (now ? 'hm-now' : '') + '">' + (now ? '오늘' : md2(x[0]) + ' ' + wd(x[0])) + '</span> · ' + ks.map((k, j) => '<span class="hm-ch' + (ok[j] ? ' ok' : '') + '" style="--c:' + chColor(pch(k)) + '"' + (ok[j] ? ' title="올라간 것 확인"' : '') + '>' + esc(k) + '</span>').join(' ');
+      return hmRow({ tag: x[2] ? 'a' : 'div', attr: x[2] ? 'href="' + esc(x[2]) + '" target="_blank" rel="noopener" title="업로드 폴더 열기"' : '', cls: done ? 'done' : '',
+        t: esc(m ? m[2] : x[1]), m: meta, v: done ? '게시 완료' : some ? '일부 올림' : '', vc: 'up', r: x[2] ? '폴더 ›' : '' });
+    }).join('') : hmRow({ t: '7일 안에 잡힌 일정이 없어요', m: '공식 SNS 발행 일정 캘린더 기준' });
+    return hmSec('게시 예정', pl.length ? '공식 SNS 발행 일정 · 7일' : '', '<div class="hm-list">' + rows + '</div>');
   }
   // 평소 조회: 서버의 「게시물 시간별」로 만든 같은 채널·형식·같은 경과 시간 중간값(k='h') → 없고 올린 지 20시간 넘었으면 평소 첫날 조회(k='d')
   function tdBase(p, now) {
@@ -4746,10 +4659,11 @@ button.td2-id { cursor: pointer; }
   }
   function paintToday() {
     const box = $('today'); if (!box || !TD.chs || S.view !== 'brief') return;
-    if (!TD.d) { box.innerHTML = '<section class="sec td-sec"><div class="sh"><div><h2>오늘</h2><p>지금 값을 받지 못했어요 · 10분 뒤 다시 받아요</p></div></div>' + secClose; return; }
+    if (!TD.d) { box.innerHTML = '<section class="sec hm"><div class="hm-hero"><span class="hm-lab">오늘</span><span class="hm-note">지금 값을 받지 못했어요 · 10분 뒤 다시 받아요</span></div>' + attnHtml(TD.chs, calWeek(TD.chs)) + secClose; box.querySelectorAll('[data-wa]').forEach(b => b.addEventListener('click', () => { const it = (window.__attn || [])[+b.dataset.wa]; if (it) openDetail(it); })); return; }
     box.innerHTML = todayInner(TD.chs);
     tdDraw();
     const tl = $('tdLast'); if (tl && window.__tdLast) tl.addEventListener('click', () => openDetail(window.__tdLast));
+    box.querySelectorAll('[data-wa]').forEach(b => b.addEventListener('click', () => { const it = (window.__attn || [])[+b.dataset.wa]; if (it) openDetail(it); }));
     box.querySelectorAll('[data-ti]').forEach(b => b.addEventListener('click', () => { const it = (window.__tdIdea || [])[+b.dataset.ti]; if (it) openDetail(it); }));
     const fd = $('tdChF'); if (fd) fd.addEventListener('toggle', () => { try { localStorage.setItem('sb-td-ch', fd.open ? '1' : '0'); } catch (e) {} if (fd.open) tdDraw(); });
     const L = window.__td || [];
