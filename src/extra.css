@@ -1081,3 +1081,7 @@ button.td2-id { cursor: pointer; }
 .td2-m:has(> div:only-child) { grid-template-columns: minmax(0, 1fr); }
 .td2-m .kbars { margin-top: 8px; width: 100%; height: 34px; }
 .td2-m .kb-l { margin-top: 2px; }
+/* 지금 볼 것 바탕(2026-10-23 「바탕 색깔 너무 별로」): 살구색 → 흰 바탕 + 줄마다 회색 카드(참고하면 좋을 것과 같은 모양) */
+.td2-attn .wa { background: var(--bg); border: 1px solid var(--line); padding: 16px 16px 14px; display: flex; flex-direction: column; gap: 8px; }
+.td2-attn .wa .race-h { margin-bottom: 0; }
+.td2-attn .wa-r, .td2-attn .wa-r:first-of-type { background: var(--plane); border: 0; border-radius: 14px; padding: 12px 14px; }
