@@ -3218,10 +3218,11 @@
         M.push([nm, pctA(v), sub, '도달 ' + fmt(R) + ' · ' + (f === 'rx' ? '반응' : '공유') + ' ' + fmt(n) + (u ? ' · 같은 형식 평소 ' + pctA(u) : '')]);
       });
     }
-    M.push(['이번 주', wk + '개', (Math.round(avg * 10) / 10) + '개/일', '월요일부터 오늘까지 올린 게시물(스토리 빼고) · 최근 2주 하루 평균']);
+    const wkBars = weekBars(WK_D.map((n, k) => k <= dow ? cnt[13 - dow + k] : undefined), WK_D.map((n, k) => cnt[6 - dow + k]), '요일별 게시 수 · 회색 = 지난주');
+    M.push(['이번 주', wk + '개', (Math.round(avg * 10) / 10) + '개/일 · 지난주 같은 때 ' + sum(cnt.slice(6 - dow, 7)) + '개', '월요일부터 오늘까지 올린 게시물(스토리 빼고) · 최근 2주 하루 평균', wkBars]);
     const st = (d.story || []).filter(x => chs.includes(x.ch));
     if (M.length < 3 && st.length) M.push(['오늘 스토리', fmtK(sum(st.map(x => x.views))), st.length + '개', '1시간마다 받아요']);
-    const met = '<div class="td2-m">' + M.map(x => '<div title="' + esc(x[3]) + '"><span>' + x[0] + '</span><b class="num">' + x[1] + '</b><small>' + x[2] + '</small></div>').join('') + '</div>';
+    const met = '<div class="td2-m">' + M.map(x => '<div title="' + esc(x[3]) + '"><span>' + x[0] + '</span><b class="num">' + x[1] + '</b><small>' + x[2] + '</small>' + (x[4] || '') + '</div>').join('') + '</div>';
     // ③ 게시물 목록 줄: 오른쪽 = 조회 평소 대비(하루치 평소와 견줄 땐 20시간 뒤부터, 유튜브는 6시간 뒤부터), 아랫줄 = 시간·조회·반응
     window.__td = P;
     const L = P.slice(0, 6).map((p, i) => {
