@@ -4969,9 +4969,9 @@ function briefHtml_(posts, stories, recent, notes, today, stamp, ideas) {
       + BR_TIER.map((t, i) => '<span style="white-space:nowrap;margin-right:10px"><span style="display:inline-block;padding:0 8px;border-radius:999px;line-height:1.8;background:' + t[3] + ';color:' + t[2] + ';font-weight:700">' + t[1] + '</span> '
         + (i === 0 ? '−30% 미만' : i === 4 ? '+400% 이상' : briefRatioText_(BR_TIER[i - 1][0]) + '~' + briefRatioText_(t[0])) + '</span>').join(' ') + '</div>');
   }
-  // 숫자 타일
+  // 숫자 타일 — 오늘 올린 게시물이 없으면 0·「–」뿐이라 뺌(2026-10-23 「올린 게 없는데 이게 필요한 요소일까?」, 스토리는 아래 「스토리」 칸에 따로)
   const sv = stories.reduce((a, s) => a + s.views, 0);
-  h += '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;margin:0 -6px"><tr>'
+  if (posts.length) h += '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;margin:0 -6px"><tr>'
     + briefTile_('오늘 게시물 조회수 합계', briefNum_(sumV), '게시물 ' + posts.length + '개')
     + briefTile_('반응률 잘 됨 이상', judgedRc.length ? goodRc + ' / ' + judgedRc.length : '–', '평소 대비 +30% 이상 · 판정된 것만') + '</tr><tr>'
     + briefTile_('오늘 게시물로 새 팔로우', hasF ? briefNum_(sumF) + '명' : '–', hasF ? '인스타·hong 피드 게시물' : '릴스는 메타가 주지 않음')
