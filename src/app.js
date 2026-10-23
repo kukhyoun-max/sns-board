@@ -175,11 +175,13 @@
   const ARCH_SKIP = ['입시·모집', '학사·생활 안내'];
   function archRec(it) {
     if (it.c !== '인스타그램' || it.t === '스토리' || it.ad || it.co || it.hid || it.x || ARCH_SKIP.includes(it.g)) return null;
-    const age = daysBetween(it.d, D.updated); if (age < 7) return null;
+    // 2026-10-23 「이유 + 성과」로 좁힘(조회만으로 보관하면 링크·기록·평소 기준이 망가짐): 기간이 끝났을 이벤트·모집성 게시물(올린 지 14일 지남)만
+    const age = daysBetween(it.d, D.updated); if (age < 14) return null;
+    if (!(it.g === '이벤트·참여' || /모집|신청|접수|마감|EVENT|이벤트|당첨|추첨|응모/i.test(String(it.n || '')))) return null;
     const p = paceOf(it); if (!p || (p.base && young(it))) return null; // 다 자란 평소와 견주는 어린 게시물은 늘 낮게 나와 뺌
     return p.r < 0.5 ? { r: p.r, age } : null;
   }
-  const archTag = it => { const a = archRec(it); return a ? '<span class="tag arch" title="' + esc('올린 지 ' + a.age + '일 · 조회 평소 대비 ' + vsP(a.r) + ' · 같은 형식 평소의 절반 아래(홍비디오 「1주 1만」과 같은 수준)') + '">보관 권고</span>' : ''; };
+  const archTag = it => { const a = archRec(it); return a ? '<span class="tag arch" title="' + esc('기간이 끝났을 이벤트·모집 게시물 · 올린 지 ' + a.age + '일 · 조회 평소 대비 ' + vsP(a.r) + '(같은 형식 평소의 절반 아래) · 당첨 발표까지 끝났으면 보관해도 돼요') + '">보관 후보</span>' : ''; };
   const coTag = it => it.co ? '<span class="tag p-co" title="' + esc('함께 올린 계정: ' + it.co) + '">공동작업</span>' : '';
   const adtag = it => it.ad ? '<span class="tag ' + (it.ad.s === '확인' ? 'p-ad' : 'p-ad p-guess') + '" title="' + esc(it.ad.s === '패턴' ? '광고 보고서 기간 뒤 영상 · 조회 흐름으로 짐작' : it.ad.x && !it.ad.k.length && !it.ad.mk ? it.ad.x + ' (캠페인 정보 없음)' : it.ad.mk && !it.ad.k.length ? '메타 광고(게시물 홍보): ' + it.ad.mk.map(metaLabel).join(', ') : '구글애즈 캠페인 연결(' + it.ad.s + '): ' + it.ad.k.join(', ')) + '">광고' + (it.ad.s === '확인' ? '' : ' 추정') + '</span>' : '';
 
@@ -682,7 +684,7 @@
     const lo = J.filter(x => x.p.r < 0.7).pop();
     // 보관 권고(최근 60일): 몇 개인지 + 가장 낮은 것
     const AR = D.items.filter(it => chs.includes(it.c) && it.d >= addDays(D.updated, -60) && archRec(it)).sort((a, b) => archRec(a).r - archRec(b).r);
-    if (AR.length) row('bad', '보관 권고 · 인스타 최근 60일 ' + AR.length + '개§' + chTxt(AR[0].c) + esc(title(AR[0].n)), vsP(archRec(AR[0]).r), AR[0]);
+    if (AR.length) row('bad', '보관 후보 · 끝난 이벤트 ' + AR.length + '개§' + chTxt(AR[0].c) + esc(title(AR[0].n)), vsP(archRec(AR[0]).r), AR[0]);
     if (lo) row('bad', '평소보다 낮은 게시물§' + chTxt(lo.it.c) + esc(title(lo.it.n)), vsP(lo.p.r), lo.it);
     // 예전 게시물이 이번 주 다시 크게 늘었나(이번 주 늘어난 조회의 20% 이상 또는 5천 이상)
     if (j >= 0 && j < n) {
@@ -803,7 +805,7 @@
       const q = raceVal(it, m), r = q.r, t = r == null ? null : tierOf(r), tip = q.tip;
       return '<li data-r="' + i + '" tabindex="0" role="button" aria-label="' + esc(title(it.n)) + ' 상세 보기"><div class="race-t">' + badge(it.c) + '<span class="rt">' + esc(title(it.n)) + '</span>' +
         '<b class="tier ' + (t ? t[1] : 'na') + '"' + (tip ? ' title="' + esc(tip) + '"' : '') + '>' + (t ? t[0] + (t[1] === 'mid' ? '' : ' ' + vsP(r)) : '비교 전') + '</b></div>' +
-        '<small>' + (archRec(it) ? '<span class="arch-t">보관 권고</span> · ' : '') + whenTxt(it.d) + ' · ' + mn + ' ' + (q.n == null ? '자료 없음' : fmtK(q.n)) + (q.rt != null ? ' · ' + (it.c === '유튜브' ? '조회' : '도달') + ' 대비 ' + pctA(q.rt) : '') + (m !== 'v' ? ' · 조회 ' + fmtK(mainVal(it)) : '') + '</small></li>';
+        '<small>' + (archRec(it) ? '<span class="arch-t">보관 후보</span> · ' : '') + whenTxt(it.d) + ' · ' + mn + ' ' + (q.n == null ? '자료 없음' : fmtK(q.n)) + (q.rt != null ? ' · ' + (it.c === '유튜브' ? '조회' : '도달') + ' 대비 ' + pctA(q.rt) : '') + (m !== 'v' ? ' · 조회 ' + fmtK(mainVal(it)) : '') + '</small></li>';
     }).join('') + '</ol></div>';
   }
   // 판정 단계(밤 10시 브리핑 BR_TIER와 같은 기준): 평소의 0.7배 미만 낮음 · 1.3배 미만 평소 수준 · 2배 잘 됨 · 5배 아주 잘 됨 · 그 이상 대박
