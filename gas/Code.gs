@@ -1370,6 +1370,8 @@ function buildDashboardData_() {
       });
       const row = { d: d, ch: ch, m: m };
       if (er.length) row.e = er; // 수집 오류 지표 이름 (예: 유튜브 Channel total subscribers)
+      const pv = acct.filter(x => x.ch === ch && x.d < d).sort((p, q) => p.d < q.d ? -1 : 1).pop();
+      if (pv) { row.from = shiftDate_(pv.d, 1); if (JSON.stringify(pv.m) === JSON.stringify(m)) row.same = pv.d; }
       acct.push(row);
     });
   }
@@ -1443,7 +1445,7 @@ const ADMAP_SHEET = '광고 매핑';
 const ADPLAN_SHEET = '광고 계획';
 const TAGFIX_SHEET = '태그 수정';
 const ADS_ID = '1KWALIRH1NfizDTtiKa6koega5ECAirOuOCc8pXNU5pE'; // 전주대_구글애즈_캠페인리포트
-const COVERAGE = { '유튜브': '2024-01-01', '인스타그램': '2024-12-27', 'hong._.video': '2021-01-01', acct: '지난주(월~일)' };
+const COVERAGE = { '유튜브': '2024-01-01', '인스타그램': '2024-12-27', 'hong._.video': '2021-01-01', acct: '기록마다 원본이 준 기간 값 · 계정 기록의 from~d가 실제 기간 · same이 있으면 그 날짜 기록과 같은 값(원본 미갱신)' };
 const ADMAP_SEED = [["2019 전주대학교  CF", "rTFFwv7w5X0", "확인"], ["2020 CF 본편", "d46MRvYKTYM, zQTtrjirNoI, E8XcB6NX-Yg", "추정"], ["2020 CF 본편 건너뛸 수 있는 광고", "d46MRvYKTYM, zQTtrjirNoI, E8XcB6NX-Yg", "추정"], ["하림융합전공 소개_센터장 디스플레이 광고", "atZ_KytBKb0", "추정"], ["동영상광고 2021 C F", "UwbBowD8UwA, EmABQ1PvB1M, F7FzHL90j0o", "확인"], ["2021 CF", "UwbBowD8UwA, EmABQ1PvB1M, F7FzHL90j0o", "확인"], ["2021 CF_키워드", "UwbBowD8UwA, EmABQ1PvB1M, F7FzHL90j0o", "확인"], ["2021 CF_지역", "UwbBowD8UwA, EmABQ1PvB1M, F7FzHL90j0o", "확인"], ["입학_2021 CF_지역", "UwbBowD8UwA, EmABQ1PvB1M, F7FzHL90j0o", "확인"], ["입학_2021 CF 키워드", "UwbBowD8UwA, EmABQ1PvB1M, F7FzHL90j0o", "확인"], ["10월_CF_성장_취업", "EmABQ1PvB1M, F7FzHL90j0o", "확인"], ["10월_CF_창업", "UwbBowD8UwA", "확인"], ["CF 동영상 창업", "UwbBowD8UwA", "추정"], ["20220811_2022 CF 영상 '신입생'편", "XeFvocm3LEM", "확인"], ["20220721 스킵 불가_2022 CF 티저", "XeFvocm3LEM, AuNPHA1_7Bs", "추정"], ["스킵가능_2022 CF 영상 티저", "XeFvocm3LEM, AuNPHA1_7Bs", "추정"], ["전라북도의 중심, 전주대학교", "_o_ORvqXk-w", "확인"], ["기숙사 소개 영상 광고", "Y-VTucYX-C0", "추정"], ["천원의 아침밥 소개", "8tWIqtvGCAU", "확인"], ["학과 동영상 공모전", "@2022 천하제일", "추정"], ["전주대학교 캠퍼스 스토리", "NjYhL4pFfGM", "확인"], ["2023 ESG 동영상 광고", "7n_vNR4Z8QI", "추정"], ["(디스커버리) 2023 유웨이 온터뷰 광고", "fHn9rzClVaI, b125ICdQy4Y", "확인"], ["천원의 아침밥 - 사장님의 마음", "JfC9Ax3ifrY", "확인"], ["선행릴레이 캠페인 영상", "JocZENhjodk", "확인"], ["브랜드 광고 '시설'편", "HP2hSCEWRd0", "추정"], ["(전주대 HP 방문자/18--24) 개교 60주년 30초 광고", "MODUK0zsLiM", "확인"], ["(전주대 HP 방문자_40-50대) 개교 60주년 30초 광고", "MODUK0zsLiM", "확인"], ["(전주대 HP 방문자_전연령) 개교 60주년 15초 광고", "MODUK0zsLiM", "추정"], ["FPV 드론 영상(18-24세/전국)", "d7sEsLmKhvc", "확인"], ["[도서관] FPV 드론 영상(18-24세/전국)", "lcf3SN9ad-A", "확인"], ["[방송광고/인근지역/18-24] '도서관'편", "b1dxndu1rgo", "확인"], ["[방송광고/인근지역/40-60] '도서관'편", "b1dxndu1rgo", "확인"], ["(18-24) 카카오클라우드센터 유치", "gI0zmwS3Dok", "확인"], ["(18-24/전국) 2025 정시모집 TV 광고", "UyS82wPiEJg", "추정"], ["(45-64/전국) 2025 정시모집 TV 광고", "UyS82wPiEJg", "추정"], ["2025 동영상 광고 - 51초", "LyrHjY20PXs", "추정"], ["2025 동영상 광고 - 숏츠", "axUL_0OPwtg", "추정"], ["2025 농촌봉사활동", "goCPo6bqm8o", "확인"], ["2025 국토대장정", "SML_fJsyBTQ", "추정"], ["[20초 Ver] 새로운 별들의 새로운 시작 '전주대학교'", "el1j8k0C_ek, _C0mUel-abs, bdAIJziubkk, YIa0V8JRiUg", "확인"], ["[20초_B Ver] 새로운 별들의 새로운 시작 '전주대학교'", "el1j8k0C_ek, _C0mUel-abs, bdAIJziubkk, YIa0V8JRiUg", "확인"], ["글로컬대학30 응원 & 릴스 영상", "Gzw0jIEYp6U, Dba7HtkPltg", "확인"], ["자유전공학부 팟캐스트 인터뷰", "TEOyPw5SxdM, F6aAIU-pqXE", "확인"]];
 // 「광고 매핑」 탭에 없으면 덧붙이는 줄 (2026-10-16 광고 연결 점검)
 //  · 2027 수시 동영상·범퍼 캠페인 ↔ 'AI를 넘어 AX' 영상 3개: 캠페인 기간(8/28~)에 올라왔고 조회 39만~90만에 좋아요 1~189라 광고 영상으로 봄. 캠페인별 소재는 구글애즈에서 확인 필요 → 추정
@@ -1698,6 +1700,11 @@ function ensureTagSheets_(ss) {
     sh.getRange(1, 1, 1, 4).setValues([['콘텐츠키 또는 URL', '분류', '제작', '메모']]);
     sh.setFrozenRows(1); sh.getRange('A1:D1').setFontWeight('bold');
   }
+  if (sh.getLastColumn() < 6 || String(sh.getRange(1, 5).getValue()) !== '경험영역') {
+    sh.getRange(1, 5, 1, 2).setValues([['경험영역', '코너']]).setFontWeight('bold');
+    sh.getRange(1, 5).setNote('경험 영역 코드 최대 2개(예: E04,E05). 코드는 _도구/scripts/성과분석/경험영역.tsv · 비우면 보드가 자동 제안을 「제안」으로 표시');
+    sh.getRange(1, 6).setNote('코너 이름(예: 가이드·피플·클래스·스팟·뉴스·없음). 이름은 바뀔 수 있어 보드는 적힌 그대로 씀');
+  }
   sh = ss.getSheetByName(TAG_SHEET);
   if (!sh) {
     sh = ss.insertSheet(TAG_SHEET);
@@ -1785,9 +1792,10 @@ function loadTagData_(ss) {
   // 역할은 명단 기준만: 홍보대사 / 근로장학생 / 미확인(명단에 없는 이름 — 「명단」 탭에 추가하면 다음 응답부터 반영)
   const fix = {};
   const fs = ss.getSheetByName(TAGFIX_SHEET);
-  if (fs && fs.getLastRow() > 1) fs.getRange(2, 1, fs.getLastRow() - 1, 3).getValues().forEach(r => {
+  if (fs && fs.getLastRow() > 1) fs.getRange(2, 1, fs.getLastRow() - 1, Math.max(6, Math.min(fs.getLastColumn(), 6))).getValues().forEach(r => {
     const k = String(r[0]).trim(); if (!k) return;
-    fix[k] = { g: String(r[1] || '').trim(), p: String(r[2] || '').trim() };
+    const ex = String(r[4] || '').toUpperCase().match(/Ed{2}/g);
+    fix[k] = { g: String(r[1] || '').trim(), p: String(r[2] || '').trim(), ex: ex ? ex.slice(0, 2).join(',') : '', cn: String(r[5] || '').trim() };
   });
   return { tags: tags, roles: roles, fix: fix };
 }
@@ -2007,6 +2015,8 @@ function attachTags_(ss, items, keys) {
     if (it.g === '스포츠') it.g = legacySport_(it.n);
     if (it.g === '체육부 소식') it.s = sub || sportSub(it.n);
     if (t.w && t.w.length) it.w = t.w;
+    if (f.ex) it.ex = f.ex; // 경험 영역 확정값(사람이 적음) — 자동 제안은 보드가 exs로 따로 붙임
+    if (f.cn) it.cn = f.cn;
     if (it.c === '유튜브') {
       const cs = v2c[vid(it.u)];
       if (cs) it.ad = { s: cs.some(c => c.conf === '확인') ? '확인' : '추정', k: cs.map(c => c.n) };
