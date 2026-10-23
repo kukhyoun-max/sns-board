@@ -3732,7 +3732,7 @@
     if (s.length || a.length) {
       const d = (D.stale || {})[s[0]] || (D.acctStale || {})[a[0]];
       out.push({ id: 'stale:' + s.concat(a).join(',') + ':' + d.d1, t: s.concat(a).map(chName).join(' · ') + ' 데이터가 새로 안 들어왔어요',
-        b: (s.length ? s.map(chName).join(' · ') + ' 게시물 값' : '') + (s.length && a.length ? ', ' : '') + (a.length ? a.map(chName).join(' · ') + ' 계정 지표' : '') + '가 ' + mdLabel(d.d0) + '과 ' + mdLabel(d.d1) + ' 기록에서 똑같아요. 그래서 이 기간에 늘어난 조회는 0으로 치지 않고 합계에서 뺐어요. 스냅샷 시트의 Supermetrics 예약 갱신이 돌았는지 확인해 주세요.' });
+        b: (s.length ? s.map(chName).join(' · ') + ' 게시물 값' : '') + (s.length && a.length ? ', ' : '') + (a.length ? a.map(chName).join(' · ') + ' 계정 지표' : '') + '가 ' + mdLabel(d.d0) + '과 ' + mdLabel(d.d1) + ' 기록에서 똑같아요. 그래서 이 기간에 늘어난 조회는 0으로 치지 않고 합계에서 뺐어요. ' + (s.concat(a).every(isBench) ? '타 대학 자료는 인스타 API로 받아요. 계정이 비공개로 바뀌었거나 API가 막혔는지 확인할게요.' : '스냅샷 시트의 Supermetrics 예약 갱신이 돌았는지 확인해 주세요.') });
     }
     const A = D.ads || {};
     if (A.end && daysBetween(A.end, D.updated) > 14) {
@@ -3805,16 +3805,18 @@
     // 기간마다 따로 본다(직전 기간이 멈춰 있으면 「직전 N일 대비」 비교가 가짜가 됨)
     D.stale = {}; D.staleIdx = {};
     const ni = D.dates.length - 1;
+    const moved = (it, i) => it.h[i][0] !== it.h[i - 1][0] || it.h[i][1] !== it.h[i - 1][1] || it.h[i][2] !== it.h[i - 1][2];
+    const fresh = (c, i) => D.items.some(it => it.c === c && it.h[i] && !it.h[i - 1] && it.d > D.dates[i - 1]); // 그 기록에 새 게시물이 들어옴
     for (let i = 1; i <= ni; i++) Object.keys(D.rec).forEach(c => {
       if (!hasRec(c, i) || !hasRec(c, i - 1)) return;
       const both = D.items.filter(it => it.c === c && it.h[i] && it.h[i - 1]);
-      if (both.length >= 5 && !both.some(it => it.h[i][0] !== it.h[i - 1][0] || it.h[i][1] !== it.h[i - 1][1])) (D.staleIdx[c] = D.staleIdx[c] || []).push(i);
+      if (both.length >= 5 && !both.some(it => moved(it, i)) && !fresh(c, i)) (D.staleIdx[c] = D.staleIdx[c] || []).push(i);
     });
     if (ni >= 1) Object.keys(D.rec).forEach(c => {
       if (!hasRec(c, ni) || !hasRec(c, ni - 1)) return;
       const both = D.items.filter(it => it.c === c && it.h[ni] && it.h[ni - 1]);
-      const changed = both.filter(it => it.h[ni][0] !== it.h[ni - 1][0] || it.h[ni][1] !== it.h[ni - 1][1]).length;
-      if (both.length >= 5 && !changed) D.stale[c] = { n: both.length, d0: D.dates[ni - 1], d1: D.dates[ni] };
+      const changed = both.filter(it => moved(it, ni)).length;
+      if (both.length >= 5 && !changed && !fresh(c, ni)) D.stale[c] = { n: both.length, d0: D.dates[ni - 1], d1: D.dates[ni] };
     });
     // 서버가 기록 때 계산한 원본 갱신 정보(fresh: {채널: {changed, total, latest, prev, d}})가 있으면 그것을 우선
     if (D.fresh && typeof D.fresh === 'object') Object.entries(D.fresh).forEach(([c, f]) => {
