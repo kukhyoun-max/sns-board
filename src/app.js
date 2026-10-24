@@ -172,7 +172,7 @@
   // 공동작업(it.co = 함께한 계정, 2026-10-21): 우리 계정이 올리고 다른 계정과 함께 게시한 것
   // 보관 권고(2026-10-23 「홍비디오는 1주에 1만 못 넘으면 보관 — 우리 인스타도 보관 권고 라벨」): 홍비디오 1만은 평소(1년 중간값 약 1.8만)의 절반 남짓이라,
   // 인스타는 올린 지 7일 지나 조회가 같은 형식 평소의 절반 아래(평소 대비 −50% 이하)면 권고. 광고·공동작업·정보 안내(입시·모집, 학사·생활 안내)는 남겨야 해서 뺌
-  const ARCH_SKIP = ['입시·모집', '학사·생활 안내'];
+  const ARCH_SKIP = ['입시·모집', '학사·장학'];
   function archRec(it) {
     if (it.c !== '인스타그램' || it.t === '스토리' || it.ad || it.co || it.hid || it.x || ARCH_SKIP.includes(it.g)) return null;
     // 2026-10-23 「이유 + 성과」로 좁힘(조회만으로 보관하면 링크·기록·평소 기준이 망가짐): 기간이 끝났을 이벤트·모집성 게시물(올린 지 14일 지남)만
@@ -2491,7 +2491,7 @@
   const GROUPS = [['content', '콘텐츠별'], ['day', '일별'], ['week', '주별'], ['month', '월별'], ['channel', '채널별'], ['category', '분류별'], ['subcat', '세부 분류별'], ['producer', '제작별'], ['person', '사람별'], ['format', '형식별'], ['weekday', '요일별']];
   // 콘텐츠별 열
   const CCOLS = [
-    ['title', '제목', it => title(it.n), 's'], ['d', '게시일', it => it.d, 's'], ['c', '채널', it => chName(it.c), 's'], ['t', '형식', it => fmtType(it.t), 's'], ['g', '분류', it => it.g, 's'], ['gs', '세부 분류', it => it.s || '', 's'], ['p', '제작', it => it.p, 's'],
+    ['title', '제목', it => title(it.n), 's'], ['d', '게시일', it => it.d, 's'], ['c', '채널', it => chName(it.c), 's'], ['t', '형식', it => fmtType(it.t), 's'], ['g', '분류', it => it.g, 's'], ['gs', '세부 분류', it => it.s || '', 's'], ['ec', '분류 코드', it => it.ec || '', 's'], ['fun', '예능 톤', it => it.fun ? '예능' : '', 's'], ['p', '제작', it => it.p, 's'],
     ['w', '참여자', it => (it.w || []).join(', '), 's'],
     ['views', '조회', it => xv(it, 0), 'n'], ['likes', '좋아요', it => xv(it, 1), 'n'], ['comments', '댓글', it => xv(it, 2), 'n'], ['shares', '공유', it => xv(it, 3), 'n'], ['saves', '저장', it => xv(it, 4), 'n'],
     ['reach', '도달', it => it.r, 'n'], ['eng', '반응률', engagement, 'p'], ['comp', '끝까지 본 비율', completion, 'p'], ['ratio', '조회 평소 대비(배)', it => !!it.ad ? null : ratio(it), 'x'],
@@ -3901,7 +3901,7 @@
   const nz = x => String(x || '').replace(/(\.\.\.|…)\s*$/, '').replace(/[\s⠀.]+/g, '');
   const metaLabel = n => { const m = /^(?:Instagram (?:게시물|post)|게시물):\s*"?([\s\S]*?)"?$/i.exec(n || ''); return (m ? m[1] : n || '').split('\n')[0].replace(/(\.\.\.|…)$/, '').trim() || n; };
   const EXP = window.SNS_EXP || { names: {}, s: {}, depts: [] };
-  const expOf = it => it.ex || it.exs || ''; // 「E04,E05」
+  const expOf = it => it.ex || (/^E/.test(it.ec || '') ? it.ec : '') || it.exs || ''; // 「E04,E05」 확정 > 분류표 자동 코드(서버 it.ec, 2026-10-24) > 낱말 제안
   function prep() {
     D.items.forEach(it => { if (it.ex || !(EXP.s)) return; const k = it.c === '유튜브' ? 'yt:' + ytId(it.u) : 'ig:' + igCode(it.u); if (EXP.s[k]) it.exs = EXP.s[k]; });
     if (D.items.some(it => it.L)) { D.coverage = D.coverage || {}; D.coverage['유튜브'] = '2012-01-01'; }

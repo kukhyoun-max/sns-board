@@ -1555,6 +1555,89 @@ function legacySport_(text) {
   return /축구|태권도|씨름|레슬링/.test(String(text || '')) ? '체육부 소식' : '행사·축제';
 }
 
+/* ───────── 분류표 (2026-10-24 담당자 「합쳐서 효율화」) ─────────
+ * 주제 분류 17개와 경험 영역 18개(2026-10-23 승인)를 코드 하나로 합침. 게시물마다 코드 1개(it.ec),
+ * 보드에는 큰 분류 11개(it.g)와 세부 = 코드 이름(it.s), 예능 톤(it.fun = 1)을 따로 씀.
+ * 위 TAG_CATEGORIES(옛 주제 분류)는 1단계 판정으로 남기고, 옛 분류마다 고를 수 있는 코드 중 경험 사전(EXP_RE)이 맞는 것을 고름.
+ * 사전 원본은 _도구/scripts/성과분석/경험영역.tsv — 낱말을 바꾸면 둘 다 고친다 */
+var CODE_TABLE = {
+  E01: ['수업·강의·실습', '수업·학과'], E02: ['학과·전공 소개', '수업·학과'],
+  E07: ['수강신청·전과·학사', '학사·장학'], E08: ['장학·등록', '학사·장학'],
+  E04: ['기숙사·생활관', '캠퍼스 생활'], E05: ['학식·밥·카페', '캠퍼스 생활'], E06: ['시험기간', '캠퍼스 생활'], E16: ['연애·친구·관계', '캠퍼스 생활'],
+  E03: ['동아리·학생자치', '활동·진로'], E10: ['운동부·스포츠', '활동·진로'], E11: ['해외·교환학생·유학생', '활동·진로'],
+  E12: ['취업·진로·현장실습', '활동·진로'], E13: ['창업', '활동·진로'], E14: ['봉사·국토대장정', '활동·진로'],
+  E09: ['축제·공연', '행사·축제'],
+  E15: ['전주·지역', '캠퍼스·전주'], E18: ['캠퍼스 공간·계절', '캠퍼스·전주'],
+  E17: ['선배·재학생 이야기', '사람 이야기'],
+  N1: ['입시·모집', '입시·모집'], N2: ['소식·성과', '소식·성과'], N3: ['이벤트·참여', '이벤트·참여'], N4: ['브랜드·시즌', '브랜드·시즌']
+};
+var EXP_RE = [
+  ['E08', /장학|등록금|국가근로|근로장학|학자금|등록\s?(기간|일정|안내)/],
+  ['E07', /수강\s?(신청|바구니)|학사|전과|복수전공|(휴학|복학)\s?(신청|안내|기간)|졸업\s?(요건|사정|논문)|학위\s?수여|성적|증명서|학생증|공결/],
+  ['E06', /시험|중간고사|기말고사|열람실|벼락치기|공부/],
+  ['E04', /기숙사|생활관|스타(타워|홈|빌)|[1-4]인실|룸투어|자취/],
+  ['E05', /학식|학생식당|아침밥|카페|급식|맛집|식당|빵지순례|푸드코트|후원의 집|요리/],
+  ['E13', /창업|스타트업|팝업/],
+  ['E12', /취업|진로|현장\s?실습|인턴|자격증|직무|채용|커리어|대기업|beSTAR/i],
+  ['E11', /해외|교환학생|유학생|연수|글로벌|외국인|International|한\s?달 살기|파란사다리/i],
+  ['E14', /봉사|국토대장정|나눔|헌혈/],
+  ['E03', /동아리|학생회|총학|선거|투표|밴드|동방|서포터즈|JUNI:?ON|주니온/i],
+  ['E10', /운동부|씨름|태권|축구|농구|야구|풋살|레슬링|싸울아비|체전|체육대회|U-?\s?리그/i],
+  ['E09', /축제|대동제|공연|페스티벌|JUMF|부스|콘서트|버스킹|초대\s?가수/],
+  ['E01', /수업|강의|실습|실기|과제|캡스톤|교수님|클래스/],
+  ['E02', /[가-힣]+(학과|학부)|전공|과잠|단과대|[가-힣]{2,6}대학(을|를)?\s?소개/],
+  ['E16', /소개팅|연애|커플|동기|선후배|썸|고백|데이트|단톡방|친구/],
+  ['E17', /선배|조언|꿀팁|신입생|새내기|합격|후기|인터뷰|Q&A|브이로그|vlog|성공\s?스토리|롱터뷰/i],
+  ['E15', /전주(?!대)|한옥마을|객사|전북|지역|통학|시내버스|신시가지/],
+  ['E18', /캠퍼스|계절|봄|여름|가을|겨울|벚꽃|단풍|눈|공간|풍경|포토\s?(존|스팟)|날씨|하늘|노을|도서관|라운지|박물관/]
+];
+// 옛 분류 → [기본 코드, 고를 수 있는 코드(없으면 경험 코드 전부)]
+var OLD2CODE = {
+  '이벤트·참여': ['N3', []], '홍보대사 모집': ['N1', []], '입시·모집': ['N1', []], '브랜드 영상': ['N4', []],
+  '동문 소식': ['N2', []], '성과·뉴스': ['N2', []], '체육부 소식': ['E10', []],
+  '학사·생활 안내': ['E07', ['E08', 'E04', 'E05', 'E06', 'E12', 'E03', 'E15']],
+  '행사·축제': ['E09', ['E12', 'E13', 'E10', 'E14', 'E11', 'E03']],
+  '시설·공간': ['E18', ['E04', 'E05']],
+  '학과·전공': ['E02', ['E01']],
+  '캠퍼스·계절': ['E18', ['E15']],
+  '시즌 인사': ['N4', ['E06']],
+  '정보·꿀팁': ['E17', null], '학생 이야기': ['E17', null], '예능·챌린지': ['E16', null], '기타': ['', null]
+};
+var FUN_RE = TAG_CATEGORIES.filter(function (c) { return c[0] === '예능·챌린지'; })[0][1];
+var BIG_NAMES = ['수업·학과', '학사·장학', '캠퍼스 생활', '활동·진로', '행사·축제', '캠퍼스·전주', '사람 이야기', '입시·모집', '소식·성과', '이벤트·참여', '브랜드·시즌'];
+
+function pickCode_(old, text) {
+  var m = OLD2CODE[old] || OLD2CODE['기타'], t = String(text || '');
+  var cand = m[1] === null ? EXP_RE.map(function (e) { return e[0]; }) : m[1];
+  for (var i = 0; i < EXP_RE.length; i++) if (cand.indexOf(EXP_RE[i][0]) >= 0 && EXP_RE[i][1].test(t)) return EXP_RE[i][0];
+  return m[0];
+}
+// 코드 → {ec, g, s}. 코드가 없으면 기타
+function codeInfo_(ec) {
+  var c = CODE_TABLE[ec];
+  return c ? { ec: ec, g: c[1], s: c[0] } : { ec: '', g: '기타', s: '' };
+}
+// 시트에 적힌 값(코드 「E05」·「N3」, 큰 분류 이름, 옛 분류 이름, 「옛 분류/세부」, 「스포츠」)을 코드로 — 「태그」 탭 옛 값·「태그 수정」 B열 공용
+function resolveCode_(val, text) {
+  var v = String(val || '').trim();
+  if (!v || v === '기타') return '';
+  var m = /^([EN]\d{1,2})\b/i.exec(v);
+  if (m) { var k = m[1].toUpperCase().replace(/^E(\d)$/, 'E0$1'); if (CODE_TABLE[k]) return k; }
+  for (var ec in CODE_TABLE) if (CODE_TABLE[ec][0] === v) return ec;
+  var old0 = v.split('/')[0].trim();
+  if (OLD2CODE[old0]) return pickCode_(old0, text); // 옛 이름이 먼저(행사·축제·이벤트·참여·입시·모집은 새 큰 분류와 이름이 같음)
+  var big = BIG_NAMES.indexOf(v) >= 0 ? v : '';
+  if (big) { for (var i = 0; i < EXP_RE.length; i++) if (CODE_TABLE[EXP_RE[i][0]][1] === big && EXP_RE[i][1].test(text || '')) return EXP_RE[i][0]; for (var c in CODE_TABLE) if (CODE_TABLE[c][1] === big) return c; }
+  var old = v.split('/')[0].trim();
+  if (old === '숏폼·예능') old = '예능·챌린지';
+  if (old === '스포츠') old = legacySport_(text);
+  return OLD2CODE[old] ? pickCode_(old, text) : '';
+}
+function tagCode_(text, channel) {
+  var t = String(text || '');
+  return { ec: pickCode_(tagCategory(t, channel), t), fun: /hong/.test(channel || '') || FUN_RE.test(t) ? 1 : 0 };
+}
+
 // ───────── 제작 주체 · 참여자 ─────────
 // 이름 명단은 「태그 설정」에서 고칠 수 있게 할 예정 — 여기 있는 건 기본값
 var AMBASSADORS = [
@@ -1715,10 +1798,11 @@ function ensureTagSheets_(ss) {
     sh.getRange(1, 1, 1, 7).setValues([['채널', '콘텐츠키', '분류', '제작', '참여자', '계산일', 'URL']]);
     sh.setFrozenRows(1);
   }
-  if (sh.getMaxColumns() < 8) sh.insertColumnsAfter(sh.getMaxColumns(), 8 - sh.getMaxColumns());
-  if (sh.getRange(1, 8).getValue() !== '최종 분류') {
-    sh.getRange(1, 3).setValue('분류(자동)');
-    sh.getRange(1, 8).setValue('최종 분류').setNote('「태그 수정」을 반영한 값 — 보드·분석은 이 값을 씀. C열은 규칙이 붙인 자동값이라 손으로 고친 게시물은 C열과 다를 수 있음');
+  if (sh.getMaxColumns() < 9) sh.insertColumnsAfter(sh.getMaxColumns(), 9 - sh.getMaxColumns());
+  if (sh.getRange(1, 9).getValue() !== '예능 톤') {
+    sh.getRange(1, 3).setValue('분류 코드(자동)').setNote('분류표 코드(2026-10-24): E01–E18 경험 영역, N1 입시·모집 · N2 소식·성과 · N3 이벤트·참여 · N4 브랜드·시즌. 규칙이 붙인 값');
+    sh.getRange(1, 8).setValue('최종 분류').setNote('「태그 수정」을 반영한 값 = 보드·분석이 쓰는 값. 큰 분류 · 코드 영역');
+    sh.getRange(1, 9).setValue('예능 톤').setNote('상황극·밈·챌린지 톤이면 「예능」(hong은 모두). 주제와 따로 봄');
   }
 }
 
@@ -1753,9 +1837,10 @@ function loadRoster_(ss) {
 function tagItem_(channel, it) {
   const ch = channel.indexOf(BENCH_PREFIX) === 0 ? channel.slice(BENCH_PREFIX.length) : channel;
   const cap = it.full || it.title || '';
-  const g = tagCategory(ch === '유튜브' ? cap + '\n' + ytHead_(it.desc) : categoryText(cap), ch, { lengthSec: it.lengthSec });
+  const tx = ch === '유튜브' ? cap + '\n' + ytHead_(it.desc) : categoryText(cap);
+  const c = tagCode_(tx, ch); // 분류표 코드(E01–E18·N1–N4, 없으면 기타) + 예능 톤
   const pr = tagProducer(ch, cap + '\n' + (it.desc || ''), { views: it.views, likes: it.likes });
-  return { g: g, p: pr.p, w: pr.w, roles: pr.roles };
+  return { g: c.ec || '기타', fun: c.fun, tx: tx, p: pr.p, w: pr.w, roles: pr.roles };
 }
 
 // 스냅샷에서 읽은 원본 → 「태그」 탭 갱신 (기존 키는 유지, 이번에 읽은 키는 덮어씀)
@@ -1763,17 +1848,18 @@ function saveTags_(ss, bySrc, today) {
   ensureTagSheets_(ss);
   loadRoster_(ss);
   const sh = ss.getSheetByName(TAG_SHEET);
-  const map = {};
-  if (sh.getLastRow() > 1) sh.getRange(2, 1, sh.getLastRow() - 1, 7).getValues().forEach(r => { map[r[0] + '§' + r[1]] = r; });
+  const map = {}, txt = {}, fun = {};
+  if (sh.getLastRow() > 1) sh.getRange(2, 1, sh.getLastRow() - 1, 9).getValues().forEach(r => { map[r[0] + '§' + r[1]] = r; });
   bySrc.forEach(byCh => Object.keys(byCh).forEach(ch => Object.keys(byCh[ch]).forEach(k => {
     const it = byCh[ch][k];
     const t = tagItem_(ch, it);
     map[ch + '§' + k] = [ch, k, t.g, t.p, t.w.join(', '), today, it.url || ''];
+    txt[ch + '§' + k] = t.tx; fun[ch + '§' + k] = t.fun;
   })));
   const fx = tagFixG_(ss);
-  const rows = Object.keys(map).map(k => map[k].slice(0, 7).concat([finalG_(map[k], fx)]));
-  sh.getRange(2, 1, Math.max(sh.getLastRow() - 1, 1), 8).clearContent();
-  if (rows.length) sh.getRange(2, 1, rows.length, 8).setValues(rows);
+  const rows = Object.keys(map).map(k => map[k].slice(0, 7).concat([finalG_(map[k], fx, txt[k]), k in fun ? (fun[k] ? '예능' : '') : (map[k][8] || '')]));
+  sh.getRange(2, 1, Math.max(sh.getLastRow() - 1, 1), 9).clearContent();
+  if (rows.length) sh.getRange(2, 1, rows.length, 9).setValues(rows);
 }
 
 // 「태그」 탭 H열 「최종 분류」: C열 자동값에 「태그 수정」을 덮은 값(보드·분석이 쓰는 값). C열만 보면 손으로 고친 게시물이 「기타」로 보여서(2026-10-24)
@@ -1782,9 +1868,12 @@ function tagFixG_(ss) {
   if (fs && fs.getLastRow() > 1) fs.getRange(2, 1, fs.getLastRow() - 1, 2).getValues().forEach(r => { const k = String(r[0]).trim(), g = String(r[1] || '').trim(); if (k && g) fx[k] = g; });
   return fx;
 }
-function finalG_(r, fx) {
-  const g = fx[r[1]] || (r[6] && fx[r[6]]) || r[2] || '기타';
-  return g === '숏폼·예능' ? '예능·챌린지' : g;
+// 「캠퍼스 생활 · E05 학식·밥·카페」 꼴. 「태그 수정」 값이 옛 분류 이름이면 캡션으로 코드를 고름
+function finalG_(r, fx, tx) {
+  const v = fx[r[1]] || (r[6] && fx[r[6]]) || r[2];
+  if (v === '제외') return '제외';
+  const c = codeInfo_(resolveCode_(v, tx || ''));
+  return c.ec ? c.g + ' · ' + c.ec + ' ' + c.s : '기타';
 }
 
 // 메뉴: 지금 원본을 읽어 태그만 다시 계산 (스냅샷은 기록하지 않음)
@@ -1804,10 +1893,10 @@ function loadTagData_(ss) {
   loadRoster_(ss);
   const tags = {}, roles = {};
   const sh = ss.getSheetByName(TAG_SHEET);
-  if (sh && sh.getLastRow() > 1) sh.getRange(2, 1, sh.getLastRow() - 1, 7).getValues().forEach(r => {
+  if (sh && sh.getLastRow() > 1) sh.getRange(2, 1, sh.getLastRow() - 1, Math.min(9, sh.getMaxColumns())).getValues().forEach(r => {
     // 예전 규칙으로 저장된 참여자 중 이름이 아닌 말(「영상을」「있도록」 등)은 여기서 뺌
     const w = String(r[4] || '').split(',').map(x => x.trim()).filter(n => n && STAFF.indexOf(n) < 0 && EXCLUDE.indexOf(n) < 0 && (inRoster_(n) || nameLike_(n) || /^@[A-Za-z0-9._]+$/.test(n)));
-    tags[r[0] + '§' + r[1]] = { g: String(r[2] || ''), p: String(r[3] || ''), w: w, u: String(r[6] || '') };
+    tags[r[0] + '§' + r[1]] = { g: String(r[2] || ''), p: String(r[3] || ''), w: w, u: String(r[6] || ''), fun: r[8] === '예능' ? 1 : r[8] === '' && r[7] ? 0 : null };
     w.forEach(n => { roles[n] = roleOf(n); });
   });
   // 역할은 명단 기준만: 홍보대사 / 근로장학생 / 미확인(명단에 없는 이름 — 「명단」 탭에 추가하면 다음 응답부터 반영)
@@ -2026,15 +2115,13 @@ function attachTags_(ss, items, keys) {
     const f = T.fix[keys[i].split('§')[1]] || (it.u && T.fix[it.u]) || (t.u && T.fix[t.u]) || {};
     // 「태그 수정」 분류에 「제외」(비공개·테스트 업로드 등) → 대시보드 데이터에서 뺌(기록은 시트에 그대로)
     if (f.g === '제외') { it._drop = 1; return; }
-    // 반영 순서: 「태그 수정」 > 「태그」 탭 자동값 > it.g·it.p(「인스타_과거기록」 탭 값) > 기본값
-    it.g = f.g || t.g || it.g || '기타';
-    if (it.g === '숏폼·예능') it.g = '예능·챌린지'; // 예전 이름(2026-10-16 변경) — 「태그 다시 계산」 전 값·「태그 수정」·과거 기록 탭
+    // 분류표(2026-10-24): 반영 순서 「태그 수정」 B열 > 「태그 수정」 E열 경험영역 첫 코드 > 「태그」 탭 자동 코드 > it.g(「인스타_과거기록」 탭 옛 이름) — 옛 분류 이름은 캡션으로 코드를 고름
+    const raw = f.g || (f.ex ? f.ex.split(',')[0] : '') || t.g || it.g || '';
+    const ci = codeInfo_(resolveCode_(raw, it.n));
+    it.g = ci.g; it.ec = ci.ec; if (ci.s) it.s = ci.s; else delete it.s;
+    const fn = t.fun != null && !f.g ? t.fun : /hong/.test(it.c) || /예능|숏폼/.test(raw) || FUN_RE.test(it.n || '');
+    if (fn) it.fun = 1;
     it.p = f.p || t.p || it.p || (OWN_CHANNELS.indexOf(it.c) >= 0 ? '자체 제작' : '타 대학');
-    // 「태그 수정」에 '체육부 소식/축구부'처럼 적으면 세부 분류까지 지정
-    let sub = '';
-    if (it.g.indexOf('/') > 0) { sub = it.g.split('/')[1].trim(); it.g = it.g.split('/')[0].trim(); }
-    if (it.g === '스포츠') it.g = legacySport_(it.n);
-    if (it.g === '체육부 소식') it.s = sub || sportSub(it.n);
     if (t.w && t.w.length) it.w = t.w;
     if (f.ex) it.ex = f.ex; // 경험 영역 확정값(사람이 적음) — 자동 제안은 보드가 exs로 따로 붙임
     if (f.cn) it.cn = f.cn;
@@ -2236,11 +2323,11 @@ function saveTagsMissing_(ss, bySrc) {
     have[ch + '§' + k] = 1;
     const it = byCh[ch][k];
     const t = tagItem_(ch, it);
-    add.push([ch, k, t.g, t.p, t.w.join(', '), today, it.url || '']);
+    add.push([ch, k, t.g, t.p, t.w.join(', '), today, it.url || '', t.tx, t.fun ? '예능' : '']);
   })));
   const fx = tagFixG_(ss);
-  add.forEach(r => r.push(finalG_(r, fx)));
-  if (add.length) sh.getRange(sh.getLastRow() + 1, 1, add.length, 8).setValues(add);
+  add.forEach(r => { r[7] = finalG_(r, fx, r[7]); });
+  if (add.length) sh.getRange(sh.getLastRow() + 1, 1, add.length, 9).setValues(add);
 }
 
 // ───────── 메타(인스타·페북) 광고: 「메타 광고」 탭 (광고 관리자 캠페인 보고서 내보내기) ─────────
