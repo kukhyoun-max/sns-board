@@ -325,7 +325,7 @@
     const topH = topHtml(chs); let chk = '';
     // 용어 뜻은 맨 아래 접은 칸으로, 조건 설명 줄은 제목에 마우스를 올리면
     chk += '<section class="sec"><div class="sh"><div><h2>점검할 것</h2><p>최근 3달 분류별 · 평소보다 낮은 콘텐츠</p></div></div>' +
-      briefText(chs).replace('style="padding:18px 0 0"', 'style="padding:0 0 18px"') +
+      briefText(chs) +
       '<h3 class="sub" title="최근 30일 · 올린 지 ' + AGE_MIN + '일 지남 · 조회 평소 대비 −50% 아래 · 다음 기획 때 제목·첫 장·썸네일 점검">평소보다 낮은 콘텐츠</h3><ol class="rank" id="bLow">' + (low.length ? rankRows(low) : '<li class="empty">' + ICO.check + ' 평소보다 낮은 콘텐츠가 없어요</li>') + '</ol>' +
       '<details class="fold"><summary>용어 뜻</summary>' + defsHtml() + '</details>' + secClose;
     if (S.ch !== '전체') chk += secOpen('최근 3달 분류별 성과', '분류별 조회 평소 대비 중간값 · 누르면 그 분류 콘텐츠') + '<div class="bars" id="bCat"></div>' + secClose;
@@ -400,15 +400,15 @@
       const L = pool({ channels: [ch], since: addDays(D.updated, -90) }).filter(it => ratio(it) != null);
       if (!L.length) return;
       const g = groupBy(L, 'g').filter(r => r.n >= MIN_N && r.idx != null).sort(byIdx);
-      if (!g.length) { R.push('<div class="ir"><div class="ir-h">' + badge(ch) + '<span class="mu">한 분류에 ' + MIN_N + '개 이상 모인 게 없어 비교 전이에요</span></div></div>'); return; }
-      // 채널마다 한 줄: 분류 이름 + 판정 칩(조회 평소 대비), 게시물 수·히트율은 마우스 올림
+      if (!g.length) { R.push(hmRow({ c: ch, t: '분류 비교 전', m: '한 분류에 ' + MIN_N + '개 이상 모인 게 없어요' })); return; }
+      // 홈 시안 2 모양: 분류마다 hmRow(윗줄 분류 + 조회 평소 대비, 아랫줄 채널 · 추천/비추천 · 개수 + 히트율)
       const t = g[0], w = g.length > 1 ? g[g.length - 1] : null;
-      const cell = (lab, r) => { const tr = tierOf(r.idx); return '<div class="ir-c" title="' + esc(lab + ' · 조회 ' + vsTxt(r.idx) + ' · 게시물 ' + r.n + '개 · 히트율 ' + pct0(r.hit)) + '"><span class="ir-l">' + lab + '</span><b>' + esc(r.k) + '</b><span class="tier ' + tr[1] + '">' + vsP(r.idx) + '</span></div>'; };
-      R.push('<div class="ir">' + badge(ch) + '<div class="ir-g">' + cell(t && t.idx != null && t.idx < 1 ? '보통' : '추천', t) + (w ? cell('비추천', w) : '') + '</div></div>');
+      const cell = (lab, r) => hmRow({ c: ch, t: esc(r.k), v: vsP(r.idx), vc: xCls(r.idx) === 'flat' ? 'mu' : xCls(r.idx), m: lab + ' · ' + r.n + '개', r: '히트율 ' + pct0(r.hit), tip: lab + ' · 조회 ' + vsTxt(r.idx) + ' · 최근 3달' });
+      R.push(cell(t && t.idx != null && t.idx < 1 ? '보통' : '추천', t) + (w ? cell('비추천', w) : ''));
     });
     const ig = pool({ channels: ['인스타그램'], since: addDays(D.updated, -90) }).filter(it => ratio(it) != null);
     const ft = own.includes('인스타그램') ? groupBy(ig.filter(it => it.r > 0), 't').map(r => ({ k: r.k, n: r.n, rv: median(r.arr.map(it => it.r)) })).filter(r => r.n >= 5 && r.rv > 0).sort((a, b) => b.rv - a.rv) : [];
-    if (ft.length >= 2) R.push('<div class="ir" title="캐러셀은 슬라이드를 넘길 때마다 조회가 다시 세져서 조회 대신 도달(게시물 하나가 닿은 사람 수)로 견줘요">' + badge('인스타그램') + '<div class="ir-f"><span class="ir-l">형식별 도달</span>' + ft.map(r => '<span>' + esc(r.k) + ' <b class="num">' + fmtK(r.rv) + '명</b></span>').join('') + '</div></div>');
+    if (ft.length >= 2) R.push(hmRow({ c: '인스타그램', t: '형식별 도달(중간값)', m: ft.map(r => esc(fmtType(r.k)) + ' ' + fmtK(r.rv) + '명').join(' · '), tip: '캐러셀은 슬라이드를 넘길 때마다 조회가 다시 세져서 조회 대신 도달(게시물 하나가 닿은 사람 수)로 견줘요' }));
     return R.length ? R.join('') : '<p class="mu">최근 3달 게시물이 없어요.</p>';
   }
   function insights(chs) {
@@ -433,7 +433,7 @@
   }
   function briefText(chs) {
     const ins = insights(chs);
-    return '<div class="brief" style="padding:18px 0 0"><div class="irs">' + insightRows(chs) + '</div></div>';
+    return '<div class="hm-rx hm-stack">' + insightRows(chs) + '</div>';
   }
   function wireBrief() {
     const b = $('briefBtn'); if (!b) return;
@@ -810,14 +810,15 @@
     const L = wk.length ? wk.slice(0, 8) : all.filter(it => cut(it) && daysBetween(it.d, D.updated) <= 14).slice(0, 4);
     window.__race = L;
     if (!L.length) return '';
-    // 한 줄 = 채널 · 제목 · 판정 칩(밤 브리핑과 같은 단계). 비교 기준은 칩에 마우스를 올리면
+    // 홈 시안 2 모양: hmRow 한 줄(윗줄 제목 + 평소 대비, 아랫줄 채널 · 올린 날 + 고른 값). 판정 단계(낮음·잘 됨…)와 비교 기준은 마우스를 올리면
     const sel = '<label class="race-m"><select id="raceM" aria-label="볼 값 고르기">' + RACE_M.map(x => '<option value="' + x[0] + '"' + (x[0] === m ? ' selected' : '') + '>' + x[1] + '</option>').join('') + '</select></label>';
-    const how = m === 'v' || m === 'reach' ? '칩 = 같은 형식 평소와 비교' : '칩 = 도달(유튜브는 조회) 대비 비율을 같은 형식 평소와 비교';
-    return '<div class="race"><div class="race-h"><h3>' + (wk.length ? '이번 주 올린 게시물' : '최근 게시물') + '</h3>' + sel + '</div><p class="race-d">' + how + ' · 어제·오늘 것은 위 「오늘」에</p><ol class="race-l">' + L.map((it, i) => {
-      const q = raceVal(it, m), r = q.r, t = r == null ? null : tierOf(r), tip = q.tip;
-      return '<li data-r="' + i + '" tabindex="0" role="button" aria-label="' + esc(title(it.n)) + ' 상세 보기"><div class="race-t">' + badge(it.c) + '<span class="rt">' + esc(title(it.n)) + '</span>' +
-        '<b class="tier ' + (t ? t[1] : 'na') + '"' + (tip ? ' title="' + esc(tip) + '"' : '') + '>' + (t ? t[0] + (t[1] === 'mid' ? '' : ' ' + vsP(r)) : '비교 전') + '</b></div>' +
-        '<small>' + (archRec(it) ? '<span class="arch-t">보관 후보</span> · ' : '') + whenTxt(it.d) + ' · ' + mn + ' ' + (q.n == null ? '자료 없음' : fmtK(q.n)) + (q.rt != null ? ' · ' + (it.c === '유튜브' ? '조회' : '도달') + ' 대비 ' + pctA(q.rt) : '') + (m !== 'v' ? ' · 조회 ' + fmtK(mainVal(it)) : '') + '</small></li>';
+    const how = m === 'v' || m === 'reach' ? '오른쪽 위 = 같은 형식 평소 대비' : '오른쪽 위 = 도달(유튜브는 조회) 대비 비율을 같은 형식 평소와 비교';
+    return '<div class="race hm-rx"><div class="hm-h"><h3>' + (wk.length ? '이번 주 올린 게시물' : '최근 게시물') + '</h3>' + sel + '</div><p class="hm-note">' + how + ' · 어제·오늘 것은 위 「오늘」에</p><ol class="hm-list">' + L.map((it, i) => {
+      const q = raceVal(it, m), r = q.r, t = r == null ? null : tierOf(r);
+      return hmRow({ tag: 'li', attr: 'data-r="' + i + '" tabindex="0" role="button" aria-label="' + esc(title(it.n)) + ' 상세 보기"', tip: (t ? t[0] + ' · ' : '') + (q.tip || ''), c: it.c, t: esc(title(it.n)),
+        v: r == null ? '비교 전' : vsP(r), vc: r == null ? 'mu' : r < 0.7 ? 'down' : r < 1.3 ? 'mu' : 'up',
+        m: whenTxt(it.d) + (archRec(it) ? ' · <span class="down">보관 후보</span>' : '') + (q.rt != null ? ' · ' + (it.c === '유튜브' ? '조회' : '도달') + ' 대비 ' + pctA(q.rt) : ''),
+        r: mn + ' ' + (q.n == null ? '자료 없음' : fmtK(q.n)) + (m !== 'v' ? ' · 조회 ' + fmtK(mainVal(it)) : '') });
     }).join('') + '</ol></div>';
   }
   // 판정 단계(밤 10시 브리핑 BR_TIER와 같은 기준): 평소의 0.7배 미만 낮음 · 1.3배 미만 평소 수준 · 2배 잘 됨 · 5배 아주 잘 됨 · 그 이상 대박
@@ -830,7 +831,7 @@
       const tmp = document.createElement('div'); tmp.innerHTML = raceHtml(a[0], a[1]); box.replaceWith(tmp.firstChild); wireRace();
       // 새 고르기에 focus를 주지 않음(아이폰은 focus만으로 선택 목록이 다시 열림)
     });
-    document.querySelectorAll('.race-l li[data-r]').forEach(li => { const go = () => openDetail(L[+li.dataset.r]); li.addEventListener('click', go); li.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); go(); } }); });
+    document.querySelectorAll('.race li[data-r]').forEach(li => { const go = () => openDetail(L[+li.dataset.r]); li.addEventListener('click', go); li.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); go(); } }); });
   }
   function wireTop(chs) {
     wireRace();
@@ -1652,11 +1653,16 @@
     // 형식이 하나뿐이면(hong) 「전체」 열은 첫 열과 같은 값이라 생략
     const one = types.length === 1;
     let mx = '<div class="tw"><table class="mx"><thead><tr><th class="r">' + (MXB === 'p' ? '제작' : '분류') + '</th>' + types.map(t => '<th>' + esc(fmtType(t)) + '</th>').join('') + (one ? '' : '<th>전체</th>') + '</tr></thead><tbody>';
-    cats.forEach(r => {
+    // 게시물이 적은 분류(5개 미만)는 접어 두고 버튼으로 펼침(빈 줄이 길게 이어지지 않게)
+    const many = cats.filter(r => r.n >= MIN_N), few = cats.filter(r => r.n < MIN_N);
+    const mxRow = r => {
       mx += '<tr><th class="r">' + esc(r.k) + '</th>' + types.map(t => { const arr = r.arr.filter(it => it.t === t); const c = cell(arr); const key = r.k + '|' + t; return '<td class="' + c.cls + (S.mx === key ? ' sel' : '') + '" data-k="' + esc(key) + '" style="' + (c.style || '') + '">' + c.html + '</td>'; }).join('') +
         (one ? '' : '<td class="tot">' + hrTxt(r.hit) + '<small>' + r.n + '개</small></td>') + '</tr>';
-    });
+    };
+    (many.length ? many : cats).forEach(mxRow);
+    if (many.length && few.length) { mx += '</tbody><tbody id="mxFew"' + (S.mxFew ? '' : ' hidden') + '>'; few.forEach(mxRow); mx += '</tbody><tbody>'; }
     mx += '<tr><th class="r">전체</th>' + types.map(t => { const arr = L.filter(it => it.t === t); return '<td class="tot">' + hrTxt(hitRate(arr)) + '<small>' + arr.length + '개</small></td>'; }).join('') + (one ? '' : '<td class="tot">' + hrTxt(hb) + '<small>' + L.length + '개</small></td>') + '</tr></tbody></table></div>' +
+      (many.length && few.length ? '<button type="button" class="more" id="mxFewBtn" aria-expanded="' + !!S.mxFew + '">' + (S.mxFew ? '게시물 ' + MIN_N + '개 미만 분류 접기' : '게시물 ' + MIN_N + '개 미만 분류 ' + few.length + '개 더 보기 ›') + '</button>' : '') +
       '<div class="mxleg"><span><i style="background:rgba(0,120,173,.9)"></i>히트율 높음</span><span><i style="background:rgba(0,120,173,.15)"></i>낮음</span><span><i style="background:var(--tile)"></i>' + MIN_N + '개 미만 · 참고용</span><span>칸을 누르면 해당 콘텐츠가 아래에 나와요</span></div>';
     let sel = '';
     if (S.mx) {
@@ -1699,6 +1705,7 @@
     $('view').innerHTML = html.replace(/^<div class="gap"><\/div>/, '');
     $('view').querySelectorAll('[data-goch]').forEach(b => b.addEventListener('click', () => { S.ch = b.dataset.goch; render(); window.scrollTo({ top: 0 }); }));
     if ($('mxBy')) $('mxBy').querySelectorAll('button').forEach(b => b.addEventListener('click', () => { S.mxBy = b.dataset.v; S.mx = null; viewStrategy(); }));
+    if ($('mxFewBtn')) $('mxFewBtn').addEventListener('click', e => { S.mxFew = !S.mxFew; $('mxFew').hidden = !S.mxFew; e.currentTarget.setAttribute('aria-expanded', S.mxFew); e.currentTarget.textContent = S.mxFew ? '게시물 ' + MIN_N + '개 미만 분류 접기' : '게시물 ' + MIN_N + '개 미만 분류 ' + $('mxFew').rows.length + '개 더 보기 ›'; });
     $('view').querySelectorAll('.mx td[data-k]').forEach(td => { if (td.classList.contains('none')) return; td.addEventListener('click', () => { S.mx = S.mx === td.dataset.k ? null : td.dataset.k; viewStrategy(); if (S.mx) setTimeout(() => { const el = $('mxList'); if (el) el.scrollIntoView({ behavior: 'smooth', block: 'nearest' }); }, 30); }); });
     if (S.mx) { const [g, t] = S.mx.split('|'); wireRank($('mxList'), L.filter(it => it[MXB] === g && it.t === t).sort((a, b) => (ratio(b) || 0) - (ratio(a) || 0)).slice(0, 20)); }
     bars('byCat', cats.filter(r => r.n >= MIN_N).sort(byIdx), subN, k => { S.view = 'explore'; S.g = k; render(); window.scrollTo({ top: 0 }); });
@@ -1898,6 +1905,7 @@
       '</tbody></table></div><dl class="defs">' + Object.keys(DEF).filter(k => shown.includes(k)).map(k => '<div><dt>' + k + '</dt><dd>' + DEF[k] + '</dd></div>').join('') + '</dl></div></div>' + secClose;
     // 사람별
     let ps = peopleStats(noAd);
+    const pMob = window.matchMedia && matchMedia('(max-width:560px)').matches;
     if (S.roleF !== '전체') ps = ps.filter(p => p.role === S.roleF);
     const sk = { n: p => p.k, views: p => p.views, idx: p => p.idx || 0, hits: p => p.hits, score: p => p.score }[S.psort] || (p => p.k);
     ps.sort((a, b) => sk(b) - sk(a));
@@ -1906,16 +1914,23 @@
     html += secOpen('사람별 성과', '캡션 크레딧에 적힌 이름 기준 · 팀 콘텐츠는 참여자 모두에게 똑같이 세요<span class="tiers"><b>등급 점수 · 게시물 조회별</b><span>100만↑ +10점</span><span>50만↑ +5점</span><span>10만↑ +1점</span><span>1만↑ +0.1점</span><span>1만 미만 −0.1점</span></span>',
       '<button class="btn" type="button" id="pXls">엑셀로 받기</button>') +
       '<div class="chips">' + roleChips + '</div>' +
+      // 휴대폰은 표 대신 홈 시안 2 목록(hmRow): 윗줄 이름 + 조회 평소 대비, 아랫줄 역할 · 참여 · 히트 + 조회 합. 15명씩, 정렬은 칩
+      (pMob ? '<div class="chips" id="pSort">' + [['n', '참여'], ['views', '조회 합'], ['idx', '평소 대비'], ['hits', '히트'], ['score', '등급 점수']].map(x => '<button class="chip" type="button" data-s="' + x[0] + '" aria-pressed="' + (S.psort === x[0] || (!S.psort && x[0] === 'n')) + '">' + x[1] + '</button>').join('') + '</div>' +
+        '<ol class="hm-list" id="pTbl">' + (ps.length ? ps.slice(0, S.pAll ? ps.length : 15).map(p => hmRow({ tag: 'li', attr: 'data-n="' + esc(p.n) + '" tabindex="0" role="button"', cls: S.person === p.n ? 'on' : '', tip: '등급 점수 ' + fmt(p.score) + (p.best ? ' · 최고 ' + title(p.best.n) : ''), t: esc(p.n), v: vsP(p.idx), vc: p.idx == null || p.k < MIN_N ? 'mu' : xCls(p.idx), m: esc(p.role) + ' · 참여 ' + p.k + ' · 히트 ' + p.hits, r: '조회 ' + fmtK(p.views) }) +
+          (S.person === p.n ? '<li class="hm-open"><ol class="rank" id="pList">' + rankRows(p.arr.slice().sort((a, b) => b.d < a.d ? -1 : 1).slice(0, 10)) + '</ol></li>' : '')).join('') : '<li class="empty">' + periodPhrase() + ' 동안 크레딧에 이름이 있는 콘텐츠가 없어요.</li>') + '</ol>' +
+        (!S.pAll && ps.length > 15 ? '<button type="button" class="more" id="pAll">' + (ps.length - 15) + '명 더 보기 ›</button>' : '') :
       '<div class="tw"><table class="tbl" id="pTbl"><thead><tr><th>이름</th><th>역할</th>' + th('n', '참여') + th('views', '조회 합') + th('idx', '조회 평소 대비') + th('hits', '히트') + th('score', '등급 점수') + '<th>최고 콘텐츠</th></tr></thead><tbody>' +
       ps.map(p => '<tr class="click' + (S.person === p.n ? ' on' : '') + '" data-n="' + esc(p.n) + '"><td><b>' + esc(p.n) + '</b></td><td>' + ptag(p.role) + '</td><td class="n">' + p.k + '</td><td class="n">' + fmtK(p.views) + '</td><td class="n ' + (p.idx == null || p.k < MIN_N ? 'mu' : xCls(p.idx)) + '">' + vsP(p.idx) + '</td><td class="n">' + p.hits + '</td><td class="n ' + (p.score >= 0 ? 'up' : 'down') + '">' + (p.score > 0 ? '+' : '') + p.score + '</td><td><div class="ellip">' + line(p.best) + '</div></td></tr>' +
         (S.person === p.n ? '<tr><td colspan="8" style="padding:0 0 10px;white-space:normal"><ol class="rank" id="pList">' + rankRows(p.arr.slice().sort((a, b) => b.d < a.d ? -1 : 1).slice(0, 10)) + '</ol>' + (p.arr.length > 10 ? '<p class="note">최근 10개만 보여요. 전체 목록은 「엑셀로 받기」나 「데이터 추출 → 사람」에서 받을 수 있어요.</p>' : '') + '</td></tr>' : '')).join('') +
       (ps.length ? '' : '<tr><td colspan="8" class="empty">' + periodPhrase() + ' 동안 크레딧에 이름이 있는 콘텐츠가 없어요.</td></tr>') +
-      '</tbody></table></div><p class="note">이름을 누르면 그 사람이 참여한 콘텐츠가 펼쳐져요. 역할이 틀렸다면 스냅샷 시트 「명단」 탭에서 고칠 수 있어요.</p>' + secClose;
+      '</tbody></table></div>') +
+      '<p class="note">이름을 누르면 그 사람이 참여한 콘텐츠가 펼쳐져요. 역할이 틀렸다면 스냅샷 시트 「명단」 탭에서 고칠 수 있어요.</p>' + secClose;
     $('view').innerHTML = html.replace(/^<div class="gap"><\/div>/, '');
     bars('byProd', prod, subN);
     $('view').querySelectorAll('.chips [data-r]').forEach(b => b.addEventListener('click', () => { S.roleF = b.dataset.r; S.person = null; viewMaker(); }));
-    $('view').querySelectorAll('#pTbl th button').forEach(b => b.addEventListener('click', () => { S.psort = b.dataset.s; viewMaker(); }));
-    $('view').querySelectorAll('#pTbl tr[data-n]').forEach(tr => tr.addEventListener('click', () => { S.person = S.person === tr.dataset.n ? null : tr.dataset.n; viewMaker(); }));
+    $('view').querySelectorAll('#pTbl th button, #pSort [data-s]').forEach(b => b.addEventListener('click', () => { S.psort = b.dataset.s; viewMaker(); }));
+    if ($('pAll')) $('pAll').addEventListener('click', () => { S.pAll = true; viewMaker(); });
+    $('view').querySelectorAll('#pTbl tr[data-n], #pTbl li[data-n]').forEach(tr => tr.addEventListener('click', () => { S.person = S.person === tr.dataset.n ? null : tr.dataset.n; viewMaker(); }));
     if (S.person) { const p = ps.find(x => x.n === S.person); if (p) wireRank($('pList'), p.arr.slice().sort((a, b) => b.d < a.d ? -1 : 1).slice(0, 10)); }
     $('pXls').addEventListener('click', () => {
       const head = ['이름', '역할', '참여 콘텐츠', '조회 합', '조회 평소 대비(중간값, 배)', '히트 수', '등급 점수', '최고 콘텐츠', '최고 콘텐츠 조회'];
