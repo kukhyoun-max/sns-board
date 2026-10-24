@@ -67,10 +67,15 @@
   const mean = a => { const f = a.filter(v => v != null && !isNaN(v)); return f.length ? sum(f) / f.length : null; };
   const save = () => { try { localStorage.setItem(STORE, JSON.stringify({ view: S.view, ch: S.ch, range: S.range, trendCh: S.trendCh, ads: S.ads, raceM: S.raceM })); } catch (e) {} };
   const load = () => { try { return JSON.parse(localStorage.getItem(STORE) || 'null'); } catch (e) { return null; } };
+  // 표 머리 정렬 상태를 화면 읽기 프로그램에도(2026-10-24 점검 7번)
+  const ariaSort = dir => dir === 'asc' ? ' aria-sort="ascending"' : dir === 'desc' ? ' aria-sort="descending"' : '';
   const mdLabel = d => (+d.slice(5, 7)) + '월 ' + (+d.slice(8, 10)) + '일';
   const md2 = d => (+d.slice(5, 7)) + '/' + (+d.slice(8, 10));
   const dot = d => d.slice(2).replace(/-/g, '.');
-  const toast = msg => { const t = document.createElement('div'); t.className = 'toast'; t.textContent = msg; document.body.appendChild(t); setTimeout(() => t.remove(), 2200); };
+  // 토스트: 화면 읽기 프로그램에도 알리고(role=status) 3.5초 보임, 위치는 아래 탭 위(2026-10-24 점검 18번)
+  const toast = msg => { const t = document.createElement('div'); t.className = 'toast'; t.setAttribute('role', 'status'); t.setAttribute('aria-live', 'polite'); t.textContent = msg; document.body.appendChild(t); setTimeout(() => t.remove(), 3500); };
+  // 움직임 줄이기 설정이면 부드러운 스크롤 대신 바로 이동(2026-10-24 점검 17번)
+  const SM = () => (window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth');
 
   // ───────── 값 ─────────
   // it.P: 「인스타_과거기록」 탭의 한 번짜리 기록값 (기록일 없음, it.x = 1)
@@ -106,6 +111,14 @@
   };
   const benchNames = () => D.channels.filter(c => c.bench).map(c => c.name);
   const chName = ch => CH_BADGE[ch] || ch;
+  // 글자용 채널색(2026-10-24 점검 2번): 회색 카드 위 4.5:1. 선·막대·배지는 chColor 그대로
+  const CH_INK = { '인스타그램': '--cht-ig', 'hong._.video': '--cht-hong' };
+  const chInk = ch => CH_INK[ch] ? css(CH_INK[ch]) : isBench(ch) ? css('--sub') : chColor(ch);
+  // 칸 색 위 글자: 흰 글자와 본문색 중 대비가 큰 쪽(바탕 = 칸 색을 페이지 바탕에 겹친 색)
+  const hexRgb = h => { const m = /^#?([0-9a-f]{6})$/i.exec(String(h || '').trim()); if (!m) return [255, 255, 255]; const n = parseInt(m[1], 16); return [n >> 16, n >> 8 & 255, n & 255]; };
+  const lumOf = c => { const f = v => { v /= 255; return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4); }; return 0.2126 * f(c[0]) + 0.7152 * f(c[1]) + 0.0722 * f(c[2]); };
+  const crOf = (a, b) => { const x = lumOf(a), y = lumOf(b); return (Math.max(x, y) + 0.05) / (Math.min(x, y) + 0.05); };
+  const inkOn = (rgb, al) => { const base = hexRgb(css('--bg')), c = rgb.map((v, i) => v * al + base[i] * (1 - al)); return crOf(c, [255, 255, 255]) >= crOf(c, hexRgb(css('--fg'))) ? '#fff' : 'var(--fg)'; };
   // 시안: 증감은 색 + 기호 + 숫자. ±3% 이내는 회색 "비슷해요"
   const FLAT = 0.03;
   const dNum = (d, unit) => d === 0 ? '<span class="flat">변동 없음</span>' : '<span class="' + (d > 0 ? 'up' : 'down') + '">' + (d > 0 ? '▲ ' : '▼ ') + fmt(Math.abs(d)) + (unit || '') + '</span>';
@@ -697,7 +710,7 @@
     return '<div class="kpi-row n' + t.length + '">' + t.join('') + '</div>';
   }
   // 지금 볼 것: 갱신할 때마다 다시 계산하는 주의 목록(최대 4줄). 게시물 줄은 누르면 상세
-  const chTxt = c => '<span class="hm-ch" style="--c:' + chColor(c) + '">' + esc(chName(c)) + '</span>';
+  const chTxt = c => '<span class="hm-ch" style="--c:' + chInk(c) + '">' + esc(chName(c)) + '</span>';
   function attnHtml(chs, w) {
     const A = [], n = D.dates.length - 1, mi = D.dates.indexOf(w.mon), j = mi >= 0 && mi < n ? mi : n - 1;
     window.__attn = [];
@@ -731,7 +744,7 @@
       if (per >= 1) row('', '평소 ' + (Math.round(per * 10) / 10) + '개/주', c, '이번 주 아직 안 올렸어요', '');
     });
     if (!A.length) return '';
-    return hmSec('지금 볼 것', esc(String(D.built || D.updated).slice(5, 10).replace('-', '/')) + ' 기록', '<div class="hm-list">' + A.slice(0, 4).join('') + '</div>');
+    return hmSec2('지금 볼 것', esc(String(D.built || D.updated).slice(5, 10).replace('-', '/')) + ' 기록', '<div class="hm-list">' + A.slice(0, 4).join('') + '</div>');
   }
   // 주간 보고: 카톡·메일에 붙일 글(맨 위 숫자 + 요약 + 많이 큰 콘텐츠 + 데이터 주의)
   function reportText(chs) {
@@ -947,7 +960,7 @@
     const M = window.__dy; if (!M || !$('dyC')) return;
     draw('dyC', { type: 'bar', data: { labels: M.pts.map(p => p.gap > 1 ? md2(p.from) + '~' + (p.from.slice(5, 7) === p.d.slice(5, 7) ? +p.d.slice(8, 10) : md2(p.d)) : md2(p.d)), datasets: M.chs.map(c => ({ label: chName(c), data: M.pts.map(p => p.v[c]), backgroundColor: chColor(c), stack: 's', borderRadius: 3, maxBarThickness: 30 })) },
       options: chartOpts({ layout: { padding: { top: 8 } }, plugins: { legend: { display: M.chs.length > 1, position: 'bottom' }, tooltip: { displayColors: true, callbacks: { title: c => { const p = M.pts[c[0].dataIndex]; return dot(p.from) + ' → ' + dot(p.d) + (p.gap > 1 ? ' (' + p.gap + '일)' : ''); }, label: c => c.dataset.label + ' +' + fmtK(c.raw) } } },
-        scales: { x: { stacked: true, ticks: { maxRotation: 0, autoSkip: true, maxTicksLimit: 10, font: { size: 13 }, color: css('--muted') } }, y: { stacked: true, display: true, position: 'right', grid: { color: css('--line') }, border: { display: false }, ticks: { maxTicksLimit: 4, font: { size: 13 }, color: css('--muted'), callback: v => fmtK(v) } } } }) });
+        scales: { x: { stacked: true, ticks: { maxRotation: 0, autoSkip: true, maxTicksLimit: 10, font: { size: 14 }, color: css('--muted') } }, y: { stacked: true, display: true, position: 'right', grid: { color: css('--line') }, border: { display: false }, ticks: { maxTicksLimit: 4, font: { size: 14 }, color: css('--muted'), callback: v => fmtK(v) } } } }) });
   }
   function wireWeek() {
     wireDaily();
@@ -1084,8 +1097,8 @@
       });
       draw('trC' + i, { type: 'bar', data: { labels: s.keys.map(k => trLabel(k, u)), datasets: ds },
         options: chartOpts({ layout: { padding: { top: 8 } }, plugins: { tooltip: { displayColors: multi, callbacks: { title: c => trLabel(s.keys[c[0].dataIndex], u) + (s.keys[c[0].dataIndex] === s.curK ? ' (진행 중)' : ''), label: c => (multi ? c.dataset.label + ' ' : '') + trFmtP(s, c.raw) + ' · 게시 ' + ((s.series[c.datasetIndex].g[s.keys[c.dataIndex]] || []).length) + '개' } } },
-          scales: { x: { ticks: { maxTicksLimit: 7, maxRotation: 0, autoSkip: true, font: { size: 13, weight: '500' }, color: css('--muted') } },
-            y: { display: true, position: 'right', grid: { color: css('--line') }, border: { display: false }, ticks: { maxTicksLimit: 4, font: { size: 13 }, color: css('--muted'), callback: v => { const m = trMetricP(s); return m === 'ratio' ? (+v === 1 ? '평소' : vsP(+v)) : m === 'hit' ? Math.round(v * 100) + '%' : fmtK(v); } } } } }) });
+          scales: { x: { ticks: { maxTicksLimit: 7, maxRotation: 0, autoSkip: true, font: { size: 14, weight: '500' }, color: css('--muted') } },
+            y: { display: true, position: 'right', grid: { color: css('--line') }, border: { display: false }, ticks: { maxTicksLimit: 4, font: { size: 14 }, color: css('--muted'), callback: v => { const m = trMetricP(s); return m === 'ratio' ? (+v === 1 ? '평소' : vsP(+v)) : m === 'hit' ? Math.round(v * 100) + '%' : fmtK(v); } } } } }) });
     });
   }
 
@@ -1132,7 +1145,7 @@
     const go = () => { if (S.adv && !d.dataset.w) { d.dataset.w = '1'; wireChart(); } };
     h.addEventListener('click', () => {
       S.adv = !S.adv; d.classList.toggle('open', S.adv); body.hidden = !S.adv; h.setAttribute('aria-expanded', S.adv); go();
-      if (S.adv) setTimeout(() => h.scrollIntoView({ behavior: 'smooth', block: 'start' }), 50);
+      if (S.adv) setTimeout(() => h.scrollIntoView({ behavior: SM(), block: 'start' }), 50);
     });
     go();
   }
@@ -1343,15 +1356,15 @@
     const breaks = { id: 'breaks', afterDatasetsDraw(c) {
       if (!BRK.length) return;
       const x = c.ctx, a = c.chartArea; x.save();
-      BRK.forEach((b, k) => { const px = c.scales.x.getPixelForValue(b.i); if (px < a.left || px > a.right) return; x.setLineDash([4, 4]); x.strokeStyle = css('--muted'); x.lineWidth = 1.5; x.beginPath(); x.moveTo(px, a.top); x.lineTo(px, a.bottom); x.stroke(); x.setLineDash([]); x.font = '600 12px ' + css('--font'); x.fillStyle = css('--muted'); const rt = px > (a.left + a.right) / 2; x.textAlign = rt ? 'right' : 'left'; x.fillText(b.t, px + (rt ? -4 : 4), a.top + 10 + k * 14); });
+      BRK.forEach((b, k) => { const px = c.scales.x.getPixelForValue(b.i); if (px < a.left || px > a.right) return; x.setLineDash([4, 4]); x.strokeStyle = css('--muted'); x.lineWidth = 1.5; x.beginPath(); x.moveTo(px, a.top); x.lineTo(px, a.bottom); x.stroke(); x.setLineDash([]); x.font = '600 14px ' + css('--font'); x.fillStyle = css('--muted'); const rt = px > (a.left + a.right) / 2; x.textAlign = rt ? 'right' : 'left'; x.fillText(b.t, px + (rt ? -4 : 4), a.top + 10 + k * 14); });
       x.restore(); } };
     draw('csCanvas', { type: TY === 'bar' ? 'bar' : 'line', data: { labels, datasets: ds },
       options: chartOpts({ layout: { padding: { top: 12, right: M.split && TY !== 'bar' ? 58 : 4 } }, interaction: { mode: 'index', intersect: false },
         onClick: (e, els, ch) => { const pts = ch.getElementsAtEventForMode(e, 'index', { intersect: false }, false); if (!pts.length || M.growth) return; const k = M.bk[pts[0].index].k; CS.sel = CS.sel === k ? null : k; $('csPick').innerHTML = pickHtml(M); if ($('csPickX')) { const b = M.bk.find(x => x.k === CS.sel); $('csPickX').addEventListener('click', () => toExport(b.from, b.to > M.to ? M.to : b.to, 'content', M.chs)); } if ($('csList')) wireRank($('csList'), uniq(M.series.flatMap(s => s.arrs[pts[0].index])).sort((x, y) => (mainVal(y) || 0) - (mainVal(x) || 0)).slice(0, 5)); if (TY === 'bar') rerenderChart(); },
         plugins: { legend: { display: M.split && !multiMode() && TY === 'bar', position: 'bottom' }, tooltip: { displayColors: M.split, callbacks: { title: it => { const b = M.bk[it[0].dataIndex]; return b.from === b.to ? b.from : b.from + ' ~ ' + b.to; }, label: c => (M.split ? c.dataset.label + ' ' : '') + mfmt(M.def, c.raw) + (M.growth ? '/일 · 기간 합계 ' + mfmt(M.def, (M.series[c.datasetIndex].raw || [])[c.dataIndex]) : '') + (!M.growth && M.series[c.datasetIndex].arrs ? ' · 게시 ' + M.series[c.datasetIndex].arrs[c.dataIndex].length + '개' : '') } } },
-        scales: { x: { stacked: TY === 'bar' && !!ds[0].stack, ticks: { maxTicksLimit: 7, maxRotation: 0, autoSkip: true, font: { size: 13, weight: '500' }, color: css('--muted') } },
-          y: { stacked: TY === 'bar' && !!ds[0].stack, display: true, position: 'right', grid: { color: css('--line') }, border: { display: false }, ticks: { maxTicksLimit: 4, font: { size: 13 }, color: css('--muted'), callback: v => M.def[2] === 'ratio' ? (+v === 1 ? '평소' : vsP(+v)) : M.def[2] === 'hit' ? Math.round(v * 100) + '%' : fmtK(v) }, beginAtZero: true } } }),
-      plugins: [breaks].concat(M.split && TY !== 'bar' ? [endLabels] : []).concat(avg == null ? [] : [{ id: 'avg', afterDatasetsDraw(c) { const y = c.scales.y.getPixelForValue(avg), a = c.chartArea; if (y < a.top || y > a.bottom) return; const x = c.ctx; x.save(); x.setLineDash([4, 4]); x.strokeStyle = css('--muted'); x.lineWidth = 1; x.beginPath(); x.moveTo(a.left, y); x.lineTo(a.right, y); x.stroke(); x.setLineDash([]); x.font = '600 13px ' + css('--font'); x.fillStyle = css('--muted'); x.textAlign = 'left'; x.fillText('평균 ' + mfmt(M.def, avg), a.left + 4, y - 5); x.restore(); } }]) });
+        scales: { x: { stacked: TY === 'bar' && !!ds[0].stack, ticks: { maxTicksLimit: 7, maxRotation: 0, autoSkip: true, font: { size: 14, weight: '500' }, color: css('--muted') } },
+          y: { stacked: TY === 'bar' && !!ds[0].stack, display: true, position: 'right', grid: { color: css('--line') }, border: { display: false }, ticks: { maxTicksLimit: 4, font: { size: 14 }, color: css('--muted'), callback: v => M.def[2] === 'ratio' ? (+v === 1 ? '평소' : vsP(+v)) : M.def[2] === 'hit' ? Math.round(v * 100) + '%' : fmtK(v) }, beginAtZero: true } } }),
+      plugins: [breaks].concat(M.split && TY !== 'bar' ? [endLabels] : []).concat(avg == null ? [] : [{ id: 'avg', afterDatasetsDraw(c) { const y = c.scales.y.getPixelForValue(avg), a = c.chartArea; if (y < a.top || y > a.bottom) return; const x = c.ctx; x.save(); x.setLineDash([4, 4]); x.strokeStyle = css('--muted'); x.lineWidth = 1; x.beginPath(); x.moveTo(a.left, y); x.lineTo(a.right, y); x.stroke(); x.setLineDash([]); x.font = '600 14px ' + css('--font'); x.fillStyle = css('--muted'); x.textAlign = 'left'; x.fillText('평균 ' + mfmt(M.def, avg), a.left + 4, y - 5); x.restore(); } }]) });
   }
 
   // ═════════ 2. 콘텐츠 전략 ═════════
@@ -1674,8 +1687,10 @@
       const hr = hitRate(arr);
       if (arr.length < MIN_N) return { cls: 'few', html: hrTxt(hr) + '<small>' + arr.length + '개</small>' };
       const a = Math.min(1, (hr || 0) / 0.6);
-      const bg = 'rgba(0,120,173,' + (0.08 + a * 0.82).toFixed(2) + ')';
-      return { cls: '', style: 'background:' + bg + ';color:' + (a > 0.45 ? '#fff' : 'var(--fg)'), html: hrTxt(hr) + '<small>' + arr.length + '개</small>' };
+      // 글자 대비 4.5:1(2026-10-24 점검 5번): 옅은~중간 칸(진하기 0.08~0.8)은 본문색, 맨 위 단계(히트율 60% 이상)만 진한 남색 + 흰 글자
+      const al = a >= 1 ? 1 : 0.08 + a * 0.72, rgb = a >= 1 ? [0, 84, 148] : [0, 120, 173];
+      const bg = 'rgba(' + rgb.join(',') + ',' + al.toFixed(2) + ')';
+      return { cls: '', style: 'background:' + bg + ';color:' + inkOn(rgb, al), html: hrTxt(hr) + '<small>' + arr.length + '개</small>' };
     };
     // 형식이 하나뿐이면(hong) 「전체」 열은 첫 열과 같은 값이라 생략
     const one = types.length === 1;
@@ -1734,7 +1749,7 @@
     document.querySelectorAll('.k7-r[data-k7]').forEach(b => { const go = () => openKpi(b.dataset.k7, chs); b.addEventListener('click', go); b.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); go(); } }); });
     if ($('mxBy')) $('mxBy').querySelectorAll('button').forEach(b => b.addEventListener('click', () => { S.mxBy = b.dataset.v; S.mx = null; viewStrategy(); }));
     if ($('mxFewBtn')) $('mxFewBtn').addEventListener('click', e => { S.mxFew = !S.mxFew; $('mxFew').hidden = !S.mxFew; e.currentTarget.setAttribute('aria-expanded', S.mxFew); e.currentTarget.textContent = S.mxFew ? '게시물 ' + MIN_N + '개 미만 분류 접기' : '게시물 ' + MIN_N + '개 미만 분류 ' + $('mxFew').rows.length + '개 더 보기 ›'; });
-    $('view').querySelectorAll('.mx td[data-k]').forEach(td => { if (td.classList.contains('none')) return; td.addEventListener('click', () => { S.mx = S.mx === td.dataset.k ? null : td.dataset.k; viewStrategy(); if (S.mx) setTimeout(() => { const el = $('mxList'); if (el) el.scrollIntoView({ behavior: 'smooth', block: 'nearest' }); }, 30); }); });
+    $('view').querySelectorAll('.mx td[data-k]').forEach(td => { if (td.classList.contains('none')) return; td.addEventListener('click', () => { S.mx = S.mx === td.dataset.k ? null : td.dataset.k; viewStrategy(); if (S.mx) setTimeout(() => { const el = $('mxList'); if (el) el.scrollIntoView({ behavior: SM(), block: 'nearest' }); }, 30); }); });
     if (S.mx) { const [g, t] = S.mx.split('|'); wireRank($('mxList'), L.filter(it => it[MXB] === g && it.t === t).sort((a, b) => (ratio(b) || 0) - (ratio(a) || 0)).slice(0, 20)); }
     bars('byCat', cats.filter(r => r.n >= MIN_N).sort(byIdx), subN, k => { S.view = 'explore'; S.g = k; render(); window.scrollTo({ top: 0 }); });
     if (RXS) {
@@ -1751,14 +1766,14 @@
     const wdCol = x => x.idx == null || x.n < MIN_N ? css('--line') : ({ up: css('--up'), down: css('--down-bar'), flat: css('--muted') + '88' })[xCls(x.idx)];
     draw('wdChart', { type: 'bar', data: { labels: wd.map(x => [x.k, x.n + '개']), datasets: [{ data: wd.map(x => x.idx), backgroundColor: wd.map(wdCol), borderRadius: 3, maxBarThickness: 36 }] },
       options: chartOpts({ scales: { y: { display: false, beginAtZero: true } }, plugins: { tooltip: { callbacks: { title: c => wd[c[0].dataIndex].k + '요일', label: c => '조회 ' + vsTxt(c.raw) + ' · ' + wd[c.dataIndex].n + '개' + (wd[c.dataIndex].n < MIN_N ? ' · 게시물 적음' : '') } } } }),
-      plugins: [{ id: 'lb', afterDatasetsDraw(c) { const x = c.ctx; x.save(); x.font = '600 13px ' + css('--font'); x.fillStyle = css('--muted'); x.textAlign = 'center'; c.getDatasetMeta(0).data.forEach((b, i) => { if (wd[i].idx != null) x.fillText(wd[i].n < MIN_N ? '적음' : vsP(wd[i].idx), b.x, b.y - 6); }); x.restore(); } }] });
+      plugins: [{ id: 'lb', afterDatasetsDraw(c) { const x = c.ctx; x.save(); x.font = '600 14px ' + css('--font'); x.fillStyle = css('--muted'); x.textAlign = 'center'; c.getDatasetMeta(0).data.forEach((b, i) => { if (wd[i].idx != null) x.fillText(wd[i].n < MIN_N ? '적음' : vsP(wd[i].idx), b.x, b.y - 6); }); x.restore(); } }] });
     if (own) wireStrat(chs, RX, PLAN);
   }
   function wireStrat(chs, RX, PLAN) {
     $('view').querySelectorAll('[data-rx]').forEach(b => b.addEventListener('click', () => {
       const L = rxItems(b.dataset.rx, RX, ownIn(chs));
       $('rxList').innerHTML = '<h3 class="sub" style="margin-top:16px">' + esc(b.dataset.rxh) + ' — ' + L.length + '개</h3><ol class="rank" id="rxRank">' + rankRows(L) + '</ol>';
-      wireRank($('rxRank'), L); $('rxList').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      wireRank($('rxRank'), L); $('rxList').scrollIntoView({ behavior: SM(), block: 'nearest' });
     }));
     const ST = (D.strat || []).filter(s => s.from && s.what).sort((a, b) => a.from < b.from ? 1 : -1);
     $('view').querySelectorAll('#stTbl tr[data-si]').forEach(tr => tr.addEventListener('click', () => {
@@ -1938,7 +1953,7 @@
     const sk = { n: p => p.k, views: p => p.views, idx: p => p.idx || 0, hits: p => p.hits, score: p => p.score }[S.psort] || (p => p.k);
     ps.sort((a, b) => sk(b) - sk(a));
     const roleChips = ['전체', '홍보대사', '근로장학생', '서포터즈'].map(r => '<button class="chip" type="button" data-r="' + r + '" aria-pressed="' + (S.roleF === r) + '">' + r + '</button>').join('');
-    const th = (k, l) => '<th class="n"><button type="button" data-s="' + k + '"' + (S.psort === k ? ' data-dir="desc"' : '') + '>' + l + '</button></th>';
+    const th = (k, l) => '<th class="n"' + ariaSort(S.psort === k && 'desc') + '><button type="button" data-s="' + k + '"' + (S.psort === k ? ' data-dir="desc"' : '') + '>' + l + '</button></th>';
     html += secOpen('사람별 성과', '캡션 크레딧에 적힌 이름 기준 · 팀 콘텐츠는 참여자 모두에게 똑같이 세요<span class="tiers"><b>등급 점수 · 게시물 조회별</b><span>100만↑ +10점</span><span>50만↑ +5점</span><span>10만↑ +1점</span><span>1만↑ +0.1점</span><span>1만 미만 −0.1점</span></span>',
       '<button class="btn" type="button" id="pXls">엑셀로 받기</button>') +
       '<div class="chips">' + roleChips + '</div>' +
@@ -2042,8 +2057,8 @@
     draw('yoyChart', { type: 'bar', data: { labels: ys.map(y => /수시$/.test(y.x.id) ? "'" + y.x.id.slice(2, 4) + (y.cn ? '*' : '') : ''), datasets: [{ data: ys.map(y => y.v), backgroundColor: ys.map(ycol), borderRadius: 3, maxBarThickness: 36 }] },
       options: chartOpts({ onClick: (e, els) => { if (!els.length) return; S.season = ys[els[0].index].x.id; viewSeason(); }, layout: { padding: { top: 20 } },
         plugins: { tooltip: { callbacks: { title: it => ys[it[0].dataIndex].x.label, label: c => SEA_M.find(m => m[0] === S.seaM)[2] + ' ' + yfmt(c.raw) } } },
-        scales: { x: { ticks: { autoSkip: false, maxRotation: 0, font: { size: 12 } } }, y: { display: true, grid: { color: css('--line') }, ticks: { maxTicksLimit: 4, callback: v => S.seaM === 'idx' ? (+v === 1 ? '평소' : vsP(+v)) : yfmt(v) } } } }),
-      plugins: S.seaM !== 'idx' ? [] : [{ id: 'one', afterDatasetsDraw(c) { const y = c.scales.y.getPixelForValue(1), a = c.chartArea; if (y < a.top || y > a.bottom) return; const x = c.ctx; x.save(); x.setLineDash([4, 4]); x.strokeStyle = css('--muted'); x.lineWidth = 1; x.beginPath(); x.moveTo(a.left, y); x.lineTo(a.right, y); x.stroke(); x.setLineDash([]); x.font = '600 12px ' + css('--font'); x.fillStyle = css('--muted'); x.fillText('평소', a.left + 4, y - 5); x.restore(); } }] });
+        scales: { x: { ticks: { autoSkip: false, maxRotation: 0, font: { size: 14 } } }, y: { display: true, grid: { color: css('--line') }, ticks: { maxTicksLimit: 4, callback: v => S.seaM === 'idx' ? (+v === 1 ? '평소' : vsP(+v)) : yfmt(v) } } } }),
+      plugins: S.seaM !== 'idx' ? [] : [{ id: 'one', afterDatasetsDraw(c) { const y = c.scales.y.getPixelForValue(1), a = c.chartArea; if (y < a.top || y > a.bottom) return; const x = c.ctx; x.save(); x.setLineDash([4, 4]); x.strokeStyle = css('--muted'); x.lineWidth = 1; x.beginPath(); x.moveTo(a.left, y); x.lineTo(a.right, y); x.stroke(); x.setLineDash([]); x.font = '600 14px ' + css('--font'); x.fillStyle = css('--muted'); x.fillText('평소', a.left + 4, y - 5); x.restore(); } }] });
     $('view').querySelectorAll('tr[data-s]').forEach(tr => tr.addEventListener('click', () => { S.season = tr.dataset.s; viewSeason(); window.scrollTo({ top: 0 }); }));
     wireRank($('sAdm'), admSorted); wireRank($('sTop'), topSorted);
     // 주별 차트
@@ -2052,10 +2067,10 @@
     const tip = { displayColors: true, callbacks: { label: c => c.dataset.label + ' ' + fmt(c.raw), afterBody: it => '게시 ' + cnt[it[0].dataIndex] + '개' } };
     const yAx = { display: true, grid: { color: css('--line') }, ticks: { maxTicksLimit: 4, callback: v => fmtK(v) }, afterFit: a => { a.width = 52; } };
     if (seaSplit) {
-      draw('seaChart', { type: 'bar', data: { labels: wl, datasets: [orgDs] }, options: chartOpts({ layout: { padding: { top: 22 } }, plugins: { title: { display: true, text: '광고 뺀 조회', align: 'start', color: css('--sub'), font: { size: 13, weight: '700' }, padding: { bottom: 12 } }, tooltip: tip }, scales: { x: { ticks: { display: false } }, y: yAx } }) });
-      draw('seaChart2', { type: 'bar', data: { labels: wl, datasets: [adDs] }, options: chartOpts({ layout: { padding: { top: 22 } }, plugins: { title: { display: true, text: '광고 조회', align: 'start', color: css('--sub'), font: { size: 13, weight: '700' }, padding: { bottom: 12 } }, tooltip: tip }, scales: { x: { ticks: { font: { size: 13 } } }, y: yAx } }) });
+      draw('seaChart', { type: 'bar', data: { labels: wl, datasets: [orgDs] }, options: chartOpts({ layout: { padding: { top: 22 } }, plugins: { title: { display: true, text: '광고 뺀 조회', align: 'start', color: css('--sub'), font: { size: 14, weight: '700' }, padding: { bottom: 12 } }, tooltip: tip }, scales: { x: { ticks: { display: false } }, y: yAx } }) });
+      draw('seaChart2', { type: 'bar', data: { labels: wl, datasets: [adDs] }, options: chartOpts({ layout: { padding: { top: 22 } }, plugins: { title: { display: true, text: '광고 조회', align: 'start', color: css('--sub'), font: { size: 14, weight: '700' }, padding: { bottom: 12 } }, tooltip: tip }, scales: { x: { ticks: { font: { size: 14 } } }, y: yAx } }) });
     } else draw('seaChart', { type: 'bar', data: { labels: wl, datasets: [orgDs, adDs] },
-      options: chartOpts({ plugins: { legend: { display: true, position: 'bottom' }, tooltip: tip }, scales: { x: { stacked: true, ticks: { font: { size: 13 } } }, y: Object.assign({ stacked: true }, yAx) } }) });
+      options: chartOpts({ plugins: { legend: { display: true, position: 'bottom' }, tooltip: tip }, scales: { x: { stacked: true, ticks: { font: { size: 14 } } }, y: Object.assign({ stacked: true }, yAx) } }) });
   }
 
   // ═════════ 광고 (구글애즈) ═════════
@@ -2105,9 +2120,9 @@
   // 축 눈금용 짧은 숫자(쉼표 없이): 6000만 · 1.2억
   const axK = v => Math.abs(v) >= 1e8 ? (v / 1e8).toFixed(1).replace(/\.0$/, '') + '억' : Math.abs(v) >= 1e4 ? Math.round(v / 1e4) + '만' : fmt(v);
   function drawAdPair(a, b, B, costF) {
-    const xOpt = show => ({ ticks: { display: show, maxTicksLimit: 8, maxRotation: 0, autoSkip: true, font: { size: 13 } }, grid: { display: false } });
-    const yOpt = (f, n) => ({ display: true, position: 'left', grid: { color: css('--line') }, ticks: { callback: f, maxTicksLimit: n, font: { size: 13 } }, afterFit: s => { s.width = 52; } });
-    const ttl = t => ({ display: true, text: t, align: 'start', color: css('--sub'), font: { size: 13, weight: '700' }, padding: { bottom: 12 } });
+    const xOpt = show => ({ ticks: { display: show, maxTicksLimit: 8, maxRotation: 0, autoSkip: true, font: { size: 14 } }, grid: { display: false } });
+    const yOpt = (f, n) => ({ display: true, position: 'left', grid: { color: css('--line') }, ticks: { callback: f, maxTicksLimit: n, font: { size: 14 } }, afterFit: s => { s.width = 52; } });
+    const ttl = t => ({ display: true, text: t, align: 'start', color: css('--sub'), font: { size: 14, weight: '700' }, padding: { bottom: 12 } });
     const hov = { interaction: { mode: 'index', intersect: false } };
     draw(a, { type: 'bar', data: { labels: B.labs, datasets: [{ label: '광고비', data: B.c, backgroundColor: css('--ad'), borderColor: css('--jj'), borderWidth: 1, borderRadius: 3, barPercentage: 1, categoryPercentage: 0.9 }] },
       options: chartOpts(Object.assign({}, hov, { layout: { padding: { top: 22 } }, plugins: { title: ttl(B.unit + '별 광고비'), tooltip: { callbacks: { label: c => '광고비 ' + (B.money ? B.money(c.raw) : costF(c.raw)) } } }, scales: { x: xOpt(false), y: yOpt(costF, 4) } })) });
@@ -2149,7 +2164,7 @@
     const rows = camps.map(c => ({ c, ctr: c.imp ? (c.clk || 0) / c.imp : null, cpc: c.clk ? c.spend / c.clk : null, views: sum((c.posts || []).map(it => val(it, 0))) }));
     const key = { spend: r => r.c.spend || 0, imp: r => r.c.imp || 0, reach: r => r.c.reach || 0, clk: r => r.c.clk || 0, ctr: r => r.ctr || 0, cpc: r => -(r.cpc || 1e12), end: r => r.c.end }[sk];
     rows.sort((a, b) => { const x = key(a), y = key(b); return x < y ? 1 : x > y ? -1 : 0; });
-    const th = (k, l) => '<th class="n"><button type="button" data-ms="' + k + '"' + (sk === k ? ' data-dir="desc"' : '') + '>' + l + '</button></th>';
+    const th = (k, l) => '<th class="n"' + ariaSort(sk === k && 'desc') + '><button type="button" data-ms="' + k + '"' + (sk === k ? ' data-dir="desc"' : '') + '>' + l + '</button></th>';
     const st = c => ({ completed: '완료', inactive: '중지', archived: '보관', active: '진행 중' })[c.st] || c.st || '';
     // 휴대폰은 표 대신 카드 목록(구글애즈와 같은 모양) — 표에서는 상태 칩이 옆 칸 날짜를 덮었음(2026-10-20)
     const mob = window.matchMedia && matchMedia('(max-width:760px)').matches;
@@ -2240,7 +2255,7 @@
     });
     const key = { cost: r => r.st.cost, imp: r => r.st.imp, clk: r => r.st.clk, ctr: r => r.st.ctr || 0, cpc: r => -(r.st.cpc || 1e12), views: r => r.views, cpv: r => -(r.cpv || 1e12), from: r => r.c.from }[sk];
     rows.sort((a, b) => key(b) - key(a) || (key(b) > key(a) ? 1 : -1));
-    const th = (k, l) => '<th class="n"><button type="button" data-as="' + k + '"' + (sk === k ? ' data-dir="desc"' : '') + '>' + l + '</button></th>';
+    const th = (k, l) => '<th class="n"' + ariaSort(sk === k && 'desc') + '><button type="button" data-as="' + k + '"' + (sk === k ? ' data-dir="desc"' : '') + '>' + l + '</button></th>';
     const unlinked = rows.filter(r => !r.vs.length).length;
     // 좁은 화면은 표 대신 한 줄 카드 목록, 넓은 화면은 표 · 둘 다 처음 20개만 보이고 「더 보기」(행은 빼지 않고 접기만)
     const mob = window.matchMedia && matchMedia('(max-width:760px)').matches, shownN = S.adShown || 20;
@@ -2350,12 +2365,12 @@
     if (window.__share) {
       const V = window.__share, tn2 = sum(V.map(d => d.n)), te2 = sum(V.map(d => d.eng || 0));
       draw('shareChart', { type: 'bar', data: { labels: ['게시 수', '좋아요·댓글'], datasets: V.map(d => ({ label: d.ch === '인스타그램' ? '우리 인스타' : chName(d.ch), data: [d.n / tn2, (d.eng || 0) / te2], backgroundColor: chColor(d.ch), borderColor: css('--bg'), borderWidth: { left: 0, right: 2, top: 0, bottom: 0 }, borderSkipped: false, stack: 's', barPercentage: 0.7 })) },
-        options: chartOpts({ indexAxis: 'y', layout: { padding: { top: 4 } }, plugins: { legend: { display: true, position: 'bottom' }, tooltip: { displayColors: true, callbacks: { label: c => c.dataset.label + ' ' + pct0(c.raw) } } }, scales: { x: { stacked: true, display: false, max: 1 }, y: { stacked: true, display: true, grid: { display: false }, border: { display: false }, ticks: { color: css('--sub'), font: { size: 13, weight: '700' } } } } }) });
+        options: chartOpts({ indexAxis: 'y', layout: { padding: { top: 4 } }, plugins: { legend: { display: true, position: 'bottom' }, tooltip: { displayColors: true, callbacks: { label: c => c.dataset.label + ' ' + pct0(c.raw) } } }, scales: { x: { stacked: true, display: false, max: 1 }, y: { stacked: true, display: true, grid: { display: false }, border: { display: false }, ticks: { color: css('--sub'), font: { size: 14, weight: '700' } } } } }) });
     }
     // 분류 전용 팔레트(상태색·채널색과 겹치지 않음, 갈색·주황 없음)
     const pal = [1, 2, 3, 4, 5, 6, 7, 8, 9].map(k => css('--cat-' + k));
     draw('mixChart', { type: 'bar', data: { labels: data.map(d => d.ch === '인스타그램' ? '우리 인스타' : chName(d.ch)), datasets: topCats.map((k, i) => ({ label: k, data: share.map(o => o[k] || 0), backgroundColor: pal[i % pal.length], stack: 's' })).concat([{ label: '그 외', data: share.map(o => Math.max(0, 1 - sum(topCats.map(k => o[k] || 0)))), backgroundColor: css('--line'), stack: 's' }]) },
-      options: chartOpts({ indexAxis: 'y', layout: { padding: { top: 4 } }, plugins: { legend: { display: true, position: 'bottom' }, tooltip: { displayColors: true, callbacks: { label: c => c.dataset.label + ' ' + pct0(c.raw) } } }, scales: { x: { stacked: true, display: false, max: 1 }, y: { stacked: true, display: true, grid: { display: false }, border: { display: false }, ticks: { color: css('--sub'), font: { size: 13, weight: '700' } } } } }) });
+      options: chartOpts({ indexAxis: 'y', layout: { padding: { top: 4 } }, plugins: { legend: { display: true, position: 'bottom' }, tooltip: { displayColors: true, callbacks: { label: c => c.dataset.label + ' ' + pct0(c.raw) } } }, scales: { x: { stacked: true, display: false, max: 1 }, y: { stacked: true, display: true, grid: { display: false }, border: { display: false }, ticks: { color: css('--sub'), font: { size: 14, weight: '700' } } } } }) });
   }
 
   // ═════════ 6. 콘텐츠 탐색 ═════════
@@ -2488,7 +2503,7 @@
   }
   function renderTable() {
     const C = tcols(), sort = S.sort || { k: 'd', dir: 'desc' }, col = C.find(c => c.k === sort.k) || C[0];
-    $('thead').innerHTML = C.map(c => '<th class="' + (c.n ? 'n' : '') + '"><button type="button" data-k="' + c.k + '"' + (c.tip ? ' title="' + esc(c.tip) + '"' : '') + (c.k === sort.k ? ' data-dir="' + sort.dir + '"' : '') + '>' + esc(c.l) + '</button></th>').join('');
+    $('thead').innerHTML = C.map(c => '<th class="' + (c.n ? 'n' : '') + '"' + ariaSort(c.k === sort.k && sort.dir) + '><button type="button" data-k="' + c.k + '"' + (c.tip ? ' title="' + esc(c.tip) + '"' : '') + (c.k === sort.k ? ' data-dir="' + sort.dir + '"' : '') + '>' + esc(c.l) + '</button></th>').join('');
     $('thead').querySelectorAll('button').forEach(b => b.addEventListener('click', () => { S.sort = { k: b.dataset.k, dir: sort.k === b.dataset.k && sort.dir === 'desc' ? 'asc' : 'desc' }; renderTable(); }));
     const dir = sort.dir === 'asc' ? 1 : -1;
     const L = pool({ channels: viewChannels(), ads: true, g: S.g || undefined }).sort((a, b) => { const x = col.v(a), y = col.v(b); if (x == null && y == null) return 0; if (x == null) return 1; if (y == null) return -1; return (x > y ? 1 : x < y ? -1 : 0) * dir; });
@@ -2871,7 +2886,7 @@
     rows.filter(r => r[di] >= from).forEach(r => { const k = trKey(r[di], u), v = vf(r); if (v == null) return; const o = B.get(k) || { s: 0, last: null }; o.s += v; o.last = v; B.set(k, o); });
     const keys = [...B.keys()].sort(), col = opt.col;
     draw(id, { type: opt.line ? 'line' : 'bar', data: { labels: keys.map(k => trLabel(k, u)), datasets: [{ label: opt.name, data: keys.map(k => opt.line ? B.get(k).last : B.get(k).s), backgroundColor: col, borderColor: col, borderWidth: 2, pointRadius: 0, borderRadius: 3, maxBarThickness: 24, cubicInterpolationMode: 'monotone' }] },
-      options: chartOpts({ scales: { x: { ticks: { maxRotation: 0, autoSkip: true, maxTicksLimit: 6 } }, y: { display: true, beginAtZero: !opt.line, position: 'right', grid: { color: css('--line') }, border: { display: false }, ticks: { maxTicksLimit: 4, font: { size: 13 }, color: css('--muted'), callback: v => opt.tf ? opt.tf(v) : opt.line ? fmt(v) : fmtK(v) } } },
+      options: chartOpts({ scales: { x: { ticks: { maxRotation: 0, autoSkip: true, maxTicksLimit: 6 } }, y: { display: true, beginAtZero: !opt.line, position: 'right', grid: { color: css('--line') }, border: { display: false }, ticks: { maxTicksLimit: 4, font: { size: 14 }, color: css('--muted'), callback: v => opt.tf ? opt.tf(v) : opt.line ? fmt(v) : fmtK(v) } } },
         plugins: { tooltip: { callbacks: { label: c => opt.name + ' ' + (opt.f ? opt.f(c.raw) : fmt(c.raw)) } } } }) });
   }
   // ── 홈 · 유튜브
@@ -3195,7 +3210,9 @@
       '<span class="hm-rb"><span class="hm-r1"><span class="hm-t">' + o.t + '</span>' + (o.v ? '<b class="num ' + (o.vc || '') + '">' + o.v + '</b>' : '') + '</span>' +
       '<span class="hm-r2"><span class="hm-m">' + (o.c ? chTxt(o.c) + (o.m ? ' · ' : '') : '') + (o.m || '') + '</span>' + (o.r ? '<span class="hm-x">' + o.r + '</span>' : '') + '</span></span></' + tag + '>';
   }
-  const hmSec = (h, right, body) => '<div class="hm-sec"><div class="hm-h"><h3>' + h + '</h3>' + (right ? '<span>' + right + '</span>' : '') + '</div>' + body + '</div>';
+  // lv = 제목 단계(홈 구역은 2, 전략 화면 안 묶음은 3 — 2026-10-24 점검 6번). 오른쪽 부제는 잘릴 수 있어 title로 전문
+  const hmSec = (h, right, body, lv) => '<div class="hm-sec"><div class="hm-h"><h' + (lv || 3) + '>' + h + '</h' + (lv || 3) + '>' + (right ? '<span title="' + esc(String(right).replace(/<[^>]*>/g, '')) + '">' + right + '</span>' : '') + '</div>' + body + '</div>';
+  const hmSec2 = (h, right, body) => hmSec(h, right, body, 2);
   const hmCard = (lab, val, sub, cls, tip) => '<div class="hm-card"' + (tip ? ' title="' + esc(tip) + '"' : '') + '><span class="hm-cl">' + lab + '</span><b class="num">' + val + '</b><span class="hm-cs' + (cls ? ' ' + cls : '') + '">' + sub + '</span></div>';
   const hmCards = A => A.length ? '<div class="hm-cards n' + A.length + '">' + A.join('') + '</div>' : '';
   const sgnN = v => (v > 0 ? '+' : v < 0 ? '−' : '±') + fmt(Math.abs(v));
@@ -3238,7 +3255,7 @@
     if (P.again[0]) pRow('작년 이맘때 잘 된 게시물', P.again[0], 'up');
     if (P.more[0]) row('더 만들면 좋은 조합 · 최근 2달 ' + P.more[0].recent + '개', P.more[0].c, esc(P.more[0].g) + ' × ' + esc(P.more[0].t), vsTxt(P.more[0].idx), 'up');
     if (P.less[0]) row('줄이거나 바꿀 조합 · 최근 2달 ' + P.less[0].recent + '개', P.less[0].c, esc(P.less[0].g) + ' × ' + esc(P.less[0].t), vsTxt(P.less[0].idx), 'down');
-    return R.length ? hmSec('참고하면 좋을 것', '', '<div class="hm-list">' + R.join('') + '</div>') : '';
+    return R.length ? hmSec2('참고하면 좋을 것', '', '<div class="hm-list">' + R.join('') + '</div>') : '';
   }
   function todayInner(chs) {
     const d = TD.d, now = new Date(d.ts || Date.now()), today = d.today;
@@ -3258,7 +3275,7 @@
       if (lp) { const p = paceOf(lp), dd = daysBetween(lp.d, today); window.__tdLast = lp;
         last = hmRow({ tag: 'button', attr: 'type="button" id="tdLast"', c: lp.c, t: esc(title(lp.n)), m: '마지막 게시 · ' + (dd <= 0 ? '오늘' : dd + '일 전'), v: p && !p.base ? vsP(p.r) : '', vc: p ? xCls(p.r) : '' }); }
       const bars = weekBars(WK_D.map((n, k) => k <= dow ? cnt[13 - dow + k] : undefined), WK_D.map((n, k) => cnt[6 - dow + k]), '요일별 게시 수 · 회색 = 지난주');
-      const wkS = hmSec('이번 주', '', '<div class="hm-list"><div class="hm-card hm-wk"><div class="hm-wh"><b class="num">' + wk + '개 올림</b><span>지난주 같은 때 ' + lastW + '개</span></div>' + bars + '</div>' + last + '</div>');
+      const wkS = hmSec2('이번 주', '', '<div class="hm-list"><div class="hm-card hm-wk"><div class="hm-wh"><b class="num">' + wk + '개 올림</b><span>지난주 같은 때 ' + lastW + '개</span></div>' + bars + '</div>' + last + '</div>');
       return '<section class="sec hm">' + tdGrow(chs, d, today) + attn + tdIdeas(chs) + wkS + tdPlan(d) + secClose;
     }
     // ① 큰 숫자: 어제·오늘 게시물 조회 합 · 평소 같은 시간(없으면 첫날 평소)과 비교
@@ -3302,7 +3319,7 @@
     }).join('');
     const C = tdCurves(P);
     let mo = false; try { mo = localStorage.getItem('sb-td-ch') === '1'; } catch (e) {}
-    const list = hmSec(tp.length ? who + ' 올린 게시물' : '어제 올린 게시물', '퍼센트는 같은 시간 조회 평소 대비', '<ol class="hm-list">' + L + '</ol>' +
+    const list = hmSec2(tp.length ? who + ' 올린 게시물' : '어제 올린 게시물', '퍼센트는 같은 시간 조회 평소 대비', '<ol class="hm-list">' + L + '</ol>' +
       (C.length ? '<details class="hm-fold" id="tdChF"' + (mo ? ' open' : '') + '><summary class="hm-btn"><svg viewBox="0 0 20 20" width="18" height="18" aria-hidden="true"><path d="M3 16h14M5 13l4-4 3 3 4-6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>시간별 조회 그래프</summary>' + tdGroups(C).map((g, k, A) => '<div class="td-chh">' + badge(g.c) + '</div><div class="chart" style="height:' + (A.length > 1 ? 160 : 220) + 'px"><canvas id="tdC' + k + '"></canvas></div>').join('') + '<p class="note">1시간마다 받아 둔 값 · 점선 = 같은 형식 평소</p></details>' : ''));
     // ⑤ 팔로워 카드(오늘 아침 대비) · 누르면 추이(팔로워 30일 · 유튜브 구독자 1년)
     const FT = [];
@@ -3344,11 +3361,11 @@
     }));
     const rows = pl.length ? PL.map(({ x, m, ks, ok }) => {
       const done = ks.length && ks.every((k, j) => ok[j]), some = ok.some(Boolean), now = x[0] === d.today;
-      const meta = '<span class="' + (now ? 'hm-now' : '') + '">' + (now ? '오늘' : md2(x[0]) + ' ' + wd(x[0])) + '</span> · ' + ks.map((k, j) => '<span class="hm-ch' + (ok[j] ? ' ok' : '') + '" style="--c:' + chColor(pch(k)) + '"' + (ok[j] ? ' title="올라간 것 확인"' : '') + '>' + esc(k) + '</span>').join(' ');
+      const meta = '<span class="' + (now ? 'hm-now' : '') + '">' + (now ? '오늘' : md2(x[0]) + ' ' + wd(x[0])) + '</span> · ' + ks.map((k, j) => '<span class="hm-ch' + (ok[j] ? ' ok' : '') + '" style="--c:' + chInk(pch(k)) + '"' + (ok[j] ? ' title="올라간 것 확인"' : '') + '>' + esc(k) + '</span>').join(' ');
       return hmRow({ tag: x[2] ? 'a' : 'div', attr: x[2] ? 'href="' + esc(x[2]) + '" target="_blank" rel="noopener" title="업로드 폴더 열기"' : '', cls: done ? 'done' : '',
         t: esc(m ? m[2] : x[1]), m: meta, v: done ? '게시 완료' : some ? '일부 올림' : '', vc: 'up', r: x[2] ? '폴더 ›' : '' });
     }).join('') : hmRow({ t: '7일 안에 잡힌 일정이 없어요', m: '공식 SNS 발행 일정 캘린더 기준' });
-    return hmSec('게시 예정', pl.length ? '공식 SNS 발행 일정 · 7일' : '', '<div class="hm-list">' + rows + '</div>');
+    return hmSec2('게시 예정', pl.length ? '공식 SNS 발행 일정 · 7일' : '', '<div class="hm-list">' + rows + '</div>');
   }
   // 평소 조회: 서버의 「게시물 시간별」로 만든 같은 채널·형식·같은 경과 시간 중간값(k='h') → 없고 올린 지 20시간 넘었으면 평소 첫날 조회(k='d')
   function tdBase(p, now) {
@@ -3408,7 +3425,7 @@
   function tdChart(id, ds, xMax, xSt) {
     draw(id, { type: 'line', data: { datasets: ds }, plugins: [endLabels],
       options: chartOpts({ layout: { padding: { top: 12, right: 104 } }, plugins: { endLabels: { max: 9 }, tooltip: { callbacks: { title: it => '올린 지 ' + it[0].raw.x + '시간', label: c => c.dataset.label + ' 조회 ' + fmt(c.raw.y) } } },
-        scales: { x: { type: 'linear', min: 0, max: xMax, ticks: { stepSize: xSt, maxRotation: 0, autoSkip: false, callback: v => v === xMax ? v + '시간' : v } }, y: { display: true, position: 'right', afterFit: sc => { sc.width = 52; }, grid: { color: css('--line') }, border: { display: false }, ticks: { maxTicksLimit: 4, font: { size: 13 }, color: css('--muted'), callback: v => fmtK(v) } } } }) });
+        scales: { x: { type: 'linear', min: 0, max: xMax, ticks: { stepSize: xSt, maxRotation: 0, autoSkip: false, callback: v => v === xMax ? v + '시간' : v } }, y: { display: true, position: 'right', afterFit: sc => { sc.width = 52; }, grid: { color: css('--line') }, border: { display: false }, ticks: { maxTicksLimit: 4, font: { size: 14 }, color: css('--muted'), callback: v => fmtK(v) } } } }) });
   }
   function tdSaveSeen() {
     const d = TD.d; if (!d) return;
@@ -3658,12 +3675,12 @@
         '<h3 style="margin:22px 0 10px;font-size:var(--fs-lg);font-weight:700">캡션</h3><p class="caption">' + esc(String(it.n || '').trim()) + '</p></section>' +
       '<div class="gap"></div><section class="dsec" id="dSim"><h3 style="margin:0 0 6px;font-size:var(--fs-xl);font-weight:700">같은 분류의 다른 콘텐츠</h3><ol class="rank" id="dSimList">' + rankRows(sim) + '</ol></section>' +
       '</div><div class="cta">' + (it.u ? '<a href="' + esc(it.u) + '" target="_blank" rel="noopener">원본 보기</a>' : '<span>원본 링크는 인스타그램 앱에서 확인해 주세요</span>') + '</div>';
-    el.hidden = false; el.scrollTop = 0; document.body.style.overflow = 'hidden';
+    el.hidden = false; el.scrollTop = 0; document.body.style.overflow = 'hidden'; detPush();
     $('dClose').focus();
     $('dClose').addEventListener('click', closeDetail);
     el.querySelectorAll('.dtabs button').forEach(b => b.addEventListener('click', () => {
       el.querySelectorAll('.dtabs button').forEach(x => x.setAttribute('aria-selected', x === b));
-      el.scrollTo({ top: $(b.dataset.s).offsetTop - 120, behavior: 'smooth' });
+      el.scrollTo({ top: $(b.dataset.s).offsetTop - 120, behavior: SM() });
     }));
     wireRank($('dSimList'), sim);
     drawDetailChart(it); wireDeepDetail(it);
@@ -3671,7 +3688,7 @@
   // ═════════ 핵심 숫자 상세 — 홈 칸을 누르면 그래프 · 분석 · 데이터 표 ═════════
   const lastMonths = n => { const out = []; for (let k = n - 1; k >= 0; k--) { const d = new Date(D.updated + 'T00:00:00Z'); d.setUTCDate(1); d.setUTCMonth(d.getUTCMonth() - k); out.push(d.toISOString().slice(0, 7)); } return out; };
   const monLab = k => (+k.slice(5, 7)) + '월';
-  const yAx = cb => ({ display: true, position: 'right', grid: { color: css('--line') }, border: { display: false }, ticks: { maxTicksLimit: 4, font: { size: 13 }, color: css('--muted'), callback: cb } });
+  const yAx = cb => ({ display: true, position: 'right', grid: { color: css('--line') }, border: { display: false }, ticks: { maxTicksLimit: 4, font: { size: 14 }, color: css('--muted'), callback: cb } });
   const kTbl = (head, rows) => '<div class="tw"><table class="tbl ktbl"><thead><tr>' + head.map((h, i) => '<th' + (i ? ' class="n"' : '') + '>' + h + '</th>').join('') + '</tr></thead><tbody>' + rows.map(r => '<tr>' + r.map((c, i) => '<td' + (i ? ' class="n"' : '') + '>' + c + '</td>').join('') + '</tr>').join('') + '</tbody></table></div>';
   const kRow = (cls, k, b, s) => '<div class="sg"><span class="k ' + cls + '">' + k + '</span><div><b>' + b + '</b>' + (s ? '<span>' + s + '</span>' : '') + '</div></div>';
   const upDn = d => d == null ? 'info' : d > 0.03 ? 'good' : d < -0.03 ? 'bad' : 'info';
@@ -3771,7 +3788,7 @@
   }
   // ═════════ KPI 7개 상세(2026-10-24 「항목 누르면 디테일한 데이터 정보와 달성을 위한 전략 및 조언」) ═════════
   // 그래프(목표선) · 분석 · 목표까지 이렇게(데이터로 고른 것 + 00_현재 전략 기준) · 목록 · 표. 숫자는 전략 화면 KPI 줄과 같은 계산
-  const tgtLine = (v, t) => ({ id: 'tgt', afterDatasetsDraw(c) { const s = c.scales.y, a = c.chartArea; if (!s) return; const y = s.getPixelForValue(v); if (y < a.top || y > a.bottom) return; const x = c.ctx; x.save(); x.setLineDash([4, 4]); x.strokeStyle = css('--fg'); x.lineWidth = 1; x.beginPath(); x.moveTo(a.left, y); x.lineTo(a.right, y); x.stroke(); x.setLineDash([]); x.font = '600 13px ' + css('--font'); x.fillStyle = css('--fg'); x.textAlign = 'left'; x.fillText(t, a.left + 4, y - 5); x.restore(); } });
+  const tgtLine = (v, t) => ({ id: 'tgt', afterDatasetsDraw(c) { const s = c.scales.y, a = c.chartArea; if (!s) return; const y = s.getPixelForValue(v); if (y < a.top || y > a.bottom) return; const x = c.ctx; x.save(); x.setLineDash([4, 4]); x.strokeStyle = css('--fg'); x.lineWidth = 1; x.beginPath(); x.moveTo(a.left, y); x.lineTo(a.right, y); x.stroke(); x.setLineDash([]); x.font = '600 14px ' + css('--font'); x.fillStyle = css('--fg'); x.textAlign = 'left'; x.fillText(t, a.left + 4, y - 5); x.restore(); } });
   const k7Mon = (L, f) => lastMonths(12).map(k => { const a = L.filter(it => it.d.slice(0, 7) === k); return { k, n: a.length, v: a.length ? f(a) : null }; });
   const k7Bar = (M, f, tgt, tl) => ({ type: 'bar', data: { labels: M.map(r => monLab(r.k)), datasets: [{ data: M.map(r => r.v), backgroundColor: M.map(r => r.v != null && r.v >= tgt ? css('--up') : css('--muted') + '88'), borderRadius: 3, maxBarThickness: 30 }] },
     options: chartOpts({ plugins: { tooltip: { callbacks: { title: c => M[c[0].dataIndex].k.replace('-', '년 ') + '월', label: c => f(c.raw) + ' · 게시물 ' + M[c.dataIndex].n + '개' } } }, scales: { x: { ticks: { maxRotation: 0, autoSkip: true, maxTicksLimit: 6 } }, y: Object.assign(yAx(v => f(+v)), { beginAtZero: true, suggestedMax: tgt * 1.25 }) } }),
@@ -3939,7 +3956,7 @@
       (K.T && K.T.length ? '<div class="gap"></div><section class="dsec sig"><h3>목표까지 이렇게</h3><div class="h">위 데이터에서 고른 것 + 현재 전략 기준 · 원인이 아니라 함께 나타난 특징이에요</div>' + K.T.join('') + '</section>' : '') +
       (K.list ? '<div class="gap"></div><section class="dsec">' + h3(K.list.t) + '<ol class="rank" id="kList">' + rankRows(K.list.L, K.list.o) + '</ol></section>' : '') +
       '<div class="gap"></div><section class="dsec">' + h3('데이터') + K.table + '</section></div>';
-    el.hidden = false; el.scrollTop = 0; document.body.style.overflow = 'hidden';
+    el.hidden = false; el.scrollTop = 0; document.body.style.overflow = 'hidden'; detPush();
     $('dClose').focus(); $('dClose').addEventListener('click', closeDetail);
     if (K.list) wireRank($('kList'), K.list.L);
     if (K.chart) draw('kCanvas', K.chart);
@@ -3951,7 +3968,7 @@
     if (detailLine(it)) {
       const idx = D.dates.map((d, i) => i).filter(i => it.h[i] && it.h[i][m] != null), i0 = idx[0], ds = D.dates.slice(i0);
       draw('dCanvas', { type: 'line', data: { labels: ds.map(md2), datasets: [{ label: MN[m], data: ds.map((d, k) => it.h[i0 + k] ? it.h[i0 + k][m] : null), borderColor: col, borderWidth: 2, pointRadius: idx.length <= 4 ? 3 : 0, pointBackgroundColor: col, pointHoverRadius: 4, cubicInterpolationMode: 'monotone', spanGaps: true }] },
-        options: chartOpts({ layout: { padding: { top: 12 } }, scales: { x: { ticks: { maxRotation: 0, autoSkip: true, maxTicksLimit: 5 } }, y: { beginAtZero: false, display: true, position: 'right', grid: { color: css('--line') }, border: { display: false }, ticks: { maxTicksLimit: 3, font: { size: 13 }, color: css('--muted'), callback: v => fmt(v) } } }, plugins: { tooltip: { callbacks: { title: c => dot(ds[c[0].dataIndex]), label: c => MN[m] + ' ' + fmt(c.raw) } } } }) });
+        options: chartOpts({ layout: { padding: { top: 12 } }, scales: { x: { ticks: { maxRotation: 0, autoSkip: true, maxTicksLimit: 5 } }, y: { beginAtZero: false, display: true, position: 'right', grid: { color: css('--line') }, border: { display: false }, ticks: { maxTicksLimit: 3, font: { size: 14 }, color: css('--muted'), callback: v => fmt(v) } } }, plugins: { tooltip: { callbacks: { title: c => dot(ds[c[0].dataIndex]), label: c => MN[m] + ' ' + fmt(c.raw) } } } }) });
       return;
     }
     const base = baseFor(it);
@@ -3964,8 +3981,14 @@
       plugins: [{ id: 'vl', afterDatasetsDraw(ch) { const x = ch.ctx; x.save(); x.font = '700 14px ' + css('--font'); x.fillStyle = css('--fg'); x.textAlign = 'center'; ch.getDatasetMeta(0).data.forEach((b, i) => x.fillText(fmtK(rows[i][1]), b.x, b.y - 8)); x.restore(); } }],
     });
   }
-  function closeDetail() {
+  // 휴대폰 뒤로 가기 = 상세 닫기(2026-10-24 점검 20번): 열 때 기록 한 칸(주소는 그대로), 뒤로 가기(popstate)면 닫기만,
+  // 닫기 버튼·Esc로 닫으면 그 칸을 history.back()으로 지워 다음 뒤로 가기가 보드를 떠나게. 상세 안에서 다른 게시물을 열 땐 칸을 더 쌓지 않음
+  let detHist = false;
+  function detPush() { if (detHist) return; try { history.pushState({ sbDetail: 1 }, ''); detHist = true; } catch (e) {} }
+  window.addEventListener('popstate', () => { if (!detHist) return; detHist = false; if (!$('detail').hidden) closeDetail(true); });
+  function closeDetail(fromPop) {
     $('detail').hidden = true; document.body.style.overflow = '';
+    if (fromPop !== true && detHist) { detHist = false; try { history.back(); } catch (e) {} }
     ['dCanvas', 'kCanvas', 'aCanvas'].forEach(id => { if (charts[id]) { charts[id].destroy(); delete charts[id]; } });
     if (lastFocus && lastFocus.focus) lastFocus.focus();
   }
@@ -3977,7 +4000,7 @@
     const o = { responsive: true, maintainAspectRatio: false, animation: false, layout: { padding: { top: 24 } },
       plugins: { legend: { display: false, labels: { boxWidth: 12, boxHeight: 12, color: css('--sub') } }, tooltip: { backgroundColor: css('--fg'), titleColor: css('--bg'), bodyColor: css('--bg'), padding: 12, cornerRadius: 10, caretSize: 0, titleFont: { weight: '700' }, boxPadding: 4, usePointStyle: true, displayColors: false } },
       elements: { line: { borderCapStyle: 'round', borderJoinStyle: 'round' }, point: { hoverBorderWidth: 2, hoverBorderColor: css('--bg') } },
-      scales: { x: { grid: { display: false }, border: { display: false }, ticks: { color: css('--sub'), font: { size: 13, weight: '600' } } }, y: { display: false, beginAtZero: true, border: { display: false } } } };
+      scales: { x: { grid: { display: false }, border: { display: false }, ticks: { color: css('--sub'), font: { size: 14, weight: '600' } } }, y: { display: false, beginAtZero: true, border: { display: false } } } };
     return merge(o, extra || {});
   }
   // 시안: 범례 대신 선 끝에 계열 이름(Datawrapper·Carbon). 겹치면 14px 간격으로 밀어낸다
@@ -3990,7 +4013,7 @@
     // 아래로 밀려 칸 밖으로 나가면 아래에서부터 위로 다시 쌓아 겹치지 않게
     for (let i = L.length - 1; i >= 0; i--) { const lim = i === L.length - 1 ? a.bottom - 6 : L[i + 1].y - 14; if (L[i].y > lim) L[i].y = lim; }
     x.save(); x.textAlign = 'left'; x.textBaseline = 'middle';
-    L.forEach(l => { x.font = '700 12px ' + css('--font'); x.fillStyle = typeof l.col === 'string' ? l.col : css('--sub'); x.fillText(l.t.length > LMAX ? l.t.slice(0, LMAX) : l.t, X, Math.min(Math.max(l.y, a.top + 6), a.bottom)); });
+    L.forEach(l => { x.font = '700 14px ' + css('--font'); x.fillStyle = typeof l.col === 'string' ? l.col : css('--sub'); x.fillText(l.t.length > LMAX ? l.t.slice(0, LMAX) : l.t, X, Math.min(Math.max(l.y, a.top + 6), a.bottom)); });
     x.restore(); } };
   function merge(a, b) { Object.keys(b).forEach(k => { if (b[k] && typeof b[k] === 'object' && !Array.isArray(b[k]) && typeof b[k] !== 'function' && a[k] && typeof a[k] === 'object') merge(a[k], b[k]); else a[k] = b[k]; }); return a; }
   // 차트 대체 텍스트: 화면 낭독기용으로 계열·마지막 값 요약을 붙인다
