@@ -823,13 +823,14 @@
     if (!L.length) return '';
     // 홈 시안 2 모양: hmRow 한 줄(윗줄 제목 + 평소 대비, 아랫줄 채널 · 올린 날 + 고른 값). 판정 단계(낮음·잘 됨…)와 비교 기준은 마우스를 올리면
     const sel = '<label class="race-m"><select id="raceM" aria-label="볼 값 고르기">' + RACE_M.map(x => '<option value="' + x[0] + '"' + (x[0] === m ? ' selected' : '') + '>' + x[1] + '</option>').join('') + '</select></label>';
-    const how = m === 'v' || m === 'reach' ? '퍼센트는 같은 형식의 평소와 비교' : '퍼센트는 도달(유튜브는 조회) 대비 비율을 같은 형식 평소와 비교'; // 2026-10-24 「오른쪽 위 =」 같은 설명투를 쉬운 말로
+    const how = m === 'v' || m === 'reach' ? '아래 퍼센트는 같은 형식의 평소와 비교' : '아래 퍼센트는 도달(유튜브는 조회) 대비 비율을 같은 형식 평소와 비교'; // 2026-10-24 「오른쪽 위 =」 같은 설명투를 쉬운 말로
     return '<div class="race hm-rx"><div class="hm-h"><h3>' + (wk.length ? '이번 주 올린 게시물' : '최근 게시물') + '</h3>' + sel + '</div><p class="hm-note">' + how + '<br>어제·오늘 올린 건 위 「오늘」에 있어요</p><ol class="hm-list">' + L.map((it, i) => {
       const q = raceVal(it, m), r = q.r, t = r == null ? null : tierOf(r);
       return hmRow({ tag: 'li', attr: 'data-r="' + i + '" tabindex="0" role="button" aria-label="' + esc(title(it.n)) + ' 상세 보기"', tip: (t ? t[0] + ' · ' : '') + (q.tip || ''), c: it.c, t: esc(title(it.n)),
-        v: r == null ? '비교 전' : vsP(r), vc: r == null ? 'mu' : r < 0.7 ? 'down' : r < 1.3 ? 'mu' : 'up',
-        m: whenTxt(it.d) + (archRec(it) ? ' · <span class="down">보관 후보</span>' : '') + (q.rt != null ? ' · ' + (it.c === '유튜브' ? '조회' : '도달') + ' 대비 ' + pctA(q.rt) : ''),
-        r: mn + ' ' + (q.n == null ? '자료 없음' : fmtK(q.n)) + (m !== 'v' ? ' · 조회 ' + fmtK(mainVal(it)) : '') });
+        // 2026-10-24 순위 탭과 같게: 오른쪽 위 = 고른 값(결과), 오른쪽 아래 = 평소 대비(색)
+        v: q.n == null ? '자료 없음' : mn + ' ' + fmtK(q.n), vc: q.n == null ? 'mu' : '',
+        m: whenTxt(it.d) + (archRec(it) ? ' · <span class="down">보관 후보</span>' : '') + (m !== 'v' ? ' · 조회 ' + fmtK(mainVal(it)) : '') + (q.rt != null ? ' · ' + (it.c === '유튜브' ? '조회' : '도달') + ' 대비 ' + pctA(q.rt) : ''),
+        r: '<b class="' + (r == null ? 'mu' : r < 0.7 ? 'down' : r < 1.3 ? 'mu' : 'up') + '">' + (r == null ? '비교 전' : vsTxt(r)) + '</b>' });
     }).join('') + '</ol></div>';
   }
   // 판정 단계(밤 10시 브리핑 BR_TIER와 같은 기준): 평소의 0.7배 미만 낮음 · 1.3배 미만 평소 수준 · 2배 잘 됨 · 5배 아주 잘 됨 · 그 이상 대박
