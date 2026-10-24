@@ -1918,7 +1918,8 @@ const TAGFIX_IMPORT_ID = '1-DTwIOT2vfE09ZJljB5q5_hQyg5UCtHRcE-M0ZFGfKg';
 // 같은 날 두 번째: 유튜브 2021~2024(+인스타 1건) Claude 판정 662건. 유튜브는 영상 ID만 적혀 있어 주소로 되돌림, 메모 「낮음」 = 확신 낮음
 const TAGFIX_IMPORTS = [
   { id: TAGFIX_IMPORT_ID, memo: 'Claude 판정 2026-10-24' },
-  { id: '1B0beVZ2eQnH27DGsd-IpIwMydn34tFUKe9GyIDfCha4', memo: 'Claude 판정 2026-10-24 (2021~2024)' }
+  { id: '1B0beVZ2eQnH27DGsd-IpIwMydn34tFUKe9GyIDfCha4', memo: 'Claude 판정 2026-10-24 (2021~2024)' },
+  { id: '1YrSqczcdBxZ8YRTO2uGXckZcDB5lOAaOlHZ5Q8foikc', memo: 'Claude 판정 2026-10-24 (2017~2020)' }
 ];
 function importTagFixOnce_(ss) {
   TAGFIX_IMPORTS.forEach(s => { try { importTagFixFrom_(ss, s.id, s.memo); } catch (e) {} });
@@ -2319,6 +2320,7 @@ function attachTags_(ss, items, keys) {
     it.g = ci.g; it.ec = ci.ec; if (ci.s) it.s = ci.s; else delete it.s;
     if (!f.g && !f.ex) it.ega = 1; // 주제가 자동(사람이 안 정함) — 유형의 tya와 같은 뜻
     if (f.src) it.src = f.src;     // 「태그 수정」 H열 출처: r 검토 · c Claude(확인 전)
+    if (!it.u) it.k = keys[i].split('§')[1]; // 주소 없는 게시물(인스타 과거 기록·hong)은 콘텐츠키를 실어 「태그 수정」 A열에 쓸 수 있게(2026-10-24)
     // 유형: 「태그 수정」 G열(사람) > 「태그」 탭 I열 자동 코드 > 옛 분류 이름으로 짐작(「태그 다시 계산」 전 값·과거 기록 탭)
     const tcH = resolveType_(f.ty), old = oldCat_(f.g, it.n) || oldCat_(t.g, it.n) || oldCat_(it.g, it.n);
     // 자동 유형은 지금 규칙으로 다시 판정(「태그」 탭 I열은 예전 규칙으로 저장된 값이 남아 있음, 2026-10-24 「키캡 드롭」이 행사 스케치로 보인 문제). 옛 분류를 모를 때만 I열 값
