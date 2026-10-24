@@ -927,10 +927,17 @@ button.hm-row:active, a.hm-row:active, li.hm-row:active { opacity: .7; }
 @media (max-width: 560px) { .home-more > summary { margin: 0 16px; } }
 /* 탐색 「콘텐츠 동향」: 가운데 0 기준 좌우 막대(오른쪽 파랑 = 평소보다 잘 됨, 왼쪽 주황 = 덜 됨) */
 .tl-r .hm-rb { gap: 8px; }
-.tl-dv { position: relative; display: block; height: 10px; border-radius: 5px; background: var(--hm-thumb); }
-.tl-dv::before { content: ""; position: absolute; left: 50%; top: -3px; bottom: -3px; width: 2px; margin-left: -1px; background: var(--muted); border-radius: 1px; }
-.tl-dv i { position: absolute; top: 0; bottom: 0; border-radius: 5px; background: var(--muted); }
-.tl-dv i.up { background: var(--up); } .tl-dv i.down { background: var(--down-bar); }
+/* 점 분포: 눈금 −75% · −50% · 평소 · 2배 · 4배 · 8배+ 가 20%마다. 평소(40%)만 진한 선 */
+.tl-dt { position: relative; display: block; height: 24px; margin: 2px 0; background: linear-gradient(to right, var(--hm-thumb) 1px, transparent 1px) 0 0 / 20% 100% repeat-x; }
+.tl-dt::before { content: ""; position: absolute; left: 40%; top: -2px; bottom: -2px; width: 2px; margin-left: -1px; background: var(--muted); border-radius: 1px; opacity: .6; }
+.tl-dt i { position: absolute; width: 9px; height: 9px; margin: -4.5px 0 0 -4.5px; border-radius: 50%; background: var(--muted); opacity: .75; }
+.tl-dt i.up { background: var(--up); } .tl-dt i.down { background: var(--down-bar); }
+.tl-dt b { position: absolute; left: 0; top: -1px; bottom: -1px; width: 4px; margin-left: -2px; border-radius: 2px; background: var(--fg); box-shadow: 0 0 0 2px var(--hm-card); }
+.tl-dt.few i { opacity: .4; }
+.tl-ax { list-style: none; padding: 0 16px; margin-bottom: -2px; }
+.tl-ax span { position: relative; display: block; height: 16px; font-size: 12px; line-height: 16px; color: var(--muted); }
+.tl-ax i { position: absolute; top: 0; font-style: normal; transform: translateX(-50%); white-space: nowrap; }
+.tl-ax i:first-child { transform: none; } .tl-ax i:last-child { transform: translateX(-100%); }
 #tlist + #tlMoreBox .more, #tlMoreBox .more { margin-top: 8px; }
 #gchips:not([hidden]) { margin: 0 0 12px; }
 #tlist .empty { list-style: none; }

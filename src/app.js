@@ -2360,7 +2360,7 @@
     }
     const chs = isAll ? [S.trendCh] : viewChannels();
     const L = pool({ channels: chs });
-    // 묶는 기준별 목록(2026-10-24 트리맵 → 정렬 목록): 한 줄 = 묶음 하나, 오른쪽 위 = 평소 대비, 아랫줄 = 개수 · 조회 비중 막대, 오른쪽 아래 = 히트율
+    // 묶는 기준별 목록(2026-10-24 트리맵 → 정렬 목록): 한 줄 = 묶음 하나, 오른쪽 위 = 평소 대비(가운데 값), 가운데 = 게시물 점 분포, 아랫줄 = 개수 · 조회 비중, 오른쪽 아래 = 히트율
     // 줄을 누르면 그 안 콘텐츠(주제 = S.g, 그 밖 = S.tmSel), 「‹ 전체」로 돌아감
     const TB = [['g', '주제'], ['tg', '유형'], ['ty', '세부 유형'], ['t', '형식'], ['p', '제작']], by = S.g ? 'g' : (S.tmBy || 'g'), byN = TB.find(x => x[0] === by)[1];
     if (S.g || by === 'g') S.tmSel = null;
@@ -2381,16 +2381,18 @@
       if (!G.length) { box.innerHTML = '<li class="empty">조건에 맞는 콘텐츠가 없어요.</li>'; return; }
       const ok = r => r.n >= MIN_N && r.idx != null;
       const many = G.filter(ok).sort((a, b) => b.idx - a.idx), few = G.filter(r => !ok(r)).sort((a, b) => b.n - a.n);
-      // 가운데 0에서 좌우로 뻗는 막대(2026-10-24): 오른쪽 파랑 = 평소보다 잘 됨, 왼쪽 주황 = 덜 됨. 가장 큰 차이(최대 +200%)를 끝으로
-      const D = Math.min(2, Math.max(0.5, ...many.map(r => Math.abs(r.idx - 1))));
-      const dvBar = r => { if (!ok(r)) return ''; const d = r.idx - 1, cls = dCls(d), wd = Math.max(1.5, Math.min(1, Math.abs(d) / D) * 50);
-        return '<span class="tl-dv" aria-hidden="true"><i class="' + cls + '" style="' + (d >= 0 ? 'left:50%' : 'right:50%') + ';width:' + wd.toFixed(1) + '%"></i></span>'; };
+      // 점 분포(2026-10-24): 게시물 하나 = 점 하나, 가로 = 평소 대비(로그 눈금 −75% ~ 8배, 20%마다 한 칸), 세로 막대 = 가운데 값. 평소보다 잘 됨 파랑 · 덜 됨 주황
+      const dX = v => (Math.log(Math.min(8, Math.max(0.25, v)) / 0.25) / Math.log(32) * 100).toFixed(1);
+      const dvBar = r => { const rs = r.arr.filter(it => !young(it)).map(ratio).filter(v => v != null); if (!rs.length) return '';
+        return '<span class="tl-dt' + (ok(r) ? '' : ' few') + '" aria-hidden="true">' + rs.map((v, j) => '<i class="' + dCls(v - 1) + '" style="left:' + dX(v) + '%;top:' + (50 + ((j * 37) % 7 - 3) * 9) + '%"></i>').join('') +
+          (ok(r) ? '<b style="left:' + dX(r.idx) + '%"></b>' : '') + '</span>'; };
+      const axis = '<li class="tl-ax" aria-hidden="true"><span>' + [['−75%', 0], ['−50%', 20], ['평소', 40], ['2배', 60], ['4배', 80], ['8배+', 100]].map(([t, x]) => '<i style="left:' + x + '%">' + t + '</i>').join('') + '</span></li>';
       const row = r => { const w = wOf(r), fw = !ok(r);
         return hmRow({ tag: 'li', cls: 'hm-rk tl-r', attr: 'tabindex="0" data-k="' + esc(r.k) + '"', tip: r.k + ' · 게시물 ' + r.n + '개 · ' + vW() + ' 합 ' + fmt(w) + (r.idx == null ? '' : ' · ' + vW() + ' ' + vsTxt(r.idx)),
           t: esc(r.k), v: fw ? (r.n < MIN_N ? '표본 적음' : '비교 전') : vsP(r.idx), vc: fw ? 'mu' : xCls(r.idx),
           m: r.n + '개 · ' + vW() + ' 비중 <span class="num">' + pct0(tot ? w / tot : null) + '</span>',
           r: r.hit == null || fw ? '' : '히트율 ' + pct0(r.hit) }).replace('<span class="hm-r2">', dvBar(r) + '<span class="hm-r2">'); };
-      box.innerHTML = many.map(row).join('') + (few.length ? '<li class="hm-open" id="tlFew"' + (S.tlFew ? '' : ' hidden') + '><ol class="hm-list">' + few.map(row).join('') + '</ol></li>' : '');
+      box.innerHTML = axis + many.map(row).join('') + (few.length ? '<li class="hm-open" id="tlFew"' + (S.tlFew ? '' : ' hidden') + '><ol class="hm-list">' + few.map(row).join('') + '</ol></li>' : '');
       if (few.length) { more.innerHTML = '<button class="more" id="tlFewBtn" type="button">' + (S.tlFew ? '접기' : '게시물 ' + MIN_N + '개 미만 ' + few.length + '개 더 보기 ›') + '</button>'; $('tlFewBtn').addEventListener('click', () => { S.tlFew = !S.tlFew; renderTrend(); }); }
       box.querySelectorAll('li[data-k]').forEach(li => { const go = () => { S.tlShown = 10; if (by === 'g') { S.g = li.dataset.k; S.gs = null; renderTrend(); renderRank(); } else { S.tmSel = li.dataset.k; renderTrend(); } };
         li.addEventListener('click', go); li.addEventListener('keydown', e => { if (e.key === 'Enter') go(); }); });
