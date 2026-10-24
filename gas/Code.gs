@@ -1558,7 +1558,7 @@ function legacySport_(text) {
 /* ───────── 분류표: 주제 + 유형 (2026-10-24 담당자 「합쳐서 효율화」 → 「유형과 형식으로 따로」·「브이로그, 스케치 이런식」·「상황극 패러디는 묶어도」) ─────────
  * 게시물마다 세 칸: 주제 = 경험 영역 코드(E01~E20, 없으면 「주제 없음」), 유형 = 어떻게 찍고 엮었나(T01~T29 → 큰 유형 7개), 형식 = it.t(릴스·캐러셀…).
  * 위 TAG_CATEGORIES(옛 주제 분류)는 1단계 판정으로 남김: 옛 분류마다 고를 수 있는 주제 코드 중 경험 사전(EXP_RE)이 맞는 것, 유형은 낱말(TYPE_RE) → 없으면 옛 분류 기본값.
- * items: g 주제 큰 분류 · s 주제 이름 · ec 주제 코드 · tg 큰 유형 · ty 세부 유형 · tc 유형 코드 · tya 1 = 자동(사람이 안 정함).
+ * items: g 주제 큰 분류 · s 주제 이름 · ec 주제 코드 · tg 큰 유형 · ty 세부 유형 · tc 유형 코드 · tya 1 = 유형 자동(사람이 안 정함) · ega 1 = 주제 자동 · src 「태그 수정」 H열 출처(r 검토 · c Claude 확인 전, 없으면 사람).
  * 경험 사전 원본은 _도구/scripts/성과분석/경험영역.tsv, 유형표는 같은 폴더 유형.tsv — 낱말을 바꾸면 둘 다 고친다 */
 var CODE_TABLE = {
   E01: ['수업·강의·실습', '수업·학과'], E02: ['학과·전공 소개', '수업·학과'],
@@ -1885,6 +1885,10 @@ function ensureTagSheets_(ss) {
     sh.getRange(1, 7).setValue('유형').setFontWeight('bold').setNote('세부 유형 이름이나 코드(예: 브이로그 · T01, 상황극·패러디 · T14). 유형표는 _도구/scripts/성과분석/유형.tsv · 비우면 자동값(보드에 「자동」)');
     sh.getRange(1, 2).setNote('주제: 경험 영역 코드(E05)·이름이나 예전 분류 이름. 「제외」 = 보드에서 뺌');
   }
+  if (sh.getMaxColumns() < 8) sh.insertColumnsAfter(sh.getMaxColumns(), 8 - sh.getMaxColumns());
+  if (String(sh.getRange(1, 8).getValue()) !== '출처') {
+    sh.getRange(1, 8).setValue('출처').setFontWeight('bold').setNote('이 줄의 주제·유형을 누가 붙였나. 비움 = 사람 · 「검토」 = Claude가 붙이고 담당자가 확인 · 「Claude」 = 아직 확인 전. 보드 성과 비교는 사람·검토만 씀');
+  }
   sh = ss.getSheetByName(TAG_SHEET);
   if (!sh) {
     sh = ss.insertSheet(TAG_SHEET);
@@ -1959,7 +1963,7 @@ function saveTags_(ss, bySrc, today) {
 // 「태그 수정」 B열(주제)·G열(유형) — 「태그」 탭 H열 「최종」을 보드와 같게 보여 주려고(2026-10-24)
 function tagFixG_(ss) {
   const fx = {}, fs = ss.getSheetByName(TAGFIX_SHEET);
-  if (fs && fs.getLastRow() > 1) fs.getRange(2, 1, fs.getLastRow() - 1, Math.min(7, fs.getMaxColumns())).getValues().forEach(r => {
+  if (fs && fs.getLastRow() > 1) fs.getRange(2, 1, fs.getLastRow() - 1, Math.min(8, fs.getMaxColumns())).getValues().forEach(r => {
     const k = String(r[0]).trim(); if (k) fx[k] = { g: String(r[1] || '').trim(), ty: String(r[6] || '').trim() };
   });
   return fx;
@@ -1987,6 +1991,12 @@ function recalcTags() {
 }
 
 // 대시보드용: 태그 맵 · 역할 · 수정값
+// 「태그 수정」 H열 출처(2026-10-24): 비움·사람 = 사람이 정함, 검토 = Claude가 붙이고 담당자가 확인, Claude = Claude가 붙이고 아직 확인 전
+// 보드는 사람·검토 값만 성과 비교에 쓰고, Claude(검토 전)와 자동 값은 목록 표시·커버리지에만 씀
+function srcOf_(v) {
+  const s = String(v || '').trim();
+  return /^검토/.test(s) ? 'r' : /^claude/i.test(s) ? 'c' : '';
+}
 function loadTagData_(ss) {
   loadRoster_(ss);
   const tags = {}, roles = {};
@@ -2000,10 +2010,10 @@ function loadTagData_(ss) {
   // 역할은 명단 기준만: 홍보대사 / 근로장학생 / 미확인(명단에 없는 이름 — 「명단」 탭에 추가하면 다음 응답부터 반영)
   const fix = {};
   const fs = ss.getSheetByName(TAGFIX_SHEET);
-  if (fs && fs.getLastRow() > 1) fs.getRange(2, 1, fs.getLastRow() - 1, Math.min(7, fs.getMaxColumns())).getValues().forEach(r => {
+  if (fs && fs.getLastRow() > 1) fs.getRange(2, 1, fs.getLastRow() - 1, Math.min(8, fs.getMaxColumns())).getValues().forEach(r => {
     const k = String(r[0]).trim(); if (!k) return;
     const ex = String(r[4] || '').toUpperCase().match(/E\d{2}/g);
-    fix[k] = { g: String(r[1] || '').trim(), p: String(r[2] || '').trim(), ex: ex ? ex.slice(0, 2).join(',') : '', cn: String(r[5] || '').trim(), ty: String(r[6] || '').trim() };
+    fix[k] = { g: String(r[1] || '').trim(), p: String(r[2] || '').trim(), ex: ex ? ex.slice(0, 2).join(',') : '', cn: String(r[5] || '').trim(), ty: String(r[6] || '').trim(), src: srcOf_(r[7]) };
   });
   return { tags: tags, roles: roles, fix: fix };
 }
@@ -2217,6 +2227,8 @@ function attachTags_(ss, items, keys) {
     const raw = f.g || (f.ex ? f.ex.split(',')[0] : '') || t.g || it.g || '';
     const ci = codeInfo_(resolveCode_(raw, it.n));
     it.g = ci.g; it.ec = ci.ec; if (ci.s) it.s = ci.s; else delete it.s;
+    if (!f.g && !f.ex) it.ega = 1; // 주제가 자동(사람이 안 정함) — 유형의 tya와 같은 뜻
+    if (f.src) it.src = f.src;     // 「태그 수정」 H열 출처: r 검토 · c Claude(확인 전)
     // 유형: 「태그 수정」 G열(사람) > 「태그」 탭 I열 자동 코드 > 옛 분류 이름으로 짐작(「태그 다시 계산」 전 값·과거 기록 탭)
     const tcH = resolveType_(f.ty), old = oldCat_(f.g, it.n) || oldCat_(t.g, it.n) || oldCat_(it.g, it.n);
     const yi = typeInfo_(tcH || resolveType_(t.tc) || (old ? pickType_(old, it.n, isVideo_(it.c, it.t)) : ''));
