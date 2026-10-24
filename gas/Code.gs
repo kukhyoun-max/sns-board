@@ -1901,6 +1901,27 @@ function ensureTagSheets_(ss) {
     sh.getRange(1, 8).setValue('최종 분류').setNote('「태그 수정」을 반영한 값 = 보드·분석이 쓰는 값. 주제 · 유형');
     sh.getRange(1, 9).setValue('유형 코드(자동)').setNote('유형 T01~T29(브이로그·행사 스케치·상황극·패러디 등, 큰 유형 7개). 규칙이 붙인 값 — 사람이 정하면 「태그 수정」 G열');
   }
+  importTagFixOnce_(ss);
+}
+
+// 「태그 수정」 한 번만 가져오기(2026-10-24 담당자 「진행」): Claude가 글을 읽고 붙인 주제·유형(2025-01 이후 400건)을 출처 「Claude」(확인 전)로 맨 아래에 붙임.
+// 원본 = 드라이브 시트(URL·분류·메모·유형·출처). 이미 같은 URL 줄이 있으면 건너뜀(사람이 적은 값 우선). 가져온 뒤 스크립트 속성에 기록해 다시 하지 않음
+const TAGFIX_IMPORT_ID = '1-DTwIOT2vfE09ZJljB5q5_hQyg5UCtHRcE-M0ZFGfKg';
+function importTagFixOnce_(ss) {
+  if (!TAGFIX_IMPORT_ID) return;
+  const p = PropertiesService.getScriptProperties(), pk = 'TAGFIX_IMPORTED_' + TAGFIX_IMPORT_ID.slice(0, 12);
+  if (p.getProperty(pk)) return;
+  let src = null;
+  try { src = SpreadsheetApp.openById(TAGFIX_IMPORT_ID).getSheets()[0]; } catch (e) { return; }
+  const sh = ss.getSheetByName(TAGFIX_SHEET);
+  if (!sh || !src || src.getLastRow() < 2) return;
+  const have = {};
+  if (sh.getLastRow() > 1) sh.getRange(2, 1, sh.getLastRow() - 1, 1).getValues().forEach(r => { have[String(r[0]).trim()] = 1; });
+  const rows = src.getRange(2, 1, src.getLastRow() - 1, 5).getValues()
+    .filter(r => { const u = String(r[0]).trim(); return /^https:\/\//.test(u) && !have[u]; })
+    .map(r => [String(r[0]).trim(), String(r[1]).trim(), '', 'Claude 판정 2026-10-24' + (String(r[2]).trim() ? ' · ' + String(r[2]).trim() : ''), '', '', String(r[3]).trim(), String(r[4]).trim() || 'Claude']);
+  if (rows.length) sh.getRange(sh.getLastRow() + 1, 1, rows.length, 8).setValues(rows);
+  p.setProperty(pk, new Date().toISOString() + ' · ' + rows.length + '줄');
 }
 
 // 「명단」 → 코드 기본 명단 덮어쓰기
