@@ -1909,6 +1909,7 @@ function ensureTagSheets_(ss) {
   }
   importTagFixOnce_(ss);
   promoteTagFixOnce_(ss);
+  setExpOnce_(ss);
 }
 
 // 「태그 수정」 한 번만 가져오기(2026-10-24 담당자 「진행」): Claude가 글을 읽고 붙인 주제·유형(2025-01 이후 400건)을 출처 「Claude」(확인 전)로 맨 아래에 붙임.
@@ -1956,6 +1957,39 @@ function promoteTagFixOnce_(ss) {
     return [ok ? '검토' : r[7]];
   });
   if (n) sh.getRange(2, 8, h.length, 1).setValues(h);
+  p.setProperty(pk, new Date().toISOString() + ' · ' + n + '줄');
+}
+// 경험영역 두 번째 코드(2026-10-24 담당자 「응」, 이번 분기 29개 대조): 「태그 수정」 E열이 비었으면 채움. 줄이 없으면 A·D·E·H(Claude)만 새로 붙임.
+// g = 주제(B열)도 바꿈(축제가 아닌 사인회 등). hong은 주소가 없어 「hong 게시물」 탭에서 게시일 + 캡션 앞부분으로 주소를 찾음. 한 번만(스크립트 속성)
+const EXP_SET_20261024 = [
+  { u: 'https://www.youtube.com/watch?v=OUeQ02IaHdM', ex: 'E08,E12' },
+  { u: 'https://www.instagram.com/reel/Ded_06iTVjV/', ex: 'E13,E12' },
+  { u: 'https://www.youtube.com/watch?v=IMLUSm0l-l8', ex: 'E13,E12' },
+  { u: 'https://www.youtube.com/watch?v=3dfJnFj2P5Y', ex: 'E10,E20', g: 'E10' },
+  { u: 'https://www.youtube.com/watch?v=4xgaV6TM0mI', ex: 'E02,E16' },
+  { hong: ['2026-10-14', '한식조리학과 4학년'], ex: 'E02,E12' },
+  { u: 'https://www.instagram.com/p/Dd_HkROEx28/', ex: 'E09,E20', g: 'E09' },
+  { u: 'https://www.instagram.com/p/DejJVm0E8ZN/', ex: 'E19,E02' },
+  { u: 'https://www.instagram.com/p/DeqldZpkxWg/', ex: 'E18,E06' },
+  { u: 'https://www.instagram.com/p/DeterXdE2rD/', ex: 'E18,E06' }
+];
+function setExpOnce_(ss) {
+  const p = PropertiesService.getScriptProperties(), pk = 'EXP_SET_20261024';
+  if (p.getProperty(pk)) return;
+  const sh = ss.getSheetByName(TAGFIX_SHEET); if (!sh) return;
+  const hs = ss.getSheetByName(HONG_POSTS), hv = hs && hs.getLastRow() > 1 ? hs.getRange(2, 1, hs.getLastRow() - 1, 5).getDisplayValues() : [];
+  const hongUrl = h => { const r = hv.find(x => String(x[1]).slice(0, 10) === h[0] && String(x[3]).indexOf(h[1]) >= 0); return r ? String(r[4]).trim() : ''; };
+  const last = sh.getLastRow(), v = last > 1 ? sh.getRange(2, 1, last - 1, 8).getValues() : [], at = {};
+  v.forEach((r, i) => { at[String(r[0]).trim()] = i; });
+  const add = []; let n = 0;
+  EXP_SET_20261024.forEach(e => {
+    const u = e.u || hongUrl(e.hong); if (!u) return;
+    const i = at[u];
+    if (i == null) { add.push([u, e.g || '', '', '경험영역 두 번째 코드 Claude 2026-10-24', e.ex, '', '', 'Claude']); n++; return; }
+    if (!String(v[i][4]).trim()) { sh.getRange(i + 2, 5).setValue(e.ex); n++; }
+    if (e.g && String(v[i][1]).trim()) sh.getRange(i + 2, 2).setValue(e.g);
+  });
+  if (add.length) sh.getRange(sh.getLastRow() + 1, 1, add.length, 8).setValues(add);
   p.setProperty(pk, new Date().toISOString() + ' · ' + n + '줄');
 }
 
