@@ -1913,19 +1913,29 @@ function ensureTagSheets_(ss) {
 // 「태그 수정」 한 번만 가져오기(2026-10-24 담당자 「진행」): Claude가 글을 읽고 붙인 주제·유형(2025-01 이후 400건)을 출처 「Claude」(확인 전)로 맨 아래에 붙임.
 // 원본 = 드라이브 시트(URL·분류·메모·유형·출처). 이미 같은 URL 줄이 있으면 건너뜀(사람이 적은 값 우선). 가져온 뒤 스크립트 속성에 기록해 다시 하지 않음
 const TAGFIX_IMPORT_ID = '1-DTwIOT2vfE09ZJljB5q5_hQyg5UCtHRcE-M0ZFGfKg';
+// 같은 날 두 번째: 유튜브 2021~2024(+인스타 1건) Claude 판정 662건. 유튜브는 영상 ID만 적혀 있어 주소로 되돌림, 메모 「낮음」 = 확신 낮음
+const TAGFIX_IMPORTS = [
+  { id: TAGFIX_IMPORT_ID, memo: 'Claude 판정 2026-10-24' },
+  { id: '1B0beVZ2eQnH27DGsd-IpIwMydn34tFUKe9GyIDfCha4', memo: 'Claude 판정 2026-10-24 (2021~2024)' }
+];
 function importTagFixOnce_(ss) {
-  if (!TAGFIX_IMPORT_ID) return;
-  const p = PropertiesService.getScriptProperties(), pk = 'TAGFIX_IMPORTED_' + TAGFIX_IMPORT_ID.slice(0, 12);
+  TAGFIX_IMPORTS.forEach(s => { try { importTagFixFrom_(ss, s.id, s.memo); } catch (e) {} });
+}
+function importTagFixFrom_(ss, id, memo) {
+  const p = PropertiesService.getScriptProperties(), pk = 'TAGFIX_IMPORTED_' + id.slice(0, 12);
   if (p.getProperty(pk)) return;
   let src = null;
-  try { src = SpreadsheetApp.openById(TAGFIX_IMPORT_ID).getSheets()[0]; } catch (e) { return; }
+  try { src = SpreadsheetApp.openById(id).getSheets()[0]; } catch (e) { return; }
   const sh = ss.getSheetByName(TAGFIX_SHEET);
   if (!sh || !src || src.getLastRow() < 2) return;
   const have = {};
   if (sh.getLastRow() > 1) sh.getRange(2, 1, sh.getLastRow() - 1, 1).getValues().forEach(r => { have[String(r[0]).trim()] = 1; });
-  const rows = src.getRange(2, 1, src.getLastRow() - 1, 5).getValues()
-    .filter(r => { const u = String(r[0]).trim(); return /^https:\/\//.test(u) && !have[u]; })
-    .map(r => [String(r[0]).trim(), String(r[1]).trim(), '', 'Claude 판정 2026-10-24' + (String(r[2]).trim() ? ' · ' + String(r[2]).trim() : ''), '', '', String(r[3]).trim(), String(r[4]).trim() || 'Claude']);
+  const url = v => { const s = String(v).trim(); return /^[\w-]{11}$/.test(s) ? 'https://www.youtube.com/watch?v=' + s : s; };
+  const nc = Math.min(5, src.getLastColumn());
+  const rows = src.getRange(2, 1, src.getLastRow() - 1, nc).getDisplayValues()
+    .map(r => [url(r[0])].concat(r.slice(1)))
+    .filter(r => /^https:\/\//.test(r[0]) && !have[r[0]])
+    .map(r => { const m = String(r[2] || '').trim(); return [r[0], String(r[1]).trim(), '', memo + (m ? ' · ' + (m === '낮음' ? '확신 낮음' : m) : ''), '', '', String(r[3]).trim(), String(r[4] || '').trim() || 'Claude']; });
   if (rows.length) sh.getRange(sh.getLastRow() + 1, 1, rows.length, 8).setValues(rows);
   p.setProperty(pk, new Date().toISOString() + ' · ' + rows.length + '줄');
 }
