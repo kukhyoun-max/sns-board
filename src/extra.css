@@ -169,15 +169,6 @@ sup.pt {font-size: var(--fs-tag);color:var(--muted,#8b95a1);margin-left:3px;font
 .pfseg button { flex: 1; border: 0; background: transparent; padding: 10px 8px; border-radius: 9px; font: inherit; font-weight: 700; font-size: var(--fs-sm); color: var(--muted); cursor: pointer; }
 .pfseg button[aria-selected="true"] { background: var(--bg); color: var(--fg); box-shadow: 0 1px 3px rgba(0,0,0,.08); }
 /* 전략: 처방 카드 */
-.rxs { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 12px; }
-.rx { background: var(--tile); border-radius: 16px; padding: 16px; display: flex; flex-direction: column; gap: 6px; border-left: 4px solid var(--muted); }
-.rx.more { border-left-color: var(--jj); } .rx.less { border-left-color: var(--down); } .rx.again { border-left-color: var(--ok); }
-.rx-k { font-size: var(--fs-tag); font-weight: 700; letter-spacing: .02em; color: var(--muted); }
-.rx.more .rx-k { color: var(--jj); } .rx.less .rx-k { color: var(--down); } .rx.again .rx-k { color: var(--ok); }
-.rx-h { font-size: var(--fs-md); font-weight: 700; display: flex; align-items: center; flex-wrap: wrap; gap: 2px; }
-.rx p { margin: 0; font-size: var(--fs-sm); color: var(--sub); line-height: 1.55; }
-.rx p small { color: var(--muted); }
-.rx-b { align-self: flex-start; margin-top: 4px; border: 0; background: var(--bg); border-radius: 10px; padding: 7px 12px; font: inherit; font-size: var(--fs-xs); font-weight: 700; cursor: pointer; color: var(--fg); }
 /* 잘 되는 조건 */
 .rls, .pls { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(300px, 100%), 1fr)); gap: 16px; }
 .rl, .pl, .lt { min-width: 0; }
@@ -540,10 +531,6 @@ small { line-height: 1.6; }
 .callout, .wait { line-height: 1.75; }
 .callout small, .wait small { display: block; margin-top: 6px; line-height: 1.65; }
 /* 처방 카드: 본문·안내를 덩어리로 나눔 */
-.rx { gap: 8px; padding: 18px; }
-.rx-p { font-size: var(--fs-sm); color: var(--sub); line-height: 1.75; }
-.rx-p b { color: var(--fg); }
-.rx-n { display: block; margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--line); color: var(--muted); font-size: var(--fs-xs); line-height: 1.65; }
 .rx-l { list-style: none; margin: 4px 0 0; padding: 0; display: flex; flex-direction: column; gap: 12px; }
 .rx-l li { min-width: 0; }
 .rx-t { color: var(--fg); font-weight: 600; line-height: 1.6; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
@@ -637,9 +624,6 @@ small { line-height: 1.6; }
 .op-s em.o { background: var(--ch-ig); }
 .op-s small { margin: 0; font-size: var(--fs-tag); white-space: nowrap; }
 /* 처방 카드 숫자 행 */
-.rx-rows { display: flex; flex-direction: column; gap: 4px; }
-.rx-rows > div { display: flex; justify-content: space-between; gap: 10px; }
-.rx-rows b { white-space: nowrap; }
 /* 잘 되는 조건: 이 조건 / 나머지 미니 막대 */
 .rl-s { display: block; color: var(--muted); font-size: var(--fs-tag); }
 .cmps { display: flex; flex-direction: column; gap: 4px; margin-top: 6px; }
@@ -884,7 +868,7 @@ body { word-break: keep-all; overflow-wrap: anywhere; }
 .sh p, .race-d, .note, .kpi-s { line-height: 1.5; }
 .howto { border: 0; background: var(--plane); color: var(--sub); font: inherit; font-size: 13px; font-weight: 700; border-radius: 999px; padding: 2px 9px; margin-left: 4px; cursor: pointer; vertical-align: 1px; }
 /* 회색 글 줄이기(2026-10-22): 실행할 조언은 본문색, 설명만 남은 줄은 버튼만 */
-.rx-n, .lt .note { color: var(--fg) !important; font-weight: 500; }
+.lt .note { color: var(--fg) !important; font-weight: 500; }
 p.howto-only { margin-top: 4px; }
 p.howto-only .howto { margin-left: 0; }
 .bnav button, .bnav a { font-size: 13px !important; white-space: nowrap; }
@@ -915,10 +899,14 @@ p.howto-only .howto { margin-left: 0; }
 /* ───── 홈 시안 2(2026-10-23 「이대로」, 캔버스 「디자인 기준」): 한 가지 기준으로 다시 짬 ─────
    글자 40·20·16·14 · 굵기 400·700 · 색 = 바탕·카드·글자·보조·선·좋음·낮음(+채널 색) · 카드 둥글기 16 · 버튼 알약 · 간격 8·12·16·24.
    목록은 .hm-row 한 모양(윗줄 제목 + 값, 아랫줄 채널 · 이름표 + 보조). 칩·테두리 상자·이모지 장식 없음. 옛 오늘 칸 규칙(td2·wa·td-plan 등)은 모두 걷어 냄 */
-.hm { --hm-card: #f2f4f6; --hm-thumb: #dfe3e8; padding-top: 16px; padding-bottom: 24px; }
-@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .hm { --hm-card: #202027; --hm-thumb: #2c2c35; } }
-:root[data-theme="dark"] .hm { --hm-card: #202027; --hm-thumb: #2c2c35; }
-.hm .up { color: var(--up); } .hm .down { color: var(--down); } .hm .flat, .hm .mu { color: var(--muted); }
+.hm, .hm-rx { --hm-card: #f2f4f6; --hm-thumb: #dfe3e8; }
+.hm { padding-top: 16px; padding-bottom: 24px; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .hm, :root:not([data-theme="light"]) .hm-rx { --hm-card: #202027; --hm-thumb: #2c2c35; } }
+:root[data-theme="dark"] .hm, :root[data-theme="dark"] .hm-rx { --hm-card: #202027; --hm-thumb: #2c2c35; }
+.hm .up, .hm-rx .up { color: var(--up); } .hm .down, .hm-rx .down { color: var(--down); } .hm .flat, .hm .mu { color: var(--muted); }
+/* 전략 「이번 주 처방」: 섹션 제목(h2) 아래 묶음이라 묶음 제목은 16, 첫 묶음 위 여백 없음 */
+.hm-rx > .hm-sec:first-child { margin-top: 0; } .hm-rx .hm-h h3 { font-size: 16px; } .hm-rx .hm-note { margin: 0; }
+@media (min-width: 900px) { .hm-rx { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 24px; align-items: start; } .hm-rx > .hm-sec { margin-top: 0; } }
 .hm-hero { display: flex; flex-direction: column; gap: 4px; }
 .hm-lab, .hm-note { font-size: 14px; font-weight: 400; line-height: 1.5; color: var(--muted); }
 .hm-big { font-size: 40px; font-weight: 700; line-height: 1.2; letter-spacing: -0.02em; color: var(--fg); }

@@ -164,6 +164,8 @@
   const ptag = p => '<span class="tag ' + (PROD_CLASS[p] || '') + '">' + esc(p) + '</span>';
   const histTag = it => it.x ? '<span class="tag" title="엑셀로 기록하던 시기의 값(기록 당시 수치)">과거 기록</span>' : '';
   const glab = it => it.g + (it.s ? ' · ' + it.s : '');
+  // 유형 칩(2026-10-24 분류표): 세부 유형, 사람이 안 정한 값은 마우스 올림에 「자동」
+  const tyTag = it => it.ty ? '<span class="tag" title="' + esc((it.tg || '') + ' · ' + it.ty + (it.tya ? ' · 자동 판정' : '')) + '">' + esc(it.ty) + '</span>' : '';
   // 비공개·중복 업로드로 보이는 유튜브 영상(it.hid): 평소 대비 대신 표시만
   const HID_TIP = '올린 지 ' + AGE_MIN + '일이 넘었는데 조회 20 이하 · 비공개·일부 공개나 중복 업로드로 보여 평소 계산에서 뺐어요';
   const hidTag = it => it.hid ? '<span class="tag p-guess" title="' + HID_TIP + '">비공개로 보임</span>' : '';
@@ -172,12 +174,12 @@
   // 공동작업(it.co = 함께한 계정, 2026-10-21): 우리 계정이 올리고 다른 계정과 함께 게시한 것
   // 보관 권고(2026-10-23 「홍비디오는 1주에 1만 못 넘으면 보관 — 우리 인스타도 보관 권고 라벨」): 홍비디오 1만은 평소(1년 중간값 약 1.8만)의 절반 남짓이라,
   // 인스타는 올린 지 7일 지나 조회가 같은 형식 평소의 절반 아래(평소 대비 −50% 이하)면 권고. 광고·공동작업·정보 안내(입시·모집, 학사·생활 안내)는 남겨야 해서 뺌
-  const ARCH_SKIP = ['입시·모집', '학사·장학'];
+  // 2026-10-24 분류표: 입시 게시물(it.adm)과 유형 「안내」(T26)를 남김
   function archRec(it) {
-    if (it.c !== '인스타그램' || it.t === '스토리' || it.ad || it.co || it.hid || it.x || ARCH_SKIP.includes(it.g)) return null;
+    if (it.c !== '인스타그램' || it.t === '스토리' || it.ad || it.co || it.hid || it.x || it.adm || it.tc === 'T26') return null;
     // 2026-10-23 「이유 + 성과」로 좁힘(조회만으로 보관하면 링크·기록·평소 기준이 망가짐): 기간이 끝났을 이벤트·모집성 게시물(올린 지 14일 지남)만
     const age = daysBetween(it.d, D.updated); if (age < 14) return null;
-    if (!(it.g === '이벤트·참여' || /모집|신청|접수|마감|EVENT|이벤트|당첨|추첨|응모/i.test(String(it.n || '')))) return null;
+    if (!(it.tc === 'T28' || /모집|신청|접수|마감|EVENT|이벤트|당첨|추첨|응모/i.test(String(it.n || '')))) return null;
     const p = paceOf(it); if (!p || (p.base && young(it))) return null; // 다 자란 평소와 견주는 어린 게시물은 늘 낮게 나와 뺌
     return p.r < 0.5 ? { r: p.r, age } : null;
   }
@@ -222,7 +224,7 @@
       const right = opt.right ? opt.right(it) : mName(it) + ' <span class="num">' + mvTxt + '</span>' + (tag ? ' · <em class="' + (it.ad || yg || it.hid ? 'flat' : xCls(r)) + '"' + (yg ? ' title="올린 지 ' + AGE_MIN + '일이 안 돼 조회가 아직 쌓이는 중이에요"' : it.hid ? ' title="' + HID_TIP + '"' : '') + '>' + tag + '</em>' : '');
       return '<li class="rk" tabindex="0" data-i="' + i + '"><span class="no">' + (i + 1) + '</span>' +
         '<span class="t"><b>' + line(it) + '</b><span>' + right + ' · <span title="' + esc(dot(it.d)) + '">' + whenTxt(it.d) + '</span></span></span>' +
-        '<span class="tg"><span class="tag">' + esc(glab(it)) + '</span>' + ptag(it.p) + adtag(it) + coTag(it) + archTag(it) + credTag(it) + susTag(it) + hidTag(it) + histTag(it) + '</span></li>';
+        '<span class="tg"><span class="tag">' + esc(glab(it)) + '</span>' + tyTag(it) + ptag(it.p) + adtag(it) + coTag(it) + archTag(it) + credTag(it) + susTag(it) + hidTag(it) + histTag(it) + '</span></li>';
     }).join('') || '<li class="empty">조건에 맞는 콘텐츠가 없어요.</li>';
   }
   function wireRank(el, L) {
@@ -1386,17 +1388,16 @@
     const again = D.items.filter(it => chs.includes(it.c) && it.t !== '스토리' && it.d >= a0 && it.d <= a1 && !it.ad && isHit(it)).sort((a, b) => ratio(b) - ratio(a)).slice(0, 3);
     return { more, less, again };
   }
+  // 홈 시안 2와 같은 모양: 묶음 제목 + hmRow 줄(윗줄 조합·제목 + 평소 대비, 아랫줄 채널 · 근거 + 보조). 줄을 누르면 아래에 그 게시물 목록
   function rxHtml(P) {
-    const card = (kind, lab, head, body, key) => '<div class="rx ' + kind + '"><div class="rx-k">' + lab + '</div><div class="rx-h">' + head + '</div><div class="rx-p">' + body + '</div>' + (key ? '<button type="button" class="rx-b" data-rx="' + esc(key) + '">콘텐츠 보기</button>' : '') + '</div>';
-    const combo = r => badge(r.c) + '<span>' + esc(r.g) + ' × ' + esc(fmtType(r.t)) + '</span>';
-    const cards = [];
-    // 카드 본문은 숫자 행으로(이름 왼쪽 · 숫자 오른쪽)
-    const rows = R => '<div class="rx-rows">' + R.map(x => '<div><span>' + x[0] + '</span><b class="num' + (x[2] ? ' ' + x[2] : '') + '">' + x[1] + '</b></div>').join('') + '</div>';
-    P.more.forEach(r => cards.push(card('more', '더 만들기', combo(r), rows([['최근 1년 조회 평소 대비', vsP(r.idx) + ' · ' + r.n + '개', 'up'], ['히트율', pct0(r.hit) + ' · 채널 ' + pct0(r.hb)], ['최근 2달 게시', r.recent + '개']]) + '<small class="rx-n">→ 다음 기획에 이 조합을 하나 넣어 보세요.</small>', 'c:' + r.k)));
-    P.less.forEach(r => cards.push(card('less', '줄이거나 바꾸기', combo(r), rows([['최근 1년 조회 평소 대비', vsP(r.idx) + ' · ' + r.n + '개', 'down'], ['최근 2달 게시', r.recent + '개']]) + '<small class="rx-n">→ ' + (r.alt ? '같은 주제를 <b>' + esc(jo(fmtType(r.alt.t), '으로', '로')) + '</b> 만들면 조회 ' + vsTxt(r.alt.idx) + ' · ' + r.alt.n + '개였어요. 형식을 바꿔 보세요.' : '횟수를 줄이고, 그 시간에 「더 만들기」 쪽을 만들어 보세요.') + '</small>', 'c:' + r.k)));
-    if (P.again.length) cards.push(card('again', '작년 이맘때 잘 된 콘텐츠', '<span>올해 버전으로 다시 만들어 볼 후보</span>', '<ul class="rx-l">' + P.again.map(it => '<li><div class="rx-t">' + badge(it.c) + esc(title(it.n)) + '</div><div class="rx-m">' + mName(it) + ' <span class="num">' + fmtK(mainVal(it)) + '</span> · <b>' + vsTxt(ratio(it)) + '</b> · ' + whenTxt(it.d) + '</div></li>').join('') + '</ul><small class="rx-n">→ 작년 이맘때부터 6주 사이에 잘 된 게시물이에요. 곧 같은 시기가 오니 올해 버전으로 준비해 보세요.</small>', 'a:again'));
-    if (!cards.length) return '<div class="wait">지금은 따로 권할 만한 게 없어요. 같은 주제·형식 게시물이 ' + MIN_N + '개 이상 쌓이면 「더 만들기」·「줄이거나 바꾸기」를 알려 드려요.</div>';
-    return '<div class="rxs">' + cards.join('') + '</div><div id="rxList"></div>';
+    const go = (key, h) => 'type="button" data-rx="' + esc(key) + '" data-rxh="' + esc(h) + '"';
+    const combo = r => esc(r.g) + ' × ' + esc(fmtType(r.t));
+    const G = [];
+    if (P.more.length) G.push(hmSec('더 만들기', '오른쪽 = 최근 1년 조회 평소 대비', P.more.map(r => hmRow({ tag: 'button', attr: go('c:' + r.k, '더 만들기 · ' + r.g + ' × ' + fmtType(r.t)), c: r.c, t: combo(r), v: vsP(r.idx), vc: 'up', m: r.n + '개 · 히트율 ' + pct0(r.hit) + '(채널 ' + pct0(r.hb) + ')', r: '2달 ' + r.recent + '개' })).join('') + '<p class="hm-note">→ 잘 되는데 최근 2달 덜 올렸어요. 다음 기획에 하나 넣어 보세요.</p>'));
+    if (P.less.length) G.push(hmSec('줄이거나 바꾸기', '', P.less.map(r => hmRow({ tag: 'button', attr: go('c:' + r.k, '줄이거나 바꾸기 · ' + r.g + ' × ' + fmtType(r.t)), c: r.c, t: combo(r), v: vsP(r.idx), vc: 'down', m: r.n + '개 · 2달 ' + r.recent + '개', r: r.alt ? esc(fmtType(r.alt.t)) + '면 <b class="up">' + vsP(r.alt.idx) + '</b>' : '' })).join('') + '<p class="hm-note">→ 많이 올렸는데 약해요. ' + (P.less.some(r => r.alt) ? '오른쪽 아래 형식으로 바꾸거나 ' : '') + '횟수를 줄여 보세요.</p>'));
+    if (P.again.length) G.push(hmSec('작년 이맘때 잘 된 것', '', P.again.map(it => hmRow({ tag: 'button', attr: go('a:again', '작년 이맘때 잘 된 것'), c: it.c, t: esc(title(it.n)), v: vsP(ratio(it)), vc: 'up', m: dot(it.d), r: mName(it) + ' ' + fmtK(mainVal(it)) })).join('') + '<p class="hm-note">→ 곧 같은 시기가 와요. 올해 버전으로 다시 만들어 보세요.</p>'));
+    if (!G.length) return '<div class="wait">지금은 따로 권할 만한 게 없어요. 같은 주제·형식 게시물이 ' + MIN_N + '개 이상 쌓이면 「더 만들기」·「줄이거나 바꾸기」를 알려 드려요.</div>';
+    return '<div class="hm-rx">' + G.join('') + '</div><div id="rxList"></div>';
   }
   function rxItems(key, P, chs) {
     if (key === 'a:again') return P.again;
@@ -1721,7 +1722,7 @@
   function wireStrat(chs, RX, PLAN) {
     $('view').querySelectorAll('[data-rx]').forEach(b => b.addEventListener('click', () => {
       const L = rxItems(b.dataset.rx, RX, ownIn(chs));
-      $('rxList').innerHTML = '<h3 class="sub" style="margin-top:16px">' + esc(b.closest('.rx').querySelector('.rx-h').innerText) + ' — ' + L.length + '개</h3><ol class="rank" id="rxRank">' + rankRows(L) + '</ol>';
+      $('rxList').innerHTML = '<h3 class="sub" style="margin-top:16px">' + esc(b.dataset.rxh) + ' — ' + L.length + '개</h3><ol class="rank" id="rxRank">' + rankRows(L) + '</ol>';
       wireRank($('rxRank'), L); $('rxList').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
     }));
     const ST = (D.strat || []).filter(s => s.from && s.what).sort((a, b) => a.from < b.from ? 1 : -1);
@@ -1938,7 +1939,7 @@
   function seasonStats(s) {
     const L = pool({ channels: viewChannels(), since: s.from, until: s.to, ads: true });
     const org = L.filter(it => !it.ad), ad = L.filter(it => !!it.ad);
-    const adm = org.filter(it => it.g === '입시·모집');
+    const adm = org.filter(it => it.adm); // 입시 게시물 표시(서버, 2026-10-24 분류표에서 주제와 분리)
     const rws = (D.ads && D.ads.rows) || [];
     const daily = (D.ads && D.ads.daily) || [];
     const cost = rws.length ? sum(rws.filter(x => x[1] >= s.from && x[1] <= s.to).map(x => x[2])) : sum(daily.filter(x => x[0] >= s.from && x[0] <= s.to).map(x => x[1]));
@@ -1947,7 +1948,7 @@
     return { L, org, ad, adm, cost, covered, camps, orgV: sum(org.map(it => val(it, 0))), adV: sum(ad.map(it => val(it, 0))), idx: median(org.map(ratio)), hit: hitRate(org), admIdx: median(adm.map(ratio)) };
   }
   function viewSeason() {
-    if (S.ch === '타 대학') return msgView('입시 시즌 리포트는 우리 채널 기준이에요.', '타 대학의 입시·모집 콘텐츠 성과는 탐색 → 분류 「입시·모집」에서 볼 수 있어요.', ['탐색에서 보기', () => { S.view = 'explore'; S.g = '입시·모집'; render(); }]);
+    if (S.ch === '타 대학') return msgView('입시 시즌 리포트는 우리 채널 기준이에요.', '타 대학 게시물은 탐색에서 주제·유형별로 볼 수 있어요.', ['탐색에서 보기', () => { S.view = 'explore'; S.g = null; render(); }]);
     const ss = seasons();
     if (!S.season || !ss.find(s => s.id === S.season)) S.season = ss[0] && ss[0].id;
     const s = ss.find(x => x.id === S.season);
@@ -2347,9 +2348,9 @@
     const box = $('tree');
     // 「전체」일 때는 콘텐츠 하나하나 대신 분류별로 묶어 보여준다(2026-10-20 사용자 요청) — 크기 = 분류 조회 합계, 색 = 분류 조회 평소 대비 중간값, 누르면 그 분류 콘텐츠
     // 묶는 기준: 분류(g) · 형식(t) · 제작(p). 형식·제작 네모를 누르면 그 안 콘텐츠(S.tmSel), 「‹ 묶음」으로 돌아감
-    const TB = [['g', '분류'], ['t', '형식'], ['p', '제작']], by = S.g ? 'g' : (S.tmBy || 'g'), byN = TB.find(x => x[0] === by)[1];
+    const TB = [['g', '주제'], ['tg', '유형'], ['ty', '세부 유형'], ['t', '형식'], ['p', '제작']], by = S.g ? 'g' : (S.tmBy || 'g'), byN = TB.find(x => x[0] === by)[1];
     if (S.g || by === 'g') S.tmSel = null;
-    const keyOf = it => by === 't' ? typeShort(it.t) : by === 'p' ? (it.p || '–') : it.g;
+    const keyOf = it => by === 't' ? typeShort(it.t) : by === 'p' ? (it.p || '–') : by === 'tg' ? (it.tg || '유형 없음') : by === 'ty' ? (it.ty || '유형 없음') : it.g;
     $('trendSub').textContent = (S.g ? S.g + (S.gs ? ' › ' + S.gs : '') + ' · ' : '') + periodPhrase() + ' 게시물 · ' + (S.g || S.tmSel ? '네모 하나 = 콘텐츠 하나' : '네모 하나 = ' + byN + ' 하나 · 누르면 그 안 콘텐츠') + ' · 숫자는 ' + vW() + ' 평소 대비';
     $('tmBy').innerHTML = S.g ? '' : (S.tmSel ? '<button type="button" class="chip" data-tmback="1">‹ ' + byN + ' 묶음</button><b class="tm-sel">' + esc(S.tmSel) + '</b>' : '<span class="mu">묶는 기준</span>' + segBtns('tmBySeg', TB, by));
     $('tmBy').querySelectorAll('#tmBySeg button').forEach(b => b.addEventListener('click', () => { S.tmBy = b.dataset.v; S.tmSel = null; renderTrend(); }));
@@ -2491,7 +2492,7 @@
   const GROUPS = [['content', '콘텐츠별'], ['day', '일별'], ['week', '주별'], ['month', '월별'], ['channel', '채널별'], ['category', '분류별'], ['subcat', '세부 분류별'], ['producer', '제작별'], ['person', '사람별'], ['format', '형식별'], ['weekday', '요일별']];
   // 콘텐츠별 열
   const CCOLS = [
-    ['title', '제목', it => title(it.n), 's'], ['d', '게시일', it => it.d, 's'], ['c', '채널', it => chName(it.c), 's'], ['t', '형식', it => fmtType(it.t), 's'], ['g', '분류', it => it.g, 's'], ['gs', '세부 분류', it => it.s || '', 's'], ['ec', '분류 코드', it => it.ec || '', 's'], ['fun', '예능 톤', it => it.fun ? '예능' : '', 's'], ['p', '제작', it => it.p, 's'],
+    ['title', '제목', it => title(it.n), 's'], ['d', '게시일', it => it.d, 's'], ['c', '채널', it => chName(it.c), 's'], ['t', '형식', it => fmtType(it.t), 's'], ['g', '분류', it => it.g, 's'], ['gs', '세부 분류', it => it.s || '', 's'], ['ec', '주제 코드', it => it.ec || '', 's'], ['tg', '유형', it => it.tg || '', 's'], ['ty', '세부 유형', it => it.ty ? it.ty + (it.tya ? ' (자동)' : '') : '', 's'], ['p', '제작', it => it.p, 's'],
     ['w', '참여자', it => (it.w || []).join(', '), 's'],
     ['views', '조회', it => xv(it, 0), 'n'], ['likes', '좋아요', it => xv(it, 1), 'n'], ['comments', '댓글', it => xv(it, 2), 'n'], ['shares', '공유', it => xv(it, 3), 'n'], ['saves', '저장', it => xv(it, 4), 'n'],
     ['reach', '도달', it => it.r, 'n'], ['eng', '반응률', engagement, 'p'], ['comp', '끝까지 본 비율', completion, 'p'], ['ratio', '조회 평소 대비(배)', it => !!it.ad ? null : ratio(it), 'x'],
@@ -3605,7 +3606,7 @@
       '<section class="dsec" id="dChart"><h1 class="dtitle">' + line(it) + '</h1>' +
         '<div class="dbig num">' + fmt(mainVal(it)) + '<small class="' + cls + '">' + (it.ad ? '광고 영상이라 평소 대비는 계산하지 않아요' : it.hid ? '비공개로 보임 · 평소 계산에서 뺌' : d == null ? '' : (young(it) ? (youngTxt(it) ? youngTxt(it) + ' · 조회 모이는 중' : '조회 모이는 중 · ' + youngWait(it)) : MN[m] + ' ' + vsTxt(d + 1))) + '</small></div>' +
         (wk != null ? '<div class="num ' + (wk >= 0 ? 'up' : 'down') + '" style="font-weight:700;margin-top:2px">이번 주 ' + MN[m] + ' ' + sgn(wk) + fmt(wk) + '</div>' : '') +
-        '<div class="dtags"><span class="tag">' + esc(glab(it)) + '</span>' + ptag(it.p) + adtag(it) + coTag(it) + archTag(it) + credTag(it) + susTag(it) + hidTag(it) + histTag(it) + '<span class="tag">' + esc(fmtType(it.t)) + '</span>' + (it.w || []).map(n => '<span class="tag">' + esc(n) + '</span>').join('') + '</div>' +
+        '<div class="dtags"><span class="tag">' + esc(glab(it)) + '</span>' + tyTag(it) + ptag(it.p) + adtag(it) + coTag(it) + archTag(it) + credTag(it) + susTag(it) + hidTag(it) + histTag(it) + '<span class="tag">' + esc(fmtType(it.t)) + '</span>' + (it.w || []).map(n => '<span class="tag">' + esc(n) + '</span>').join('') + '</div>' +
         '<div class="cmp"><canvas id="dCanvas"></canvas></div>' +
         // 누를 수 없는 토글 대신 실제로 그린 차트 이름 한 줄
         '<p class="note" style="text-align:center">' + (detailLine(it) ? '기록 날짜별 쌓인 값 ' + MN[m] : '이 콘텐츠 · 같은 분류 · 같은 형식 중간값' + (young(it) ? ' · 중간값은 다 자란 게시물의 최종 조회' : '')) + '</p></section>' +
@@ -3901,7 +3902,7 @@
   const nz = x => String(x || '').replace(/(\.\.\.|…)\s*$/, '').replace(/[\s⠀.]+/g, '');
   const metaLabel = n => { const m = /^(?:Instagram (?:게시물|post)|게시물):\s*"?([\s\S]*?)"?$/i.exec(n || ''); return (m ? m[1] : n || '').split('\n')[0].replace(/(\.\.\.|…)$/, '').trim() || n; };
   const EXP = window.SNS_EXP || { names: {}, s: {}, depts: [] };
-  const expOf = it => it.ex || (/^E/.test(it.ec || '') ? it.ec : '') || it.exs || ''; // 「E04,E05」 확정 > 분류표 자동 코드(서버 it.ec, 2026-10-24) > 낱말 제안
+  const expOf = it => it.ex || it.ec || it.exs || ''; // 「E04,E05」 확정 > 분류표 자동 코드(서버 it.ec, 2026-10-24) > 낱말 제안
   function prep() {
     D.items.forEach(it => { if (it.ex || !(EXP.s)) return; const k = it.c === '유튜브' ? 'yt:' + ytId(it.u) : 'ig:' + igCode(it.u); if (EXP.s[k]) it.exs = EXP.s[k]; });
     if (D.items.some(it => it.L)) { D.coverage = D.coverage || {}; D.coverage['유튜브'] = '2012-01-01'; }
