@@ -2339,7 +2339,7 @@
   // ═════════ 6. 콘텐츠 탐색 ═════════
   function viewExplore() {
     const html = '<section class="sec"><div class="sh"><div><h2>콘텐츠 동향</h2><p id="trendSub"></p></div><div class="seg" id="trendCh" hidden></div></div>' +
-      '<div class="chips fade" id="gchips"></div><div class="tm-by" id="tmBy"></div><div class="tree" id="tree"></div><div class="legend"><span class="lg-c"><span class="chip" aria-pressed="true">크기 = ' + (S.ch === '타 대학' ? '좋아요' : '조회') + '</span><span class="chip" aria-pressed="true">색 = 평소 대비</span></span><span class="scale" id="scale"></span></div></section>' +
+      '<div class="tm-by" id="tmBy"></div><div class="chips fade" id="gchips" hidden></div><ol class="hm-list" id="tlist"></ol><div id="tlMoreBox"></div></section>' +
       secOpen('콘텐츠 순위', '<span id="rankSub"></span>') + '<div class="chips" id="rankTabs"></div><ol class="rank" id="rank"></ol><button class="more" id="rankMore" type="button">더 보기 ›</button>' + secClose +
       secOpen('전체 콘텐츠', '행을 누르면 상세 정보가 열려요 · 원하는 조건으로 뽑으려면 하단 「추출」을 쓰세요') + '<div class="tw"><table><thead><tr id="thead"></tr></thead><tbody id="tbody"></tbody></table></div><button class="more" id="tblMore" type="button">더 보기 ›</button>' + secClose;
     $('view').innerHTML = html;
@@ -2357,75 +2357,46 @@
     }
     const chs = isAll ? [S.trendCh] : viewChannels();
     const L = pool({ channels: chs });
-    const groups = groupBy(L, 'g').sort((a, b) => b.n - a.n), groupsAll = groups;
-    const subs = S.g ? groupBy(L.filter(it => it.g === S.g && it.s), 's').sort((a, b) => b.n - a.n) : [];
-    if (!subs.length) S.gs = null;
-    const subHtml = subs.length ? '<span class="gsep"></span><button class="chip sub" type="button" data-gs="" aria-pressed="' + (!S.gs) + '">전체</button>' +
-      subs.map(r => '<button class="chip sub" type="button" data-gs="' + esc(r.k) + '" aria-pressed="' + (S.gs === r.k) + '">' + esc(r.k) + ' <small>' + r.n + '</small></button>').join('') + '<span class="gsep"></span>' : '';
-    $('gchips').innerHTML = '<button class="chip" type="button" data-g="" aria-pressed="' + (!S.g) + '">전체</button>' +
-      groups.map(r => { const d = r.idx - 1; return '<button class="chip" type="button" data-g="' + esc(r.k) + '" aria-pressed="' + (S.g === r.k) + '">' + esc(r.k) + (r.idx == null ? '' : '<b class="' + dCls(d) + '"> ' + vsP(r.idx) + '</b>') + '</button>' + (S.g === r.k ? subHtml : ''); }).join('');
-    const selC = $('gchips').querySelector('.chip[data-g][aria-pressed="true"]'); if (selC && S.g) $('gchips').scrollLeft = Math.max(0, selC.offsetLeft - 16);
-    $('gchips').querySelectorAll('.chip[data-g]').forEach(b => b.addEventListener('click', () => { S.g = b.dataset.g || null; S.gs = null; renderTrend(); renderRank(); }));
-    $('gchips').querySelectorAll('.chip[data-gs]').forEach(b => b.addEventListener('click', () => { S.gs = b.dataset.gs || null; renderTrend(); renderRank(); }));
-    const box = $('tree');
-    // 「전체」일 때는 콘텐츠 하나하나 대신 분류별로 묶어 보여준다(2026-10-20 사용자 요청) — 크기 = 분류 조회 합계, 색 = 분류 조회 평소 대비 중간값, 누르면 그 분류 콘텐츠
-    // 묶는 기준: 분류(g) · 형식(t) · 제작(p). 형식·제작 네모를 누르면 그 안 콘텐츠(S.tmSel), 「‹ 묶음」으로 돌아감
+    // 묶는 기준별 목록(2026-10-24 트리맵 → 정렬 목록): 한 줄 = 묶음 하나, 오른쪽 위 = 평소 대비, 아랫줄 = 개수 · 조회 비중 막대, 오른쪽 아래 = 히트율
+    // 줄을 누르면 그 안 콘텐츠(주제 = S.g, 그 밖 = S.tmSel), 「‹ 전체」로 돌아감
     const TB = [['g', '주제'], ['tg', '유형'], ['ty', '세부 유형'], ['t', '형식'], ['p', '제작']], by = S.g ? 'g' : (S.tmBy || 'g'), byN = TB.find(x => x[0] === by)[1];
     if (S.g || by === 'g') S.tmSel = null;
     const keyOf = it => by === 't' ? typeShort(it.t) : by === 'p' ? (it.p || '–') : by === 'tg' ? (it.tg || '유형 없음') : by === 'ty' ? (it.ty || '유형 없음') : it.g;
-    $('trendSub').textContent = (S.g ? S.g + (S.gs ? ' › ' + S.gs : '') + ' · ' : '') + periodPhrase() + ' 게시물 · ' + (S.g || S.tmSel ? '네모 하나 = 콘텐츠 하나' : '네모 하나 = ' + byN + ' 하나 · 누르면 그 안 콘텐츠') + ' · 숫자는 ' + vW() + ' 평소 대비';
-    $('tmBy').innerHTML = S.g ? '' : (S.tmSel ? '<button type="button" class="chip" data-tmback="1">‹ ' + byN + ' 묶음</button><b class="tm-sel">' + esc(S.tmSel) + '</b>' : '<span class="mu">묶는 기준</span>' + segBtns('tmBySeg', TB, by));
-    $('tmBy').querySelectorAll('#tmBySeg button').forEach(b => b.addEventListener('click', () => { S.tmBy = b.dataset.v; S.tmSel = null; renderTrend(); }));
-    $('tmBy').querySelectorAll('[data-tmback]').forEach(b => b.addEventListener('click', () => { S.tmSel = null; renderTrend(); }));
-    if (!S.g && !S.tmSel) {
-      const groups = by === 'g' ? groupsAll : groupBy(L, keyOf);
-      const G = groups.map(r => ({ r, w: sum(r.arr.map(it => mainVal(it) || 0)) })).filter(x => x.w > 0).sort((a, b) => b.w - a.w).slice(0, 14);
-      if (!G.length) { box.innerHTML = '<div class="empty">조건에 맞는 콘텐츠가 없어요.</div>'; return; }
-      const rg = squarify(G.map(x => ({ it: x.r, w: x.w })), 0, 0, box.clientWidth, box.clientHeight);
-      box.innerHTML = rg.map((q, i) => { const d = (q.it.idx || 0) - 1, area = q.w * q.h, cls = (area < 9000 ? (area < 4500 ? 'tm s xs' : 'tm s') : 'tm') + (q.w < 90 ? ' narrow' : '') + (area < 2200 || q.h < 34 ? ' xxs' : '') + (heatLight(d) ? ' lt' : '');
-        return '<button type="button" class="' + cls + '" data-k="' + esc(q.it.k) + '" title="' + esc(q.it.k + ' · 게시물 ' + q.it.n + '개' + (q.it.idx == null ? '' : ' · ' + vW() + ' ' + vsTxt(q.it.idx))) + '" style="left:' + q.x + 'px;top:' + q.y + 'px;width:' + q.w + 'px;height:' + q.h + 'px;background:' + heat(d) + '">' +
-          '<span class="a">' + esc(q.it.k) + '</span><span class="b num">' + q.it.n + '개' + (q.it.idx == null ? '' : '<span class="r"> · ' + vsP(q.it.idx) + '</span>') + '</span></button>'; }).join('');
-      box.querySelectorAll('.tm').forEach(b => b.addEventListener('click', () => { if (by === 'g') { S.g = b.dataset.k; S.gs = null; renderTrend(); renderRank(); } else { S.tmSel = b.dataset.k; renderTrend(); } }));
-      $('scale').innerHTML = '<span>평소보다 낮음</span>' + [-0.75, -0.4, 0, 1, 3].map(d => '<i style="background:' + heat(d) + '"></i>').join('') + '<span>높음</span>';
+    const sel = S.g || S.tmSel, box = $('tlist'), more = $('tlMoreBox');
+    $('trendSub').textContent = sel ? vW() + ' 많은 순 · 누르면 상세' : vW() + ' 평소 대비 높은 순 · 누르면 그 안 게시물'; // 30자 이하라 「기준」 접기 없이 그대로 보임
+    const subs = S.g ? groupBy(L.filter(it => it.g === S.g && it.s), 's').sort((a, b) => b.n - a.n) : [];
+    if (!subs.length) S.gs = null;
+    $('tmBy').innerHTML = sel ? '<button type="button" class="chip" data-tmback="1">‹ ' + byN + ' 전체</button><b class="tm-sel">' + esc(sel) + '</b>' : '<span class="mu">묶는 기준</span>' + segBtns('tmBySeg', TB, by);
+    $('gchips').hidden = !subs.length;
+    $('gchips').innerHTML = subs.length ? '<button class="chip" type="button" data-gs="" aria-pressed="' + (!S.gs) + '">전체</button>' + subs.map(r => '<button class="chip" type="button" data-gs="' + esc(r.k) + '" aria-pressed="' + (S.gs === r.k) + '">' + esc(r.k) + ' <small>' + r.n + '</small></button>').join('') : '';
+    $('tmBy').querySelectorAll('#tmBySeg button').forEach(b => b.addEventListener('click', () => { S.tmBy = b.dataset.v; S.tmSel = null; S.tlFew = false; renderTrend(); }));
+    $('tmBy').querySelectorAll('[data-tmback]').forEach(b => b.addEventListener('click', () => { const g = S.g; S.g = null; S.gs = null; S.tmSel = null; renderTrend(); if (g) renderRank(); }));
+    $('gchips').querySelectorAll('.chip[data-gs]').forEach(b => b.addEventListener('click', () => { S.gs = b.dataset.gs || null; S.tlShown = 10; renderTrend(); renderRank(); }));
+    more.innerHTML = '';
+    if (!sel) {
+      const G = groupBy(L, keyOf), wOf = r => sum(r.arr.map(it => mainVal(it) || 0)), tot = sum(G.map(wOf)) || 0;
+      if (!G.length) { box.innerHTML = '<li class="empty">조건에 맞는 콘텐츠가 없어요.</li>'; return; }
+      const ok = r => r.n >= MIN_N && r.idx != null;
+      const many = G.filter(ok).sort((a, b) => b.idx - a.idx), few = G.filter(r => !ok(r)).sort((a, b) => b.n - a.n);
+      const mx = Math.max(...G.map(wOf), 1);
+      const row = r => { const w = wOf(r), fw = !ok(r);
+        return hmRow({ tag: 'li', cls: 'hm-rk', attr: 'tabindex="0" data-k="' + esc(r.k) + '"', tip: r.k + ' · 게시물 ' + r.n + '개 · ' + vW() + ' 합 ' + fmt(w) + (r.idx == null ? '' : ' · ' + vW() + ' ' + vsTxt(r.idx)),
+          t: esc(r.k), v: fw ? (r.n < MIN_N ? '표본 적음' : '비교 전') : vsP(r.idx), vc: fw ? 'mu' : xCls(r.idx),
+          m: r.n + '개 · ' + vW() + ' 비중 <span class="tl-bar" aria-hidden="true"><i style="width:' + Math.max(3, Math.round(w / mx * 100)) + '%"></i></span> <span class="num">' + pct0(tot ? w / tot : null) + '</span>',
+          r: r.hit == null || fw ? '' : '히트율 ' + pct0(r.hit) }); };
+      box.innerHTML = many.map(row).join('') + (few.length ? '<li class="hm-open" id="tlFew"' + (S.tlFew ? '' : ' hidden') + '><ol class="hm-list">' + few.map(row).join('') + '</ol></li>' : '');
+      if (few.length) { more.innerHTML = '<button class="more" id="tlFewBtn" type="button">' + (S.tlFew ? '접기' : '게시물 ' + MIN_N + '개 미만 ' + few.length + '개 더 보기 ›') + '</button>'; $('tlFewBtn').addEventListener('click', () => { S.tlFew = !S.tlFew; renderTrend(); }); }
+      box.querySelectorAll('li[data-k]').forEach(li => { const go = () => { S.tlShown = 10; if (by === 'g') { S.g = li.dataset.k; S.gs = null; renderTrend(); renderRank(); } else { S.tmSel = li.dataset.k; renderTrend(); } };
+        li.addEventListener('click', go); li.addEventListener('keydown', e => { if (e.key === 'Enter') go(); }); });
       return;
     }
-    const items = (S.tmSel ? L.filter(it => keyOf(it) === S.tmSel) : S.g ? L.filter(it => it.g === S.g && (!S.gs || it.s === S.gs)) : L).filter(it => mainVal(it) > 0).sort((a, b) => mainVal(b) - mainVal(a)).slice(0, 18);
-    if (!items.length) { box.innerHTML = '<div class="empty">조건에 맞는 콘텐츠가 없어요.</div>'; return; }
-    const W = box.clientWidth, H = box.clientHeight;
-    const rects = squarify(items.map(it => ({ it, w: mainVal(it) })), 0, 0, W, H);
-    box.innerHTML = rects.map((r, i) => {
-      const d = (ratio(r.it) || 0) - 1, area = r.w * r.h;
-      // 아주 작은 네모는 제목도 숨기고 색만(눌러서 상세), 좁은 네모는 숫자를 두 줄로. 제목 원문은 그대로, 말줄임만
-      const cls = (area < 9000 ? (area < 4500 ? 'tm s xs' : 'tm s') : 'tm') + (r.w < 90 ? ' narrow' : '') + (area < 2200 ? ' xxs' : '') + (heatLight(d) ? ' lt' : '');
-      const rv = ratio(r.it);
-      return '<button type="button" class="' + cls + '" data-i="' + i + '" title="' + esc(title(r.it.n)) + '" style="left:' + r.x + 'px;top:' + r.y + 'px;width:' + r.w + 'px;height:' + r.h + 'px;background:' + heat(d) + '">' +
-        '<span class="a">' + esc(title(r.it.n)) + '</span><span class="b num">' + fmtK(mainVal(r.it)) + (rv == null ? '' : '<span class="r"> · ' + vsP(rv) + '</span>') + '</span></button>';
-    }).join('');
-    box.querySelectorAll('.tm').forEach(b => b.addEventListener('click', () => openDetail(rects[+b.dataset.i].it)));
-    $('scale').innerHTML = '<span>평소보다 낮음</span>' + [-0.75, -0.4, 0, 1, 3].map(d => '<i style="background:' + heat(d) + '"></i>').join('') + '<span>높음</span>';
+    const items = (S.tmSel ? L.filter(it => keyOf(it) === S.tmSel) : L.filter(it => it.g === S.g && (!S.gs || it.s === S.gs))).sort((a, b) => (mainVal(b) || 0) - (mainVal(a) || 0));
+    if (!items.length) { box.innerHTML = '<li class="empty">조건에 맞는 콘텐츠가 없어요.</li>'; return; }
+    const shown = items.slice(0, S.tlShown || 10);
+    box.innerHTML = rankRows(shown); wireRank(box, shown);
+    if (items.length > shown.length) { more.innerHTML = '<button class="more" id="tlMore" type="button">' + (items.length - shown.length) + '개 더 보기 ›</button>'; $('tlMore').addEventListener('click', () => { S.tlShown = (S.tlShown || 10) + 20; renderTrend(); }); }
   }
-  // 색: 높음 = 파랑 단계, 낮음 = 주황 단계(하락색 계열, 갈색·황토 없음), ±3% 이내 = 회색
-  const HEAT_UP = [[120, 182, 214], [52, 148, 196], [0, 120, 173], [0, 84, 148]], HEAT_DN = [[253, 186, 140], [249, 146, 92], [234, 108, 52], [194, 65, 12]];
-  const heatK = d => d >= 0 ? (d < 0.3 ? 0 : d < 1 ? 1 : d < 3 ? 2 : 3) : (d > -0.25 ? 0 : d > -0.5 ? 1 : d > -0.75 ? 2 : 3);
-  const heatLight = d => Math.abs(d) >= FLAT && d < 0 && heatK(d) <= 1; // 밝은 주황 두 단계는 글자를 진하게
-  function heat(d) {
-    if (Math.abs(d) < FLAT) return 'rgb(156,163,175)';
-    return 'rgb(' + (d >= 0 ? HEAT_UP : HEAT_DN)[heatK(d)].join(',') + ')';
-  }
-  function squarify(nodes, x, y, w, h) {
-    const total = nodes.reduce((s, n) => s + n.w, 0), scale = (w * h) / total;
-    const items = nodes.map(n => ({ it: n.it, a: n.w * scale }));
-    const out = []; let rect = { x, y, w, h }, row = [];
-    const worst = (r, side) => { const s = r.reduce((t, n) => t + n.a, 0); const mx = Math.max(...r.map(n => n.a)), mn = Math.min(...r.map(n => n.a)); return Math.max(side * side * mx / (s * s), (s * s) / (side * side * mn)); };
-    const layout = r => {
-      const s = r.reduce((t, n) => t + n.a, 0);
-      if (rect.w >= rect.h) { const cw = s / rect.h; let cy = rect.y; r.forEach(n => { const ch = n.a / cw; out.push({ it: n.it, x: Math.round(rect.x), y: Math.round(cy), w: Math.round(cw), h: Math.round(ch) }); cy += ch; }); rect = { x: rect.x + cw, y: rect.y, w: rect.w - cw, h: rect.h }; }
-      else { const ch = s / rect.w; let cx = rect.x; r.forEach(n => { const cw = n.a / ch; out.push({ it: n.it, x: Math.round(cx), y: Math.round(rect.y), w: Math.round(cw), h: Math.round(ch) }); cx += cw; }); rect = { x: rect.x, y: rect.y + ch, w: rect.w, h: rect.h - ch }; }
-    };
-    items.forEach(n => { const side = Math.min(rect.w, rect.h); if (!row.length || worst(row.concat(n), side) <= worst(row, side)) row.push(n); else { layout(row); row = [n]; } });
-    if (row.length) layout(row);
-    return out;
-  }
+
   function renderRank() {
     const tabs = [['views', '많이 본'], ['hot', '평소보다 잘 된'], ['quality', '반응 좋은', '인스타 = 반응률 · 유튜브 = 끝까지 본 비율 · hong = 좋아요율']];
     if (weekly()) tabs.splice(1, 0, ['week', '급상승', '지난 기록보다 많이 늘어난 순']);
