@@ -1371,7 +1371,7 @@
   function kpi7Html(chs) {
     const { today, q0, d90, y1, own } = k7Ctx();
     const rate = (L, j) => median(L.map(it => k7Rate(it, j)));
-    const ig = own.filter(it => it.c === '인스타그램' && it.d >= d90 && daysBetween(it.d, today) >= 7);
+    const ig = own.filter(it => it.c === '인스타그램' && it.d >= d90 && daysBetween(it.d, today) >= 7 && it.tg !== '이벤트'); // 이벤트(참여형)는 저장·공유 KPI에서 뺌(2026-10-24, 목적이 참여라 같은 잣대가 아님)
     const car = ig.filter(it => it.t === '캐러셀'), carC = car.filter(it => it.cn && it.cn !== '없음');
     const yt = own.filter(it => it.c === '유튜브' && it.t !== '1분 이하'), ytB = median(yt.filter(it => it.d >= y1 && !young(it)).map(mainVal));
     const ytQ = yt.filter(it => it.d >= d90 && !young(it)), ytR = ytB ? median(ytQ.map(it => mainVal(it) / ytB)) : null;
@@ -1395,7 +1395,10 @@
     // 피드 점검(KPI 아님, 2026-10-24): 인스타 피드 중 공지·소식 비율 = 「공지판처럼 보이나」. 낮을수록 매거진답게. 비율을 세는 거라 자동 판정도 넣고 표시
     const feed = own.filter(it => it.c === '인스타그램' && it.t !== '스토리' && it.tg), fMon = lastMonths(3).map(k => { const a = feed.filter(it => it.d.slice(0, 7) === k); return a.length ? monLab(k) + ' ' + pct0(a.filter(it => it.tg === '공지·소식').length / a.length) : ''; }).filter(Boolean);
     const f90 = feed.filter(it => it.d >= d90), fN = f90.filter(it => it.tg === '공지·소식').length;
-    const fl = f90.length ? '<p class="note">피드 점검 · 인스타 피드 중 공지·소식 ' + pct0(fN / f90.length) + ' (최근 90일 ' + fN + '/' + f90.length + '개' + (fMon.length ? ' · ' + esc(fMon.join(' · ')) : '') + ') · 낮을수록 매거진답게' + (f90.some(it => !trustTy(it)) ? ' · 자동 판정 포함' : '') + '</p>' : '';
+    // 이벤트(2026-10-24 따로): 비율 + 참여(댓글 ÷ 도달, 도달 300 이상 중간값) — 이벤트는 도달·저장이 아니라 참여로 봄
+    const e90 = f90.filter(it => it.tg === '이벤트'), eRx = median(e90.map(it => k7Rate(it, 2)).filter(v => v != null));
+    const fl = f90.length ? '<p class="note">피드 점검 · 인스타 피드 중 공지·소식 ' + pct0(fN / f90.length) + ' (최근 90일 ' + fN + '/' + f90.length + '개' + (fMon.length ? ' · ' + esc(fMon.join(' · ')) : '') + ') · 낮을수록 매거진답게' +
+      (e90.length ? ' · 이벤트 ' + e90.length + '개, 댓글 ÷ 도달 ' + pctA(eRx) : '') + (f90.some(it => !trustTy(it)) ? ' · 자동 판정 포함' : '') + '</p>' : '';
     return secOpen('KPI 7개', '2026-10-23 승인(결정 대기 D20) · 줄을 누르면 자세한 데이터와 목표까지 할 일') + '<div class="k7">' + h + '</div>' + emp + fl + secClose;
   }
   function prescribe(chs) {
@@ -3776,7 +3779,7 @@
     E18: '풍경·계절', E19: '꿀팁 정리·즉석 질문', E20: '행사 스케치' };
   function kpi7Page(key) {
     const C = k7Ctx(), A = [], T = [], tip = (w, b, s) => T.push(kRow('good', w, b, s));
-    const ig1 = C.own.filter(it => it.c === '인스타그램' && it.d >= C.y1 && daysBetween(it.d, C.today) >= 7), ig90 = ig1.filter(it => it.d >= C.d90);
+    const ig1 = C.own.filter(it => it.c === '인스타그램' && it.d >= C.y1 && daysBetween(it.d, C.today) >= 7 && it.tg !== '이벤트'), ig90 = ig1.filter(it => it.d >= C.d90);
     const best = (G, f, w, auto) => { if (G.length < 2) return; const a = G[0], z = G[G.length - 1]; A.push(kRow('good', w, a.k + ' ' + f(a.v) + ' · ' + a.n + '개', '가장 낮은 ' + z.k + ' ' + f(z.v) + ' · 최근 1년 · ' + MIN_N + '개 이상 묶음만' + (auto ? ' · 자동 판정 포함' : ''))); };
     const tyNone = (L, why) => A.push(kRow('info', '유형', '사람·검토 유형이 쌓이면 비교해요', '지금 ' + L.filter(trustTy).length + '개 · ' + why));
     if (key === 'k7save' || key === 'k7share') {
