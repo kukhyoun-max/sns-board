@@ -227,9 +227,12 @@
       const warn = [archTag(it), susTag(it), hidTag(it)].map(tagTxt).filter(x => x && x !== v);
       const tip = [glab(it), it.p, ...[tyTag(it), adtag(it), coTag(it), credTag(it), histTag(it), archTag(it), susTag(it)].map(tagTxt)].filter(Boolean).join(' · ') + (yg ? ' · 올린 지 ' + AGE_MIN + '일이 안 돼 조회가 아직 쌓이는 중' : '');
       const ty = typeShort(it.t);
-      return hmRow({ tag: 'li', cls: 'hm-rk', attr: 'tabindex="0" data-i="' + i + '"', tip, c: it.c, t: esc(title(it.n)), v, vc,
+      // 순위 탭(2026-10-24): opt.top이 있으면 오른쪽 위 = 그 탭이 줄 세운 값, 평소 대비는 오른쪽 아래(색만 유지)
+      const vsLow = v ? '<b class="' + vc + '">' + (r != null && !yg && !it.ad && !it.hid ? vsTxt(r) : v) + '</b>' : '';
+      const top = opt.top ? opt.top(it, mvTxt) : null;
+      return hmRow({ tag: 'li', cls: 'hm-rk', attr: 'tabindex="0" data-i="' + i + '"', tip, c: it.c, t: esc(title(it.n)), v: top != null ? top : v, vc: top != null ? '' : vc,
         m: [ty ? esc(ty) : '', '<span title="' + esc(dot(it.d)) + '">' + whenTxt(it.d) + '</span>', ...warn.map(w => '<span class="down">' + esc(w) + '</span>')].filter(Boolean).join(' · '),
-        r: opt.right ? opt.right(it) : mName(it) + ' <span class="num">' + mvTxt + '</span>' });
+        r: opt.right ? opt.right(it) : top != null ? vsLow : mName(it) + ' <span class="num">' + mvTxt + '</span>' });
     }).join('') || '<li class="empty">조건에 맞는 콘텐츠가 없어요.</li>';
   }
   function wireRank(el, L) {
@@ -2412,8 +2415,16 @@
     $('rankSub').textContent = { views: (S.ch === '타 대학' ? '좋아요' : '조회') + ' 많은 순', hot: vW() + ' 평소 대비가 높은 순 · 채널 규모와 상관없이 비교해요', quality: '반응 좋은 순 · 인스타 반응률 · 유튜브 끝까지 본 비율 · hong 좋아요율', week: '지난 기록보다 많이 늘어난 순', save: '저장률 평소 대비 높은 순 · 같은 형식 대비 · 도달 300 이상', share: '공유율 평소 대비 높은 순 · 같은 형식 대비 · 도달 300·조회 500 이상', talk: '댓글 많은 순' }[S.rankBy] + (S.g ? ' · ' + S.g : '');
     const sorted = L.filter(it => score(it) != null).sort((a, b) => score(b) - score(a));
     const shown = sorted.slice(0, S.rankShown);
-    const rxRight = k => ({ right: it => RXM[k][1] + ' <span class="num">' + pctA(rxRate(it, k)) + '</span> · <em class="' + xCls(rxVal(it, k)) + '">' + vsTxt(rxVal(it, k)) + '</em>' });
-    $('rank').innerHTML = rankRows(shown, S.rankBy === 'save' || S.rankBy === 'share' ? rxRight(S.rankBy) : S.rankBy === 'talk' ? { right: it => '댓글 <span class="num">' + fmt(val(it, 2)) + '</span>' + (val(it, 1) > 0 ? ' · 좋아요 <span class="num">' + fmtK(val(it, 1)) + '</span>' : '') } : S.rankBy === 'quality' ? { right: it => qName(it.c) + ' <em>' + pct(quality(it)) + '</em>' } : S.rankBy === 'week' ? { right: it => '이번 주 ' + mName(it) + ' <em class="up">+' + fmtK(inc(it, mainM(it.c))) + '</em>' } : null);
+    const rxSame = k => it => '<b class="' + xCls(rxVal(it, k)) + '">' + vsTxt(rxVal(it, k)) + '</b>'; // 같은 형식 평소 대비(부제에 「같은 형식 대비」)
+    const OPT = {
+      views: { top: (it, mv) => mName(it) + ' ' + mv },
+      quality: { top: it => qName(it.c) + ' ' + pct(quality(it)) },
+      week: { top: it => '+' + fmtK(inc(it, mainM(it.c))) },
+      save: { top: it => RXM.save[1] + ' ' + pctA(rxRate(it, 'save')), right: rxSame('save') },
+      share: { top: it => RXM.share[1] + ' ' + pctA(rxRate(it, 'share')), right: rxSame('share') },
+      talk: { top: it => '댓글 ' + fmt(val(it, 2)), right: it => val(it, 1) > 0 ? '좋아요 <span class="num">' + fmtK(val(it, 1)) + '</span>' : '' },
+    }[S.rankBy] || null;
+    $('rank').innerHTML = rankRows(shown, OPT);
     wireRank($('rank'), shown);
     $('rankMore').hidden = S.rankShown >= sorted.length;
   }
