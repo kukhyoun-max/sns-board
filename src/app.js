@@ -3869,12 +3869,10 @@
       if (need && left > 0) tip('속도', '남은 ' + Math.ceil(left / 7) + '주 동안 영역 ' + need + '개', '주에 ' + Math.ceil(need * 2 / Math.max(1, Math.ceil(left / 7)) * 10) / 10 + '건꼴 · 한 영역에 2건씩');
       tip('기록', '기획서·「태그 수정」에 주제 확정', 'JJ 스튜디오 기획서 「주제」 칸 · 자동 판정보다 정확해요');
       const rows = cv.codes.map(c => ({ c, n: cv.cnt[c] || 0, pn: pv.cnt[c] || 0 }));
-      return { scope: '우리 채널', title: '경험 지도 커버리지', big: cv.n + '/' + cv.all, sub: '목표 ' + KPI_D20.cover + '/' + cv.all + ' · 이번 분기 · 2건 이상 = 다룸', A, T, tall: true,
-        note: '이번 분기 영역별 게시물 수 · 파란 막대 = 2건 이상 · 점선 = 2건',
-        chart: { type: 'bar', data: { labels: rows.map(x => nm(x.c)), datasets: [{ data: rows.map(x => x.n), backgroundColor: rows.map(x => x.n >= 2 ? css('--up') : css('--muted') + '88'), borderRadius: 3, maxBarThickness: 16 }] },
-          options: chartOpts({ indexAxis: 'y', layout: { padding: { top: 8 } }, plugins: { tooltip: { callbacks: { title: c => rows[c[0].dataIndex].c + ' ' + c[0].label, label: c => '이번 분기 ' + c.raw + '건 · 지난 분기 ' + rows[c.dataIndex].pn + '건' } } },
-            scales: { x: { display: true, beginAtZero: true, suggestedMax: 4, grid: { color: css('--line') }, ticks: { stepSize: 1, font: { size: 12 } } }, y: { display: true, grid: { display: false }, ticks: { autoSkip: false, font: { size: 12 }, color: css('--sub') } } } }),
-          plugins: [{ id: 'two', afterDatasetsDraw(c) { const s = c.scales.x, a = c.chartArea, X = s.getPixelForValue(2), x = c.ctx; x.save(); x.setLineDash([4, 4]); x.strokeStyle = css('--fg'); x.beginPath(); x.moveTo(X, a.top); x.lineTo(X, a.bottom); x.stroke(); x.restore(); } }] },
+      return { scope: '우리 채널', title: '경험 지도 커버리지', big: cv.n + '/' + cv.all, sub: '목표 ' + KPI_D20.cover + '/' + cv.all + ' · 이번 분기 · 2건 이상 = 다룸', A, T,
+        // 빙고판(2026-10-24 가로 막대 → 4×5 칸): 칸 하나 = 영역 하나, 2건 이상 = 파랗게 채움, 1건 = 연하게 + 점선, 0건 = 빈칸
+        note: '파란 칸 = 2건 이상(다룸) · 점선 칸 = 1건 · 빈칸 = 아직 없음',
+        board: '<div class="bingo" role="list">' + rows.map(x => '<div role="listitem" class="bg-c ' + (x.n >= 2 ? 'done' : x.n ? 'one' : 'zero') + '" title="' + esc(x.c + ' ' + nm(x.c) + ' · 이번 분기 ' + x.n + '건 · 지난 분기 ' + x.pn + '건') + '"><span>' + esc(nm(x.c)).replace(/([^\s·・ㆍ‧]+[·・ㆍ‧])/g, '<i>$1</i><wbr>') + '</span><b class="num">' + x.n + '건</b></div>').join('') + '</div>',
         list: null,
         table: kTbl(['영역', '이번 분기', '지난 분기'], rows.map(x => [x.c + ' ' + esc(nm(x.c)), x.n + '건', x.pn + '건'])) };
     }
@@ -3926,7 +3924,7 @@
     el.innerHTML = '<div class="dwrap">' +
       '<div class="dh"><button type="button" id="dClose" aria-label="뒤로">‹</button><div class="ctr"><small>' + esc(K.scope) + '</small><b>' + K.title + '</b></div><span></span></div>' +
       '<section class="dsec"><h1 class="dtitle">' + K.title + '</h1><div class="dbig num">' + K.big + (K.sub ? '<small>' + K.sub + '</small>' : '') + '</div>' +
-        (K.chart ? '<div class="cmp' + (K.tall ? ' k7tall' : '') + '"><canvas id="kCanvas"></canvas></div>' : '') + (K.note ? '<p class="note" style="text-align:center">' + K.note + '</p>' : '') + '</section>' +
+        (K.board || '') + (K.chart ? '<div class="cmp' + (K.tall ? ' k7tall' : '') + '"><canvas id="kCanvas"></canvas></div>' : '') + (K.note ? '<p class="note" style="text-align:center">' + K.note + '</p>' : '') + '</section>' +
       (K.A.length ? '<div class="gap"></div><section class="dsec sig"><h3>분석</h3><div class="h">' + mdLabel(D.updated) + ' 기준 · 광고·스토리 제외</div>' + K.A.join('') + '</section>' : '') +
       (K.T && K.T.length ? '<div class="gap"></div><section class="dsec sig"><h3>목표까지 이렇게</h3><div class="h">위 데이터에서 고른 것 + 현재 전략 기준 · 원인이 아니라 함께 나타난 특징이에요</div>' + K.T.join('') + '</section>' : '') +
       (K.list ? '<div class="gap"></div><section class="dsec">' + h3(K.list.t) + '<ol class="rank" id="kList">' + rankRows(K.list.L, K.list.o) + '</ol></section>' : '') +
