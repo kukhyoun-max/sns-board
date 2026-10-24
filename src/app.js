@@ -3747,7 +3747,7 @@
   const pp = v => v == null ? '–' : (Math.round(v * 10000) / 100) + '%p';
   const YOUNG_EXP = ['E01', 'E02', 'E04', 'E07', 'E08', 'E12', 'E15', 'E19']; // 예비 신입생·학부모가 볼 이유(00_현재 전략 체크리스트: 기숙사·수강신청·학과 수업·진로·장학·통학 + 입시)
   function kpi7Page(key) {
-    const C = k7Ctx(), A = [], T = [], tip = (b, s) => T.push(kRow('good', T.length + 1, b, s));
+    const C = k7Ctx(), A = [], T = [], tip = (w, b, s) => T.push(kRow('good', w, b, s));
     const ig1 = C.own.filter(it => it.c === '인스타그램' && it.d >= C.y1 && daysBetween(it.d, C.today) >= 7), ig90 = ig1.filter(it => it.d >= C.d90);
     const best = (G, f, w) => { if (G.length < 2) return; const a = G[0], z = G[G.length - 1]; A.push(kRow('good', w, a.k + ' ' + f(a.v) + ' · ' + a.n + '개', '가장 낮은 ' + z.k + ' ' + f(z.v) + ' · 최근 1년 · ' + MIN_N + '개 이상 묶음만')); };
     if (key === 'k7save' || key === 'k7share') {
@@ -3757,13 +3757,14 @@
       const ft = k7Grp(ig90, 't', f);
       if (ft.length) A.push(kRow('info', '형식', ft.map(r => r.k + ' ' + pctA(r.v)).join(' · '), '최근 90일 · 도달 300 이상 게시물'));
       if (cnt.length) A.push(kRow(okN / cnt.length >= 0.5 ? 'good' : 'bad', '목표', cnt.length + '개 중 ' + okN + '개가 ' + pctA(tgt) + ' 넘음', '최근 90일 ' + (sv ? '캐러셀' : '인스타 게시물')));
-      const G = k7Grp(B1, 'g', f), TG = k7Grp(B1, 'tg', f);
+      const G = k7Grp(B1, 'g', f), TG = k7Grp(B1.filter(it => !it.tya), 'tg', f);
       best(G, pctA, '주제'); best(TG, pctA, '유형');
+      if (TG.length < 2) A.push(kRow('info', '유형', '사람이 정한 유형이 쌓이면 비교해요', '자동 판정 유형은 성과 차이를 거의 설명하지 못해서 빼요(2026-10-24 점검)'));
       if (sv) A.push(corner.length ? kRow('info', '코너', '코너 캐러셀 ' + corner.length + '개 ' + pctA(f(corner)) + ' · 코너 없는 캐러셀 ' + pctA(f(B90.filter(it => !(it.cn && it.cn !== '없음')))), '최근 90일') : kRow('info', '코너', '코너 표시된 캐러셀이 아직 없어요', '「태그 수정」 F열에 코너를 적으면 코너 캐러셀만 따로 세요'));
-      if (G[0]) tip('「' + G[0].k + '」 주제를 ' + (sv ? '코너 캐러셀로 ' : '') + '더 자주', nm + ' ' + pctA(G[0].v) + ' · 최근 1년 ' + G[0].n + '개');
-      if (TG[0]) tip('「' + TG[0].k + '」 유형으로 만들기', nm + ' ' + pctA(TG[0].v) + ' · 최근 1년 ' + TG[0].n + '개');
-      if (sv) { tip('나중에 다시 볼 정보 한 장', '체크리스트 · 지도 · 일정표 · 꿀팁 정리 = 「가이드」 코너'); tip('단순 공지는 스토리로', '공지형 캐러셀이 저장률 평균을 내려요 · 00_현재 전략 체크리스트'); }
-      else { tip('친구에게 보낼 이유 넣기', '같이 갈 곳 · 우리 과 이야기 · 공감 상황'); tip('릴스·캐러셀 둘 다 1.0% 근처', '형식보다 소재가 공유를 가름 · 위 주제·유형 순위를 먼저 봐요'); }
+      if (G[0]) tip('주제', '「' + G[0].k + '」 주제를 ' + (sv ? '코너 캐러셀로 ' : '') + '더 자주', nm + ' ' + pctA(G[0].v) + ' · 최근 1년 ' + G[0].n + '개');
+      if (TG[0]) tip('유형', '「' + TG[0].k + '」 유형으로 만들기', nm + ' ' + pctA(TG[0].v) + ' · 최근 1년 ' + TG[0].n + '개');
+      if (sv) { tip('정보', '나중에 다시 볼 정보 한 장', '체크리스트 · 지도 · 일정표 · 꿀팁 정리 = 「가이드」 코너'); tip('공지', '단순 공지는 스토리로', '공지형 캐러셀이 저장률 평균을 내려요 · 00_현재 전략 체크리스트'); }
+      else { tip('소재', '친구에게 보낼 이유 넣기', '같이 갈 곳 · 우리 과 이야기 · 공감 상황'); tip('형식', '릴스·캐러셀 둘 다 1.0% 근처', '형식보다 소재가 공유를 가름 · 위 주제·유형 순위를 먼저 봐요'); }
       const M = k7Mon(B1, f), top = cnt.concat(B1.filter(it => it.d < C.d90 && k7Rate(it, j) != null)).sort((a, b) => k7Rate(b, j) - k7Rate(a, j)).slice(0, 8);
       return { scope: '인스타그램', title: '인스타 ' + nm, big: pctA(cur), sub: '목표 ' + pctA(tgt) + ' · ' + k7Gap(cur, tgt, pp), A, T,
         note: '월별 ' + nm + ' 중간값' + (sv ? ' · 캐러셀' : '') + ' · 파란 막대 = 목표 넘음 · 점선 = 목표',
@@ -3782,10 +3783,10 @@
         const Yg = Y1.filter(it => String(expOf(it)).split(',').some(c => YOUNG_EXP.includes(c))), Yo = Y1.filter(it => !Yg.includes(it));
         if (Yg.length >= MIN_N && Yo.length >= MIN_N) A.push(kRow(f(Yg) >= f(Yo) ? 'good' : 'info', '비교', '예비 신입생 주제 ' + vsP(f(Yg)) + ' · 그 밖 ' + vsP(f(Yo)), '최근 1년 ' + Yg.length + '개 · ' + Yo.length + '개'));
         const G = k7Grp(Y1, 'g', f); best(G, vsP, '주제');
-        if (G[0]) tip('「' + G[0].k + '」 롱폼 늘리기', '평소 대비 ' + vsP(G[0].v) + ' · 최근 1년 ' + G[0].n + '개');
-        if (Q.length && yg.length * 2 <= Q.length) tip('예비 신입생이 볼 주제를 과반으로', '지금 ' + yg.length + '/' + Q.length + '개 · 기숙사·수강신청·학과 수업·진로·장학·통학');
-        tip('제목 앞에 검색어', '학교 이름 · 학과 · 기숙사처럼 찾아볼 말 · 선행 지표 「제목 검색어 포함 100%」');
-        tip('롱폼마다 쇼츠 1~2개', '쇼츠에서 본편으로 데려오기 · 선행 지표');
+        if (G[0]) tip('주제', '「' + G[0].k + '」 롱폼 늘리기', '평소 대비 ' + vsP(G[0].v) + ' · 최근 1년 ' + G[0].n + '개');
+        if (Q.length && yg.length * 2 <= Q.length) tip('대상', '예비 신입생이 볼 주제를 과반으로', '지금 ' + yg.length + '/' + Q.length + '개 · 기숙사·수강신청·학과 수업·진로·장학·통학');
+        tip('제목', '제목 앞에 검색어', '학교 이름 · 학과 · 기숙사처럼 찾아볼 말 · 선행 지표 「제목 검색어 포함 100%」');
+        tip('쇼츠', '롱폼마다 쇼츠 1~2개', '쇼츠에서 본편으로 데려오기 · 선행 지표');
         const M = k7Mon(Y1.filter(it => !young(it)), f);
         return { scope: '유튜브', title: '유튜브 롱폼 평소 대비', big: vsP(cur), sub: '목표 ±0% 이상 · ' + (cur == null ? '' : cur >= 1 ? '목표 넘음' : '평소까지 ' + Math.round((1 - cur) * 100) + '%'), A, T,
           note: '월별 롱폼 조회 평소 대비 중간값 · 1분 넘는 영상 · 점선 = 평소',
@@ -3800,10 +3801,10 @@
       if (V90.length) A.push(kRow(okN * 2 >= V90.length ? 'good' : 'bad', '목표', V90.length + '개 중 ' + okN + '개가 ' + pct0(tgt) + ' 넘음', '최근 90일'));
       const G = k7Grp(V, 'g', f); best(G, pct0, '주제');
       const P = k7Grp(V, 'p', f); if (P.length >= 2) A.push(kRow('info', '제작', P.map(x => x.k + ' ' + pct0(x.v)).join(' · '), '최근 1년'));
-      if (s5.length >= MIN_N && l5.length >= MIN_N && f(s5) > f(l5)) tip('5분 안쪽으로 다듬기', '5분 이하 ' + pct0(f(s5)) + ' · 5분 넘음 ' + pct0(f(l5)));
-      if (G[0]) tip('「' + G[0].k + '」처럼 끝까지 보는 주제', '평균 시청 ' + pct0(G[0].v) + ' · ' + G[0].n + '개');
-      tip('첫 15초에 끝까지 볼 이유', '무엇을 보여 줄지 먼저 말하기 · 긴 인트로·로고 줄이기');
-      tip('겹치는 컷 덜어 내기', '같은 장면 반복이 평균 시청을 깎아요 · 영상 상세 「시청 지속」 곡선으로 빠지는 곳 확인');
+      if (s5.length >= MIN_N && l5.length >= MIN_N && f(s5) > f(l5)) tip('길이', '5분 안쪽으로 다듬기', '5분 이하 ' + pct0(f(s5)) + ' · 5분 넘음 ' + pct0(f(l5)));
+      if (G[0]) tip('주제', '「' + G[0].k + '」처럼 끝까지 보는 주제', '평균 시청 ' + pct0(G[0].v) + ' · ' + G[0].n + '개');
+      tip('도입', '첫 15초에 끝까지 볼 이유', '무엇을 보여 줄지 먼저 말하기 · 긴 인트로·로고 줄이기');
+      tip('편집', '겹치는 컷 덜어 내기', '같은 장면 반복이 평균 시청을 깎아요 · 영상 상세 「시청 지속」 곡선으로 빠지는 곳 확인');
       const M = k7Mon(V, f);
       return { scope: '유튜브', title: '3~10분 평균 시청 비율', big: pct0(cur), sub: '목표 ' + pct0(tgt) + ' · ' + k7Gap(cur, tgt, v => Math.round(v * 100) + '%p'), A, T,
         note: '월별 평균 시청 ÷ 영상 길이 중간값 · 끝까지 본 비율과 달라요 · 점선 = 목표',
@@ -3820,10 +3821,10 @@
       if (one.length) A.push(kRow('info', '1건', one.length + '개 영역 · 한 건만 더 올리면 다룸', one.map(nm).join(' · ')));
       if (zero.length) A.push(kRow('bad', '0건', zero.length + '개 영역 · 이번 분기 아직 없음', zero.map(nm).join(' · ')));
       A.push(kRow('info', '태그', '게시물 ' + cv.total + '개 중 ' + cv.tagged + '개에 영역', cv.sug ? '사람이 정한 값 + 캡션 낱말 자동 판정 섞임' : '사람이 정한 값'));
-      if (one.length) tip('1건 영역에 한 건씩', one.slice(0, 6).map(nm).join(' · ') + (one.length > 6 ? ' 외 ' + (one.length - 6) + '개' : '') + ' → 최대 +' + one.length);
-      if (zero.length) tip('빈 영역은 편성표에 미리', zero.slice(0, 5).map(nm).join(' · ') + ' · 주간 편성마다 공백 영역 1칸 이상');
-      if (need && left > 0) tip('남은 ' + Math.ceil(left / 7) + '주 동안 영역 ' + need + '개', '주에 ' + Math.ceil(need * 2 / Math.max(1, Math.ceil(left / 7)) * 10) / 10 + '건꼴 · 한 영역에 2건씩');
-      tip('기획서·「태그 수정」에 영역 확정', 'JJ 스튜디오 기획서 경험 영역 칸 · 자동 판정보다 정확해요');
+      if (one.length) tip('영역', '1건 영역에 한 건씩', one.slice(0, 6).map(nm).join(' · ') + (one.length > 6 ? ' 외 ' + (one.length - 6) + '개' : '') + ' → 최대 +' + one.length);
+      if (zero.length) tip('편성', '빈 영역은 편성표에 미리', zero.slice(0, 5).map(nm).join(' · ') + ' · 주간 편성마다 공백 영역 1칸 이상');
+      if (need && left > 0) tip('속도', '남은 ' + Math.ceil(left / 7) + '주 동안 영역 ' + need + '개', '주에 ' + Math.ceil(need * 2 / Math.max(1, Math.ceil(left / 7)) * 10) / 10 + '건꼴 · 한 영역에 2건씩');
+      tip('기록', '기획서·「태그 수정」에 영역 확정', 'JJ 스튜디오 기획서 경험 영역 칸 · 자동 판정보다 정확해요');
       const rows = cv.codes.map(c => ({ c, n: cv.cnt[c] || 0, pn: pv.cnt[c] || 0 }));
       return { scope: '우리 채널', title: '경험 지도 커버리지', big: cv.n + '/' + cv.all, sub: '목표 ' + KPI_D20.cover + '/' + cv.all + ' · 이번 분기 · 2건 이상 = 다룸', A, T, tall: true,
         note: '이번 분기 영역별 게시물 수 · 파란 막대 = 2건 이상 · 점선 = 2건',
@@ -3841,9 +3842,9 @@
       A.push(kRow('info', '진행', DP.length + '곳 중 ' + got.length + '곳', '남은 ' + miss.length + '곳 · 달마다 3곳씩이면 2년'));
       if (got.length) A.push(kRow('good', '자주', got.slice(0, 3).map(n => n + ' ' + hit[n].length + '개').join(' · '), '최근 1년'));
       if (only.length) A.push(kRow('info', '1번', only.slice(0, 6).join(' · ') + (only.length > 6 ? ' 외 ' + (only.length - 6) + '곳' : ''), '한 번만 나온 학과'));
-      if (miss.length) tip('이번 달 새 학과 3곳', miss.slice(0, 6).join(' · ') + (miss.length > 6 ? ' 외 ' + (miss.length - 6) + '곳' : ''));
-      tip('제목·캡션 첫머리에 학과 정식 이름', '앞부분만 세요 · 조직도 표기 그대로');
-      tip('「클래스」 코너로 한 달 한 학과 수업', '수업 장면 = 다른 대학이 잘 안 보여 주는 경험');
+      if (miss.length) tip('학과', '이번 달 새 학과 3곳', miss.slice(0, 6).join(' · ') + (miss.length > 6 ? ' 외 ' + (miss.length - 6) + '곳' : ''));
+      tip('제목', '제목·캡션 첫머리에 학과 정식 이름', '앞부분만 세요 · 조직도 표기 그대로');
+      tip('코너', '「클래스」 코너로 한 달 한 학과 수업', '수업 장면 = 다른 대학이 잘 안 보여 주는 경험');
       const M = lastMonths(12).map(k => { const s = new Set(); yr.filter(it => it.d.slice(0, 7) <= k).forEach(it => DP.forEach(n => { if (String(it.n || '').indexOf(n) >= 0) s.add(n); })); return { k, v: s.size }; });
       const half = Math.ceil(DP.length / 2);
       return { scope: '우리 채널', title: '노출 학과 수', big: got.length + '곳', sub: '목표 2년 안에 ' + DP.length + '곳 · 제목·캡션 앞부분 기준 하한값', A, T,
@@ -3863,9 +3864,9 @@
       const cr = yi.filter(it => credTag(it));
       A.push(kRow(cr.length ? 'bad' : 'good', '크레딧', cr.length ? cr.length + '개 제작 주체 확인 필요' : '크레딧과 제작 주체가 맞아요', '크레딧에 홍보대사가 있는데 자체 제작·근로장학생으로 적힌 것'));
       tip(cur != null && cur >= tgt ? '지금 비율 유지' : '홍보대사 기획을 주마다 한 건 더', '지금 ' + pct0(cur) + ' · 목표 ' + pct0(tgt) + ' 이상');
-      if (cr.length) tip('「태그 수정」에서 제작 주체 고치기', '「제작 확인」 칩이 붙은 ' + cr.length + '개 · 크레딧 100% 목표');
-      tip('제출 뒤 3일 안에 업로드', '시의성 콘텐츠 기준 · 지금 제출→업로드 중간값 8.5일');
-      tip('월요일 회의에서 다음 주 촬영 확정', '편성표 「확정」 건만 요청 · 긴급 건만 단톡');
+      if (cr.length) tip('기록', '「태그 수정」에서 제작 주체 고치기', '「제작 확인」 칩이 붙은 ' + cr.length + '개 · 크레딧 100% 목표');
+      tip('속도', '제출 뒤 3일 안에 업로드', '시의성 콘텐츠 기준 · 지금 제출→업로드 중간값 8.5일');
+      tip('회의', '월요일 회의에서 다음 주 촬영 확정', '편성표 「확정」 건만 요청 · 긴급 건만 단톡');
       const M = k7Mon(yi, f), L = yi.filter(it => it.p === '홍보대사' && !young(it) && ratio(it) != null).sort((a, b) => ratio(b) - ratio(a)).slice(0, 8);
       return { scope: '인스타그램', title: '학생 제작 비율', big: pct0(cur), sub: '목표 ' + pct0(tgt) + ' 이상 · ' + k7Gap(cur, tgt, v => Math.round(v * 100) + '%p'), A, T,
         note: '월별 인스타 게시물 중 홍보대사 제작 비율 · 광고·스토리 제외 · 점선 = 목표',
