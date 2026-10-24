@@ -1034,3 +1034,42 @@ body { background: var(--bg); }
 .k7-f { grid-area: f; display: flex; justify-content: space-between; gap: 10px; }
 .k7-f small { font-size: 13px; color: var(--muted); } .k7-f small.up { color: var(--up-tx); font-weight: 600; } .k7-f small:last-child { white-space: nowrap; }
 .k7-r .kgo { grid-area: g; }
+/* 홈 「개요」: 한 문장 + 지표 탭 + 막대(한 가지 색) + 채널 비중 + 썸네일 인기 콘텐츠 + 인스타 격자 */
+.ov { display: grid; grid-template-columns: minmax(0, 1fr); gap: 14px; }
+.ov > * { min-width: 0; }
+.ov-lead { margin: 0; font-size: 21px; font-weight: 700; line-height: 1.4; letter-spacing: -0.01em; text-wrap: balance; }
+.ov-sub { margin: -6px 0 0; color: var(--muted); font-size: 15px; }
+.ov-ts { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); border: 1px solid var(--line); border-radius: 12px; overflow: hidden; }
+.ov-t { min-width: 0; display: grid; gap: 2px; justify-items: start; text-align: left; padding: 12px 10px; border: 0; background: none; cursor: pointer; min-height: 44px; }
+.ov-t + .ov-t { border-left: 1px solid var(--line); }
+.ov-t[aria-pressed="true"] { background: var(--up-soft); box-shadow: inset 0 3px 0 var(--jj); }
+.ov-t small { font-size: 13px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
+.ov-t b { font-size: 22px; font-weight: 500; line-height: 1.25; }
+.ov-t i { font-style: normal; font-size: 13px; font-weight: 600; white-space: nowrap; }
+.ov-t i.up { color: var(--up-tx); } .ov-t i.down { color: var(--down); } .ov-t i.mu { color: var(--muted); font-weight: 400; }
+.arr::before { content: ""; display: inline-block; border-left: 4px solid transparent; border-right: 4px solid transparent; border-bottom: 6px solid currentColor; margin-right: 4px; vertical-align: 1px; }
+.arr.dn::before { border-bottom: 0; border-top: 6px solid currentColor; }
+.ov-ch { height: 170px; padding-top: 18px; border-bottom: 1px solid var(--muted); }
+.ov-cols { height: 100%; display: grid; grid-template-columns: repeat(var(--n), minmax(0, 1fr)); gap: 8px; align-items: end; }
+.ov-cols span { position: relative; height: 100%; display: flex; flex-direction: column; justify-content: flex-end; align-items: stretch; }
+.ov-cols i { display: block; background: var(--jj); border-radius: 3px 3px 0 0; }
+.ov-cols i.wide { background: color-mix(in srgb, var(--jj) 35%, var(--bg)); }
+.ov-cols i.dn { background: var(--down-bar); }
+.ov-cols b { font-size: 11px; font-weight: 500; color: var(--muted); text-align: center; white-space: nowrap; margin-bottom: 2px; }
+.ov-cols small { position: absolute; top: 100%; left: 50%; transform: translateX(-50%); margin-top: 4px; font-size: 12px; color: var(--muted); white-space: nowrap; }
+.ov-ch + .note { margin-top: 18px; }
+.ov-sec > * { min-width: 0; }
+.ov-sec { display: grid; grid-template-columns: minmax(0, 1fr); gap: 10px; padding-top: 16px; border-top: 1px solid var(--line); margin-top: 4px; }
+.ov-sh { display: flex; gap: 2px; height: 10px; border-radius: 5px; overflow: hidden; }
+.ov-sh i { display: block; }
+.ov-lg { display: grid; gap: 6px; }
+.ov-lg div { display: grid; grid-template-columns: 10px 1fr auto 3.4em; gap: 8px; align-items: center; font-size: 14px; }
+.ov-lg i { width: 8px; height: 8px; border-radius: 50%; }
+.ov-lg .mu { color: var(--muted); text-align: right; }
+.ov-th, .ov-gi { position: relative; display: block; overflow: hidden; background: color-mix(in srgb, var(--c) 14%, var(--bg)); }
+.ov-th b, .ov-gi b { position: absolute; inset: 0; display: grid; place-items: center; font-size: 12px; font-weight: 700; color: var(--c); }
+.ov-th img, .ov-gi img { position: relative; z-index: 1; display: block; width: 100%; height: 100%; object-fit: cover; }
+.ov-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 2px; border-radius: 8px; overflow: hidden; }
+.ov-grid button { position: relative; aspect-ratio: 4 / 5; padding: 0; border: 0; background: none; cursor: pointer; }
+.ov-grid .ov-gi { position: absolute; inset: 0; }
+.ov-grid em { position: absolute; z-index: 2; left: 0; right: 0; bottom: 0; padding: 18px 6px 5px; font-style: normal; font-size: 13px; font-weight: 700; color: #fff; text-align: left; background: linear-gradient(transparent, rgba(0, 0, 0, .55)); }

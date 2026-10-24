@@ -1302,6 +1302,45 @@ body { background: var(--bg); }
 .k7-f { grid-area: f; display: flex; justify-content: space-between; gap: 10px; }
 .k7-f small { font-size: 13px; color: var(--muted); } .k7-f small.up { color: var(--up-tx); font-weight: 600; } .k7-f small:last-child { white-space: nowrap; }
 .k7-r .kgo { grid-area: g; }
+/* 홈 「개요」: 한 문장 + 지표 탭 + 막대(한 가지 색) + 채널 비중 + 썸네일 인기 콘텐츠 + 인스타 격자 */
+.ov { display: grid; grid-template-columns: minmax(0, 1fr); gap: 14px; }
+.ov > * { min-width: 0; }
+.ov-lead { margin: 0; font-size: 21px; font-weight: 700; line-height: 1.4; letter-spacing: -0.01em; text-wrap: balance; }
+.ov-sub { margin: -6px 0 0; color: var(--muted); font-size: 15px; }
+.ov-ts { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); border: 1px solid var(--line); border-radius: 12px; overflow: hidden; }
+.ov-t { min-width: 0; display: grid; gap: 2px; justify-items: start; text-align: left; padding: 12px 10px; border: 0; background: none; cursor: pointer; min-height: 44px; }
+.ov-t + .ov-t { border-left: 1px solid var(--line); }
+.ov-t[aria-pressed="true"] { background: var(--up-soft); box-shadow: inset 0 3px 0 var(--jj); }
+.ov-t small { font-size: 13px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
+.ov-t b { font-size: 22px; font-weight: 500; line-height: 1.25; }
+.ov-t i { font-style: normal; font-size: 13px; font-weight: 600; white-space: nowrap; }
+.ov-t i.up { color: var(--up-tx); } .ov-t i.down { color: var(--down); } .ov-t i.mu { color: var(--muted); font-weight: 400; }
+.arr::before { content: ""; display: inline-block; border-left: 4px solid transparent; border-right: 4px solid transparent; border-bottom: 6px solid currentColor; margin-right: 4px; vertical-align: 1px; }
+.arr.dn::before { border-bottom: 0; border-top: 6px solid currentColor; }
+.ov-ch { height: 170px; padding-top: 18px; border-bottom: 1px solid var(--muted); }
+.ov-cols { height: 100%; display: grid; grid-template-columns: repeat(var(--n), minmax(0, 1fr)); gap: 8px; align-items: end; }
+.ov-cols span { position: relative; height: 100%; display: flex; flex-direction: column; justify-content: flex-end; align-items: stretch; }
+.ov-cols i { display: block; background: var(--jj); border-radius: 3px 3px 0 0; }
+.ov-cols i.wide { background: color-mix(in srgb, var(--jj) 35%, var(--bg)); }
+.ov-cols i.dn { background: var(--down-bar); }
+.ov-cols b { font-size: 11px; font-weight: 500; color: var(--muted); text-align: center; white-space: nowrap; margin-bottom: 2px; }
+.ov-cols small { position: absolute; top: 100%; left: 50%; transform: translateX(-50%); margin-top: 4px; font-size: 12px; color: var(--muted); white-space: nowrap; }
+.ov-ch + .note { margin-top: 18px; }
+.ov-sec > * { min-width: 0; }
+.ov-sec { display: grid; grid-template-columns: minmax(0, 1fr); gap: 10px; padding-top: 16px; border-top: 1px solid var(--line); margin-top: 4px; }
+.ov-sh { display: flex; gap: 2px; height: 10px; border-radius: 5px; overflow: hidden; }
+.ov-sh i { display: block; }
+.ov-lg { display: grid; gap: 6px; }
+.ov-lg div { display: grid; grid-template-columns: 10px 1fr auto 3.4em; gap: 8px; align-items: center; font-size: 14px; }
+.ov-lg i { width: 8px; height: 8px; border-radius: 50%; }
+.ov-lg .mu { color: var(--muted); text-align: right; }
+.ov-th, .ov-gi { position: relative; display: block; overflow: hidden; background: color-mix(in srgb, var(--c) 14%, var(--bg)); }
+.ov-th b, .ov-gi b { position: absolute; inset: 0; display: grid; place-items: center; font-size: 12px; font-weight: 700; color: var(--c); }
+.ov-th img, .ov-gi img { position: relative; z-index: 1; display: block; width: 100%; height: 100%; object-fit: cover; }
+.ov-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 2px; border-radius: 8px; overflow: hidden; }
+.ov-grid button { position: relative; aspect-ratio: 4 / 5; padding: 0; border: 0; background: none; cursor: pointer; }
+.ov-grid .ov-gi { position: absolute; inset: 0; }
+.ov-grid em { position: absolute; z-index: 2; left: 0; right: 0; bottom: 0; padding: 18px 6px 5px; font-style: normal; font-size: 13px; font-weight: 700; color: #fff; text-align: left; background: linear-gradient(transparent, rgba(0, 0, 0, .55)); }
 </style>
 
 <div class="app" id="app">
@@ -1321,7 +1360,7 @@ body { background: var(--bg); }
 <div class="detail" id="detail" hidden role="dialog" aria-modal="true" aria-label="콘텐츠 상세"></div>
 
 <script>window.SNS_EXP = {"made":"2026-10-23","names":{"E01":"수업·강의·실습","E02":"학과·전공 소개","E03":"동아리·학생 활동","E04":"기숙사·생활관","E05":"학식·밥·카페","E06":"시험기간","E07":"수강신청·전과·학사","E08":"장학·등록","E09":"축제·공연","E10":"운동부·스포츠","E11":"해외·교환학생·유학생","E12":"취업·진로·현장실습","E13":"창업","E14":"봉사·국토대장정","E15":"전주·지역","E16":"연애·친구·관계","E17":"선배·동문 이야기","E18":"캠퍼스 공간·계절","E19":"입시·입학","E20":"학교 행사"},"s":{"yt:MJNjcYdqoFQ":"E03,E12","ig:DEjjD3-veid":"E18","ig:DEmaxfmPXkt":"E11,E14","yt:fpsHI-840ic":"E18","ig:DEwp3RTvkDv":"E18","yt:DC0J5x6Pw58":"E18","ig:DFG9bv_T98L":"E07","ig:DFJ8JDqPTpT":"E11","yt:GhCaLFO4F2k":"E18","yt:jMguLIlYbeI":"E07","ig:DFrztVnvW9S":"E15","":"E06","yt:S45XWgxL_mI":"E17","ig:DGANgR8P370":"E07,E08","ig:DGNfP0IP6dK":"E05,E07","ig:DGP9k-pPfwr":"E07","yt:02v5IuiRlxE":"E07","ig:DGcVRhXPX0L":"E17,E18","ig:DGfVncNvHbA":"E08,E12","yt:u-ORHDoLAcI":"E17","ig:DGkXy-_PWpf":"E09","ig:DGpetJ2vayI":"E10","yt:7X6pEFPYp6I":"E17","ig:DGzqaVFvZh4":"E05","ig:DG2azLOPgtj":"E01,E02","yt:X9-sH21_ib4":"E05","yt:TSYzAXKDiRQ":"E02","yt:sO_1i6NcvHU":"E09,E17","ig:DHS3DsnqPzK":"E10","yt:FUu8m96qxMA":"E10","yt:QG_b8-gOKxI":"E01,E02","yt:bE7CP2xlNY0":"E17","ig:DHvQ_Jqv7wZ":"E18","ig:DH-nDG9vpjf":"E15,E18","ig:DIBNcb9vo37":"E02","yt:QyKWzESapVw":"E02","ig:DIOAi_PqKa-":"E06,E17","yt:b4QYLlv6O7E":"E06,E18","yt:xQmopEzA8kg":"E18","ig:DIVpOQGP9mq":"E18","ig:DIa2qMLvwDb":"E06,E07","ig:DIgG97OKbWe":"E07,E17","ig:DIk2GBKP1xA":"E01","yt:64oEuqrBgkM":"E06","ig:DIyHFRSPeBG":"E06,E18","ig:DI0pfnCv0As":"E01,E02","ig:DJDfbH3PUqt":"E03","ig:DJD8rGLPcuN":"E01,E02","yt:UDobSHMVy-s":"E17","ig:DJL-edxv4pe":"E10","yt:nSKpIWigap4":"E10","yt:emx8DkcYPPs":"E02","ig:DJjBnrYvKX_":"E01,E02","ig:DJoSj7yP2MY":"E07,E12","yt:RXpzf1UX7WM":"E01","ig:DJqOetDP69y":"E01","ig:DJ3k9zCK14g":"E09,E17","yt:8vjaPEWq4_4":"E12","ig:DJ8Z9XjvYQx":"E09","yt:rsbQKfZNHHY":"E18","ig:DJ-9QJ1v6Ii":"E01","ig:DJ_W76AvUKk":"E09","yt:RDbdhmpreb8":"E17","ig:DKJea_TKPFw":"E09","yt:CYbAhGH9n-4":"E09","yt:KvwX3UgdFqM":"E09","yt:nqJq34b6Ogo":"E09","yt:VG_ouhkRnzE":"E09","ig:DKOl3qSPyov":"E09","yt:LSlOWVgZdrY":"E09","yt:SpjqLKT3KkQ":"E09","yt:VrVBKyCwMo8":"E09","yt:E1c5Ym_yKKY":"E09","yt:LeAXo6MMMyA":"E09","yt:MTj9CoBfRbk":"E09","yt:Rk3C4B3CAqI":"E09","yt:GCU7yqTc0Kc":"E09","yt:DNyOFnjZ870":"E09","yt:yulP4OH33qU":"E09,E17","yt:IkOmovwO6Lc":"E09","yt:skqnNr_7TLo":"E09","ig:DK1GxlTvedo":"E06,E18","yt:o_OpW3tkX04":"E06","ig:DK_obPsvYsR":"E06","ig:DLCLzOsvZAQ":"E07","ig:DLO5StvPd0J":"E01","yt:9eyJCQc05xw":"E02","ig:DLZFEW5vOGl":"E14","yt:fsA5opc2wS4":"E14","ig:DLyk4eAKlri":"E14","ig:DL4b8XvPo-H":"E02","yt:5mLsWMm29f8":"E02","ig:DMFQHHuvkyy":"E14","ig:DMKc5rEP6tS":"E14","yt:CxyQq7KEkk0":"E14","ig:DMcSNO-Po4y":"E01","ig:DMgwPNXz27f":"E09,E12","ig:DMrjUH4Pf55":"E11,E14","ig:DM7ILqBvWB8":"E07","yt:Nv2UZ5vZabs":"E01,E07","ig:DNAjUxkv7Z-":"E09,E15","ig:DNP8p7qvN8v":"E07","yt:sReS_dWrDp4":"E15","ig:DNSf_Stv1Hk":"E15","yt:-CUOzYNnf6g":"E15","ig:DNfZkNavl1x":"E07,E08","yt:_5InCbQecMM":"E01","ig:DN2jcidZksE":"E03","yt:199GpIfLcyQ":"E03,E09","yt:DY8mn8C6RSo":"E03,E09","yt:xtZhDj20z0A":"E03,E09","yt:Yz0FGdqwdv0":"E03,E09","ig:DODZMz1k-Gc":"E05","ig:DOF8v-OE5Oo":"E02,E07","ig:DOImk2PE8Ae":"E09,E10","ig:DOLGY7jEzr5":"E18","ig:DOOIx10Ezi8":"E02","yt:EITV0aduDvc":"E05","ig:DOYCkd3k5dl":"E03,E09","yt:R0yQ-UYHxpk":"E03","yt:ryZtUgoqxM0":"E03","ig:DOaiic_E99W":"E05","yt:J3KNEpkbX9k":"E05","ig:DOfmej8kzhl":"E09","ig:DOnemknE00B":"E05","yt:ZQ_-TwL0wHw":"E05","yt:RGzPvZNw1OY":"E09","yt:irVZxGItDQI":"E10","ig:DOvOijgE8XD":"E10","yt:Za5ECGKWoXY":"E10","yt:ahZcqSX-7RI":"E09,E12","yt:cRlDhfp87J0":"E02,E10","ig:DPQRpOSk0lb":"E08","yt:0tq7yrcG7Fk":"E17","yt:1YwgunkdRm8":"E02,E03","yt:wnjIHCJb6N4":"E02","ig:DP0t16zE5Vg":"E06","ig:DQJdO4Ck5WT":"E02,E10","yt:_bKjuxd4ujY":"E01","ig:DQlpcf5E7J3":"E02,E18","yt:tzg86wy_B0Y":"E18","yt:0xCzrnu1vSY":"E02","yt:fm8r7ytfdRw":"E12","ig:DQ_cxMCk9Bz":"E18","ig:DRMZEWbkwQx":"E11","ig:DReToDnk1mJ":"E09,E13","yt:HstqZ3ltnMk":"E05","ig:DRmBtbpk6rV":"E05","ig:DRwZUKek5up":"E02,E03","ig:DRy7dk_k0dm":"E18","yt:o-3tJFBeGlI":"E04","ig:DR_u861E9nu":"E15","ig:DSE5xHUkwBn":"E03","yt:YeMU_q7-KMw":"E03","yt:hemhUpG-Rrc":"E03","yt:43sNN8ST8eQ":"E03","yt:ktPD7OuthNY":"E06","yt:Wq_CjXZUSFA":"E03","ig:DSTq_jDE1KM":"E06","ig:DSW-wBqEzxZ":"E01","yt:BlWXgfGWl08":"E02","ig:DS1rODEE4Fr":"E04","yt:ANG_ya9mwKk":"E04","ig:DS6MzQfkxrB":"E01","yt:QfYIbe9ZOow":"E08","ig:DTfEy9sE9DN":"E12","yt:Bvln-mBNc8s":"E12","yt:8-In5fQdC4M":"E12","ig:DTkUKesEz0K":"E17,E18","ig:DTr7tmQk-qC":"E02,E18","yt:IvAZKA2y-Q4":"E15","yt:KuJ0Axiw3T8":"E15","yt:woN03we0iy4":"E15","ig:DTzmM_IE3uR":"E15","yt:z7OWzckgo7g":"E05","ig:DT2Pd3-kwXx":"E05,E15","yt:Qqm_gojy67Y":"E16,E18","yt:ZKwUaa64bpo":"E04","ig:DUDI3BJk5v6":"E01,E17","ig:DUFo0laE4m5":"E11,E17","yt:S7OjQip0Lmg":"E12","yt:08gyXnSVb4E":"E16","yt:_siSDaQQQ54":"E18","ig:DUXtiw5EyRz":"E11,E14","yt:1EXXvpy1gJY":"E15","yt:LIuFOb3vHaU":"E07,E17","ig:DUpuT7ikzNg":"E07,E18","ig:DVF1HEiE0Qf":"E07","yt:WCK7JK_Jp9Y":"E17","yt:ETFd8zVO1ug":"E07","yt:j2DVH_PQ1fE":"E17","ig:DVKuIPXk6lC":"E18","yt:YKZjZzAYN90":"E07","ig:DVNyD1LE43G":"E17","ig:DVQYSPRE80R":"E10","ig:DVdA1FYEzBF":"E17","ig:DVf0dH2E1Sx":"E05,E17","yt:uK_Np8wVjB8":"E05","yt:tZPsmRPgZiM":"E05","ig:DVx024sE0zW":"E05","ig:DV-swM1k4BM":"E01,E10","yt:LalWVaepGcM":"E05","yt:9t2loikdmt4":"E02,E17","ig:DWgK3bIkxG7":"E15","yt:v7WT0rv1CZ0":"E15","ig:DWnmKPSk3MU":"E15","yt:L1ygt9ctdxU":"E12","ig:DWqVqiIE7hM":"E18","ig:DWqseA5k_Zn":"E02,E11","yt:T4_aUpF1qsY":"E18","yt:g59LvN3MP3k":"E02","ig:DXYp4xcE2U3":"E02","yt:gLB5T_Y23I0":"E06","ig:DXbQ-cFk8j4":"E02,E06","ig:DXgjN9HE1hW":"E18","ig:DXv5DnIE-Xv":"E02,E17","yt:JwNGrrfvn5U":"E02","ig:DYBl-ZFk0Ww":"E10","yt:DYPEwaabu6c":"E02","ig:DYEjJr7zAGz":"E02","yt:h2i3xVJcjtE":"E02,E11","yt:CkGpo0zszls":"E10,E17","ig:DY6jksNzfOh":"E10","yt:CvqY5y9fjY0":"E10","ig:DZMuSzPkxcF":"E02","ig:DZUHFbAT3a_":"E06","ig:DZZiK3rTuCe":"E02,E10","ig:DZcLkB5z8Dk":"E06","yt:IxMXypz-Zfk":"E02,E07","ig:DZmLBask4jN":"E18","ig:DZwvHnLzB28":"E02","ig:DaUcPi_k9kw":"E18","ig:Daucapwk99F":"E18","yt:a5udxibGquU":"E07","yt:p8p43vRiD4w":"E02","ig:DbXun7tkwOT":"E01,E10","ig:DbsTHKUk35d":"E02","yt:Z3cePbXCCos":"E03","ig:Db2UUKoEyJ8":"E02","ig:Db5N4GSE8mb":"E02","ig:Db7vE42kzre":"E18","ig:Db-cn-yE7UL":"E09,E15","ig:DcGUT1ak2vu":"E09","ig:DcQP10kk-3G":"E07,E08","ig:DcdZQD1k_LL":"E02","ig:DcfuKTCk-08":"E18","yt:Ne8s86SQSaU":"E17","yt:GhPfW-RJORw":"E11","ig:Dcspac5E4rC":"E04","ig:Dc2_1-GKbIH":"E16","ig:Dc-sm9zE01-":"E06,E18","yt:P8Aswq_pcWE":"E16","yt:V6abjQpy-2I":"E18","ig:DdBWM2PE5Je":"E18","yt:2Jf7yD9sSM8":"E10","yt:spUqGt12lh0":"E10","ig:DdQTvb-k0od":"E05","ig:DdV6ChQKfb1":"E09,E18","ig:DdYof21k4bo":"E02","ig:DdlDfMnE5wr":"E09,E18","ig:Ddn7vwkk13M":"E09","ig:Dd0VG1FkyYM":"E15","yt:3b5THMJZrZo":"E03,E09","ig:Dd8eiwDk5HX":"E15","yt:HSCl8F3b4Fc":"E09","ig:Dd_HkROEx28":"E09","yt:dMMJ2J0TQA8":"E09","yt:nWWGkCbr6u4":"E09","yt:3dfJnFj2P5Y":"E15","ig:Ded_06iTVjV":"E13","ig:DeghX4_kyJP":"E13","yt:4xgaV6TM0mI":"E02,E10","ig:DejJVm0E8ZN":"E02","ig:DeqldZpkxWg":"E06,E18","yt:WtMCo8Usa1M":"E06,E17","ig:DeterXdE2rD":"E06","ig:Dev0naNqZxf":"E02,E06","yt:OUeQ02IaHdM":"E08,E17"},"depts":["신학과경배찬양학과","영어영문학과","일본언어문화학과","중국어중국학과","역사콘텐츠학과","웹툰만화콘텐츠학과","한국어문학창작학부","경찰학과","문헌정보학과","법학과","사회복지학과","상담심리학과","행정학과","경영학과","금융보험학과","물류무역학과","부동산국토정보학과","회계세무학과","금융학과","간호학과","물리치료학과","방사선학과","보건관리학과","작업치료학과","식품영양학과","재활학과","환경생명과학과","운동처방학과","건축공학과","건축학과","기계공학과","기계자동차공학과","산업공학과","소방안전공학과","신소재화학공학과","전기전자공학과","정보통신공학과","토목환경공학과","기초과학과","탄소융합공학과","데이터공학과","스마트미디어학과","인공지능학과","컴퓨터공학과","게임콘텐츠학과","공연방송연기학과","공연예술학과","산업디자인학과","생활체육학과","시각디자인학과","영화방송학과","예술심리치료학과","음악학과","축구학과","태권도학과","관광경영학과","외식산업조리학과","패션산업학과","한식조리학과","호텔경영학과","교육학과","농식품경영학과","창업경영금융학과","미네르바학부","반려동식물학과","친환경자동차학과","로컬벤처학부","융합학부","자유전공학부","반려동물산업학부","동물보건학과","펫산업학과","국제학부"]};</script>
-<script>window.SNS_API_URL = "https://script.google.com/macros/s/AKfycbyGL0h1nmGMIMiG0KsZksAyOUaxcdwKiXLysmB2ExGLEhVX3eUiwmRbv7uTPhsWf6Q6/exec"; window.SNS_BUILD = "2b1988451d";</script>
+<script>window.SNS_API_URL = "https://script.google.com/macros/s/AKfycbyGL0h1nmGMIMiG0KsZksAyOUaxcdwKiXLysmB2ExGLEhVX3eUiwmRbv7uTPhsWf6Q6/exec"; window.SNS_BUILD = "1ec5ee2e5f";</script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.js" integrity="sha384-dug+JxfBvklEQdJ4AYuBBAIScUz0bVN73xpy273gcAwHjb3qI0fXmuYNaNfdyYJG" crossorigin="anonymous"></script>
 <script>
 (function () {
@@ -1661,6 +1700,96 @@ body { background: var(--bg); }
     const a = (D.acct || []).filter(x => x.ch === ch).sort((x, y) => x.d < y.d ? -1 : 1);
     return { cur: a[a.length - 1], prev: a[a.length - 2] };
   }
+  // ───────── 홈 「개요」(2026-10-24 스튜디오형: 유튜브 스튜디오 분석 + 인스타 인사이트 문법) ─────────
+  // 한 문장 → 지표 탭(조회·팔로워·올린 게시물, 누르면 아래 막대가 그 지표로) → 채널 비중 → 인기 콘텐츠(썸네일) → 인스타 격자
+  const OV_M = [['v', '조회수'], ['f', '팔로워'], ['n', '올린 게시물']];
+  // 사진: 유튜브 = i.ytimg.com, 인스타·hong = 「오늘」 응답의 thumbs(메타 CDN, 브라우저에서 instagram.com 주소는 막힘). hong은 주소가 없어 게시일 ±1일 + 캡션 앞부분으로 맞춤
+  const ovKey = t => String(t || '').replace(/[^0-9A-Za-z가-힣]/g, '').slice(0, 10);
+  const ovThumb = it => {
+    if (it.c === '유튜브') return ytId(it.u) ? 'https://i.ytimg.com/vi/' + ytId(it.u) + '/mqdefault.jpg' : '';
+    const T = (TD.d && TD.d.thumbs) || [];
+    if (it.u) { const r = T.find(x => x[0] === igCode(it.u)); if (r) return r[3]; }
+    const k = ovKey(it.n), r = k.length >= 4 && T.find(x => x[4] === it.c && Math.abs(daysBetween(x[1], it.d)) <= 1 && ovKey(x[2]).slice(0, k.length) === k.slice(0, ovKey(x[2]).length));
+    return r ? r[3] : '';
+  };
+  const ovImg = (it, cls) => { const u = ovThumb(it); return '<span class="' + cls + '" style="--c:' + chColor(it.c) + '" aria-hidden="true">' + (u ? '<img loading="lazy" alt="" src="' + esc(u) + '" onerror="this.remove()">' : '') + '<b>' + esc(chName(it.c)) + '</b></span>'; };
+  const dayLab = d => (+d.slice(8, 10)) + '일';
+  const fmtM = v => v == null ? '–' : Math.abs(v) >= 1e4 ? (Math.round(v / 1e3) / 10) + '만' : fmt(v);
+  function ovModel(chs) {
+    const end = D.updated, s7 = addDays(end, -7), s14 = addDays(end, -14);
+    // 조회: 「일별 합계」 기록일 사이 늘어난 값(기록이 빈 날은 앞 기록일부터 묶음)
+    const rows = (D.daily || []).filter(r => chs.includes(r[1])), by = {};
+    rows.forEach(r => { (by[r[0]] = by[r[0]] || {})[r[1]] = r; });
+    const okc = chs.filter(c => rows.some(r => r[1] === c)), ds = Object.keys(by).sort().filter(d => okc.every(c => by[d][c] && by[d][c][3] != null));
+    const inc = [];
+    for (let i = 1; i < ds.length; i++) { const a = ds[i - 1], b = ds[i], per = okc.map(c => Math.max(0, by[b][c][3] - by[a][c][3])); inc.push({ a, b, v: sum(per), per }); }
+    const cur = inc.filter(x => x.b > s7), prev = inc.filter(x => x.b > s14 && x.b <= s7);
+    const vCur = cur.length ? sum(cur.map(x => x.v)) : null, vPrev = prev.length ? sum(prev.map(x => x.v)) : null;
+    const share = okc.map((c, j) => ({ c, v: sum(cur.map(x => x.per[j])) })).sort((a, b) => b.v - a.v);
+    // 팔로워: 계정 기록이 있는 채널(인스타·hong) 합의 7일 변화
+    const fc = chs.filter(c => (D.fol || []).some(r => r[1] === c)), F = {};
+    (D.fol || []).filter(r => fc.includes(r[1])).forEach(r => { (F[r[1]] = F[r[1]] || {})[r[0]] = r[2]; });
+    const fAt = (c, d) => { const k = Object.keys(F[c] || {}).filter(x => x <= d).sort().pop(); return k ? F[c][k] : null; };
+    const fFrom = (c, d) => { const v = fAt(c, d); if (v != null) return v; const k = Object.keys(F[c] || {}).filter(x => x > d).sort()[0]; return k ? F[c][k] : null; };
+    const fNow = fc.length ? sum(fc.map(c => fAt(c, end))) : null, fWas = fc.length && fc.every(c => fFrom(c, s7) != null) ? sum(fc.map(c => fFrom(c, s7))) : null;
+    const fDays = [];
+    for (let k = 6; k >= 0; k--) { const d = addDays(end, -k), a = fc.map(c => [fAt(c, d), fAt(c, addDays(d, -1))]); fDays.push({ d, v: fc.length && a.every(x => x[0] != null && x[1] != null) ? sum(a.map(x => x[0] - x[1])) : null }); }
+    // 올린 게시물: 7일 · 앞선 8주 주 평균
+    const P = D.items.filter(it => chs.includes(it.c) && it.t !== '스토리' && !it.ad && !it.hid);
+    const posts = P.filter(it => it.d > s7 && it.d <= end), avg8 = P.filter(it => it.d > addDays(s7, -56) && it.d <= s7).length / 8;
+    const nDays = [];
+    for (let k = 6; k >= 0; k--) { const d = addDays(end, -k); nDays.push({ d, v: posts.filter(it => it.d === d).length }); }
+    // 인기 콘텐츠: 7일 전 기록 이후 늘어난 조회(그 뒤 올린 건 전부)
+    const i0 = D.dates.map((d, i) => d <= s7 ? i : -1).filter(i => i >= 0).pop();
+    const vAt = (it, i) => { if (i == null || i < 0) return 0; for (let k = i; k >= 0; k--) { const h = it.h[k]; if (h && h[mainM(it.c)] != null) return h[mainM(it.c)]; } return 0; };
+    // 7일 전 기록이 없는 예전 게시물은 뺌(기록 전 값을 0으로 보면 누적 조회 전체가 「늘어난 조회」가 됨)
+    const has0 = it => i0 != null && it.h[i0] && it.h[i0][mainM(it.c)] != null;
+    const top = P.filter(it => it.h && (it.d > s7 || has0(it))).map(it => ({ it, g: vAt(it, D.dates.length - 1) - (it.d > s7 ? 0 : vAt(it, i0)) })).filter(x => x.g > 0).sort((a, b) => b.g - a.g).slice(0, 5);
+    return { cur, vCur, vPrev, share, fNow, fWas, fDays, fc, posts, avg8, nDays, top, P };
+  }
+  function ovHtml(chs) {
+    if (!chs.some(c => OWN.includes(c))) return '';
+    const M = ovModel(chs), m = OV_M.some(x => x[0] === S.ovM) && (S.ovM !== 'f' || M.fc.length) ? S.ovM : 'v', scope = S.ch === '전체' ? '공식 채널' : chName(S.ch);
+    const vd = M.vCur == null || !M.vPrev ? null : M.vCur / M.vPrev - 1, fd = M.fNow != null && M.fWas != null ? M.fNow - M.fWas : null;
+    const best = M.top[0];
+    const lead = M.vCur == null ? '지난 7일 조회 기록이 아직 없어요' : '지난 7일 동안 ' + scope + ' 조회수가 ' + fmtM(M.vCur) + ' 회 늘었어요';
+    const sub = [vd == null ? '' : '지난주(' + fmtM(M.vPrev) + ')보다 ' + (Math.abs(vd) < 0.03 ? '비슷해요' : Math.round(Math.abs(vd) * 100) + '% ' + (vd > 0 ? '많아요' : '적어요')),
+      best ? '가장 많이 본 건 「' + esc(title(best.it.n)) + '」(' + fmtK(best.g) + ')이에요' : ''].filter(Boolean).join('. ');
+    const tab = (k, lab, val, d) => '<button type="button" class="ov-t" data-m="' + k + '" aria-pressed="' + (k === m) + '"><small>' + lab + '</small><b class="num">' + val + '</b>' + d + '</button>';
+    const vdT = vd == null ? '<i class="mu">비교 전</i>' : '<i class="' + (Math.abs(vd) < 0.03 ? 'mu' : vd > 0 ? 'up arr' : 'down arr dn') + '">' + Math.round(Math.abs(vd) * 100) + '%</i>';
+    const fdT = fd == null ? '<i class="mu">비교 전</i>' : '<i class="' + (fd === 0 ? 'mu' : fd > 0 ? 'up arr' : 'down arr dn') + '">' + (fd === 0 ? '변화 없음' : fmt(Math.abs(fd)) + '명') + '</i>';
+    const tabs = '<div class="ov-ts" role="group" aria-label="지표 고르기">' + tab('v', '조회수', fmtM(M.vCur), vdT) +
+      (M.fc.length ? tab('f', M.fc.length > 1 ? '팔로워' : chName(M.fc[0]) + ' 팔로워', M.fNow == null ? '–' : fmt(M.fNow), fdT) : '') +
+      tab('n', '올린 게시물', M.posts.length + '개', '<i class="mu">평소 주 ' + (Math.round(M.avg8 * 10) / 10) + '개</i>') + '</div>';
+    // 막대: 고른 지표 하나, 한 가지 색. 기록이 며칠 묶인 막대는 연하게
+    const B = m === 'v' ? M.cur.map(x => ({ lab: daysBetween(x.a, x.b) > 1 ? (+addDays(x.a, 1).slice(8, 10)) + '~' + dayLab(x.b) : dayLab(x.b), v: x.v, wide: daysBetween(x.a, x.b) > 1 }))
+      : (m === 'f' ? M.fDays : M.nDays).map(x => ({ lab: dayLab(x.d), v: x.v }));
+    const mx = Math.max(1, ...B.map(x => Math.abs(x.v || 0)));
+    const sign = v => m === 'f' && v > 0 ? '+' : v < 0 ? '−' : '';
+    const bars = B.length ? '<div class="ov-ch" role="img" aria-label="' + esc(OV_M.find(x => x[0] === m)[1] + ' 날짜별: ' + B.map(x => x.lab + ' ' + (x.v == null ? '기록 없음' : sign(x.v) + fmtK(Math.abs(x.v)))).join(', ')) + '"><div class="ov-cols" style="--n:' + B.length + '">' +
+      B.map(x => '<span><b class="num">' + (x.v == null ? '' : sign(x.v) + fmtK(Math.abs(x.v))) + '</b><i class="' + (x.wide ? 'wide' : x.v < 0 ? 'dn' : '') + '" style="height:' + (x.v == null ? 0 : Math.max(2, Math.abs(x.v) / mx * 100)).toFixed(1) + '%"></i><small>' + x.lab + '</small></span>').join('') + '</div></div>' +
+      '<p class="note">' + (m === 'v' ? '하루에 늘어난 조회' + (B.some(x => x.wide) ? ' · 연한 막대는 그 사이 기록이 없어 며칠을 합친 값' : '') : m === 'f' ? '하루 팔로워 증감 · ' + esc(M.fc.map(chName).join('·')) : '날짜별 올린 게시물 수') + '</p>' : '<p class="note">이 기간 기록이 아직 없어요</p>';
+    const tot = sum(M.share.map(x => x.v));
+    const share = M.share.length > 1 && tot ? '<div class="ov-sec"><div class="hm-h"><h2>어디서 봤나</h2><span>지난 7일 조회 증가 중 채널별 비중</span></div>' +
+      '<div class="ov-sh" role="img" aria-label="' + esc(M.share.map(x => chName(x.c) + ' ' + pct0(x.v / tot)).join(', ')) + '">' + M.share.map(x => '<i style="width:' + (x.v / tot * 100).toFixed(1) + '%;background:' + chColor(x.c) + '"></i>').join('') + '</div>' +
+      '<div class="ov-lg">' + M.share.map(x => '<div><i style="background:' + chColor(x.c) + '"></i><span>' + esc(chName(x.c)) + '</span><b class="num">' + fmtM(x.v) + '</b><span class="mu">' + pct0(x.v / tot) + '</span></div>').join('') + '</div></div>' : '';
+    window.__ovTop = M.top.map(x => x.it);
+    const top = M.top.length ? '<div class="ov-sec"><div class="hm-h"><h2>이 기간 인기 콘텐츠</h2><span>지난 7일 늘어난 조회 순</span></div><ol class="hm-list ov-top" id="ovTop">' +
+      M.top.map((x, i) => hmRow({ tag: 'li', cls: 'hm-rk', attr: 'tabindex="0" data-i="' + i + '"', thumb: ovImg(x.it, 'hm-th ov-th'), c: x.it.c, t: esc(title(x.it.n)), v: '+' + fmtK(x.g), vc: '',
+        m: [esc(typeShort(x.it.t) || ''), whenTxt(x.it.d)].filter(Boolean).join(' · '), r: mName(x.it) + ' ' + fmtK(mainVal(x.it)) })).join('') + '</ol></div>' : '';
+    const igs = chs.includes('인스타그램') ? M.P.filter(it => it.c === '인스타그램' && it.u).sort((a, b) => a.d < b.d ? 1 : -1).slice(0, 6) : [];
+    window.__ovIg = igs;
+    const grid = igs.length >= 3 ? '<div class="ov-sec"><div class="hm-h"><h2>인스타그램 콘텐츠</h2><span>최근 게시물 · 숫자 = 조회</span></div><div class="ov-grid" id="ovGrid">' +
+      igs.map((it, i) => '<button type="button" class="hm-rk" data-i="' + i + '" aria-label="' + esc(title(it.n)) + ' 조회 ' + fmtK(mainVal(it)) + '">' + ovImg(it, 'ov-gi') + '<em class="num">' + fmtK(mainVal(it)) + '</em></button>').join('') + '</div></div>' : '';
+    return '<section class="sec ov"><h2 class="ov-lead">' + lead + '</h2>' + (sub ? '<p class="ov-sub">' + sub + '</p>' : '') + tabs + bars + share + top + grid + '</section>';
+  }
+  function wireOv(chs) {
+    const box = $('ov'); if (!box) return;
+    box.querySelectorAll('.ov-t').forEach(b => b.addEventListener('click', () => { S.ovM = b.dataset.m; save(); box.innerHTML = ovHtml(chs); wireOv(chs); }));
+    wireRank($('ovTop'), window.__ovTop || []); wireRank($('ovGrid'), window.__ovIg || []);
+    // 「오늘」 응답(썸네일)이 늦게 오면 한 번 다시 그림
+    if (!(TD.d && TD.d.thumbs) && !box.dataset.wait) { box.dataset.wait = '1'; loadToday(false).then(() => { if (TD.d && TD.d.thumbs && $('ov') === box) { box.innerHTML = ovHtml(chs); wireOv(chs); } }); }
+  }
   function viewBrief() {
     if (S.ch === '타 대학') {
       viewBench();
@@ -1671,7 +1800,7 @@ body { background: var(--bg); }
     const chs = viewChannels();
     const cur = pool({ channels: chs, since: addDays(D.updated, -30) });
     const low = cur.filter(it => judged(it) && ratio(it) < 0.5).sort((a, b) => ratio(a) - ratio(b)).slice(0, 3);
-    let html = '<div id="today">' + todayShell(chs) + '</div>';
+    let html = '<div id="ov">' + ovHtml(chs) + '</div><div id="today">' + todayShell(chs) + '</div>';
     const topH = topHtml(chs); let chk = '';
     // 용어 뜻은 맨 아래 접은 칸으로, 조건 설명 줄은 제목에 마우스를 올리면
     chk += '<section class="sec"><div class="sh"><div><h2>점검할 것</h2><p>최근 3달 분류별 · 평소보다 낮은 콘텐츠</p></div></div>' +
@@ -1689,7 +1818,7 @@ body { background: var(--bg); }
     wireWeek(); wireTrend(); wireBenchCmp(); wireAdv(); wireTop(chs);
     wireRank($('bLow'), low);
     if (S.ch !== '전체') bars('bCat', groupBy(pool({ channels: chs, since: addDays(D.updated, -90) }), 'g').filter(r => r.n >= MIN_N).sort(byIdx), subN, k => { S.view = 'explore'; S.g = k; render(); window.scrollTo({ top: 0 }); });
-    wireBrief(); wireDeep(chs); wireToday(chs);
+    wireBrief(); wireDeep(chs); wireToday(chs); wireOv(chs);
     // 접힌 칸 안 그래프는 폭이 0으로 그려져서, 펼칠 때 크기를 다시 잼
     const hm = $('homeMore'); if (hm) hm.addEventListener('toggle', () => { try { localStorage.setItem('sb-home-more', hm.open ? '1' : '0'); } catch (e) {} if (hm.open) Object.keys(charts).forEach(k => { try { charts[k].resize(); } catch (e) {} }); });
   }
