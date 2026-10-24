@@ -1555,11 +1555,11 @@ function legacySport_(text) {
   return /축구|태권도|씨름|레슬링/.test(String(text || '')) ? '체육부 소식' : '행사·축제';
 }
 
-/* ───────── 분류표 (2026-10-24 담당자 「합쳐서 효율화」) ─────────
- * 주제 분류 17개와 경험 영역 18개(2026-10-23 승인)를 코드 하나로 합침. 게시물마다 코드 1개(it.ec),
- * 보드에는 큰 분류 11개(it.g)와 세부 = 코드 이름(it.s), 예능 톤(it.fun = 1)을 따로 씀.
- * 위 TAG_CATEGORIES(옛 주제 분류)는 1단계 판정으로 남기고, 옛 분류마다 고를 수 있는 코드 중 경험 사전(EXP_RE)이 맞는 것을 고름.
- * 사전 원본은 _도구/scripts/성과분석/경험영역.tsv — 낱말을 바꾸면 둘 다 고친다 */
+/* ───────── 분류표: 주제 + 유형 (2026-10-24 담당자 「합쳐서 효율화」 → 「유형과 형식으로 따로」·「브이로그, 스케치 이런식」·「상황극 패러디는 묶어도」) ─────────
+ * 게시물마다 세 칸: 주제 = 경험 영역 코드(E01~E18, 없으면 「주제 없음」), 유형 = 어떻게 찍고 엮었나(T01~T29 → 큰 유형 7개), 형식 = it.t(릴스·캐러셀…).
+ * 위 TAG_CATEGORIES(옛 주제 분류)는 1단계 판정으로 남김: 옛 분류마다 고를 수 있는 주제 코드 중 경험 사전(EXP_RE)이 맞는 것, 유형은 낱말(TYPE_RE) → 없으면 옛 분류 기본값.
+ * items: g 주제 큰 분류 · s 주제 이름 · ec 주제 코드 · tg 큰 유형 · ty 세부 유형 · tc 유형 코드 · tya 1 = 자동(사람이 안 정함).
+ * 경험 사전 원본은 _도구/scripts/성과분석/경험영역.tsv, 유형표는 같은 폴더 유형.tsv — 낱말을 바꾸면 둘 다 고친다 */
 var CODE_TABLE = {
   E01: ['수업·강의·실습', '수업·학과'], E02: ['학과·전공 소개', '수업·학과'],
   E07: ['수강신청·전과·학사', '학사·장학'], E08: ['장학·등록', '학사·장학'],
@@ -1568,9 +1568,9 @@ var CODE_TABLE = {
   E12: ['취업·진로·현장실습', '활동·진로'], E13: ['창업', '활동·진로'], E14: ['봉사·국토대장정', '활동·진로'],
   E09: ['축제·공연', '행사·축제'],
   E15: ['전주·지역', '캠퍼스·전주'], E18: ['캠퍼스 공간·계절', '캠퍼스·전주'],
-  E17: ['선배·재학생 이야기', '사람 이야기'],
-  N1: ['입시·모집', '입시·모집'], N2: ['소식·성과', '소식·성과'], N3: ['이벤트·참여', '이벤트·참여'], N4: ['브랜드·시즌', '브랜드·시즌']
+  E17: ['선배·재학생 이야기', '사람 이야기']
 };
+var NO_TOPIC = '주제 없음';
 var EXP_RE = [
   ['E08', /장학|등록금|국가근로|근로장학|학자금|등록\s?(기간|일정|안내)/],
   ['E07', /수강\s?(신청|바구니)|학사|전과|복수전공|(휴학|복학)\s?(신청|안내|기간)|졸업\s?(요건|사정|논문)|학위\s?수여|성적|증명서|학생증|공결/],
@@ -1591,20 +1591,68 @@ var EXP_RE = [
   ['E15', /전주(?!대)|한옥마을|객사|전북|지역|통학|시내버스|신시가지/],
   ['E18', /캠퍼스|계절|봄|여름|가을|겨울|벚꽃|단풍|눈|공간|풍경|포토\s?(존|스팟)|날씨|하늘|노을|도서관|라운지|박물관/]
 ];
-// 옛 분류 → [기본 코드, 고를 수 있는 코드(없으면 경험 코드 전부)]
+// 옛 분류 → [기본 주제 코드, 고를 수 있는 코드(null = 경험 코드 전부)]
 var OLD2CODE = {
-  '이벤트·참여': ['N3', []], '홍보대사 모집': ['N1', []], '입시·모집': ['N1', []], '브랜드 영상': ['N4', []],
-  '동문 소식': ['N2', []], '성과·뉴스': ['N2', []], '체육부 소식': ['E10', []],
+  '이벤트·참여': ['', null], '홍보대사 모집': ['', null], '입시·모집': ['', null], '브랜드 영상': ['', null],
+  '동문 소식': ['', null], '성과·뉴스': ['', null], '체육부 소식': ['E10', []],
   '학사·생활 안내': ['E07', ['E08', 'E04', 'E05', 'E06', 'E12', 'E03', 'E15']],
   '행사·축제': ['E09', ['E12', 'E13', 'E10', 'E14', 'E11', 'E03']],
   '시설·공간': ['E18', ['E04', 'E05']],
   '학과·전공': ['E02', ['E01']],
   '캠퍼스·계절': ['E18', ['E15']],
-  '시즌 인사': ['N4', ['E06']],
+  '시즌 인사': ['', ['E06']],
   '정보·꿀팁': ['E17', null], '학생 이야기': ['E17', null], '예능·챌린지': ['E16', null], '기타': ['', null]
 };
-var FUN_RE = TAG_CATEGORIES.filter(function (c) { return c[0] === '예능·챌린지'; })[0][1];
-var BIG_NAMES = ['수업·학과', '학사·장학', '캠퍼스 생활', '활동·진로', '행사·축제', '캠퍼스·전주', '사람 이야기', '입시·모집', '소식·성과', '이벤트·참여', '브랜드·시즌'];
+// 유형표: 코드 → [세부 유형, 큰 유형]
+var TYPE_TABLE = {
+  T01: ['브이로그', '따라가기'], T02: ['하루 따라가기', '따라가기'], T03: ['직접 체험', '따라가기'], T04: ['먹방·맛 리뷰', '따라가기'], T05: ['룸투어·왓츠인마이백', '따라가기'],
+  T06: ['1인 인터뷰', '사람'], T07: ['즉석 질문', '사람'], T08: ['토크·대담', '사람'],
+  T09: ['학과 소개', '소개·정보'], T10: ['수업 소개', '소개·정보'], T11: ['공간 투어', '소개·정보'], T12: ['정보·꿀팁', '소개·정보'], T13: ['순위·추천', '소개·정보'],
+  T14: ['상황극·패러디', '예능'], T15: ['POV·1인칭', '예능'], T16: ['유형·공감 밈', '예능'], T17: ['게임·퀴즈', '예능'], T18: ['챌린지·댄스', '예능'],
+  T19: ['행사 스케치', '현장'], T20: ['무대·하이라이트', '현장'], T21: ['다큐', '현장'],
+  T22: ['풍경·계절', '비주얼'], T23: ['룩북·화보', '비주얼'], T24: ['뮤직비디오', '비주얼'], T25: ['브랜드 필름', '비주얼'],
+  T26: ['안내', '알림 카드'], T27: ['소식', '알림 카드'], T28: ['이벤트', '알림 카드'], T29: ['인사 카드', '알림 카드']
+};
+// 위에서부터 처음 맞는 것. 강한 안내 표시(【…안내】·신청 기간 등)는 영상 낱말보다 먼저
+var TYPE_RE = [
+  ['T26', /【[^】]*(안내|모집|일정)[^】]*】|안내\s?📢|📢\s?안내|(신청|접수|모집)\s?기간|모집\s?요강|운영\s?(시간|안내)/],
+  ['T15', /POV|𝗣𝗢𝗩|𝙋𝙊𝙑|1인칭/],
+  ['T18', /챌린지|challenge|댄스|Dance|𝘿𝙖𝙣𝙘𝙚|춤/i],
+  ['T17', /게임|퀴즈|맞혀|이상형\s?월드컵|밸런스|당신의 선택|버티기|초성|몇 초|초\s?안에/i], // VS·월드컵은 경기 안내·국가대표 소식에도 나와서 뺌
+  ['T16', /유형|공감|특징|국룰/],
+  ['T14', /상황극|콩트|패러디|복학생|대신맨|할 때\b|했을 때|현실|방위대/],
+  ['T07', /물었|물어봤|즉석|길거리|Q&A|QnA|질문 Time/i],
+  ['T08', /토크|솔까말|솔직히 까놓고|대담|라디오|수다/],
+  ['T06', /인터뷰|만나다|성공\s?스토리|롱터뷰|이야기,? 들어/],
+  ['T05', /룸투어|What'?s in my|왓츠인|가방\s?검사|필통/i],
+  ['T04', /먹방|학식 (대전|투어|먹자)|맛 ?리뷰|메뉴 (TOP|추천)|먹어 ?봤/i],
+  ['T01', /브이로그|vlog/i],
+  ['T02', /의 하루|하루 (일과|루틴)|24시|공강/],
+  ['T03', /체험왕|체험(?!\s?프로그램)|해 ?보기|해봤|가능할까|도전기/],
+  ['T24', /\bMV\b|뮤직비디오/],
+  ['T21', /다큐|documentary/i],
+  ['T20', /하이라이트|무대|직캠|LIVE|라이브|공연 영상/i],
+  ['T19', /스케치|𝗦𝗞𝗘𝗧𝗖𝗛|SKETCH|현장|비하인드/i],
+  ['T23', /룩북|Look ?Book|화보|코디|패션/i],
+  ['T13', /TOP\s?\d|순위|BEST\s?\d|추천/i],
+  ['T12', /꿀팁|팁(?!스)|총?정리|방법|가이드/],
+  ['T10', /오늘의 강의|수업|강의/],
+  ['T09', /학과 투어|(학과|학부|대학|전공)[을를]?\s?소개|Login|전공 체험/],
+  ['T11', /투어|둘러보기|구경|명소|공간 (소개|추천)|(라운지|홀|도서관|센터|기숙사|박물관)[을를]?\s?소개/],
+  ['T22', /벚꽃|단풍|첫눈|눈 내|노을|풍경|하늘|드론|FPV|야경/],
+  ['T29', /새해|크리스마스|추석|설날|어버이날|스승의|화이팅|파이팅|응원합니다/],
+  ['T27', /선정|수상|우승|획득|📰|뉴스|성황리/]
+];
+// 옛 분류 → 유형 기본값 [영상일 때, 사진·카드일 때]
+var OLD2TYPE = {
+  '이벤트·참여': ['T28', 'T28'], '홍보대사 모집': ['T26', 'T26'], '입시·모집': ['T26', 'T26'], '브랜드 영상': ['T25', 'T25'],
+  '동문 소식': ['T19', 'T27'], '성과·뉴스': ['T27', 'T27'], '체육부 소식': ['T19', 'T27'],
+  '학사·생활 안내': ['T12', 'T26'], '행사·축제': ['T19', 'T19'], '시설·공간': ['T11', 'T11'], '학과·전공': ['T09', 'T09'],
+  '정보·꿀팁': ['T12', 'T12'], '학생 이야기': ['T01', 'T19'], '캠퍼스·계절': ['T22', 'T22'], '시즌 인사': ['T29', 'T29'],
+  '예능·챌린지': ['T14', 'T14'], '기타': ['', '']
+};
+var BIG_NAMES = ['수업·학과', '학사·장학', '캠퍼스 생활', '활동·진로', '행사·축제', '캠퍼스·전주', '사람 이야기'];
+var N_OLD = { N1: '입시·모집', N2: '성과·뉴스', N3: '이벤트·참여', N4: '브랜드 영상' }; // 10-24 오전 @78에서 잠깐 쓴 경험 아닌 코드
 
 function pickCode_(old, text) {
   var m = OLD2CODE[old] || OLD2CODE['기타'], t = String(text || '');
@@ -1612,30 +1660,59 @@ function pickCode_(old, text) {
   for (var i = 0; i < EXP_RE.length; i++) if (cand.indexOf(EXP_RE[i][0]) >= 0 && EXP_RE[i][1].test(t)) return EXP_RE[i][0];
   return m[0];
 }
-// 코드 → {ec, g, s}. 코드가 없으면 기타
+// 주제 코드 → {ec, g, s}. 코드가 없으면 「주제 없음」
 function codeInfo_(ec) {
   var c = CODE_TABLE[ec];
-  return c ? { ec: ec, g: c[1], s: c[0] } : { ec: '', g: '기타', s: '' };
+  return c ? { ec: ec, g: c[1], s: c[0] } : { ec: '', g: NO_TOPIC, s: '' };
 }
-// 시트에 적힌 값(코드 「E05」·「N3」, 큰 분류 이름, 옛 분류 이름, 「옛 분류/세부」, 「스포츠」)을 코드로 — 「태그」 탭 옛 값·「태그 수정」 B열 공용
-function resolveCode_(val, text) {
-  var v = String(val || '').trim();
-  if (!v || v === '기타') return '';
-  var m = /^([EN]\d{1,2})\b/i.exec(v);
-  if (m) { var k = m[1].toUpperCase().replace(/^E(\d)$/, 'E0$1'); if (CODE_TABLE[k]) return k; }
-  for (var ec in CODE_TABLE) if (CODE_TABLE[ec][0] === v) return ec;
-  var old0 = v.split('/')[0].trim();
-  if (OLD2CODE[old0]) return pickCode_(old0, text); // 옛 이름이 먼저(행사·축제·이벤트·참여·입시·모집은 새 큰 분류와 이름이 같음)
-  var big = BIG_NAMES.indexOf(v) >= 0 ? v : '';
-  if (big) { for (var i = 0; i < EXP_RE.length; i++) if (CODE_TABLE[EXP_RE[i][0]][1] === big && EXP_RE[i][1].test(text || '')) return EXP_RE[i][0]; for (var c in CODE_TABLE) if (CODE_TABLE[c][1] === big) return c; }
-  var old = v.split('/')[0].trim();
+// 옛 분류 이름(「옛 분류/세부」·「숏폼·예능」·「스포츠」 포함) → 정리된 옛 분류, 아니면 ''
+function oldCat_(v, text) {
+  var old = String(v || '').split('/')[0].trim();
   if (old === '숏폼·예능') old = '예능·챌린지';
   if (old === '스포츠') old = legacySport_(text);
-  return OLD2CODE[old] ? pickCode_(old, text) : '';
+  var m = /^N\d\b/i.exec(old); if (m && N_OLD[m[0].toUpperCase()]) old = N_OLD[m[0].toUpperCase()];
+  return OLD2CODE[old] ? old : '';
 }
-function tagCode_(text, channel) {
+// 시트에 적힌 주제 값(코드 「E05」, 주제 이름, 큰 분류 이름, 옛 분류 이름)을 주제 코드로 — 「태그」 탭 옛 값·「태그 수정」 B열 공용
+function resolveCode_(val, text) {
+  var v = String(val || '').trim();
+  if (!v || v === '기타' || v === NO_TOPIC || v === '없음') return '';
+  var m = /^E(\d{1,2})\b/i.exec(v);
+  if (m) { var k = 'E' + ('0' + m[1]).slice(-2); if (CODE_TABLE[k]) return k; }
+  for (var ec in CODE_TABLE) if (CODE_TABLE[ec][0] === v) return ec;
+  var old = oldCat_(v, text);
+  if (old) return pickCode_(old, text); // 옛 이름이 먼저(행사·축제는 새 큰 분류와 이름이 같음)
+  if (BIG_NAMES.indexOf(v) >= 0) { for (var i = 0; i < EXP_RE.length; i++) if (CODE_TABLE[EXP_RE[i][0]][1] === v && EXP_RE[i][1].test(text || '')) return EXP_RE[i][0]; for (var c in CODE_TABLE) if (CODE_TABLE[c][1] === v) return c; }
+  return '';
+}
+// 유형: 낱말 → 옛 분류 기본값. video = 영상 게시물(유튜브·hong·릴스)
+function pickType_(old, text, video) {
   var t = String(text || '');
-  return { ec: pickCode_(tagCategory(t, channel), t), fun: /hong/.test(channel || '') || FUN_RE.test(t) ? 1 : 0 };
+  for (var i = 0; i < TYPE_RE.length; i++) if (TYPE_RE[i][1].test(t)) return TYPE_RE[i][0];
+  var d = OLD2TYPE[old] || OLD2TYPE['기타'];
+  return d[video ? 0 : 1];
+}
+// 시트에 적힌 유형 값(코드 「T14」, 세부 유형 이름) → 코드
+function resolveType_(val) {
+  var v = String(val || '').trim();
+  if (!v) return '';
+  var m = /^T(\d{1,2})\b/i.exec(v);
+  if (m) { var k = 'T' + ('0' + m[1]).slice(-2); if (TYPE_TABLE[k]) return k; }
+  var vn = v.replace(/[·\s]/g, '');
+  for (var tc in TYPE_TABLE) if (TYPE_TABLE[tc][0].replace(/[·\s]/g, '') === vn) return tc;
+  if (v === '상황극·콩트' || v === '상황극' || v === '패러디') return 'T14';
+  return '';
+}
+function typeInfo_(tc) {
+  var t = TYPE_TABLE[tc];
+  return t ? { tc: tc, ty: t[0], tg: t[1] } : { tc: '', ty: '', tg: '' };
+}
+function isVideo_(channel, type) {
+  return !/인스타/.test(channel || '') || /릴스|영상|reel|video/i.test(String(type || ''));
+}
+function tagCode_(text, channel, type) {
+  var t = String(text || ''), old = tagCategory(t, channel);
+  return { ec: pickCode_(old, t), tc: pickType_(old, t, isVideo_(channel, type)) };
 }
 
 // ───────── 제작 주체 · 참여자 ─────────
@@ -1792,6 +1869,11 @@ function ensureTagSheets_(ss) {
     sh.getRange(1, 5).setNote('경험 영역 코드 최대 2개(예: E04,E05). 코드는 _도구/scripts/성과분석/경험영역.tsv · 비우면 보드가 자동 제안을 「제안」으로 표시');
     sh.getRange(1, 6).setNote('코너 이름(예: 가이드·피플·클래스·스팟·뉴스·없음). 이름은 바뀔 수 있어 보드는 적힌 그대로 씀');
   }
+  if (sh.getMaxColumns() < 7) sh.insertColumnsAfter(sh.getMaxColumns(), 7 - sh.getMaxColumns());
+  if (String(sh.getRange(1, 7).getValue()) !== '유형') {
+    sh.getRange(1, 7).setValue('유형').setFontWeight('bold').setNote('세부 유형 이름이나 코드(예: 브이로그 · T01, 상황극·패러디 · T14). 유형표는 _도구/scripts/성과분석/유형.tsv · 비우면 자동값(보드에 「자동」)');
+    sh.getRange(1, 2).setNote('주제: 경험 영역 코드(E05)·이름이나 예전 분류 이름. 「제외」 = 보드에서 뺌');
+  }
   sh = ss.getSheetByName(TAG_SHEET);
   if (!sh) {
     sh = ss.insertSheet(TAG_SHEET);
@@ -1799,10 +1881,10 @@ function ensureTagSheets_(ss) {
     sh.setFrozenRows(1);
   }
   if (sh.getMaxColumns() < 9) sh.insertColumnsAfter(sh.getMaxColumns(), 9 - sh.getMaxColumns());
-  if (sh.getRange(1, 9).getValue() !== '예능 톤') {
-    sh.getRange(1, 3).setValue('분류 코드(자동)').setNote('분류표 코드(2026-10-24): E01–E18 경험 영역, N1 입시·모집 · N2 소식·성과 · N3 이벤트·참여 · N4 브랜드·시즌. 규칙이 붙인 값');
-    sh.getRange(1, 8).setValue('최종 분류').setNote('「태그 수정」을 반영한 값 = 보드·분석이 쓰는 값. 큰 분류 · 코드 영역');
-    sh.getRange(1, 9).setValue('예능 톤').setNote('상황극·밈·챌린지 톤이면 「예능」(hong은 모두). 주제와 따로 봄');
+  if (sh.getRange(1, 9).getValue() !== '유형 코드(자동)') {
+    sh.getRange(1, 3).setValue('주제 코드(자동)').setNote('분류표(2026-10-24): 주제 = 경험 영역 E01~E18(빈칸 = 주제 없음). 규칙이 붙인 값');
+    sh.getRange(1, 8).setValue('최종 분류').setNote('「태그 수정」을 반영한 값 = 보드·분석이 쓰는 값. 주제 · 유형');
+    sh.getRange(1, 9).setValue('유형 코드(자동)').setNote('유형 T01~T29(브이로그·행사 스케치·상황극·패러디 등, 큰 유형 7개). 규칙이 붙인 값 — 사람이 정하면 「태그 수정」 G열');
   }
 }
 
@@ -1838,42 +1920,47 @@ function tagItem_(channel, it) {
   const ch = channel.indexOf(BENCH_PREFIX) === 0 ? channel.slice(BENCH_PREFIX.length) : channel;
   const cap = it.full || it.title || '';
   const tx = ch === '유튜브' ? cap + '\n' + ytHead_(it.desc) : categoryText(cap);
-  const c = tagCode_(tx, ch); // 분류표 코드(E01–E18·N1–N4, 없으면 기타) + 예능 톤
+  const c = tagCode_(tx, ch, it.type); // 주제 코드(E01~E18, 없으면 '') + 유형 코드(T01~T29)
   const pr = tagProducer(ch, cap + '\n' + (it.desc || ''), { views: it.views, likes: it.likes });
-  return { g: c.ec || '기타', fun: c.fun, tx: tx, p: pr.p, w: pr.w, roles: pr.roles };
+  return { g: c.ec, tc: c.tc, tx: tx, p: pr.p, w: pr.w, roles: pr.roles };
 }
 
 // 스냅샷에서 읽은 원본 → 「태그」 탭 갱신 (기존 키는 유지, 이번에 읽은 키는 덮어씀)
+// 열: A 채널 · B 콘텐츠키 · C 주제 코드(자동) · D 제작 · E 참여자 · F 계산일 · G URL · H 최종(「태그 수정」 반영) · I 유형 코드(자동)
 function saveTags_(ss, bySrc, today) {
   ensureTagSheets_(ss);
   loadRoster_(ss);
   const sh = ss.getSheetByName(TAG_SHEET);
-  const map = {}, txt = {}, fun = {};
+  const map = {}, txt = {};
   if (sh.getLastRow() > 1) sh.getRange(2, 1, sh.getLastRow() - 1, 9).getValues().forEach(r => { map[r[0] + '§' + r[1]] = r; });
   bySrc.forEach(byCh => Object.keys(byCh).forEach(ch => Object.keys(byCh[ch]).forEach(k => {
     const it = byCh[ch][k];
     const t = tagItem_(ch, it);
-    map[ch + '§' + k] = [ch, k, t.g, t.p, t.w.join(', '), today, it.url || ''];
-    txt[ch + '§' + k] = t.tx; fun[ch + '§' + k] = t.fun;
+    map[ch + '§' + k] = [ch, k, t.g, t.p, t.w.join(', '), today, it.url || '', '', t.tc];
+    txt[ch + '§' + k] = t.tx;
   })));
   const fx = tagFixG_(ss);
-  const rows = Object.keys(map).map(k => map[k].slice(0, 7).concat([finalG_(map[k], fx, txt[k]), k in fun ? (fun[k] ? '예능' : '') : (map[k][8] || '')]));
+  const rows = Object.keys(map).map(k => { const r = map[k].slice(0, 9); while (r.length < 9) r.push(''); r[7] = finalG_(r, fx, txt[k]); return r; });
   sh.getRange(2, 1, Math.max(sh.getLastRow() - 1, 1), 9).clearContent();
   if (rows.length) sh.getRange(2, 1, rows.length, 9).setValues(rows);
 }
 
-// 「태그」 탭 H열 「최종 분류」: C열 자동값에 「태그 수정」을 덮은 값(보드·분석이 쓰는 값). C열만 보면 손으로 고친 게시물이 「기타」로 보여서(2026-10-24)
+// 「태그 수정」 B열(주제)·G열(유형) — 「태그」 탭 H열 「최종」을 보드와 같게 보여 주려고(2026-10-24)
 function tagFixG_(ss) {
   const fx = {}, fs = ss.getSheetByName(TAGFIX_SHEET);
-  if (fs && fs.getLastRow() > 1) fs.getRange(2, 1, fs.getLastRow() - 1, 2).getValues().forEach(r => { const k = String(r[0]).trim(), g = String(r[1] || '').trim(); if (k && g) fx[k] = g; });
+  if (fs && fs.getLastRow() > 1) fs.getRange(2, 1, fs.getLastRow() - 1, Math.min(7, fs.getMaxColumns())).getValues().forEach(r => {
+    const k = String(r[0]).trim(); if (k) fx[k] = { g: String(r[1] || '').trim(), ty: String(r[6] || '').trim() };
+  });
   return fx;
 }
-// 「캠퍼스 생활 · E05 학식·밥·카페」 꼴. 「태그 수정」 값이 옛 분류 이름이면 캡션으로 코드를 고름
+// 「캠퍼스 생활 E05 학식·밥·카페 · 따라가기 T04 먹방·맛 리뷰」 꼴. 「태그 수정」 값이 옛 분류 이름이면 캡션으로 코드를 고름
 function finalG_(r, fx, tx) {
-  const v = fx[r[1]] || (r[6] && fx[r[6]]) || r[2];
-  if (v === '제외') return '제외';
-  const c = codeInfo_(resolveCode_(v, tx || ''));
-  return c.ec ? c.g + ' · ' + c.ec + ' ' + c.s : '기타';
+  const f = fx[r[1]] || (r[6] && fx[r[6]]) || {};
+  if (f.g === '제외') return '제외';
+  const c = codeInfo_(resolveCode_(f.g || r[2], tx || ''));
+  const old = oldCat_(f.g || r[2], tx || '');
+  const y = typeInfo_(resolveType_(f.ty) || resolveType_(r[8]) || (old ? pickType_(old, tx || '', !/인스타/.test(r[0])) : ''));
+  return (c.ec ? c.g + ' ' + c.ec + ' ' + c.s : NO_TOPIC) + ' · ' + (y.tc ? y.tg + ' ' + y.tc + ' ' + y.ty : '유형 없음');
 }
 
 // 메뉴: 지금 원본을 읽어 태그만 다시 계산 (스냅샷은 기록하지 않음)
@@ -1896,16 +1983,16 @@ function loadTagData_(ss) {
   if (sh && sh.getLastRow() > 1) sh.getRange(2, 1, sh.getLastRow() - 1, Math.min(9, sh.getMaxColumns())).getValues().forEach(r => {
     // 예전 규칙으로 저장된 참여자 중 이름이 아닌 말(「영상을」「있도록」 등)은 여기서 뺌
     const w = String(r[4] || '').split(',').map(x => x.trim()).filter(n => n && STAFF.indexOf(n) < 0 && EXCLUDE.indexOf(n) < 0 && (inRoster_(n) || nameLike_(n) || /^@[A-Za-z0-9._]+$/.test(n)));
-    tags[r[0] + '§' + r[1]] = { g: String(r[2] || ''), p: String(r[3] || ''), w: w, u: String(r[6] || ''), fun: r[8] === '예능' ? 1 : r[8] === '' && r[7] ? 0 : null };
+    tags[r[0] + '§' + r[1]] = { g: String(r[2] || ''), p: String(r[3] || ''), w: w, u: String(r[6] || ''), tc: String(r[8] || '').trim() };
     w.forEach(n => { roles[n] = roleOf(n); });
   });
   // 역할은 명단 기준만: 홍보대사 / 근로장학생 / 미확인(명단에 없는 이름 — 「명단」 탭에 추가하면 다음 응답부터 반영)
   const fix = {};
   const fs = ss.getSheetByName(TAGFIX_SHEET);
-  if (fs && fs.getLastRow() > 1) fs.getRange(2, 1, fs.getLastRow() - 1, Math.max(6, Math.min(fs.getLastColumn(), 6))).getValues().forEach(r => {
+  if (fs && fs.getLastRow() > 1) fs.getRange(2, 1, fs.getLastRow() - 1, Math.min(7, fs.getMaxColumns())).getValues().forEach(r => {
     const k = String(r[0]).trim(); if (!k) return;
     const ex = String(r[4] || '').toUpperCase().match(/E\d{2}/g);
-    fix[k] = { g: String(r[1] || '').trim(), p: String(r[2] || '').trim(), ex: ex ? ex.slice(0, 2).join(',') : '', cn: String(r[5] || '').trim() };
+    fix[k] = { g: String(r[1] || '').trim(), p: String(r[2] || '').trim(), ex: ex ? ex.slice(0, 2).join(',') : '', cn: String(r[5] || '').trim(), ty: String(r[6] || '').trim() };
   });
   return { tags: tags, roles: roles, fix: fix };
 }
@@ -2119,8 +2206,12 @@ function attachTags_(ss, items, keys) {
     const raw = f.g || (f.ex ? f.ex.split(',')[0] : '') || t.g || it.g || '';
     const ci = codeInfo_(resolveCode_(raw, it.n));
     it.g = ci.g; it.ec = ci.ec; if (ci.s) it.s = ci.s; else delete it.s;
-    const fn = t.fun != null && !f.g ? t.fun : /hong/.test(it.c) || /예능|숏폼/.test(raw) || FUN_RE.test(it.n || '');
-    if (fn) it.fun = 1;
+    // 유형: 「태그 수정」 G열(사람) > 「태그」 탭 I열 자동 코드 > 옛 분류 이름으로 짐작(「태그 다시 계산」 전 값·과거 기록 탭)
+    const tcH = resolveType_(f.ty), old = oldCat_(f.g, it.n) || oldCat_(t.g, it.n) || oldCat_(it.g, it.n);
+    const yi = typeInfo_(tcH || resolveType_(t.tc) || (old ? pickType_(old, it.n, isVideo_(it.c, it.t)) : ''));
+    if (yi.tc) { it.tc = yi.tc; it.ty = yi.ty; it.tg = yi.tg; if (!tcH) it.tya = 1; }
+    // 입시 게시물 표시(입시 시즌 리포트·보관 후보 제외용) — 주제에서 빠진 옛 「입시·모집」을 따로 남김
+    if ((old || tagCategory(categoryText(it.n), it.c)) === '입시·모집') it.adm = 1;
     it.p = f.p || t.p || it.p || (OWN_CHANNELS.indexOf(it.c) >= 0 ? '자체 제작' : '타 대학');
     if (t.w && t.w.length) it.w = t.w;
     if (f.ex) it.ex = f.ex; // 경험 영역 확정값(사람이 적음) — 자동 제안은 보드가 exs로 따로 붙임
@@ -2323,7 +2414,7 @@ function saveTagsMissing_(ss, bySrc) {
     have[ch + '§' + k] = 1;
     const it = byCh[ch][k];
     const t = tagItem_(ch, it);
-    add.push([ch, k, t.g, t.p, t.w.join(', '), today, it.url || '', t.tx, t.fun ? '예능' : '']);
+    add.push([ch, k, t.g, t.p, t.w.join(', '), today, it.url || '', t.tx, t.tc]);
   })));
   const fx = tagFixG_(ss);
   add.forEach(r => { r[7] = finalG_(r, fx, r[7]); });
