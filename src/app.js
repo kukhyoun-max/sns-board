@@ -213,23 +213,28 @@
   const mName = it => mainM(it.c) === 1 ? '좋아요' : '조회';
   // 올린 날: 오늘 · 어제 · N일 전(30일까지) · 그 뒤로는 날짜
   const whenTxt = d => { const a = daysBetween(d, D.updated); return a <= 0 ? '오늘 올림' : a === 1 ? '어제 올림' : a <= 30 ? a + '일 전 올림' : dot(d); };
+  // 게시물 목록도 홈 시안 2 한 모양(hmRow): 윗줄 제목 + 평소 대비, 아랫줄 채널 · 형식 · 올린 날(+ 보관 후보 같은 알림) + 조회. 분류·제작 같은 칩은 마우스를 올리면(title) 보임
+  const tagTxt = h => h.replace(/<[^>]+>/g, '').trim();
   function rankRows(L, opt) {
     opt = opt || {};
     return L.map((it, i) => {
-      const r = it.ad ? null : ratio(it), d = r == null ? null : r - 1;
+      const r = it.ad ? null : ratio(it);
       const yg = !it.ad && r != null && young(it);
       // 기록이 없어 조회 0으로 고정된 예전 게시물(인스타 자동 수집 전·엑셀 기록)은 0 대신 「–」
       const mv = mainVal(it), mvTxt = (it.x || frozen(it)) && !mv ? '<span class="mu" title="조회 기록 없음">–</span>' : fmtK(mv);
-      const tag = it.ad ? '광고' : it.hid ? '비공개로 보임' : r == null ? '' : yg ? '조회 모이는 중' : mW(it.c) + ' ' + vsTxt(r);
-      const right = opt.right ? opt.right(it) : mName(it) + ' <span class="num">' + mvTxt + '</span>' + (tag ? ' · <em class="' + (it.ad || yg || it.hid ? 'flat' : xCls(r)) + '"' + (yg ? ' title="올린 지 ' + AGE_MIN + '일이 안 돼 조회가 아직 쌓이는 중이에요"' : it.hid ? ' title="' + HID_TIP + '"' : '') + '>' + tag + '</em>' : '');
-      return '<li class="rk" tabindex="0" data-i="' + i + '"><span class="no">' + (i + 1) + '</span>' +
-        '<span class="t"><b>' + line(it) + '</b><span>' + right + ' · <span title="' + esc(dot(it.d)) + '">' + whenTxt(it.d) + '</span></span></span>' +
-        '<span class="tg"><span class="tag">' + esc(glab(it)) + '</span>' + tyTag(it) + ptag(it.p) + adtag(it) + coTag(it) + archTag(it) + credTag(it) + susTag(it) + hidTag(it) + histTag(it) + '</span></li>';
+      const v = it.ad ? '광고' : it.hid ? '비공개로 보임' : r == null ? '' : yg ? '모으는 중' : vsP(r);
+      const vc = it.ad || yg || it.hid ? 'mu' : xCls(r);
+      const warn = [archTag(it), susTag(it), hidTag(it)].map(tagTxt).filter(x => x && x !== v);
+      const tip = [glab(it), it.p, ...[tyTag(it), adtag(it), coTag(it), credTag(it), histTag(it), archTag(it), susTag(it)].map(tagTxt)].filter(Boolean).join(' · ') + (yg ? ' · 올린 지 ' + AGE_MIN + '일이 안 돼 조회가 아직 쌓이는 중' : '');
+      const ty = typeShort(it.t);
+      return hmRow({ tag: 'li', cls: 'hm-rk', attr: 'tabindex="0" data-i="' + i + '"', tip, c: it.c, t: esc(title(it.n)), v, vc,
+        m: [ty ? esc(ty) : '', '<span title="' + esc(dot(it.d)) + '">' + whenTxt(it.d) + '</span>', ...warn.map(w => '<span class="down">' + esc(w) + '</span>')].filter(Boolean).join(' · '),
+        r: opt.right ? opt.right(it) : mName(it) + ' <span class="num">' + mvTxt + '</span>' });
     }).join('') || '<li class="empty">조건에 맞는 콘텐츠가 없어요.</li>';
   }
   function wireRank(el, L) {
     if (!el) return;
-    el.querySelectorAll('.rk').forEach(li => {
+    el.querySelectorAll('.rk, .hm-rk').forEach(li => {
       const go = () => openDetail(L[+li.dataset.i]);
       li.addEventListener('click', go); li.addEventListener('keydown', e => { if (e.key === 'Enter') go(); });
     });
@@ -1449,18 +1454,16 @@
     if (bw) test(WD[bw.k] + '요일 게시', it => dow(it.d) === bw.k, '요일');
     return out.sort((a, b) => Math.abs(Math.log(b.eff)) - Math.abs(Math.log(a.eff))).slice(0, 6);
   }
+  // 홈 시안 2 모양: 채널별 묶음 + hmRow(윗줄 조건 + 나머지 대비 조회, 아랫줄 기준 · 개수 + 히트율 비교)
   function rulesHtml(chs) {
     const blocks = ownIn(chs).map(ch => {
       const R = rulesFor(ch);
-      if (!R.length) return '<div class="rl"><div class="rl-h">' + badge(ch) + '</div><p class="note">최근 2년 게시물이 30개가 안 되거나, 조건에 따라 뚜렷한 차이가 나지 않았어요.</p></div>';
-      return '<div class="rl"><div class="rl-h">' + badge(ch) + '<small>최근 2년 · 해당 게시물 vs 나머지 · 중간값</small></div><ul>' + R.map(r => {
-        const up = r.eff >= 1, mxv = Math.max(r.ma, r.mb, 1.5);
-        // 두 줄 미니 막대(이 조건 / 나머지), 숫자는 오른쪽
-        const bar = (lab, n, v, h, on) => '<div class="cmpb"><span class="cl">' + lab + ' <small>' + n + '개</small></span><span class="ct"><i class="' + (on ? (up ? 'up' : 'down') : '') + '" style="width:' + Math.min(100, v / mxv * 100).toFixed(1) + '%"></i></span><span class="cv num">' + vsP(v) + '<small>히트율 ' + pct0(h) + '</small></span></div>';
-        return '<li class="' + (up ? 'up' : 'down') + '"><span class="ic2">' + (up ? '▲' : '▼') + '</span><span><b>' + esc(r.label) + '</b> <em class="' + (up ? 'up' : 'down') + '">' + (up ? '더 잘 됨' : '덜 됨') + '</em>' + (r.sub ? '<small class="rl-s">' + esc(r.sub) + '</small>' : '') + '<div class="cmps">' + bar('이 조건', r.na, r.ma, r.ha, true) + bar('나머지', r.nb, r.mb, r.hb, false) + '</div></span></li>';
-      }).join('') + '</ul></div>';
+      if (!R.length) return hmSec(chTxt(ch), '', '<p class="hm-note">최근 2년 게시물이 30개가 안 되거나, 조건에 따라 뚜렷한 차이가 나지 않았어요.</p>');
+      return hmSec(chTxt(ch), '오른쪽 = 나머지 대비 조회', R.map(r => { const up = r.eff >= 1;
+        return hmRow({ t: esc(r.label), v: vsP(r.eff), vc: up ? 'up' : 'down', m: (r.sub ? esc(r.sub) + ' · ' : '') + r.na + '개', r: '히트율 ' + pct0(r.ha) + ' vs ' + pct0(r.hb), tip: '이 조건 ' + r.na + '개 평소 대비 ' + vsP(r.ma) + ' · 나머지 ' + r.nb + '개 ' + vsP(r.mb) + ' (최근 2년 조회 중간값)' });
+      }).join(''));
     });
-    return '<div class="rls">' + blocks.join('') + '</div><p class="note">「이런 게시물일 때 더 잘 됐다」는 뜻이지, 그게 이유라는 뜻은 아니에요. 다음 달 기획에서 한두 번 시도해 보고 스냅샷 시트 「전략 기록」 탭에 적으면 효과를 채점해 드려요.</p>';
+    return '<div class="hm-rx">' + blocks.join('') + '</div><p class="hm-note">최근 2년 조회 중간값으로, 조건에 맞는 게시물과 나머지를 비교했어요. 「이런 게시물일 때 더 잘 됐다」는 뜻이지, 그게 이유라는 뜻은 아니에요. 다음 달 기획에서 한두 번 시도해 보고 스냅샷 시트 「전략 기록」 탭에 적으면 효과를 채점해 드려요.</p>';
   }
 
   // 3) 다음 달 편성 제안
@@ -1479,7 +1482,7 @@
         const rr = igR && r ? r.arr.filter(it => it.r > 0).map(it => it.r) : null;
         const idx = igR ? (rr && rr.length >= 5 && rBase ? median(rr) / rBase : null) : (r && r.n >= 5 ? r.idx : null);
         // 판정 · 근거를 짧게: 「늘리기 · 조회 평소의 1.3배」
-        const basis = (igR ? '도달 평소의 ' : '조회 평소의 ') + vsP(idx), few = r && r.n < 5 ? ' · 참고용' : '';
+        const basis = (igR ? '도달 ' : '조회 ') + vsTxt(idx), few = r && r.n < 5 ? ' · 참고용' : '';
         let rec = Math.round(per), vd = '유지', bs = idx != null && idx > 0.8 && idx < 1.2 ? basis : '최근 6달 하던 만큼';
         if (idx != null && idx >= 1.2) { rec = Math.max(rec + 1, Math.round(per * 1.3)); vd = '늘리기'; bs = basis; }
         else if (idx != null && idx <= 0.8 && rec > 0) { rec = Math.max(0, Math.min(rec - 1, Math.round(per * 0.7))); vd = '줄이기'; bs = basis; }
@@ -1492,16 +1495,15 @@
       return { ch, nm, rows, topics, yrs, best };
     });
   }
+  // 홈 시안 2 모양: 채널 묶음 + 형식마다 hmRow(윗줄 형식 + 「월 4.8 → 5개」, 아랫줄 늘리기·줄이기 · 근거), 지난해 같은 달 잘 된 게시물은 rankRows
   function planHtml(P) {
     if (!P.length) return '';
     const m = +P[0].nm.slice(5, 7);
-    return '<div class="pls">' + P.map(p => '<div class="pl"><div class="rl-h">' + badge(p.ch) + '<small>' + m + '월 권장 · 합계 ' + sum(p.rows.map(r => r.rec)) + '개</small></div>' +
-      // 형식마다 한 줄: 형식 · 판정 칩 · 「월 4.7 → 5개」, 근거는 아랫줄 작은 글씨
-      '<div class="plr-h"><span>형식</span><span>월평균 → 권장</span></div>' +
-      p.rows.map(r => '<div class="plr"><div class="plr-m"><b>' + esc(fmtType(r.t)) + '</b><span class="vd ' + (r.vd === '늘리기' ? 'up' : r.vd === '줄이기' ? 'down' : '') + '">' + r.vd + (r.vd === '늘리기' ? ' ▲' : r.vd === '줄이기' ? ' ▼' : '') + '</span><span class="num">월 ' + r.per.toFixed(1) + ' → <b>' + r.rec + '</b>개</span></div><small>' + esc(r.bs) + '</small></div>').join('') +
-      (p.topics.length ? '<div class="pl-t"><b>지난 ' + m + '월에 잘 된 주제</b> <small>' + yrSpan(p.yrs) + ' · 조회 평소 대비 · 올해도 후보</small><div class="chips">' + p.topics.map(t => '<span class="chip" aria-pressed="true">' + esc(t.k) + ' ' + vsP(t.idx) + '</span>').join('') + '</div></div>' : '<p class="note">' + (p.yrs.length ? yrSpan(p.yrs) + ' ' + m + '월엔 뚜렷하게 잘 된 주제가 없었어요.' : '지난 ' + m + '월 데이터가 없어요.') + '</p>') +
-      (p.best.length ? '<div class="pl-b"><div class="pl-bh">지난 ' + m + '월 가장 잘 된 게시물</div><ul class="rx-l">' + p.best.map(it => '<li><div class="rx-t">' + esc(title(it.n)) + '</div><div class="rx-m">' + mName(it) + ' <span class="num">' + fmtK(mainVal(it)) + '</span> · <b>' + vsTxt(ratio(it)) + '</b> · ' + whenTxt(it.d) + '</div></li>').join('') + '</ul></div>' : '') + '</div>').join('') + '</div>' +
-      '<div style="margin-top:12px"><button type="button" class="btn" id="planCopy" title="형식별 권장 개수 · 이유 · 잘 된 주제를 글로 복사">회의용으로 복사</button></div>';
+    return '<div class="hm-rx">' + P.map((p, pi) => hmSec(chTxt(p.ch), m + '월 권장 · 합계 ' + sum(p.rows.map(r => r.rec)) + '개',
+      p.rows.map(r => { const vc = r.vd === '늘리기' ? 'up' : r.vd === '줄이기' ? 'down' : ''; return hmRow({ t: esc(fmtType(r.t)), v: '월 ' + r.per.toFixed(1) + ' → ' + r.rec + '개', vc, m: '<b class="' + (vc || 'mu') + '">' + r.vd + '</b> · ' + esc(r.bs), tip: r.why }); }).join('') +
+      (p.topics.length ? '<p class="hm-note">지난 ' + m + '월에 잘 된 주제(' + yrSpan(p.yrs) + ', 조회 평소 대비): ' + p.topics.map(t => '<b>' + esc(t.k) + '</b> <span class="' + xCls(t.idx) + '">' + vsP(t.idx) + '</span>').join(' · ') + '</p>' : '<p class="hm-note">' + (p.yrs.length ? yrSpan(p.yrs) + ' ' + m + '월엔 뚜렷하게 잘 된 주제가 없었어요.' : '지난 ' + m + '월 데이터가 없어요.') + '</p>') +
+      (p.best.length ? '<p class="hm-note"><b>지난 ' + m + '월 가장 잘 된 게시물</b></p><ol class="rank" id="plBest' + pi + '">' + rankRows(p.best) + '</ol>' : ''))).join('') + '</div>' +
+      '<div style="margin-top:16px"><button type="button" class="btn" id="planCopy" title="형식별 권장 개수 · 이유 · 잘 된 주제를 글로 복사">회의용으로 복사</button></div>';
   }
   const yrSpan = y => y.length > 1 ? y[0] + '~' + y[y.length - 1] + '년' : y[0] + '년';
   function planText(P) {
@@ -1587,14 +1589,12 @@
   function longtailHtml(chs) {
     const R = ownIn(chs).map(longtail).filter(r => r && r.top.length);
     if (!R.length) return '<div class="wait">기록이 2회 이상 쌓인 채널이 없어요.</div>';
-    return R.map(r => '<div class="lt"><div class="rl-h">' + badge(r.ch) + '<small>' + dot(r.from) + ' → ' + dot(r.to) + ' · ' + r.days + '일 동안</small></div>' +
-      // 두 줄 행 + 비율 막대: 이 기간 늘어난 조회 · 그중 1년 넘은 게시물 몫
-      '<div class="s2 lt-s2"><div class="s2-h"><span>이 기간 늘어난 조회</span><b class="num">+' + fmtK(r.tot) + '</b></div>' +
-      '<div class="s2-h"><span>그중 1년 넘은 게시물 ' + r.n + '개 몫</span><b class="num">+' + fmtK(r.oldSum) + ' · ' + pct0(r.tot ? r.oldSum / r.tot : null) + '</b></div>' +
-      '<div class="mbar"><i style="width:' + (r.tot ? Math.round(r.oldSum / r.tot * 100) : 0) + '%"></i></div></div>' +
-      '<ol class="rank" id="lt_' + esc(r.ch).replace(/\W/g, '') + '">' + rankRows(r.top, { right: it => '조회 <span class="num">+' + fmtK(r.g.get(it)) + '</span>' }) + '</ol>' +
-      '<p class="note">' + ICO.spark + ' 위 게시물 ' + (r.ch === '유튜브' ? '설명란' : '캡션') + '·고정 댓글에 입학처·최근 영상 링크를 달고, 같은 주제로 새 버전을 만들어 보세요.</p></div>').join('') +
-      '<p class="note">오래돼도 조회가 계속 늘면 검색·추천으로 꾸준히 보이고 있을 가능성이 커요.</p>';
+    // 홈 시안 2 모양: 채널 묶음 + 숫자 카드 2개 + rankRows
+    return '<div class="hm-rx">' + R.map(r => hmSec(chTxt(r.ch), dot(r.from) + ' → ' + dot(r.to) + ' · ' + r.days + '일',
+      hmCards([hmCard('이 기간 늘어난 조회', '+' + fmtK(r.tot), '게시물 전체'), hmCard('그중 1년 넘은 게시물', '+' + fmtK(r.oldSum), pct0(r.tot ? r.oldSum / r.tot : null) + ' · ' + r.n + '개')]) +
+      '<ol class="rank" id="lt_' + OWN.indexOf(r.ch) + '">' + rankRows(r.top, { right: it => '조회 <span class="num">+' + fmtK(r.g.get(it)) + '</span>' }) + '</ol>' +
+      '<p class="hm-note">→ 위 게시물 ' + (r.ch === '유튜브' ? '설명란' : '캡션') + '·고정 댓글에 입학처·최근 영상 링크를 달고, 같은 주제로 새 버전을 만들어 보세요.</p>')).join('') + '</div>' +
+      '<p class="hm-note">오래돼도 조회가 계속 늘면 검색·추천으로 꾸준히 보이고 있을 가능성이 커요.</p>';
   }
 
   // 7) 수명 곡선 — 게시 후 1달·3달·6달에 현재 누적의 몇 %까지 왔나
@@ -1731,8 +1731,9 @@
       $('stList').innerHTML = L.length ? '<ol class="rank" id="stRank">' + rankRows(L.slice(0, 20)) + '</ol>' : '<p class="note">조건에 맞는 게시물이 아직 없어요.</p>';
       wireRank($('stRank'), L.slice(0, 20));
     }));
+    PLAN.forEach((p, pi) => wireRank($('plBest' + pi), p.best));
     if ($('planCopy')) $('planCopy').addEventListener('click', () => { const t = planText(PLAN); try { navigator.clipboard.writeText(t).then(() => toast('편성 제안을 복사했어요'), () => toast('복사하지 못했어요')); } catch (e) { toast('복사하지 못했어요'); } });
-    ownIn(chs).forEach(ch => { const el = $('lt_' + ch.replace(/\W/g, '')); const r = longtail(ch); if (el && r) wireRank(el, r.top); });
+    ownIn(chs).forEach(ch => { const el = $('lt_' + OWN.indexOf(ch)); const r = longtail(ch); if (el && r) wireRank(el, r.top); });
     const LC = lifeCurve(ownIn(chs));
     if (!LC.length) { $('lifeNote2').textContent = '기록이 쌓인 기간이 아직 짧아서, 게시물이 언제까지 조회를 모으는지 그리기 어려워요.'; return; }
     // 색 = 채널색, 형식 = 선 모양(릴스·쇼츠 실선, 캐러셀·긴 영상 [6,3], 그 밖 [2,2]) · 범례 대신 선 끝 라벨
