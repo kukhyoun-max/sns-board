@@ -2381,12 +2381,15 @@
       if (!G.length) { box.innerHTML = '<li class="empty">조건에 맞는 콘텐츠가 없어요.</li>'; return; }
       const ok = r => r.n >= MIN_N && r.idx != null;
       const many = G.filter(ok).sort((a, b) => b.idx - a.idx), few = G.filter(r => !ok(r)).sort((a, b) => b.n - a.n);
-      const mx = Math.max(...G.map(wOf), 1);
+      // 가운데 0에서 좌우로 뻗는 막대(2026-10-24): 오른쪽 파랑 = 평소보다 잘 됨, 왼쪽 주황 = 덜 됨. 가장 큰 차이(최대 +200%)를 끝으로
+      const D = Math.min(2, Math.max(0.5, ...many.map(r => Math.abs(r.idx - 1))));
+      const dvBar = r => { if (!ok(r)) return ''; const d = r.idx - 1, cls = dCls(d), wd = Math.max(1.5, Math.min(1, Math.abs(d) / D) * 50);
+        return '<span class="tl-dv" aria-hidden="true"><i class="' + cls + '" style="' + (d >= 0 ? 'left:50%' : 'right:50%') + ';width:' + wd.toFixed(1) + '%"></i></span>'; };
       const row = r => { const w = wOf(r), fw = !ok(r);
-        return hmRow({ tag: 'li', cls: 'hm-rk', attr: 'tabindex="0" data-k="' + esc(r.k) + '"', tip: r.k + ' · 게시물 ' + r.n + '개 · ' + vW() + ' 합 ' + fmt(w) + (r.idx == null ? '' : ' · ' + vW() + ' ' + vsTxt(r.idx)),
+        return hmRow({ tag: 'li', cls: 'hm-rk tl-r', attr: 'tabindex="0" data-k="' + esc(r.k) + '"', tip: r.k + ' · 게시물 ' + r.n + '개 · ' + vW() + ' 합 ' + fmt(w) + (r.idx == null ? '' : ' · ' + vW() + ' ' + vsTxt(r.idx)),
           t: esc(r.k), v: fw ? (r.n < MIN_N ? '표본 적음' : '비교 전') : vsP(r.idx), vc: fw ? 'mu' : xCls(r.idx),
-          m: r.n + '개 · ' + vW() + ' 비중 <span class="tl-bar" aria-hidden="true"><i style="width:' + Math.max(3, Math.round(w / mx * 100)) + '%"></i></span> <span class="num">' + pct0(tot ? w / tot : null) + '</span>',
-          r: r.hit == null || fw ? '' : '히트율 ' + pct0(r.hit) }); };
+          m: r.n + '개 · ' + vW() + ' 비중 <span class="num">' + pct0(tot ? w / tot : null) + '</span>',
+          r: r.hit == null || fw ? '' : '히트율 ' + pct0(r.hit) }).replace('<span class="hm-r2">', dvBar(r) + '<span class="hm-r2">'); };
       box.innerHTML = many.map(row).join('') + (few.length ? '<li class="hm-open" id="tlFew"' + (S.tlFew ? '' : ' hidden') + '><ol class="hm-list">' + few.map(row).join('') + '</ol></li>' : '');
       if (few.length) { more.innerHTML = '<button class="more" id="tlFewBtn" type="button">' + (S.tlFew ? '접기' : '게시물 ' + MIN_N + '개 미만 ' + few.length + '개 더 보기 ›') + '</button>'; $('tlFewBtn').addEventListener('click', () => { S.tlFew = !S.tlFew; renderTrend(); }); }
       box.querySelectorAll('li[data-k]').forEach(li => { const go = () => { S.tlShown = 10; if (by === 'g') { S.g = li.dataset.k; S.gs = null; renderTrend(); renderRank(); } else { S.tmSel = li.dataset.k; renderTrend(); } };

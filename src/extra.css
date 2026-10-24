@@ -925,9 +925,12 @@ button.hm-row:active, a.hm-row:active, li.hm-row:active { opacity: .7; }
 .hm-cs { white-space: normal; word-break: keep-all; overflow-wrap: anywhere; }
 /* 휴대폰: 「더 보기」 버튼은 섹션 밖이라 좌우 16px 여백(펼친 안쪽 섹션은 그대로 폭 전체) */
 @media (max-width: 560px) { .home-more > summary { margin: 0 16px; } }
-/* 탐색 「콘텐츠 동향」 목록: 조회 비중 막대(가장 큰 묶음 = 꽉 참, 옆 숫자 = 전체 중 비중) */
-.tl-bar { display: inline-block; width: 56px; height: 6px; border-radius: 3px; background: var(--hm-thumb); vertical-align: middle; overflow: hidden; margin: 0 2px; }
-.tl-bar i { display: block; height: 100%; background: var(--jj); border-radius: 3px; }
+/* 탐색 「콘텐츠 동향」: 가운데 0 기준 좌우 막대(오른쪽 파랑 = 평소보다 잘 됨, 왼쪽 주황 = 덜 됨) */
+.tl-r .hm-rb { gap: 8px; }
+.tl-dv { position: relative; display: block; height: 10px; border-radius: 5px; background: var(--hm-thumb); }
+.tl-dv::before { content: ""; position: absolute; left: 50%; top: -3px; bottom: -3px; width: 2px; margin-left: -1px; background: var(--muted); border-radius: 1px; }
+.tl-dv i { position: absolute; top: 0; bottom: 0; border-radius: 5px; background: var(--muted); }
+.tl-dv i.up { background: var(--up); } .tl-dv i.down { background: var(--down-bar); }
 #tlist + #tlMoreBox .more, #tlMoreBox .more { margin-top: 8px; }
 #gchips:not([hidden]) { margin: 0 0 12px; }
 #tlist .empty { list-style: none; }
