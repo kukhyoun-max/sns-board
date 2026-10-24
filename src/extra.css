@@ -931,3 +931,8 @@ button.hm-row:active, a.hm-row:active, li.hm-row:active { opacity: .7; }
 #tlist + #tlMoreBox .more, #tlMoreBox .more { margin-top: 8px; }
 #gchips:not([hidden]) { margin: 0 0 12px; }
 #tlist .empty { list-style: none; }
+/* 지표 상세 「데이터」 표: 칸이 적으면 한 화면에 다 보이게(560px 최소 폭 없앰), 첫 칸은 글자 폭만, 줄 간격 좁게 */
+.tbl.ktbl { min-width: 0; }
+.tbl.ktbl th, .tbl.ktbl td { padding: 8px 8px; }
+.tbl.ktbl th:first-child, .tbl.ktbl td:first-child { width: 1%; padding-left: 0; padding-right: 16px; }
+.tbl.ktbl th:last-child, .tbl.ktbl td:last-child { padding-right: 0; }

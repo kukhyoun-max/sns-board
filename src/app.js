@@ -3626,7 +3626,7 @@
   const lastMonths = n => { const out = []; for (let k = n - 1; k >= 0; k--) { const d = new Date(D.updated + 'T00:00:00Z'); d.setUTCDate(1); d.setUTCMonth(d.getUTCMonth() - k); out.push(d.toISOString().slice(0, 7)); } return out; };
   const monLab = k => (+k.slice(5, 7)) + '월';
   const yAx = cb => ({ display: true, position: 'right', grid: { color: css('--line') }, border: { display: false }, ticks: { maxTicksLimit: 4, font: { size: 13 }, color: css('--muted'), callback: cb } });
-  const kTbl = (head, rows) => '<div class="tw"><table class="tbl"><thead><tr>' + head.map((h, i) => '<th' + (i ? ' class="n"' : '') + '>' + h + '</th>').join('') + '</tr></thead><tbody>' + rows.map(r => '<tr>' + r.map((c, i) => '<td' + (i ? ' class="n"' : '') + '>' + c + '</td>').join('') + '</tr>').join('') + '</tbody></table></div>';
+  const kTbl = (head, rows) => '<div class="tw"><table class="tbl ktbl"><thead><tr>' + head.map((h, i) => '<th' + (i ? ' class="n"' : '') + '>' + h + '</th>').join('') + '</tr></thead><tbody>' + rows.map(r => '<tr>' + r.map((c, i) => '<td' + (i ? ' class="n"' : '') + '>' + c + '</td>').join('') + '</tr>').join('') + '</tbody></table></div>';
   const kRow = (cls, k, b, s) => '<div class="sg"><span class="k ' + cls + '">' + k + '</span><div><b>' + b + '</b>' + (s ? '<span>' + s + '</span>' : '') + '</div></div>';
   const upDn = d => d == null ? 'info' : d > 0.03 ? 'good' : d < -0.03 ? 'bad' : 'info';
   function kpiPage(key, chs) {
