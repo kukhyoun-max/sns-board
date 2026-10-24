@@ -163,7 +163,7 @@
   function line(it) { const ty = typeShort(it.t); return '<span class="ln">' + badge(it.c) + (ty ? '<span class="ty">' + esc(ty) + '</span>' : '') + '<span class="tx">' + esc(title(it.n)) + '</span></span>'; }
   const ptag = p => '<span class="tag ' + (PROD_CLASS[p] || '') + '">' + esc(p) + '</span>';
   const histTag = it => it.x ? '<span class="tag" title="엑셀로 기록하던 시기의 값(기록 당시 수치)">과거 기록</span>' : '';
-  const glab = it => it.g + (it.s ? ' · ' + it.s : '');
+  const glab = it => it.g + (it.s && it.s !== it.g ? ' · ' + it.s : ''); // 큰 분류와 영역 이름이 같으면 한 번만(전주·지역, 2026-10-24)
   // 태그 출처(2026-10-24 「KPI·대시보드에 태깅 트리」): 사람 · 검토(Claude가 붙이고 담당자 확인) · Claude(확인 전) · 자동(낱말 규칙)
   // 성과 비교·순위는 사람·검토 값만(trustTy·trustEc). 자동 유형은 성과 차이를 거의 설명하지 못함(10-24 점검)
   const trustTy = it => !!it.tc && !it.tya && it.src !== 'c';
@@ -509,18 +509,19 @@
   }
   // 같은 시점 비교: it.ag = [[조회, 경과일] | null] × (게시 1·3·7일 뒤 기록, 실제 경과일은 1~10일로 들쭉날쭉).
   // 비교는 실제 경과일 e 기준: 같은 채널·같은 형식 게시물이 올린 지 e±1일에 받은 조회의 중간값(형식 표본 5개 미만이면 채널 전체 = 형식 섞인 비교)
-  const AGB = {};
+  // 2026-10-24 「짠 중앙으로!」 +195%: 쇼츠가 롱폼 6개 + 자기 자신과 비교돼 3배로 나옴 → 자기 자신은 늘 빼고, 유튜브 쇼츠(1분 이하)는 롱폼과 섞지 않음
+  const AGB = {}, AG_NOMIX = (ch, t) => ch === '유튜브' && t === '1분 이하';
   const agName = e => e <= 1 ? '첫날' : e === 7 ? '1주일' : e + '일간'; // 「첫날 조회 평소의 0.8배」 · 「5일간 조회 평소의 1.2배」
-  function agAt(ch, t, e) {
-    const k = ch + '|' + (t || '') + '|' + e;
+  function agAt(ch, t, e, self) {
+    const k = ch + '|' + (t || '') + '|' + e, lo = Math.max(1, e - 1), hi = e + 1;
     if (!(k in AGB)) {
-      const lo = Math.max(1, e - 1), hi = e + 1;
-      const pick = f => { const out = []; D.items.forEach(it => { if (it.c !== ch || it.t === '스토리' || it.ad || it.hid || !it.ag || !f(it)) return; let bx = null; it.ag.forEach(x => { if (x && x[0] > 0 && x[1] >= lo && x[1] <= hi && (!bx || Math.abs(x[1] - e) < Math.abs(bx[1] - e))) bx = x; }); if (bx) out.push(bx[0]); }); return out; };
-      let a = t ? pick(it => it.t === t) : [], mixed = false;
-      if (a.length < MIN_N) { a = pick(() => true); mixed = !!t; }
-      AGB[k] = a.length >= MIN_N ? { m: median(a), n: a.length, mixed, lo, hi } : null;
+      const pick = f => { const out = []; D.items.forEach(it => { if (it.c !== ch || it.t === '스토리' || it.ad || it.hid || !it.ag || !f(it)) return; let bx = null; it.ag.forEach(x => { if (x && x[0] > 0 && x[1] >= lo && x[1] <= hi && (!bx || Math.abs(x[1] - e) < Math.abs(bx[1] - e))) bx = x; }); if (bx) out.push([bx[0], it]); }); return out; };
+      AGB[k] = { same: t ? pick(it => it.t === t) : [], all: pick(() => true) };
     }
-    return AGB[k];
+    const own = A => A.filter(x => x[1] !== self).map(x => x[0]);
+    let a = own(AGB[k].same), mixed = false;
+    if (a.length < MIN_N && !AG_NOMIX(ch, t)) { a = own(AGB[k].all); mixed = !!t; }
+    return a.length >= MIN_N ? { m: median(a), n: a.length, mixed, lo, hi } : null;
   }
   // 비교 자료 설명(마우스 올림)
   const paceTip = p => p.base ? '올린 지 같은 날의 비교 자료가 적어 다 자란 평소 게시물 조회(중간값) ' + fmtK(p.v0) + '과 비교했어요 · 아직 덜 모여 낮게 보여요'
@@ -688,7 +689,7 @@
     if (chs.includes('유튜브') && chs.length === 1 && t.length < 4) { const x = acctTile('유튜브'); if (x) t.push(x); }
     // ④ 이번 주 게시물 판정: 게시물마다 점(색 = 판정 단계)
     if (t.length < 4) {
-      const J = w.posts.map(it => { const p = paceOf(it); return p ? tierOf(p.r) : null; }), good = J.filter(x => x && /^hi/.test(x[1])).length, low = J.filter(x => x && x[1] === 'lo').length;
+      const J = w.posts.map(it => { const p = paceOf(it); return p && !(p.base && young(it)) ? tierOf(p.r) : null; }), good = J.filter(x => x && /^hi/.test(x[1])).length, low = J.filter(x => x && x[1] === 'lo').length;
       t.push(kpiTile('이번 주 게시물 판정', w.posts.length ? good + '<small>개 잘 됨</small>' : '–', w.posts.length ? w.posts.length + '개 중 · 낮음 ' + low + '개' : '아직 없어요', '',
         w.posts.length ? '<div class="tdots">' + J.map((x, i) => '<i class="tier ' + (x ? x[1] : 'na') + '" title="' + esc(title(w.posts[i].n) + ' · ' + (x ? x[0] : '비교 전')) + '"></i>').join('') + '</div>' : ''));
     }
@@ -704,7 +705,7 @@
     // 게시물 줄(2026-10-24): 오른쪽 위 = 결과(조회 315만), 오른쪽 아래 = 평소 대비(색). 숫자만 있으면 무엇이 몇 %인지 몰라서
     const pRow = (lv, lab, it, r) => row('', lab, it.c, esc(title(it.n)), mName(it) + ' ' + fmtK(mainVal(it)), it, '<b class="' + lv + '">' + vsTxt(r) + '</b>');
     // 이번 주 게시물 중 가장 잘 된 것 · 가장 낮은 것(같은 형식 같은 날수 평소 대비)
-    const J = w.posts.map(it => ({ it, p: paceOf(it) })).filter(x => x.p).sort((a, b) => b.p.r - a.p.r);
+    const J = w.posts.map(it => ({ it, p: paceOf(it) })).filter(x => x.p && !(x.p.base && young(x.it))).sort((a, b) => b.p.r - a.p.r);
     if (J.length && J[0].p.r >= 1.3) pRow('up', '이번 주 가장 잘 된 게시물', J[0].it, J[0].p.r);
     const lo = J.filter(x => x.p.r < 0.7).pop();
     // 보관 권고(최근 60일): 몇 개인지 + 가장 낮은 것
@@ -777,7 +778,7 @@
     const vNow = it.c === '유튜브' ? ((last0(it) || [])[0] || null) : v;
     if (age >= 1 && vNow > 0) cand.push([vNow, age]);
     (it.ag || []).slice().reverse().forEach(x => { if (x && x[0] > 0 && x[1] >= 1 && x[1] !== age) cand.push(x); });
-    for (const [x, e] of cand) { const b = agAt(it.c, it.t, e); if (b && b.m > 0) return { r: x / b.m, e, b }; }
+    for (const [x, e] of cand) { const b = agAt(it.c, it.t, e, it); if (b && b.m > 0) return { r: x / b.m, e, b }; }
     // 같은 날수 비교 자료가 없으면: 지금까지 조회 ÷ 같은 형식 평소 게시물의 최종 조회(「평소 최종 조회 대비」로 따로 표시)
     const b = baseFor(it);
     return b && b.v > 0 && v != null ? { r: v / b.v, base: 1, v0: b.v } : null;
@@ -3535,7 +3536,7 @@
       if (tp) F.push({ k: '소재', m: 1, ext: true, nm: '「' + tp[0] + '」 소재', h: '타 대학에서 잘 된 영상이 모인 소재 ' + ieyo('「' + tp[0] + '」') + '.', s: '대학·입시 채널 15곳 유튜브 조사 · 2026년 10월' });
     }
     // 첫날 속도 vs 최종: 처음엔 느렸는데 잘 됐으면 추천·검색으로 늦게 퍼진 흐름
-    const f0 = (it.ag || []).find(x => x && x[0] > 0 && x[1] >= 1 && x[1] <= 2), b0 = f0 && agAt(it.c, it.t, f0[1]);
+    const f0 = (it.ag || []).find(x => x && x[0] > 0 && x[1] >= 1 && x[1] <= 2), b0 = f0 && agAt(it.c, it.t, f0[1], it);
     if (b0 && b0.m > 0) {
       const pr = f0[0] / b0.m, late = r != null && !young(it) && pr < 1 && r >= HIT;
       F.push({ k: '속도', m: late ? 1.2 : pr >= 1.5 || pr <= 0.67 ? pr : 1, nm: pr >= 1.5 ? '빠른 첫 반응' : late ? '뒤늦은 확산' : pr <= 0.67 ? '느린 첫 반응' : '평소 같은 첫 반응', h: pr >= 1.5 ? '올리자마자 반응이 빨랐어요.' : late ? '처음엔 느렸다가 뒤늦게 늘었어요.' : pr <= 0.67 ? '첫날 반응이 평소보다 느렸어요.' : '첫날 반응은 평소와 비슷했어요.', s: agName(f0[1]) + ' 조회 ' + vsTxt(pr) + (late ? ' · 추천·검색으로 늦게 퍼진 흐름으로 보여요' : '') });
