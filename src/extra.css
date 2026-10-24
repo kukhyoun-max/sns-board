@@ -806,7 +806,7 @@ details.fold[open] > summary { padding-bottom: 10px; }
 .kb-l { font-size: 12px; }
 
 /* 가독성 기준(2026-10-22 레퍼런스 조사): 줄 간격 1.5·낱말 단위 줄바꿈, 읽는 글은 14px 이상, 목록 한 칸 2줄, 긴 부제는 「기준」으로 접기 */
-body { word-break: keep-all; overflow-wrap: anywhere; }
+body { word-break: keep-all; }
 .sh p, .race-d, .note, .kpi-s { line-height: 1.5; }
 .howto { border: 0; background: var(--plane); color: var(--sub); font: inherit; font-size: 13px; font-weight: 700; border-radius: 999px; padding: 2px 9px; margin-left: 4px; cursor: pointer; vertical-align: 1px; }
 /* 회색 글 줄이기(2026-10-22): 실행할 조언은 본문색, 설명만 남은 줄은 버튼만 */
@@ -839,6 +839,15 @@ p.howto-only .howto { margin-left: 0; }
 .k7-r .k7-l { flex: 1; }
 .k7-r .kgo { flex: none; font-size: 20px; line-height: 1; color: var(--muted); opacity: .6; }
 .cmp.k7tall { height: 540px; }
+/* 경험 지도 빙고판: 4칸 × 5줄, 다룸 = 채운 칸 */
+.bingo { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; margin: 20px 0 4px; }
+.bg-c { box-sizing: border-box; min-height: 84px; min-width: 0; display: flex; flex-direction: column; justify-content: space-between; gap: 6px; padding: 10px 8px 8px; border-radius: 12px; background: var(--hm-card); }
+.bg-c span { font-size: 13px; font-weight: 600; line-height: 1.3; color: var(--fg); word-break: keep-all; }
+.bg-c span i { font-style: normal; white-space: nowrap; }
+.bg-c b { font-size: 17px; font-weight: 800; line-height: 1; color: var(--muted); }
+.bg-c.done { background: var(--up); } .bg-c.done span, .bg-c.done b { color: var(--bg); }
+.bg-c.one { background: var(--up-soft); box-shadow: inset 0 0 0 1.5px var(--up); outline-offset: -1.5px; } .bg-c.one b { color: var(--up); }
+.bg-c.zero span { color: var(--muted); }
 .tag.chk { background: transparent; color: var(--down); box-shadow: inset 0 0 0 1px currentColor; }
 
 /* ───── 홈 시안 2(2026-10-23 「이대로」, 캔버스 「디자인 기준」): 한 가지 기준으로 다시 짬 ─────
@@ -922,7 +931,7 @@ button.hm-row:active, a.hm-row:active, li.hm-row:active { opacity: .7; }
 .home-more[open] > summary b { font-size: 0; }
 .home-more[open] > summary b::after { content: "접기"; font-size: 16px; }
 /* 카드 셋째 줄(목표 1.0% 아래 · 평소 대비 +80%)은 좁은 칸에서 잘리지 않게 두 줄까지 */
-.hm-cs { white-space: normal; word-break: keep-all; overflow-wrap: anywhere; }
+.hm-cs { white-space: normal; word-break: keep-all; }
 /* 휴대폰: 「더 보기」 버튼은 섹션 밖이라 좌우 16px 여백(펼친 안쪽 섹션은 그대로 폭 전체) */
 @media (max-width: 560px) { .home-more > summary { margin: 0 16px; } }
 /* 탐색 「콘텐츠 동향」: 가운데 0 기준 좌우 막대(오른쪽 파랑 = 평소보다 잘 됨, 왼쪽 주황 = 덜 됨) */
