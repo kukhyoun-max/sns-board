@@ -1400,16 +1400,25 @@
     const yr = own.filter(it => it.d >= y1), dep = new Set(); yr.forEach(it => (EXP.depts || []).forEach(n => { if (String(it.n || '').indexOf(n) >= 0) dep.add(n); }));
     const yi = yr.filter(it => it.c === '인스타그램'), stu = yi.length ? yi.filter(it => it.p === '홍보대사').length / yi.length : null; // 인스타만·홍보대사만(sns-ea 정의, 2026-10-23)
     // 줄을 누르면 상세(openKpi, key = k7…)
-    const row = (key, nm, def, v, tgt, ok, note) => '<div class="k7-r go" data-k7="' + key + '" role="button" tabindex="0" aria-label="' + nm + ' 자세히 보기"><div class="k7-l"><b>' + nm + '</b><small>' + def + '</small></div><div class="k7-v"><b class="num ' + (v == null ? 'mu' : ok === null ? 'flat' : ok ? 'up' : 'down') + '">' + (v == null ? '–' : v) + '</b><small>목표 ' + tgt + (note ? ' · ' + note : '') + '</small></div><span class="kgo" aria-hidden="true">›</span></div>';
+    // 2026-10-24 스튜디오형: 줄마다 목표 막대(불릿 — 채운 막대 = 지금, 검은 눈금 = 목표), 아래 줄 = 목표 · 남은 만큼. 설명(def)은 마우스를 올리면
+    const bul = (cur, tgt, max) => { if (cur == null || !tgt) return ''; const m = max || Math.max(tgt, cur) / 0.75, w = Math.min(100, cur / m * 100), t = Math.min(100, tgt / m * 100);
+      return '<span class="k7-b" aria-hidden="true"><i style="width:' + w.toFixed(1) + '%"></i><em style="left:' + t.toFixed(1) + '%"></em></span>'; };
+    const row = (key, nm, def, v, tgt, ok, note, cur, tv, max, left) => '<div class="k7-r go" data-k7="' + key + '" role="button" tabindex="0" title="' + esc(def) + '" aria-label="' + nm + ' ' + (v == null ? '자료 없음' : v) + ', 목표 ' + tgt + ' · 자세히 보기">' +
+      '<div class="k7-l"><b>' + nm + '</b><b class="num ' + (v == null ? 'mu' : ok === null ? 'flat' : ok ? 'up' : 'down') + '">' + (v == null ? '–' : v) + '</b></div>' + bul(cur, tv, max) +
+      '<div class="k7-f"><small>목표 ' + tgt + (note ? ' · ' + note : '') + '</small><small class="' + (ok ? 'up' : '') + '">' + (v == null ? '' : ok ? '달성' : left || '') + '</small></div><span class="kgo" aria-hidden="true">›</span></div>';
     const sv = rate(carC.length >= 3 ? carC : car, 4), sh = rate(ig, 3);
+    const pp = (t, c) => (Math.round((t - c) * 1000) / 10) + '%p 남음', ppA = (t, c) => (Math.round((t - c) * 10000) / 100) + '%p 남음';
+    const okN = [sv >= KPI_D20.save, sh >= KPI_D20.share, ytR >= KPI_D20.ytLong, v310 >= KPI_D20.view310, cv.n >= KPI_D20.cover, stu >= KPI_D20.student].filter(Boolean).length;
+    const near = [[sh, KPI_D20.share, '공유율'], [v310, KPI_D20.view310, '시청 비율'], [stu, KPI_D20.student, '학생 제작'], [sv, KPI_D20.save, '저장률']].filter(x => x[0] != null && x[0] < x[1] && x[0] >= x[1] * 0.9).map(x => x[2]);
+    const lead = '<p class="k7-lead">KPI 7개 중 ' + okN + '개는 목표를 넘었' + (near.length ? '고, ' + near.join('과 ') + '은 거의 다 왔어요' : '어요') + '</p>';
     const h = [
-      row('k7save', '인스타 저장률', '코너 캐러셀 · 도달 대비 · 최근 90일 중간값', sv == null ? null : pctA(sv), pctA(KPI_D20.save), sv >= KPI_D20.save, carC.length >= 3 ? '' : '코너 전 · 캐러셀 전체'),
-      row('k7share', '인스타 공유율', '도달 대비 · 최근 90일 중간값', sh == null ? null : pctA(sh), pctA(KPI_D20.share), sh >= KPI_D20.share),
-      row('k7yt', '유튜브 롱폼 평소 대비', '채널 롱폼 1년 중간값 대비 · 최근 90일', ytR == null ? null : vsP(ytR), '±0% 이상', ytR >= KPI_D20.ytLong),
-      row('k7v310', '3~10분 평균 시청 비율', '평균 시청 ÷ 영상 길이(완료율 아님) · 최근 90일', v310 == null ? null : pct0(v310), pct0(KPI_D20.view310), v310 >= KPI_D20.view310),
-      row('k7cov', '경험 지도 커버리지', '이번 분기 · 20개 영역 중 2건 이상', cv.n + '/' + cv.all, KPI_D20.cover + '/' + cv.all, cv.n >= KPI_D20.cover, cv.sug ? '자동 제안 섞임' : ''),
-      row('k7dept', '노출 학과 수', '최근 1년 제목·캡션 앞부분에 나온 학과(하한값)', dep.size + '곳', '2년 안에 전 학과(' + (EXP.depts || []).length + ')', null),
-      row('k7stu', '학생 제작 비율', '인스타 최근 1년 · 제작 주체 홍보대사', stu == null ? null : pct0(stu), pct0(KPI_D20.student) + ' 이상', stu >= KPI_D20.student)
+      row('k7share', '인스타 공유율', '도달 대비 · 최근 90일 중간값', sh == null ? null : pctA(sh), pctA(KPI_D20.share), sh >= KPI_D20.share, '', sh, KPI_D20.share, 0, sh == null ? '' : ppA(KPI_D20.share, sh)),
+      row('k7v310', '3~10분 평균 시청 비율', '평균 시청 ÷ 영상 길이(완료율 아님) · 최근 90일', v310 == null ? null : pct0(v310), pct0(KPI_D20.view310), v310 >= KPI_D20.view310, '', v310, KPI_D20.view310, 0, v310 == null ? '' : pp(KPI_D20.view310, v310)),
+      row('k7yt', '유튜브 롱폼 평소 대비', '채널 롱폼 1년 중간값 대비 · 최근 90일', ytR == null ? null : vsP(ytR), '평소 이상', ytR >= KPI_D20.ytLong, '', ytR, KPI_D20.ytLong, 0, ytR == null ? '' : '평소까지 ' + Math.round((1 - ytR) * 100) + '%'),
+      row('k7stu', '학생 제작 비율', '인스타 최근 1년 · 제작 주체 홍보대사', stu == null ? null : pct0(stu), pct0(KPI_D20.student) + ' 이상', stu >= KPI_D20.student, '인스타 최근 1년', stu, KPI_D20.student, 0, stu == null ? '' : pp(KPI_D20.student, stu)),
+      row('k7save', '인스타 저장률', '코너 캐러셀 · 도달 대비 · 최근 90일 중간값', sv == null ? null : pctA(sv), pctA(KPI_D20.save), sv >= KPI_D20.save, carC.length >= 3 ? '' : '캐러셀 전체', sv, KPI_D20.save, 0, sv == null ? '' : '목표의 ' + Math.round(sv / KPI_D20.save * 100) + '%'),
+      row('k7cov', '경험 지도 커버리지', '이번 분기 · 20개 영역 중 2건 이상', cv.n + '/' + cv.all, KPI_D20.cover + '/' + cv.all, cv.n >= KPI_D20.cover, cv.sug ? '자동 제안 섞임' : '이번 분기', cv.n, KPI_D20.cover, cv.all, (KPI_D20.cover - cv.n) + '개 더'),
+      row('k7dept', '노출 학과 수', '최근 1년 제목·캡션 앞부분에 나온 학과(하한값)', dep.size + '곳', '2년 안에 ' + (EXP.depts || []).length + '곳', null, '최근 1년', dep.size, (EXP.depts || []).length, (EXP.depts || []).length, '달마다 ' + Math.max(1, Math.ceil(((EXP.depts || []).length - dep.size) / 24)) + '곳씩')
     ].join('');
     const emp = cv.empty.length ? '<p class="note">이번 분기 빈 영역: ' + esc(cv.empty.join(', ')) + (cv.sug ? ' · 확정 ' + own.filter(it => it.ex && it.d >= q0).length + '개, 나머지는 캡션 낱말로 고른 자동 제안' : '') + '</p>' : '';
     // 피드 점검(KPI 아님, 2026-10-24): 인스타 피드 중 공지·소식 비율 = 「공지판처럼 보이나」. 낮을수록 매거진답게. 비율을 세는 거라 자동 판정도 넣고 표시
@@ -1419,7 +1428,7 @@
     const e90 = f90.filter(it => it.tg === '이벤트'), eRx = median(e90.map(it => k7Rate(it, 2)).filter(v => v != null));
     const fl = f90.length ? '<p class="note">피드 점검 · 인스타 피드 중 공지·소식 ' + pct0(fN / f90.length) + ' (최근 90일 ' + fN + '/' + f90.length + '개' + (fMon.length ? ' · ' + esc(fMon.join(' · ')) : '') + ') · 낮을수록 매거진답게' +
       (e90.length ? ' · 이벤트 ' + e90.length + '개, 댓글 ÷ 도달 ' + pctA(eRx) : '') + (f90.some(it => !trustTy(it)) ? ' · 자동 판정 포함' : '') + '</p>' : '';
-    return secOpen('KPI 7개', '2026-10-23 승인(결정 대기 D20) · 줄을 누르면 자세한 데이터와 목표까지 할 일') + '<div class="k7">' + h + '</div>' + emp + fl + secClose;
+    return secOpen('KPI 7개', '2026-10-23 승인(결정 대기 D20) · 줄을 누르면 자세한 데이터와 목표까지 할 일') + lead + '<div class="k7">' + h + '</div>' + emp + fl + secClose;
   }
   function prescribe(chs) {
     const s365 = addDays(D.updated, -365), s60 = addDays(D.updated, -60);
