@@ -170,7 +170,10 @@
   const trustEc = it => !it.ega && it.src !== 'c';
   const srcTxt = (it, auto) => auto ? '자동 판정' : it.src === 'c' ? 'Claude 판정 · 확인 전' : it.src === 'r' ? '검토됨' : '사람이 정함';
   // 유형 칩(2026-10-24 분류표): 세부 유형, 마우스 올림에 큰 유형 · 출처
-  const tyTag = it => it.ty ? '<span class="tag" title="' + esc((it.tg && it.tg !== it.ty ? it.tg + ' · ' : '') + it.ty + ' · ' + srcTxt(it, it.tya)) + '">' + esc(it.ty) + '</span>' : '';
+  // 자동·확인 전 값은 점선 칩 + 「자동」「확인 전」(휴대폰은 마우스 올림이 없어서 글자로, 2026-10-24 「태깅 오류」)
+  const guessMark = (it, auto) => auto ? ' <small>자동</small>' : it.src === 'c' ? ' <small>확인 전</small>' : '';
+  const tyTag = it => it.ty ? '<span class="tag' + (it.tya || it.src === 'c' ? ' p-guess' : '') + '" title="' + esc((it.tg && it.tg !== it.ty ? it.tg + ' · ' : '') + it.ty + ' · ' + srcTxt(it, it.tya)) + '">' + esc(it.ty) + guessMark(it, it.tya) + '</span>' : '';
+  const gTag = it => '<span class="tag' + (it.ega || it.src === 'c' ? ' p-guess' : '') + '" title="' + esc(glab(it) + ' · ' + srcTxt(it, it.ega)) + '">' + esc(glab(it)) + guessMark(it, it.ega) + '</span>';
   // 비공개·중복 업로드로 보이는 유튜브 영상(it.hid): 평소 대비 대신 표시만
   const HID_TIP = '올린 지 ' + AGE_MIN + '일이 넘었는데 조회 20 이하 · 비공개·일부 공개나 중복 업로드로 보여 평소 계산에서 뺐어요';
   const hidTag = it => it.hid ? '<span class="tag p-guess" title="' + HID_TIP + '">비공개로 보임</span>' : '';
@@ -3635,7 +3638,7 @@
       '<section class="dsec" id="dChart"><h1 class="dtitle">' + line(it) + '</h1>' +
         '<div class="dbig num">' + fmt(mainVal(it)) + '<small class="' + cls + '">' + (it.ad ? '광고 영상이라 평소 대비는 계산하지 않아요' : it.hid ? '비공개로 보임 · 평소 계산에서 뺌' : d == null ? '' : (young(it) ? (youngTxt(it) ? youngTxt(it) + ' · 조회 모이는 중' : '조회 모이는 중 · ' + youngWait(it)) : MN[m] + ' ' + vsTxt(d + 1))) + '</small></div>' +
         (wk != null ? '<div class="num ' + (wk >= 0 ? 'up' : 'down') + '" style="font-weight:700;margin-top:2px">이번 주 ' + MN[m] + ' ' + sgn(wk) + fmt(wk) + '</div>' : '') +
-        '<div class="dtags"><span class="tag">' + esc(glab(it)) + '</span>' + tyTag(it) + ptag(it.p) + adtag(it) + coTag(it) + archTag(it) + credTag(it) + susTag(it) + hidTag(it) + histTag(it) + '<span class="tag">' + esc(fmtType(it.t)) + '</span>' + (it.w || []).map(n => '<span class="tag">' + esc(n) + '</span>').join('') + '</div>' +
+        '<div class="dtags">' + gTag(it) + tyTag(it) + ptag(it.p) + adtag(it) + coTag(it) + archTag(it) + credTag(it) + susTag(it) + hidTag(it) + histTag(it) + '<span class="tag">' + esc(fmtType(it.t)) + '</span>' + (it.w || []).map(n => '<span class="tag">' + esc(n) + '</span>').join('') + '</div>' +
         '<div class="cmp"><canvas id="dCanvas"></canvas></div>' +
         // 누를 수 없는 토글 대신 실제로 그린 차트 이름 한 줄
         '<p class="note" style="text-align:center">' + (detailLine(it) ? '기록 날짜별 쌓인 값 ' + MN[m] : '이 콘텐츠 · 같은 분류 · 같은 형식 중간값' + (young(it) ? ' · 중간값은 다 자란 게시물의 최종 조회' : '')) + '</p></section>' +
