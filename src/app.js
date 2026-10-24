@@ -1347,14 +1347,14 @@
   const dow = d => new Date(d + 'T00:00:00Z').getUTCDay();
 
   // 1) 처방 카드
-  // 분기 경험 지도: 18개 영역 중 2건 이상 다룬 영역 수. 확정(ex)과 자동 제안(exs)을 함께 세고, 제안이 섞였으면 표시
+  // 분기 경험 지도: 20개 영역 중(2026-10-24 18 → 20, 목표 14 → 16) 2건 이상 다룬 영역 수. 확정(ex)과 자동 제안(exs)을 함께 세고, 제안이 섞였으면 표시
   function expCover(from, to) {
     const P = D.items.filter(it => OWN.includes(it.c) && it.t !== '스토리' && !it.ad && it.d >= from && it.d <= to), cnt = {}, sug = {};
     P.forEach(it => { const v = expOf(it); if (!v) return; v.split(',').forEach(c => { cnt[c] = (cnt[c] || 0) + 1; if (!it.ex) sug[c] = 1; }); });
     const codes = Object.keys(EXP.names).sort(), hit = codes.filter(c => (cnt[c] || 0) >= 2);
     return { n: hit.length, all: codes.length, sug: hit.some(c => sug[c]), empty: codes.filter(c => !(cnt[c] >= 2)).map(c => EXP.names[c]), tagged: P.filter(it => expOf(it)).length, total: P.length };
   }
-  const KPI_D20 = { save: 0.003, share: 0.01, ytLong: 1, view310: 0.25, cover: 14, student: 0.6 }; // 결정 대기 D20(2026-10-23 승인) 목표값
+  const KPI_D20 = { save: 0.003, share: 0.01, ytLong: 1, view310: 0.25, cover: 16, student: 0.6 }; // 결정 대기 D20(2026-10-23 승인) 목표값
   function kpi7Html(chs) {
     const today = D.updated, q0 = today.slice(0, 5) + String(Math.floor((+today.slice(5, 7) - 1) / 3) * 3 + 1).padStart(2, '0') + '-01', d90 = addDays(today, -90), y1 = addDays(today, -365);
     const own = D.items.filter(it => OWN.includes(it.c) && it.t !== '스토리' && !it.ad && !it.hid);
@@ -1374,7 +1374,7 @@
       row('인스타 공유율', '도달 대비 · 최근 90일 중간값', sh == null ? null : pctA(sh), pctA(KPI_D20.share), sh >= KPI_D20.share),
       row('유튜브 롱폼 평소 대비', '채널 롱폼 1년 중간값 대비 · 최근 90일', ytR == null ? null : vsP(ytR), '±0% 이상', ytR >= KPI_D20.ytLong),
       row('3~10분 평균 시청 비율', '평균 시청 ÷ 영상 길이(완료율 아님) · 최근 90일', v310 == null ? null : pct0(v310), pct0(KPI_D20.view310), v310 >= KPI_D20.view310),
-      row('경험 지도 커버리지', '이번 분기 · 18개 영역 중 2건 이상', cv.n + '/' + cv.all, KPI_D20.cover + '/' + cv.all, cv.n >= KPI_D20.cover, cv.sug ? '자동 제안 섞임' : ''),
+      row('경험 지도 커버리지', '이번 분기 · 20개 영역 중 2건 이상', cv.n + '/' + cv.all, KPI_D20.cover + '/' + cv.all, cv.n >= KPI_D20.cover, cv.sug ? '자동 제안 섞임' : ''),
       row('노출 학과 수', '최근 1년 제목·캡션 앞부분에 나온 학과(하한값)', dep.size + '곳', '2년 안에 전 학과(' + (EXP.depts || []).length + ')', null),
       row('학생 제작 비율', '인스타 최근 1년 · 제작 주체 홍보대사', stu == null ? null : pct0(stu), pct0(KPI_D20.student) + ' 이상', stu >= KPI_D20.student)
     ].join('');
