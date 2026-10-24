@@ -700,26 +700,28 @@
   function attnHtml(chs, w) {
     const A = [], n = D.dates.length - 1, mi = D.dates.indexOf(w.mon), j = mi >= 0 && mi < n ? mi : n - 1;
     window.__attn = [];
-    const row = (lv, lab, c, t, val, it) => A.push(hmRow({ tag: it ? 'button' : 'div', attr: it ? 'type="button" data-wa="' + (window.__attn.push(it) - 1) + '"' : '', c, t, m: lab, v: val, vc: lv }));
+    const row = (lv, lab, c, t, val, it, r) => A.push(hmRow({ tag: it ? 'button' : 'div', attr: it ? 'type="button" data-wa="' + (window.__attn.push(it) - 1) + '"' : '', c, t, m: lab, v: val, vc: lv, r }));
+    // 게시물 줄(2026-10-24): 오른쪽 위 = 결과(조회 315만), 오른쪽 아래 = 평소 대비(색). 숫자만 있으면 무엇이 몇 %인지 몰라서
+    const pRow = (lv, lab, it, r) => row('', lab, it.c, esc(title(it.n)), mName(it) + ' ' + fmtK(mainVal(it)), it, '<b class="' + lv + '">' + vsTxt(r) + '</b>');
     // 이번 주 게시물 중 가장 잘 된 것 · 가장 낮은 것(같은 형식 같은 날수 평소 대비)
     const J = w.posts.map(it => ({ it, p: paceOf(it) })).filter(x => x.p).sort((a, b) => b.p.r - a.p.r);
-    if (J.length && J[0].p.r >= 1.3) row('up', '이번 주 가장 잘 된 게시물', J[0].it.c, esc(title(J[0].it.n)), vsP(J[0].p.r), J[0].it);
+    if (J.length && J[0].p.r >= 1.3) pRow('up', '이번 주 가장 잘 된 게시물', J[0].it, J[0].p.r);
     const lo = J.filter(x => x.p.r < 0.7).pop();
     // 보관 권고(최근 60일): 몇 개인지 + 가장 낮은 것
     const AR = D.items.filter(it => chs.includes(it.c) && it.d >= addDays(D.updated, -60) && archRec(it)).sort((a, b) => archRec(a).r - archRec(b).r);
-    if (AR.length) row('down', '보관 후보 · 끝난 이벤트 ' + AR.length + '개', AR[0].c, esc(title(AR[0].n)), vsP(archRec(AR[0]).r), AR[0]);
-    if (lo) row('down', '평소보다 낮은 게시물', lo.it.c, esc(title(lo.it.n)), vsP(lo.p.r), lo.it);
+    if (AR.length) pRow('down', '보관 후보 · 끝난 이벤트 ' + AR.length + '개', AR[0], archRec(AR[0]).r);
+    if (lo) pRow('down', '평소보다 낮은 게시물', lo.it, lo.p.r);
     // 예전 게시물이 이번 주 다시 크게 늘었나(이번 주 늘어난 조회의 20% 이상 또는 5천 이상)
     if (j >= 0 && j < n) {
       const p = weekPart(chs, n, j);
-      if (p) { const old = p.old.filter(it => it.d < w.mon && p.inc0(it) > 0).sort((a, b) => p.inc0(b) - p.inc0(a))[0]; if (old && (p.inc0(old) >= 5000 || (p.v && p.inc0(old) / p.v >= 0.2))) row('up', '예전 게시물이 다시 늘어요', old.c, esc(title(old.n)), '+' + fmtK(p.inc0(old)), old); }
+      if (p) { const old = p.old.filter(it => it.d < w.mon && p.inc0(it) > 0).sort((a, b) => p.inc0(b) - p.inc0(a))[0]; if (old && (p.inc0(old) >= 5000 || (p.v && p.inc0(old) / p.v >= 0.2))) row('up', '예전 게시물이 다시 늘어요', old.c, esc(title(old.n)), mName(old) + ' +' + fmtK(p.inc0(old)), old, '이번 주'); }
     }
     // 팔로워가 크게 준 날(이번 주, 5명 이상 감소)
     chs.filter(c => c === '인스타그램' || c === 'hong._.video').forEach(c => {
       const F = {}; (D.fol || []).filter(r => r[1] === c).forEach(r => { F[r[0]] = r[2]; });
       let worst = null;
       for (let k = 0; k < 7; k++) { const d = addDays(w.mon, k); if (d >= w.end) break; const a = F[d], b = F[addDays(d, 1)]; if (a != null && b != null && b - a <= -5 && (!worst || b - a < worst[1])) worst = [d, b - a]; }
-      if (worst) row('down', '하루 감소', c, md2(worst[0]) + '(' + WK_D[(wdOf(worst[0]) + 6) % 7] + ') 팔로워가 줄었어요', '−' + fmt(-worst[1]) + '명');
+      if (worst) row('down', '하루 감소', c, md2(worst[0]) + '(' + WK_D[(wdOf(worst[0]) + 6) % 7] + ') 팔로워가 줄었어요', '팔로워 −' + fmt(-worst[1]) + '명');
     });
     // 이번 주 아직 안 올린 채널(평소 주 1개 이상, 3일 이상 지남)
     if (daysBetween(w.mon, w.end) >= 2) chs.filter(c => OWN.includes(c)).forEach(c => {
@@ -3226,13 +3228,15 @@
   function tdIdeas(chs) {
     const own = chs.filter(c => OWN.includes(c)); if (!own.length) return '';
     const R = [], I = window.__tdIdea = [];
-    const row = (lab, c, t, v, vc, it) => R.push(hmRow({ tag: it ? 'button' : 'div', attr: it ? 'type="button" data-ti="' + (I.push(it) - 1) + '"' : '', c, t, m: lab, v, vc }));
+    const row = (lab, c, t, v, vc, it, r) => R.push(hmRow({ tag: it ? 'button' : 'div', attr: it ? 'type="button" data-ti="' + (I.push(it) - 1) + '"' : '', c, t, m: lab, v, vc, r }));
+    // 게시물 줄 = 위 결과(조회) · 아래 평소 대비(색), 조합 줄 = 「평소 대비 +N%」처럼 무엇의 몇 %인지 함께(2026-10-24)
+    const pRow = (lab, it, vc) => row(lab, it.c, esc(title(it.n)), mName(it) + ' ' + fmtK(mainVal(it)), '', it, '<b class="' + vc + '">' + vsTxt(ratio(it)) + '</b>');
     const best = pool({ channels: own, since: addDays(D.updated, -30) }).filter(judged).sort((a, b) => ratio(b) - ratio(a))[0];
-    if (best) row('최근 30일 가장 잘 된 게시물', best.c, esc(title(best.n)), vsP(ratio(best)), xCls(ratio(best)), best);
+    if (best) pRow('최근 30일 가장 잘 된 게시물', best, xCls(ratio(best)));
     const P = prescribe(own);
-    if (P.again[0]) row('작년 이맘때 잘 된 게시물', P.again[0].c, esc(title(P.again[0].n)), vsP(ratio(P.again[0])), 'up', P.again[0]);
-    if (P.more[0]) row('더 만들면 좋은 조합 · 최근 2달 ' + P.more[0].recent + '개', P.more[0].c, esc(P.more[0].g) + ' × ' + esc(P.more[0].t), vsP(P.more[0].idx), 'up');
-    if (P.less[0]) row('줄이거나 바꿀 조합 · 최근 2달 ' + P.less[0].recent + '개', P.less[0].c, esc(P.less[0].g) + ' × ' + esc(P.less[0].t), vsP(P.less[0].idx), 'down');
+    if (P.again[0]) pRow('작년 이맘때 잘 된 게시물', P.again[0], 'up');
+    if (P.more[0]) row('더 만들면 좋은 조합 · 최근 2달 ' + P.more[0].recent + '개', P.more[0].c, esc(P.more[0].g) + ' × ' + esc(P.more[0].t), vsTxt(P.more[0].idx), 'up');
+    if (P.less[0]) row('줄이거나 바꿀 조합 · 최근 2달 ' + P.less[0].recent + '개', P.less[0].c, esc(P.less[0].g) + ' × ' + esc(P.less[0].t), vsTxt(P.less[0].idx), 'down');
     return R.length ? hmSec('참고하면 좋을 것', '', '<div class="hm-list">' + R.join('') + '</div>') : '';
   }
   function todayInner(chs) {
@@ -3279,7 +3283,7 @@
     M.push(hmCard('이번 주', wk + '개', (Math.round(avg * 10) / 10) + '개/일', '', '월요일부터 오늘까지 올린 게시물(스토리 빼고) · 지난주 같은 때 ' + lastW + '개 · 최근 2주 하루 평균'));
     const st = (d.story || []).filter(x => chs.includes(x.ch));
     if (M.length < 3 && st.length) M.push(hmCard('오늘 스토리', fmtK(sum(st.map(x => x.views))), st.length + '개', '', '1시간마다 받아요'));
-    // ③ 게시물 목록: 오른쪽 = 조회 평소 대비(하루치 평소와 견줄 땐 20시간 뒤부터, 유튜브는 6시간 뒤부터), 아랫줄 = 채널·시간·반응 + 오른쪽 조회
+    // ③ 게시물 목록: 오른쪽 위 = 조회, 오른쪽 아래 = 조회 평소 대비(하루치 평소와 견줄 땐 20시간 뒤부터, 유튜브는 6시간 뒤부터), 아랫줄 = 채널·시간·반응 + 오른쪽 조회
     window.__td = P;
     const L = P.slice(0, 6).map((p, i) => {
       const den = p.c === '인스타그램' ? p.r : p.v, few = den != null && den < TD_MIN[p.c === '인스타그램' ? 0 : 1];
@@ -3290,13 +3294,14 @@
       const was = sn && sn.p && sn.p[p.id] ? p.v - sn.p[p.id][0] : null;
       const tip = (vb ? '조회 ' + fmt(p.v) + ' · 평소 ' + (vb.k === 'h' ? '올린 지 ' + Math.round(vb.h) + '시간' : '첫날') + ' 조회 ' + fmt(vb.v) : '') + (rx != null ? ' · 반응률 ' + pctA(rx) + (u ? '(평소 ' + pctA(u) + ')' : '') : '') + (vr == null ? ' · ' + wait : '');
       return hmRow({ tag: 'li', attr: 'data-td="' + i + '" tabindex="0" role="button" aria-label="' + esc(title(p.n)) + ' 열기"', tip, thumb: tdThumb(p), t: esc(title(p.n)),
-        v: vr != null ? vsP(vr) : yt6 ? '6시간 뒤' : '모으는 중', vc: vr != null ? xCls(vr) : 'mu', c: p.c,
+        // 2026-10-24 위 = 결과(조회), 아래 = 평소 대비(색). 퍼센트만 위에 있으면 무엇이 몇 %인지 몰라서
+        v: '조회 ' + fmtK(p.v) + (was > 0 ? ' <small class="up">+' + fmtK(was) + '</small>' : ''), vc: '', c: p.c,
         m: tdAgo(p.at, now) + (r == null || few ? '' : ' · <span class="' + xCls(r) + '">반응 ' + vsP(r) + '</span>') + ((tdItem(p) || {}).co ? ' · 공동작업' : ''),
-        r: '조회 ' + fmtK(p.v) + (was > 0 ? ' <span class="up">+' + fmtK(was) + '</span>' : '') });
+        r: vr != null ? '<b class="' + xCls(vr) + '">' + vsTxt(vr) + '</b>' : '<span class="mu">' + (yt6 ? '6시간 뒤 비교' : '모으는 중') + '</span>' });
     }).join('');
     const C = tdCurves(P);
     let mo = false; try { mo = localStorage.getItem('sb-td-ch') === '1'; } catch (e) {}
-    const list = hmSec(tp.length ? who + ' 올린 게시물' : '어제 올린 게시물', '오른쪽 = 조회 평소 대비', '<ol class="hm-list">' + L + '</ol>' +
+    const list = hmSec(tp.length ? who + ' 올린 게시물' : '어제 올린 게시물', '퍼센트는 같은 시간 조회 평소 대비', '<ol class="hm-list">' + L + '</ol>' +
       (C.length ? '<details class="hm-fold" id="tdChF"' + (mo ? ' open' : '') + '><summary class="hm-btn"><svg viewBox="0 0 20 20" width="18" height="18" aria-hidden="true"><path d="M3 16h14M5 13l4-4 3 3 4-6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>시간별 조회 그래프</summary>' + tdGroups(C).map((g, k, A) => '<div class="td-chh">' + badge(g.c) + '</div><div class="chart" style="height:' + (A.length > 1 ? 160 : 220) + 'px"><canvas id="tdC' + k + '"></canvas></div>').join('') + '<p class="note">1시간마다 받아 둔 값 · 점선 = 같은 형식 평소</p></details>' : ''));
     // ⑤ 팔로워 카드(오늘 아침 대비) · 누르면 추이(팔로워 30일 · 유튜브 구독자 1년)
     const FT = [];
