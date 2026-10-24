@@ -1902,6 +1902,7 @@ function ensureTagSheets_(ss) {
     sh.getRange(1, 9).setValue('유형 코드(자동)').setNote('유형 T01~T29(브이로그·행사 스케치·상황극·패러디 등, 큰 유형 7개). 규칙이 붙인 값 — 사람이 정하면 「태그 수정」 G열');
   }
   importTagFixOnce_(ss);
+  promoteTagFixOnce_(ss);
 }
 
 // 「태그 수정」 한 번만 가져오기(2026-10-24 담당자 「진행」): Claude가 글을 읽고 붙인 주제·유형(2025-01 이후 400건)을 출처 「Claude」(확인 전)로 맨 아래에 붙임.
@@ -1922,6 +1923,24 @@ function importTagFixOnce_(ss) {
     .map(r => [String(r[0]).trim(), String(r[1]).trim(), '', 'Claude 판정 2026-10-24' + (String(r[2]).trim() ? ' · ' + String(r[2]).trim() : ''), '', '', String(r[3]).trim(), String(r[4]).trim() || 'Claude']);
   if (rows.length) sh.getRange(sh.getLastRow() + 1, 1, rows.length, 8).setValues(rows);
   p.setProperty(pk, new Date().toISOString() + ' · ' + rows.length + '줄');
+}
+// 담당자 30건 확인(2026-10-24, 26/30 맞음 · 유형 30/30 · 주제 4건 틀림 「태그 확인 30건」 https://claude.ai/artifact/FL6aHcJxozszhn2SWinNGs)
+// → 확신 높은 Claude 판정 줄(메모가 정확히 「Claude 판정 2026-10-24」)을 출처 「검토」로. 확인에서 주제가 틀린 4건과 「확신 낮음」은 「Claude」로 남김. 가져오기 뒤 한 번만
+const TAGFIX_PROMOTE_SKIP = ['https://www.instagram.com/p/DdQTvb-k0od/', 'https://www.youtube.com/watch?v=sO_1i6NcvHU', 'https://www.instagram.com/p/DZMuSzPkxcF/', 'https://www.youtube.com/watch?v=woN03we0iy4'];
+function promoteTagFixOnce_(ss) {
+  const p = PropertiesService.getScriptProperties(), pk = 'TAGFIX_PROMOTED_20261024';
+  if (p.getProperty(pk) || !p.getProperty('TAGFIX_IMPORTED_' + TAGFIX_IMPORT_ID.slice(0, 12))) return;
+  const sh = ss.getSheetByName(TAGFIX_SHEET);
+  if (!sh || sh.getLastRow() < 2) return;
+  const rg = sh.getRange(2, 1, sh.getLastRow() - 1, 8), v = rg.getValues();
+  let n = 0;
+  const h = v.map(r => {
+    const ok = String(r[3]).trim() === 'Claude 판정 2026-10-24' && String(r[7]).trim() === 'Claude' && TAGFIX_PROMOTE_SKIP.indexOf(String(r[0]).trim()) < 0;
+    if (ok) n++;
+    return [ok ? '검토' : r[7]];
+  });
+  if (n) sh.getRange(2, 8, h.length, 1).setValues(h);
+  p.setProperty(pk, new Date().toISOString() + ' · ' + n + '줄');
 }
 
 // 「명단」 → 코드 기본 명단 덮어쓰기
