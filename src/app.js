@@ -2233,7 +2233,7 @@
   const axK = v => Math.abs(v) >= 1e8 ? (v / 1e8).toFixed(1).replace(/\.0$/, '') + '억' : Math.abs(v) >= 1e4 ? Math.round(v / 1e4) + '만' : fmt(v);
   function drawAdPair(a, b, B, costF) {
     const xOpt = show => ({ ticks: { display: show, maxTicksLimit: 8, maxRotation: 0, autoSkip: true, font: { size: 14 } }, grid: { display: false } });
-    const yOpt = (f, n) => ({ display: true, position: 'left', grid: { color: css('--line') }, ticks: { callback: f, maxTicksLimit: n, font: { size: 14 } }, afterFit: s => { s.width = 52; } });
+    const yOpt = (f, n) => ({ display: true, position: 'left', grid: { color: css('--line') }, ticks: { callback: f, maxTicksLimit: n, font: { size: 14 } }, afterFit: s => { s.width = 64; } });
     const ttl = t => ({ display: true, text: t, align: 'start', color: css('--sub'), font: { size: 14, weight: '700' }, padding: { bottom: 12 } });
     const hov = { interaction: { mode: 'index', intersect: false } };
     draw(a, { type: 'bar', data: { labels: B.labs, datasets: [{ label: '광고비', data: B.c, backgroundColor: css('--ad'), borderColor: css('--jj'), borderWidth: 1, borderRadius: 3, barPercentage: 1, categoryPercentage: 0.9 }] },
