@@ -1000,9 +1000,9 @@ body { background: var(--bg); }
 /* 위 채널 탭 = 스튜디오 필터 칩(고른 칩 검정) */
 .top { gap: 8px; padding-bottom: 10px; border-bottom: 1px solid var(--line); -webkit-backdrop-filter: none; backdrop-filter: none; background: var(--bg); }
 .tt { font-size: 14px; font-weight: 600; padding: 0 14px; min-height: 36px; border-radius: 8px; background: var(--soft); color: var(--fg); letter-spacing: 0; }
-.tt[aria-selected="true"] { background: var(--fg); color: var(--bg); }
 .tt[aria-selected="true"]::after { display: none; }
-.tt:hover { color: inherit; }
+.tt:hover { color: var(--fg); }
+.tt[aria-selected="true"], .tt[aria-selected="true"]:hover { background: var(--fg); color: var(--bg); }
 /* 구역 제목 */
 .sh h2, .hm-h h2, .hm-h h3 { font-size: 18px; font-weight: 700; letter-spacing: -0.01em; }
 /* 목록 줄: 회색 판 → 선으로 나눈 줄 */
