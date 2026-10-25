@@ -2282,7 +2282,12 @@
     const mob = window.matchMedia && matchMedia('(max-width:760px)').matches;
     const mTag = r => { const n = (r.c.posts || []).length; return manTag(r.c) + (n ? '<span class="tag p-own">게시물 ' + n + '개 연결</span>' : /^Instagram 게시물/.test(r.c.n) ? '<span class="tag">게시물 데이터 없음</span>' : '<span class="tag">별도 광고</span>') + ' <span class="tag">' + esc(st(r.c)) + '</span>'; };
     const mOpen = r => (r.c.posts || []).length ? '<ol class="rank" id="mPosts">' + rankRows(r.c.posts, { right: it => '조회 <span class="num">' + fmtK(val(it, 0)) + '</span>' }) + '</ol>' : '<p class="note">' + (/^Instagram 게시물/.test(r.c.n) ? '이 게시물은 대시보드 수집 기간(2024년~) 밖이거나 캡션이 바뀌어 찾지 못했어요.' : '게시물 홍보가 아닌 별도 광고예요.') + '</p>';
-    if (mob) html += secOpen('캠페인별 성과', '누르면 홍보한 인스타 게시물이 펼쳐져요') + '<ol class="rank adc" id="mTblM">' + rows.map((r, i) => '<li class="rk" tabindex="0" data-mi="' + i + '"><span class="no">' + (i + 1) + '</span><span class="t"><b class="ln"><span class="tx">' + esc(metaLabel(r.c.n)) + '</span></b><span>' + (/^\d{4}/.test(r.c.end) ? dot(r.c.end) + ' 종료' : esc(r.c.end)) + '</span></span><span class="rv"><b class="num">' + won(r.c.spend) + '</b><small>도달 ' + fmtK(r.c.reach) + ' · 클릭률 ' + pct(r.ctr) + '</small></span><span class="tg">' + mTag(r) + '</span></li>' + (S.adOpen === r.c.n ? '<li class="adc-open">' + mOpen(r) + '</li>' : '')).join('') + '</ol>' + secClose;
+    // 2026-10-25 「가독성 있고 깔끔하게」: 윗줄 = 캠페인 이름 + 광고비, 아랫줄 = 끝난 날 · 연결(줄마다 표시 하나) + 오른쪽 도달·클릭률(없는 값은 뺌). 「완료」는 기본값이라 안 씀, 진행 중만 표시
+    const mLine = r => { const n = (r.c.posts || []).length, live = r.c.st === 'active';
+      const m = [(/^\d{4}/.test(r.c.end) ? (live ? '진행 중' : dot(r.c.end) + ' 끝') : esc(r.c.end)), n ? '<b class="up">게시물 ' + n + '</b>' : /^Instagram 게시물/.test(r.c.n) ? '게시물 못 찾음' : '별도 광고', r.c.manual ? '합계 입력' : ''].filter(Boolean).join(' · ');
+      const x = r.c.reach ? '도달 ' + fmtK(r.c.reach) : '', tip = [r.ctr != null && r.c.clk ? '클릭률 ' + pct(r.ctr) : '', r.c.usd != null ? usd(r.c.usd) + ' 환산' : ''].filter(Boolean).join(' · ');
+      return hmRow({ tag: 'li', cls: 'hm-rk' + (S.adOpen === r.c.n ? ' on' : ''), attr: 'tabindex="0" data-mi="' + rows.indexOf(r) + '"', t: esc(metaLabel(r.c.n)), v: won(r.c.spend), m, r: x, tip }); };
+    if (mob) html += secOpen('캠페인별 성과', '광고비 많은 순 · 누르면 홍보한 게시물') + '<ol class="hm-list adl" id="mTblM">' + rows.map(r => mLine(r) + (S.adOpen === r.c.n ? '<li class="adc-open">' + mOpen(r) + '</li>' : '')).join('') + '</ol>' + secClose;
     else html += secOpen('캠페인별 성과', '이름을 누르면 홍보한 인스타 게시물이 펼쳐져요') +
       '<div class="tw"><table class="tbl" id="mTbl"><thead><tr><th>캠페인</th><th>종료</th>' + th('spend', '광고비') + th('imp', '노출') + th('reach', '도달') + th('clk', '링크 클릭') + th('ctr', '클릭률') + th('cpc', '클릭당') + '<th>목표 결과</th></tr></thead><tbody>' +
       rows.map((r, i) => { const n = (r.c.posts || []).length; return '<tr class="click' + (S.adOpen === r.c.n ? ' on' : '') + '" data-mi="' + i + '"><td><div class="ellip" style="max-width:300px"><b>' + esc(metaLabel(r.c.n)) + '</b></div>' + manTag(r.c) + (n ? '<span class="tag p-own">게시물 ' + n + '개 연결</span>' : /^Instagram 게시물/.test(r.c.n) ? '<span class="tag">게시물 데이터 없음</span>' : '<span class="tag">별도 광고</span>') + ' <span class="tag">' + esc(st(r.c)) + '</span></td><td>' + (/^\d{4}/.test(r.c.end) ? dot(r.c.end) : esc(r.c.end)) + '</td><td class="n"' + (r.c.usd != null ? ' title="' + usd(r.c.usd) + ' 환산"' : '') + '>' + won(r.c.spend) + '</td><td class="n">' + fmtK(r.c.imp) + '</td><td class="n">' + fmtK(r.c.reach) + '</td><td class="n">' + fmtK(r.c.clk) + '</td><td class="n">' + pct(r.ctr) + '</td><td class="n">' + wonF(r.cpc) + '</td><td>' + (r.c.res != null ? fmt(r.c.res) + ' ' + esc(META_RT[r.c.rt] || r.c.rt || '') : '–') + '</td></tr>' +
@@ -2374,7 +2379,9 @@
     const vtag = r => r.vs.length ? '<span class="tag ' + (r.c.conf === '확인' ? 'p-own' : 'p-guess') + '">영상 ' + r.vs.length + '개 · ' + esc(r.c.conf === '추정' || !r.c.conf ? '짐작' : r.c.conf) + '</span>' : '<span class="tag">영상 연결 없음</span>';
     const openRow = r => r.vs.length ? '<ol class="rank" id="adVids">' + rankRows(r.vs, { right: it => '조회 <span class="num">' + fmtK(val(it, 0)) + '</span>' }) + '</ol>' : '<p class="note">연결된 영상이 없어요. 디스플레이·이미지 광고이거나 연결할 영상을 못 찾은 캠페인이에요. 스냅샷 시트 「광고 매핑」 탭에 유튜브 영상 ID를 넣으면 연결돼요.</p>';
     html += secOpen('캠페인별 성과', '이름을 누르면 연결된 영상이 펼쳐져요') + (mob
-      ? '<ol class="rank adc" id="adTblM">' + rows.slice(0, shownN).map((r, i) => '<li class="rk" tabindex="0" data-ci="' + i + '"><span class="no">' + (i + 1) + '</span><span class="t"><b class="ln"><span class="tx">' + esc(r.c.n) + '</span></b><span>' + dot(r.c.from) + ' ~ ' + dot(r.c.to) + '</span></span><span class="rv"><b class="num">' + won(r.st.cost) + '</b><small>노출 ' + fmtK(r.st.imp) + ' · 클릭률 ' + pct(r.st.ctr) + '</small></span><span class="tg">' + manTag(r.c) + vtag(r) + '</span></li>' + (S.adOpen === r.c.n ? '<li class="adc-open">' + openRow(r) + '</li>' : '')).join('') + '</ol>'
+      ? '<ol class="hm-list adl" id="adTblM">' + rows.slice(0, shownN).map((r, i) => hmRow({ tag: 'li', cls: 'hm-rk' + (S.adOpen === r.c.n ? ' on' : ''), attr: 'tabindex="0" data-ci="' + i + '"', t: esc(r.c.n), v: won(r.st.cost), tip: r.st.clk ? '클릭률 ' + pct(r.st.ctr) : '',
+          m: [dot(r.c.from) + '~' + dot(r.c.to), r.vs.length ? '<b class="' + (r.c.conf === '확인' ? 'up' : 'mu') + '">영상 ' + r.vs.length + '개' + (r.c.conf === '확인' ? '' : ' · 짐작') + '</b>' : '영상 없음', r.c.manual ? '합계 입력' : ''].filter(Boolean).join(' · '),
+          r: r.st.imp ? '노출 ' + fmtK(r.st.imp) : '' }) + (S.adOpen === r.c.n ? '<li class="adc-open">' + openRow(r) + '</li>' : '')).join('') + '</ol>'
       : '<div class="tw"><table class="tbl" id="adTbl"><thead><tr><th>캠페인</th><th>기간</th>' + th('cost', '광고비') + th('imp', '노출') + th('clk', '클릭') + th('ctr', '클릭률') + th('cpc', '클릭당') + th('views', '영상 조회') + th('cpv', '<span title="조회 1회당 비용 · 연결된 영상의 현재 조회 기준">조회당</span>') + '</tr></thead><tbody>' +
       rows.slice(0, shownN).map((r, i) => '<tr class="click' + (S.adOpen === r.c.n ? ' on' : '') + '" data-ci="' + i + '"><td><div class="ellip"><b>' + esc(r.c.n) + '</b></div>' + manTag(r.c) + vtag(r) + '</td><td>' + dot(r.c.from) + ' ~ ' + dot(r.c.to) + '</td><td class="n">' + won(r.st.cost) + '</td><td class="n">' + fmtK(r.st.imp) + '</td><td class="n">' + fmtK(r.st.clk) + '</td><td class="n">' + pct(r.st.ctr) + '</td><td class="n">' + wonF(r.st.cpc) + '</td><td class="n">' + (r.vs.length ? fmtK(r.views) + (r.part ? '<sup class="pt">일부</sup>' : '') : '–') + '</td><td class="n">' + (r.cpv ? wonF(r.cpv) : '–') + '</td></tr>' +
         (S.adOpen === r.c.n ? '<tr><td colspan="9" style="padding:0 0 10px;white-space:normal">' + openRow(r) + '</td></tr>' : '')).join('') +
@@ -4237,7 +4244,10 @@
       '<small>' + mdLabel(d.d0) + ' → ' + mdLabel(d.d1) + ' 두 기록의 값이 모두 같아요. 이 기간 증가는 0이 아니라 셀 수 없어서 합계에서 뺐어요. Supermetrics 예약 갱신을 확인해 주세요.</small></div>';
   }
   const nz = x => String(x || '').replace(/(\.\.\.|…)\s*$/, '').replace(/[\s⠀.]+/g, '');
-  const metaLabel = n => { const m = /^(?:Instagram (?:게시물|post)|게시물):\s*"?([\s\S]*?)"?$/i.exec(n || ''); return (m ? m[1] : n || '').split('\n')[0].replace(/(\.\.\.|…)$/, '').trim() || n; };
+  // 웹사이트 홍보 캠페인 「[2024-12-17] https://iphak.jj.ac.kr/… 홍보」는 주소 대신 사이트 이름 + 시작일로(2026-10-25, 이름은 짧게)
+  const SITE_NM = { 'iphak.jj.ac.kr': '입학처 홈페이지', 'www.jj.ac.kr': '학교 홈페이지', 'jj.ac.kr': '학교 홈페이지' };
+  const metaLabel = n => { const w = /^\[(\d{4}-\d{2}-\d{2})\]\s*https?:\/\/([^\/\s]+)\S*\s*(.*)$/.exec(n || ''); if (w) return (SITE_NM[w[2]] || w[2]) + ' ' + (w[3] || '홍보') + ' · ' + w[1].slice(2).replace(/-/g, '.') + ' 시작';
+    const m = /^(?:Instagram (?:게시물|post)|게시물):\s*"?([\s\S]*?)"?$/i.exec(n || ''); return (m ? m[1] : n || '').split('\n')[0].replace(/(\.\.\.|…)$/, '').trim() || n; };
   const EXP = window.SNS_EXP || { names: {}, s: {}, depts: [] };
   const expOf = it => it.ex || it.ec || it.exs || ''; // 「E04,E05」 확정 > 분류표 자동 코드(서버 it.ec, 2026-10-24) > 낱말 제안
   function prep() {
@@ -4291,6 +4301,7 @@
     const FX = (D.ads && D.ads.fx) || KRW_PER_USD;
     M.forEach(c => {
       if (c.cur === 'KRW' || c.usd !== undefined) return;
+      if (c.api && c.imp > 0 && c.spend / c.imp * 1000 > 100) { c.cur = 'KRW'; return; } // 통화 표시만 USD인 원화 값(1천 회당 100달러 넘는 캠페인은 없음, 2026-10-25)
       const w = v => v == null ? v : Math.round(v * FX);
       c.usd = c.spend; c.spend = w(c.spend); c.budget = w(c.budget);
       if (c.mo) c.mo = c.mo.map(([k, s, i]) => [k, w(s || 0), i]);

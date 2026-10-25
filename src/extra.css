@@ -1135,3 +1135,9 @@ body { background: var(--bg); }
 .defs dd { display: inline; margin: 0; }
 .callout, .callout.warn { background: none; border-radius: 0; border-left: 3px solid var(--jj); padding: 4px 0 4px 14px; font-weight: 500; }
 .callout.warn { border-left-color: var(--muted); }
+
+/* 광고 캠페인 휴대폰 목록(2026-10-25): hmRow 한 모양, 펼친 줄은 회색 면 대신 왼쪽 선 */
+.adl { list-style: none; margin: 0; padding: 0; }
+.adl .hm-row.on { box-shadow: inset 3px 0 0 var(--jj); padding-left: 12px; }
+.adl .adc-open { padding: 4px 0 12px; }
+.adl .hm-m b.up { color: var(--up-tx); font-weight: 600; } .adl .hm-m b.mu { color: var(--muted); font-weight: 600; }
