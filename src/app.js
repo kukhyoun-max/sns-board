@@ -11,7 +11,7 @@
   const KRW_PER_USD = 1400; // 메타 달러 집행분 환산 기본 환율 — 스크립트 속성 META_KRW_PER_USD가 있으면 그 값(D.ads.fx)
   const HIT = 1.5; // 히트 = 평소(같은 채널·같은 형식 최근 1년 중앙값, 형식 표본이 적으면 채널 중앙값)의 1.5배 이상
   const MIN_N = 5; // 표본 적음 기준 — 이보다 적은 그룹은 결론·순위에서 뺀다
-  const VIEWS = [['brief', '홈'], ['strategy', '전략'], ['maker', '제작·사람'], ['season', '입시'], ['ads', '광고'], ['explore', '탐색'], ['export', '추출']];
+  const VIEWS = [['brief', '홈'], ['strategy', '전략'], ['maker', '제작·사람'], ['season', '입시'], ['ads', '광고'], ['explore', '콘텐츠'], ['export', '추출']];
   const TABS = ['전체', '인스타그램', '유튜브', 'hong._.video', '타 대학'];
   const ICONS = {
     brief: '<path d="M4 10.5 12 4l8 6.5V20a1 1 0 0 1-1 1h-4.5v-6h-5v6H5a1 1 0 0 1-1-1z"/>',
@@ -251,7 +251,7 @@
       // 순위 탭(2026-10-24): opt.top이 있으면 오른쪽 위 = 그 탭이 줄 세운 값, 평소 대비는 오른쪽 아래(색만 유지)
       const vsLow = v ? '<b class="' + vc + '">' + (r != null && !yg && !it.ad && !it.hid ? vsTxt(r) : v) + '</b>' : '';
       const top = opt.top ? opt.top(it, mvTxt) : null;
-      return hmRow({ tag: 'li', cls: 'hm-rk', attr: 'tabindex="0" data-i="' + i + '"', tip, c: it.c, t: esc(title(it.n)), v: top != null ? top : v, vc: top != null ? '' : vc,
+      return hmRow({ tag: 'li', cls: 'hm-rk', attr: 'tabindex="0" data-i="' + i + '"', tip, thumb: opt.thumb ? ovImg(it, 'hm-th ov-th') : '', c: it.c, t: esc(title(it.n)), v: top != null ? top : v, vc: top != null ? '' : vc,
         m: [ty ? esc(ty) : '', '<span title="' + esc(dot(it.d)) + '">' + whenTxt(it.d) + '</span>', ...warn.map(w => '<span class="down">' + esc(w) + '</span>')].filter(Boolean).join(' · '),
         r: opt.right ? opt.right(it) : top != null ? vsLow : mName(it) + ' <span class="num">' + mvTxt + '</span>' });
     }).join('') || '<li class="empty">조건에 맞는 콘텐츠가 없어요.</li>';
@@ -347,6 +347,7 @@
     const k = ovKey(it.n), r = k.length >= 4 && T.find(x => x[4] === it.c && Math.abs(daysBetween(x[1], it.d)) <= 1 && ovKey(x[2]).slice(0, k.length) === k.slice(0, ovKey(x[2]).length));
     return r ? r[3] : '';
   };
+  const needThumbs = again => { if (TD.d && TD.d.thumbs) return; if (needThumbs.w) return; needThumbs.w = 1; loadToday(false).then(() => { needThumbs.w = 0; if (TD.d && TD.d.thumbs) again(); }, () => { needThumbs.w = 0; }); };
   const ovImg = (it, cls) => { const u = ovThumb(it); return '<span class="' + cls + '" style="--c:' + chColor(it.c) + '" aria-hidden="true">' + (u ? '<img loading="lazy" alt="" src="' + esc(u) + '" onerror="this.remove()">' : '') + '<b>' + esc(chName(it.c)) + '</b></span>'; };
   const dayLab = d => (+d.slice(8, 10)) + '일';
   const fmtM = v => v == null ? '–' : Math.abs(v) >= 1e4 ? (Math.round(v / 1e3) / 10) + '만' : fmt(v);
@@ -1875,6 +1876,7 @@
       options: chartOpts({ scales: { y: { display: false, beginAtZero: true } }, plugins: { tooltip: { callbacks: { title: c => wd[c[0].dataIndex].k + '요일', label: c => '조회 ' + vsTxt(c.raw) + ' · ' + wd[c.dataIndex].n + '개' + (wd[c.dataIndex].n < MIN_N ? ' · 게시물 적음' : '') } } } }),
       plugins: [{ id: 'lb', afterDatasetsDraw(c) { const x = c.ctx; x.save(); x.font = '600 14px ' + css('--font'); x.fillStyle = css('--muted'); x.textAlign = 'center'; c.getDatasetMeta(0).data.forEach((b, i) => { if (wd[i].idx != null) x.fillText(wd[i].n < MIN_N ? '적음' : vsP(wd[i].idx), b.x, b.y - 6); }); x.restore(); } }] });
     if (own) wireStrat(chs, RX, PLAN);
+    if (own && RX.again.some(it => it.c !== '유튜브')) needThumbs(() => S.view === 'strategy' && viewStrategy());
   }
   function wireStrat(chs, RX, PLAN) {
     $('view').querySelectorAll('[data-rx]').forEach(b => b.addEventListener('click', () => {
@@ -2114,7 +2116,7 @@
     return { L, org, ad, adm, cost, covered, camps, orgV: sum(org.map(it => val(it, 0))), adV: sum(ad.map(it => val(it, 0))), idx: median(org.map(ratio)), hit: hitRate(org), admIdx: median(adm.map(ratio)) };
   }
   function viewSeason() {
-    if (S.ch === '타 대학') return msgView('입시 시즌 리포트는 우리 채널 기준이에요.', '타 대학 게시물은 탐색에서 주제·유형별로 볼 수 있어요.', ['탐색에서 보기', () => { S.view = 'explore'; S.g = null; render(); }]);
+    if (S.ch === '타 대학') return msgView('입시 시즌 리포트는 우리 채널 기준이에요.', '타 대학 게시물은 콘텐츠 탭에서 주제·유형별로 볼 수 있어요.', ['콘텐츠 탭에서 보기', () => { S.view = 'explore'; S.g = null; render(); }]);
     const ss = seasons();
     if (!S.season || !ss.find(s => s.id === S.season)) S.season = ss[0] && ss[0].id;
     const s = ss.find(x => x.id === S.season);
@@ -2578,7 +2580,8 @@
       share: { top: it => RXM.share[1] + ' ' + pctA(rxRate(it, 'share')), right: rxSame('share') },
       talk: { top: it => '댓글 ' + fmt(val(it, 2)), right: it => val(it, 1) > 0 ? '좋아요 <span class="num">' + fmtK(val(it, 1)) + '</span>' : '' },
     }[S.rankBy] || null;
-    $('rank').innerHTML = rankRows(shown, OPT);
+    $('rank').innerHTML = rankRows(shown, Object.assign({ thumb: 1 }, OPT || {}));
+    needThumbs(() => S.view === 'explore' && $('rank') && (renderRank(), renderTable()));
     wireRank($('rank'), shown);
     $('rankMore').hidden = S.rankShown >= sorted.length;
   }
@@ -2617,7 +2620,7 @@
     $('tbody').innerHTML = L.slice(0, S.tblShown).map((it, i) => '<tr data-i="' + i + '">' + C.map(c => {
       const v = c.v(it);
       if (c.k === 'p') return '<td>' + ptag(v) + adtag(it) + coTag(it) + archTag(it) + credTag(it) + susTag(it) + hidTag(it) + '</td>';
-      if (c.k === 'n') return '<td class="tt2">' + line(it) + '</td>';
+      if (c.k === 'n') { const ty = typeShort(it.t); return '<td class="tt2"><span class="ct">' + ovImg(it, 'hm-th ov-th') + '<span class="ct-b"><b>' + esc(title(it.n)) + '</b><small>' + chTxt(it.c) + (ty ? ' · ' + esc(ty) : '') + ' · ' + whenTxt(it.d) + '</small></span></span></td>'; }
       if (c.n) return '<td class="n">' + (c.f ? c.f(v, it) : fmt(v)) + '</td>';
       if (c.f) return '<td title="' + esc(dot(v)) + '">' + c.f(v, it) + '</td>';
       return '<td>' + esc(v) + '</td>';
@@ -3344,6 +3347,8 @@
     if (!G.length) return '<div class="hm-hero"><span class="hm-lab">어제·오늘 올린 게시물이 없어요</span></div>';
     const tot = sum(G.map(g => g.now)), dd = G.filter(g => g.d != null), gd = sum(dd.map(g => g.d));
     const hits = D.items.filter(it => OWN.includes(it.c) && chs.includes(it.c) && it.d >= today.slice(0, 4) + '-01-01' && isHit(it)).length;
+    // 2026-10-25 스튜디오형 4단계: 맨 위 「개요」가 7일 흐름을 보여 주므로, 업로드 없는 날 이 칸은 큰 합계 대신 채널별 카드만(개요와 겹치지 않게)
+    if (S.view === 'brief') return hmSec2('채널별 팔로워', (dd.length ? (dd.every(g => g.since <= addDays(today, -350)) ? '1년 전보다 ' : '기록 시작 뒤 ') + sgnN(gd) + '명 · ' : '') + (hits ? '올해 히트 ' + hits + '개' : ''), hmCards(G.map(folCard)) + '<p class="hm-note">어제·오늘은 올린 게시물이 없어요</p>');
     return '<div class="hm-hero"><span class="hm-lab">우리 채널을 구독·팔로우하는 사람</span><b class="hm-big num">' + fmt(tot) + '명</b>' +
       (dd.length ? '<span class="hm-vs ' + (gd > 0 ? 'up' : gd < 0 ? 'down' : 'flat') + '">' + (dd.every(g => g.since <= addDays(today, -350)) ? '1년 전보다 ' : '기록을 시작한 뒤로 ') + sgnN(gd) + '명</span>' : '') +
       '<span class="hm-note">' + (hits ? '올해 히트 ' + hits + '개 · ' : '') + '어제·오늘은 올린 게시물이 없어요</span></div>' + hmCards(G.map(folCard));
@@ -3382,7 +3387,8 @@
       if (lp) { const p = paceOf(lp), dd = daysBetween(lp.d, today); window.__tdLast = lp;
         last = hmRow({ tag: 'button', attr: 'type="button" id="tdLast"', c: lp.c, t: esc(title(lp.n)), m: '마지막 게시 · ' + (dd <= 0 ? '오늘' : dd + '일 전'), v: p && !p.base ? vsP(p.r) : '', vc: p ? xCls(p.r) : '' }); }
       const bars = weekBars(WK_D.map((n, k) => k <= dow ? cnt[13 - dow + k] : undefined), WK_D.map((n, k) => cnt[6 - dow + k]), '요일별 게시 수 · 회색 = 지난주');
-      const wkS = hmSec2('이번 주', '', '<div class="hm-list"><div class="hm-card hm-wk"><div class="hm-wh"><b class="num">' + wk + '개 올림</b><span>지난주 같은 때 ' + lastW + '개</span></div>' + bars + '</div>' + last + '</div>');
+      // 개요에 게시 수가 있으면 「이번 주」 칸은 마지막 게시 한 줄만
+      const wkS = S.view === 'brief' ? (last ? hmSec2('마지막 게시', '', '<div class="hm-list">' + last + '</div>') : '') : hmSec2('이번 주', '', '<div class="hm-list"><div class="hm-card hm-wk"><div class="hm-wh"><b class="num">' + wk + '개 올림</b><span>지난주 같은 때 ' + lastW + '개</span></div>' + bars + '</div>' + last + '</div>');
       return '<section class="sec hm">' + tdGrow(chs, d, today) + attn + tdIdeas(chs) + wkS + tdPlan(d) + secClose;
     }
     // ① 큰 숫자: 어제·오늘 게시물 조회 합 · 평소 같은 시간(없으면 첫날 평소)과 비교
