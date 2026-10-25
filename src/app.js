@@ -1510,7 +1510,10 @@
       row('k7cov', '경험 지도 커버리지', '이번 분기 · 20개 영역 중 2건 이상', cv.n + '/' + cv.all, KPI_D20.cover + '/' + cv.all, cv.n >= KPI_D20.cover, cv.sug ? '자동 제안 섞임' : '이번 분기', cv.n, KPI_D20.cover, cv.all, (KPI_D20.cover - cv.n) + '개 더'),
       row('k7dept', '노출 학과 수', '최근 1년 제목·캡션 앞부분에 나온 학과(하한값)', dep.size + '곳', '2년 안에 ' + (EXP.depts || []).length + '곳', null, '최근 1년', dep.size, (EXP.depts || []).length, (EXP.depts || []).length, '달마다 ' + Math.max(1, Math.ceil(((EXP.depts || []).length - dep.size) / 24)) + '곳씩')
     ].join('');
-    const emp = cv.empty.length ? '<p class="note">이번 분기 빈 영역: ' + esc(cv.empty.join(', ')) + (cv.sug ? ' · 확정 ' + own.filter(it => it.ex && it.d >= q0).length + '개, 나머지는 캡션 낱말로 고른 자동 제안' : '') + '</p>' : '';
+    // 2026-10-25 스튜디오형 3단계: 빈 영역 글 목록 대신 작은 빙고판(칸 = 영역, 파랑 = 2건 이상, 점선 = 1건). 누르면 커버리지 상세
+    const emp = '<div class="k7-map go" data-k7="k7cov" role="button" tabindex="0" aria-label="경험 지도 ' + cv.n + '/' + cv.all + ' · 자세히 보기"><div class="hm-h"><h3>경험 지도</h3><span>이번 분기 · 파랑 = 2건 이상 · 점선 = 1건</span></div>' +
+      '<div class="bingo mini" aria-hidden="true">' + cv.codes.map(c => { const n = cv.cnt[c] || 0; return '<span class="bg-c ' + (n >= 2 ? 'done' : n ? 'one' : 'zero') + '" title="' + esc(EXP.names[c] + ' · ' + n + '건') + '"><span>' + esc(EXP.names[c]).replace(/([^\s·・ㆍ‧]+[·・ㆍ‧])/g, '<i>$1</i><wbr>') + '</span><b class="num">' + (n ? n : '') + '</b></span>'; }).join('') + '</div>' +
+      (cv.sug ? '<p class="note">확정 ' + own.filter(it => it.ex && it.d >= q0).length + '개, 나머지는 캡션 낱말로 고른 자동 제안</p>' : '') + '</div>';
     // 피드 점검(KPI 아님, 2026-10-24): 인스타 피드 중 공지·소식 비율 = 「공지판처럼 보이나」. 낮을수록 매거진답게. 비율을 세는 거라 자동 판정도 넣고 표시
     const feed = own.filter(it => it.c === '인스타그램' && it.t !== '스토리' && it.tg), fMon = lastMonths(3).map(k => { const a = feed.filter(it => it.d.slice(0, 7) === k); return a.length ? monLab(k) + ' ' + pct0(a.filter(it => it.tg === '공지·소식').length / a.length) : ''; }).filter(Boolean);
     const f90 = feed.filter(it => it.d >= d90), fN = f90.filter(it => it.tg === '공지·소식').length;
@@ -1538,9 +1541,11 @@
     const go = (key, h) => 'type="button" data-rx="' + esc(key) + '" data-rxh="' + esc(h) + '"';
     const combo = r => esc(r.g) + ' × ' + esc(fmtType(r.t));
     const G = [];
-    if (P.more.length) G.push(hmSec('더 만들기', '오른쪽 = 최근 1년 조회 평소 대비', P.more.map(r => hmRow({ tag: 'button', attr: go('c:' + r.k, '더 만들기 · ' + r.g + ' × ' + fmtType(r.t)), c: r.c, t: combo(r), v: vsP(r.idx), vc: 'up', m: r.n + '개 · 히트율 ' + pct0(r.hit) + '(채널 ' + pct0(r.hb) + ')', r: '2달 ' + r.recent + '개' })).join('') + '<p class="hm-note">→ 잘 되는데 최근 2달 덜 올렸어요. 다음 기획에 하나 넣어 보세요.</p>'));
-    if (P.less.length) G.push(hmSec('줄이거나 바꾸기', '', P.less.map(r => hmRow({ tag: 'button', attr: go('c:' + r.k, '줄이거나 바꾸기 · ' + r.g + ' × ' + fmtType(r.t)), c: r.c, t: combo(r), v: vsP(r.idx), vc: 'down', m: r.n + '개 · 2달 ' + r.recent + '개', r: r.alt ? esc(fmtType(r.alt.t)) + '면 <b class="up">' + vsP(r.alt.idx) + '</b>' : '' })).join('') + '<p class="hm-note">→ 많이 올렸는데 약해요. ' + (P.less.some(r => r.alt) ? '오른쪽 아래 형식으로 바꾸거나 ' : '') + '횟수를 줄여 보세요.</p>'));
-    if (P.again.length) G.push(hmSec('작년 이맘때 잘 된 것', '', P.again.map(it => hmRow({ tag: 'button', attr: go('a:again', '작년 이맘때 잘 된 것'), c: it.c, t: esc(title(it.n)), v: vsP(ratio(it)), vc: 'up', m: dot(it.d), r: mName(it) + ' ' + fmtK(mainVal(it)) })).join('') + '<p class="hm-note">→ 곧 같은 시기가 와요. 올해 버전으로 다시 만들어 보세요.</p>'));
+    // 2026-10-25 스튜디오형: 왼쪽 큰 % + 조합 + 근거 한 줄
+    const idea = (attr, v, vc, t, c, m, cls) => '<button ' + attr + ' class="idea-r' + (cls ? ' ' + cls : '') + '"><b class="num ' + vc + '">' + v + '</b><span class="idea-b"><strong>' + t + '</strong><small>' + chTxt(c) + ' · ' + m + '</small></span></button>';
+    if (P.more.length) G.push(hmSec('더 만들기', '왼쪽 = 최근 1년 조회 평소 대비', '<div class="idea">' + P.more.map(r => idea(go('c:' + r.k, '더 만들기 · ' + r.g + ' × ' + fmtType(r.t)), vsP(r.idx), 'up', combo(r), r.c, r.n + '개 · 히트율 ' + pct0(r.hit) + ' · 최근 2달 ' + r.recent + '개')).join('') + '</div>' + '<p class="hm-note">→ 잘 되는데 최근 2달 덜 올렸어요. 다음 기획에 하나 넣어 보세요.</p>'));
+    if (P.less.length) G.push(hmSec('줄이거나 바꾸기', '', '<div class="idea">' + P.less.map(r => idea(go('c:' + r.k, '줄이거나 바꾸기 · ' + r.g + ' × ' + fmtType(r.t)), vsP(r.idx), 'down', combo(r), r.c, '최근 2달 ' + r.recent + '개' + (r.alt ? ' · ' + esc(fmtType(r.alt.t)) + '면 <b class="up">' + vsP(r.alt.idx) + '</b>' : ''), 'less')).join('') + '</div>' + '<p class="hm-note">→ 많이 올렸는데 약해요. ' + (P.less.some(r => r.alt) ? '오른쪽 아래 형식으로 바꾸거나 ' : '') + '횟수를 줄여 보세요.</p>'));
+    if (P.again.length) G.push(hmSec('작년 이맘때 잘 된 것', '', P.again.map(it => hmRow({ tag: 'button', attr: go('a:again', '작년 이맘때 잘 된 것'), thumb: ovImg(it, 'hm-th ov-th'), c: it.c, t: esc(title(it.n)), v: vsP(ratio(it)), vc: 'up', m: dot(it.d), r: mName(it) + ' ' + fmtK(mainVal(it)) })).join('') + '<p class="hm-note">→ 곧 같은 시기가 와요. 올해 버전으로 다시 만들어 보세요.</p>'));
     if (!G.length) return '<div class="wait">지금은 따로 권할 만한 게 없어요. 같은 주제·형식 게시물이 ' + MIN_N + '개 이상 쌓이면 「더 만들기」·「줄이거나 바꾸기」를 알려 드려요.</div>';
     return '<div class="hm-rx">' + G.join('') + '</div><div id="rxList"></div>';
   }
@@ -1599,9 +1604,10 @@
     const blocks = ownIn(chs).map(ch => {
       const R = rulesFor(ch);
       if (!R.length) return hmSec(chTxt(ch), '', '<p class="hm-note">최근 2년 게시물이 30개가 안 되거나, 조건에 따라 뚜렷한 차이가 나지 않았어요.</p>');
-      return hmSec(chTxt(ch), '오른쪽 = 나머지 대비 조회', R.map(r => { const up = r.eff >= 1;
-        return hmRow({ t: esc(r.label), v: vsP(r.eff), vc: up ? 'up' : 'down', m: (r.sub ? esc(r.sub) + ' · ' : '') + r.na + '개', r: '히트율 ' + pct0(r.ha) + ' vs ' + pct0(r.hb), tip: '이 조건 ' + r.na + '개 평소 대비 ' + vsP(r.ma) + ' · 나머지 ' + r.nb + '개 ' + vsP(r.mb) + ' (최근 2년 조회 중간값)' });
-      }).join(''));
+      // 2026-10-25 스튜디오형: 가운데 = 나머지와 같음, 오른쪽 파랑 = 더 잘 됨, 왼쪽 주황 = 덜 됨(2배·절반에서 끝까지)
+      return hmSec(chTxt(ch), '가운데 = 나머지와 같음', '<div class="cond">' + R.map(r => { const up = r.eff >= 1, w = Math.min(50, Math.abs(Math.log(r.eff)) / Math.log(2) * 50);
+        return '<div class="cd-r" title="' + esc('이 조건 ' + r.na + '개 평소 대비 ' + vsP(r.ma) + ' · 나머지 ' + r.nb + '개 ' + vsP(r.mb) + ' · 히트율 ' + pct0(r.ha) + ' vs ' + pct0(r.hb) + ' (최근 2년 조회 중간값)') + '"><span class="cd-l">' + esc(r.label) + '<small>' + (r.sub ? esc(r.sub) + ' · ' : '') + r.na + '개</small></span><span class="cd-b" aria-hidden="true"><i class="' + (up ? 'p' : 'n') + '" style="width:' + w.toFixed(1) + '%"></i></span><b class="num ' + (up ? 'up' : 'down') + '">' + vsP(r.eff) + '</b></div>';
+      }).join('') + '</div>');
     });
     return '<div class="hm-rx">' + blocks.join('') + '</div><p class="hm-note">최근 2년 조회 중간값으로, 조건에 맞는 게시물과 나머지를 비교했어요. 「이런 게시물일 때 더 잘 됐다」는 뜻이지, 그게 이유라는 뜻은 아니에요. 다음 달 기획에서 한두 번 시도해 보고 스냅샷 시트 「전략 기록」 탭에 적으면 효과를 채점해 드려요.</p>';
   }
@@ -1640,7 +1646,9 @@
     if (!P.length) return '';
     const m = +P[0].nm.slice(5, 7);
     return '<div class="hm-rx">' + P.map((p, pi) => hmSec(chTxt(p.ch), m + '월 권장 · 합계 ' + sum(p.rows.map(r => r.rec)) + '개',
-      p.rows.map(r => { const vc = r.vd === '늘리기' ? 'up' : r.vd === '줄이기' ? 'down' : ''; return hmRow({ t: esc(fmtType(r.t)), v: '월 ' + r.per.toFixed(1) + ' → ' + r.rec + '개', vc, m: '<b class="' + (vc || 'mu') + '">' + r.vd + '</b> · ' + esc(r.bs), tip: r.why }); }).join('') +
+      // 2026-10-25 스튜디오형: 형식 · 권장 개수 막대 · 개수 · 판정. 아랫줄 = 지금까지 월 평균 · 근거
+      '<div class="pl">' + p.rows.map(r => { const vc = r.vd === '늘리기' ? 'up' : r.vd === '줄이기' ? 'down' : 'mu', mx = Math.max(1, ...p.rows.map(x => x.rec));
+        return '<div class="pl-r" title="' + esc(r.why) + '"><span class="pl-t">' + esc(fmtType(r.t)) + '<small>월 ' + r.per.toFixed(1) + '개 하던 것 · ' + esc(r.bs) + '</small></span><span class="pl-b" aria-hidden="true"><i style="width:' + (r.rec / mx * 100).toFixed(1) + '%"></i></span><b class="num">' + r.rec + '</b><em class="' + vc + '">' + r.vd + '</em></div>'; }).join('') + '</div>' +
       (p.topics.length ? '<p class="hm-note">지난 ' + m + '월에 잘 된 주제(' + yrSpan(p.yrs) + ', 조회 평소 대비): ' + p.topics.map(t => '<b>' + esc(t.k) + '</b> <span class="' + xCls(t.idx) + '">' + vsP(t.idx) + '</span>').join(' · ') + '</p>' : '<p class="hm-note">' + (p.yrs.length ? yrSpan(p.yrs) + ' ' + m + '월엔 뚜렷하게 잘 된 주제가 없었어요.' : '지난 ' + m + '월 데이터가 없어요.') + '</p>') +
       (p.best.length ? '<p class="hm-note"><b>지난 ' + m + '월 가장 잘 된 게시물</b></p><ol class="rank" id="plBest' + pi + '">' + rankRows(p.best) + '</ol>' : ''))).join('') + '</div>' +
       '<div style="margin-top:16px"><button type="button" class="btn" id="planCopy" title="형식별 권장 개수 · 이유 · 잘 된 주제를 글로 복사">회의용으로 복사</button></div>';
@@ -1845,7 +1853,7 @@
     }
     $('view').innerHTML = html.replace(/^<div class="gap"><\/div>/, '');
     $('view').querySelectorAll('[data-goch]').forEach(b => b.addEventListener('click', () => { S.ch = b.dataset.goch; render(); window.scrollTo({ top: 0 }); }));
-    document.querySelectorAll('.k7-r[data-k7]').forEach(b => { const go = () => openKpi(b.dataset.k7, chs); b.addEventListener('click', go); b.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); go(); } }); });
+    document.querySelectorAll('[data-k7]').forEach(b => { const go = () => openKpi(b.dataset.k7, chs); b.addEventListener('click', go); b.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); go(); } }); });
     if ($('mxBy')) $('mxBy').querySelectorAll('button').forEach(b => b.addEventListener('click', () => { S.mxBy = b.dataset.v; S.mx = null; viewStrategy(); }));
     if ($('mxFewBtn')) $('mxFewBtn').addEventListener('click', e => { S.mxFew = !S.mxFew; $('mxFew').hidden = !S.mxFew; e.currentTarget.setAttribute('aria-expanded', S.mxFew); e.currentTarget.textContent = S.mxFew ? '게시물 ' + MIN_N + '개 미만 분류 접기' : '게시물 ' + MIN_N + '개 미만 분류 ' + $('mxFew').rows.length + '개 더 보기 ›'; });
     $('view').querySelectorAll('.mx td[data-k]').forEach(td => { if (td.classList.contains('none')) return; td.addEventListener('click', () => { S.mx = S.mx === td.dataset.k ? null : td.dataset.k; viewStrategy(); if (S.mx) setTimeout(() => { const el = $('mxList'); if (el) el.scrollIntoView({ behavior: SM(), block: 'nearest' }); }, 30); }); });
