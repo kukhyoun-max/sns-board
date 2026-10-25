@@ -4394,12 +4394,32 @@
     if (d && d.error === 'auth') { try { localStorage.removeItem(KEY_STORE); } catch (e) {} gate(KEY ? '이 접속 키는 막혔거나 맞지 않아요' : '접속 키가 필요해요'); return; }
     if (!window.Chart) { fail('chart'); return; } try { booted = true; boot(d); } catch (e) { booted = false; console.error(e); fail(); }
   };
-  msgView('데이터를 불러오는 중이에요', '보통 15초 안팎 걸려요. 전체 기록(약 1MB)을 받고 있어요.');
+  // 2026-10-26 「로딩 속도 개선」: 마지막으로 받은 전체 기록을 이 기기(IndexedDB)에 두고 먼저 그린 뒤, 서버 응답이 새 기록이면 바꿈(swapMain)
+  // 저장은 prep()이 고치기 전 원본(JSON 문자열)으로. 키가 바뀌었거나 7일 넘은 저장본은 안 씀, 키가 막히면 지움
+  const IDB = (mode, fn) => new Promise((res, rej) => { try { const o = indexedDB.open('sb-cache', 1); o.onupgradeneeded = () => o.result.createObjectStore('kv');
+    o.onsuccess = () => { const db = o.result, tx = db.transaction('kv', mode), r = fn(tx.objectStore('kv')); tx.oncomplete = () => { db.close(); res(r && r.result); }; tx.onerror = tx.onabort = () => { db.close(); rej(tx.error); }; }; o.onerror = () => rej(o.error); } catch (e) { rej(e); } });
+  const cacheGet = () => IDB('readonly', st => st.get('main')).catch(() => null);
+  const cachePut = txt => IDB('readwrite', st => st.put({ k: KEY, at: Date.now(), d: txt }, 'main')).catch(() => {});
+  const cacheDel = () => IDB('readwrite', st => st.delete('main')).catch(() => {});
+  let fromCache = false;
+  const startNet = d => {
+    if (d && d.error === 'auth') { cacheDel(); if (fromCache) { try { localStorage.removeItem(KEY_STORE); } catch (e) {} location.reload(); return; } }
+    if (d && !d.error && d.items) cachePut(JSON.stringify(d));
+    if (booted && fromCache) { mainAt = Date.now(); if (d && !d.error && d.items && d.built && d.built !== D.built) { mainNext = d; swapMain(); } return; }
+    start(d);
+  };
+  msgView('데이터를 불러오는 중이에요', '처음 한 번은 몇 초 걸려요. 다음부터는 이 기기에 저장해 둔 기록을 먼저 보여 주고 새 기록으로 바꿔요.');
   slowT = setTimeout(() => fail('slow'), 30000);
+  if (window.SNS_API_URL) cacheGet().then(v => {
+    if (booted || !v || v.k !== KEY || !v.d || Date.now() - v.at > 7 * 864e5) return;
+    let d = null; try { d = JSON.parse(v.d); } catch (e) { return; }
+    fromCache = true; start(d); if (!booted) fromCache = false;
+  });
   // 키가 없어도 한 번은 요청(서버가 키를 요구할 때만 입력 화면)
   if (window.SNS_API_URL) {
-    window.__sbData = start;
+    window.__sbData = startNet;
     const sc = document.createElement('script'); sc.src = window.SNS_API_URL + '?callback=__sbData' + (KEY ? '&key=' + encodeURIComponent(KEY) : '') + '&t=' + Date.now(); sc.onerror = () => { clearTimeout(slowT); fail(); }; document.body.appendChild(sc);
+    if (KEY) loadToday(false);
   } else {
     fetch('./data.json', { cache: 'no-store' }).then(r => r.json()).then(start).catch(e => { console.error(e); clearTimeout(slowT); fail(); });
   }
