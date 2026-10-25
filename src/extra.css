@@ -1141,3 +1141,6 @@ body { background: var(--bg); }
 .adl .hm-row.on { box-shadow: inset 3px 0 0 var(--jj); padding-left: 12px; }
 .adl .adc-open { padding: 4px 0 12px; }
 .adl .hm-m b.up { color: var(--up-tx); font-weight: 600; } .adl .hm-m b.mu { color: var(--muted); font-weight: 600; }
+/* 홈 구역 사이(지금 볼 것 · 참고하면 좋을 것 …): 줄 구분선과 같은 1px이면 한 목록처럼 보여서 화면 너비 8px 회색 띠로 나눔(2026-10-25 담당자 「두 내용이 한 내용 같아」) */
+.sec.hm > .hm-sec + .hm-sec { margin: 28px calc(-1 * clamp(16px, 4vw, 32px)) 0; padding: 24px clamp(16px, 4vw, 32px) 0; border-top: 8px solid var(--soft); }
+@media print { .sec.hm > .hm-sec + .hm-sec { margin: 16px 0 0; padding: 12px 0 0; border-top-width: 1px; } }

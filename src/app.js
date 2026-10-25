@@ -3376,7 +3376,7 @@
     if (P.again[0]) pRow('작년 이맘때 잘 된 게시물', P.again[0], 'up');
     if (P.more[0]) row('더 만들면 좋은 조합 · 최근 2달 ' + P.more[0].recent + '개', P.more[0].c, esc(P.more[0].g) + ' × ' + esc(P.more[0].t), vsTxt(P.more[0].idx), 'up');
     if (P.less[0]) row('줄이거나 바꿀 조합 · 최근 2달 ' + P.less[0].recent + '개', P.less[0].c, esc(P.less[0].g) + ' × ' + esc(P.less[0].t), vsTxt(P.less[0].idx), 'down');
-    return R.length ? hmSec2('참고하면 좋을 것', '', '<div class="hm-list">' + R.join('') + '</div>') : '';
+    return R.length ? hmSec2('참고하면 좋을 것', '지난 기록 · 다음 기획용', '<div class="hm-list">' + R.join('') + '</div>') : '';
   }
   function todayInner(chs) {
     const d = TD.d, now = new Date(d.ts || Date.now()), today = d.today;
