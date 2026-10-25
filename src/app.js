@@ -2125,14 +2125,18 @@
     const s = ss.find(x => x.id === S.season);
     if (!s) { $('view').innerHTML = '<section class="sec"><div class="empty">입시 시즌 데이터가 없어요.</div></section>'; return; }
     const st = seasonStats(s);
+    // 칸마다 시즌 안 주별 추이(2026-10-25)
+    const W = []; for (let d = s.from; d <= s.to && d <= D.updated; d = addDays(d, 7)) W.push(d);
+    const wk = (L, df, vf) => W.map(w0 => sum(L.filter(x => { const d = df(x); return d >= w0 && d < addDays(w0, 7); }).map(vf)));
+    const rws = (D.ads && D.ads.rows) || [], adC = rws.length ? wk(rws, x => x[1], x => x[2] || 0) : wk((D.ads && D.ads.daily) || [], x => x[0], x => x[1] || 0);
     const selHtml = '<select class="selbox" id="seasonSel">' + ss.map(x => '<option value="' + x.id + '"' + (x.id === s.id ? ' selected' : '') + '>' + esc(x.label) + '</option>').join('') + '</select>';
     let html = '<section class="sec"><div class="sh"><div><h2>입시 시즌 리포트</h2><p>수시 8~9월 · 정시 12~1월 · ' + esc(scopeLabel()) + ' · 수치는 ' + mdLabel(D.updated) + '까지 받은 값</p></div>' + selHtml + '</div>' +
       // 홈과 같은 정사각형 KPI 4장(짝수) · 이름·설명은 한 줄, 정의는 마우스 올림
       '<div class="kpi-row n4">' +
-        kpiTile('시즌 게시물', st.org.length + '<small>개</small>', '입시·모집 ' + st.adm.length + '개' + (st.admIdx == null ? '' : ' · 평소 ' + vsP(st.admIdx))) +
-        kpiTile('<span title="광고 영상 조회 제외">광고 뺀 조회</span>', fmtK(st.orgV), '평소 ' + vsP(st.idx) + ' · 히트율 ' + pct0(st.hit)) +
-        kpiTile('<span title="구글애즈 계정 전체 · 동영상·디스플레이 · 위 채널 탭과 관계없음">구글애즈 광고비</span>', st.covered ? fmtK(st.cost) + '<small>원</small>' : '–', st.covered ? (st.adV ? '조회 1회당 ' + fmt(st.cost / st.adV) + '원' : '연결된 광고 영상 없음') : (D.ads && D.ads.end ? '광고 보고서 ' + dot(D.ads.end) + '까지' : '광고 보고서 없음')) +
-        kpiTile('광고 영상', st.ad.length + '<small>개</small>', '조회 ' + fmtK(st.adV) + (st.covered ? ' · 캠페인 ' + st.camps.length + '개' : '')) +
+        kpiTile('시즌 게시물', st.org.length + '<small>개</small>', '입시·모집 ' + st.adm.length + '개' + (st.admIdx == null ? '' : ' · 평소 ' + vsP(st.admIdx)), '', spark(wk(st.org, it => it.d, () => 1), '주별 게시 수')) +
+        kpiTile('<span title="광고 영상 조회 제외">광고 뺀 조회</span>', fmtK(st.orgV), '평소 ' + vsP(st.idx) + ' · 히트율 ' + pct0(st.hit), '', spark(wk(st.org, it => it.d, it => val(it, 0) || 0), '올린 주별 조회')) +
+        kpiTile('<span title="구글애즈 계정 전체 · 동영상·디스플레이 · 위 채널 탭과 관계없음">구글애즈 광고비</span>', st.covered ? fmtK(st.cost) + '<small>원</small>' : '–', st.covered ? (st.adV ? '조회 1회당 ' + fmt(st.cost / st.adV) + '원' : '연결된 광고 영상 없음') : (D.ads && D.ads.end ? '광고 보고서 ' + dot(D.ads.end) + '까지' : '광고 보고서 없음'), '', st.covered ? spark(adC, '주별 광고비') : '') +
+        kpiTile('광고 영상', st.ad.length + '<small>개</small>', '조회 ' + fmtK(st.adV) + (st.covered ? ' · 캠페인 ' + st.camps.length + '개' : ''), '', spark(wk(st.ad, it => it.d, it => val(it, 0) || 0), '올린 주별 광고 영상 조회')) +
       '</div></section>';
     const SEA_M = [['idx', '조회 평소 대비', '게시물당 조회 평소 대비'], ['orgV', '광고 뺀 조회', '광고 뺀 조회'], ['n', '게시 수', '게시 수'], ['hit', '히트율', '히트율']];
     if (!SEA_M.some(m => m[0] === S.seaM)) S.seaM = 'idx';
@@ -2259,6 +2263,9 @@
     const months = []; if (ks.length) { let m = ks[0] + '-01'; while (m.slice(0, 7) <= ks[ks.length - 1]) { months.push(m.slice(0, 7)); m = monthStart(m, 1); } }
     const ms = {}, mi = {}; camps.forEach(c => (c.mo && c.mo.length ? c.mo : [[mk(c), c.spend, c.imp]]).forEach(([k, s, i]) => { ms[k] = (ms[k] || 0) + (s || 0); mi[k] = (mi[k] || 0) + (i || 0); }));
     const MB = Object.assign(adBuckets(months, ms, mi), { money: wonF });
+    // 도달·클릭은 달별 값이 없어 캠페인 합을 마지막 집행 달에(2026-10-25 「다른 데도 그래프」)
+    const mr = {}, mcl = {}; camps.forEach(c => { const k = c.mo && c.mo.length ? c.mo.map(x => x[0]).sort().pop() : mk(c); mr[k] = (mr[k] || 0) + (c.reach || 0); mcl[k] = (mcl[k] || 0) + (c.clk || 0); });
+    const MR = adBuckets(months, mr, mcl);
     let html = seg + '<section class="sec"><div class="sh"><div><h2>광고 성과</h2><p>메타 광고 관리자 · 캠페인 종료일 ' + dot(ends[0]) + ' ~ ' + dot(ends[ends.length - 1]) + (M.some(c => !/^\d{4}/.test(c.end)) ? ' · 진행 중 포함' : '') + ' · 원화 기준' + fxNote() + '</p></div></div>' +
       (M.some(c => c.api)
         ? '<div class="callout">메타 광고 API로 <b>매일 자동</b>으로 받아요(어제까지). 월별 추이는 <b>실제로 집행한 달</b>에 나눠 넣었어요' + (M.some(c => !c.api) ? ' · API 이전 캠페인은 종료월 기준이에요' : '') + '.<small>도달은 캠페인 전체 기간 값이에요. 날짜별 도달은 같은 사람이 겹쳐서 더할 수 없어요.</small></div>'
@@ -2268,8 +2275,8 @@
       '<div class="kpi-row n4">' +
         kpiTile('광고비', wonL(T.spend), '집행 캠페인 ' + paid.length + '개', '', spark(MB.c, MB.unit + '별 광고비')) +
         kpiTile('노출', fmtK(T.imp), '1천 회당 ' + wonF(T.imp ? T.spend / T.imp * 1000 : null), '', spark(MB.i, MB.unit + '별 노출')) +
-        kpiTile('<span title="캠페인끼리 겹치는 사람도 따로 셌어요">도달 · 캠페인 합</span>', fmtK(T.reach), '캠페인별 도달의 합', '') +
-        kpiTile('링크 클릭', fmtK(T.clk), '클릭률 ' + pct(T.imp ? T.clk / T.imp : null), '') +
+        kpiTile('<span title="캠페인끼리 겹치는 사람도 따로 셌어요">도달 · 캠페인 합</span>', fmtK(T.reach), '캠페인별 도달의 합', '', spark(MR.c, MR.unit + '별 도달 · 캠페인 마지막 달 기준')) +
+        kpiTile('링크 클릭', fmtK(T.clk), '클릭률 ' + pct(T.imp ? T.clk / T.imp : null), '', spark(MR.i, MR.unit + '별 링크 클릭 · 캠페인 마지막 달 기준')) +
       '</div><div class="chips ad-chips"><span class="chip" aria-pressed="true">클릭당 ' + wonF(T.clk ? T.spend / T.clk : null) + '</span></div></section>';
     html += secOpen('월별 집행', (M.some(c => c.api) ? '집행한 달 기준' : '종료월 기준') + ' · 위는 광고비, 아래는 노출 · 같은 ' + (MB.unit === '월' ? '달' : '분기') + '끼리 위아래로 맞춰 봐요') + adPairHtml('mChart', 'mChart2') + secClose;
     const sk = S.mSort || 'spend';
@@ -2340,7 +2347,7 @@
         kpiTile('광고비', wonL(tot.cost), '캠페인 ' + camps.length + '개', '', spark(GB.c, GB.unit + '별 광고비')) +
         kpiTile('노출', fmtK(tot.imp), '1천 회당 ' + wonF(tot.cpm), '', spark(GB.i, GB.unit + '별 노출')) +
         kpiTile('클릭', fmtK(tot.clk), '클릭률 ' + pct(tot.ctr), '', rr.length ? spark(GK.c, GK.unit + '별 클릭') : '') +
-        kpiTile('유튜브 광고 영상 조회', fmtK(vv), '1회당 ' + (lv ? wonF(linkedCost / lv) : '–'), '') +
+        kpiTile('유튜브 광고 영상 조회', fmtK(vv), '1회당 ' + (lv ? wonF(linkedCost / lv) : '–'), '', (() => { const mv = {}; vids.forEach(it => { const k = it.d.slice(0, 7); mv[k] = (mv[k] || 0) + (val(it, 0) || 0); }); const B = adBuckets(months, mv, mv); return spark(B.c, '영상 올린 ' + B.unit + '별 광고 영상 조회'); })()) +
       '</div><div class="chips ad-chips"><span class="chip" aria-pressed="true">클릭당 ' + wonF(tot.cpc) + '</span><span class="chip" aria-pressed="true">광고 영상 ' + vids.length + '개</span></div></section>';
     html += secOpen('월별 집행', '위는 광고비, 아래는 노출 · 같은 ' + (GB.unit === '월' ? '달' : '분기') + '끼리 위아래로 맞춰 봐요') + adPairHtml('adChart', 'adChart2') + secClose;
     // 계획
@@ -3332,7 +3339,7 @@
   // lv = 제목 단계(홈 구역은 2, 전략 화면 안 묶음은 3 — 2026-10-24 점검 6번). 오른쪽 부제는 잘릴 수 있어 title로 전문
   const hmSec = (h, right, body, lv) => '<div class="hm-sec"><div class="hm-h"><h' + (lv || 3) + '>' + h + '</h' + (lv || 3) + '>' + (right ? '<span title="' + esc(String(right).replace(/<[^>]*>/g, '')) + '">' + right + '</span>' : '') + '</div>' + body + '</div>';
   const hmSec2 = (h, right, body) => hmSec(h, right, body, 2);
-  const hmCard = (lab, val, sub, cls, tip) => '<div class="hm-card"' + (tip ? ' title="' + esc(tip) + '"' : '') + '><span class="hm-cl">' + lab + '</span><b class="num">' + val + '</b><span class="hm-cs' + (cls ? ' ' + cls : '') + '">' + sub + '</span></div>';
+  const hmCard = (lab, val, sub, cls, tip, sp) => '<div class="hm-card"' + (tip ? ' title="' + esc(tip) + '"' : '') + '><span class="hm-cl">' + lab + '</span><b class="num">' + val + '</b><span class="hm-cs' + (cls ? ' ' + cls : '') + '">' + sub + '</span>' + (sp || '') + '</div>';
   const hmCards = A => A.length ? '<div class="hm-cards n' + A.length + '">' + A.join('') + '</div>' : '';
   const sgnN = v => (v > 0 ? '+' : v < 0 ? '−' : '±') + fmt(Math.abs(v));
   // 채널별 팔로워·구독자: 업로드 없는 날 = 1년 증감(mode 'year'), 올린 날 = 오늘 아침 대비(mode 'day'). 유튜브는 늘 1년(구독자 하루 값이 없음)
@@ -3349,7 +3356,9 @@
     G.forEach(g => { if (g.lab == null) g.lab = !g.since ? '' : g.since <= addDays(today, -350) ? '1년 ' : md2(g.since) + '부터 '; });
     return G;
   }
-  const folCard = g => hmCard(chName(g.c), fmt(g.now), g.d == null ? '지난 기록 없음' : g.lab + sgnN(g.d), g.d ? (g.d > 0 ? 'up' : 'down') : '', (g.c === '유튜브' ? '구독자' : '팔로워') + (g.since ? ' · ' + md2(g.since) + ' 대비' : ''));
+  const folSpark = g => { const t = D.updated; if (g.c === '유튜브') { const y = (D.acct || []).find(a => a.c === '유튜브'); const H = ((y && y.hist) || []).filter(x => x[0] >= addDays(t, -365)); return spark(H.map(x => x[1]).concat([g.now]), '최근 1년 구독자 수'); }
+    return spark((D.fol || []).filter(r => r[1] === g.c && r[0] >= addDays(t, -30)).map(r => r[2]).concat([g.now]), '최근 30일 팔로워 수'); };
+  const folCard = (g, sp) => hmCard(chName(g.c), fmt(g.now), g.d == null ? '지난 기록 없음' : g.lab + sgnN(g.d), g.d ? (g.d > 0 ? 'up' : 'down') : '', (g.c === '유튜브' ? '구독자' : '팔로워') + (g.since ? ' · ' + md2(g.since) + ' 대비' : ''), sp ? folSpark(g) : '');
   // 업로드 없는 날 맨 위(2026-10-23 「우리 채널 성장 데이터를 보여 주면 동기부여·사기 진작」): 팔로워·구독자 합계와 1년 전보다 늘어난 수, 채널별 카드, 올해 히트 수
   function tdGrow(chs, d, today) {
     const G = hmFol(chs, d, today, 'year');
@@ -3357,10 +3366,10 @@
     const tot = sum(G.map(g => g.now)), dd = G.filter(g => g.d != null), gd = sum(dd.map(g => g.d));
     const hits = D.items.filter(it => OWN.includes(it.c) && chs.includes(it.c) && it.d >= today.slice(0, 4) + '-01-01' && isHit(it)).length;
     // 2026-10-25 스튜디오형 4단계: 맨 위 「개요」가 7일 흐름을 보여 주므로, 업로드 없는 날 이 칸은 큰 합계 대신 채널별 카드만(개요와 겹치지 않게)
-    if (S.view === 'brief') return hmSec2('채널별 팔로워', (dd.length ? (dd.every(g => g.since <= addDays(today, -350)) ? '1년 전보다 ' : '기록 시작 뒤 ') + sgnN(gd) + '명 · ' : '') + (hits ? '올해 히트 ' + hits + '개' : ''), hmCards(G.map(folCard)) + '<p class="hm-note">어제·오늘은 올린 게시물이 없어요</p>');
+    if (S.view === 'brief') return hmSec2('채널별 팔로워', (dd.length ? (dd.every(g => g.since <= addDays(today, -350)) ? '1년 전보다 ' : '기록 시작 뒤 ') + sgnN(gd) + '명 · ' : '') + (hits ? '올해 히트 ' + hits + '개' : ''), hmCards(G.map(g => folCard(g, 1))) + '<p class="hm-note">어제·오늘은 올린 게시물이 없어요</p>');
     return '<div class="hm-hero"><span class="hm-lab">우리 채널을 구독·팔로우하는 사람</span><b class="hm-big num">' + fmt(tot) + '명</b>' +
       (dd.length ? '<span class="hm-vs ' + (gd > 0 ? 'up' : gd < 0 ? 'down' : 'flat') + '">' + (dd.every(g => g.since <= addDays(today, -350)) ? '1년 전보다 ' : '기록을 시작한 뒤로 ') + sgnN(gd) + '명</span>' : '') +
-      '<span class="hm-note">' + (hits ? '올해 히트 ' + hits + '개 · ' : '') + '어제·오늘은 올린 게시물이 없어요</span></div>' + hmCards(G.map(folCard));
+      '<span class="hm-note">' + (hits ? '올해 히트 ' + hits + '개 · ' : '') + '어제·오늘은 올린 게시물이 없어요</span></div>' + hmCards(G.map(g => folCard(g, 1)));
   }
   // 어제·오늘 올린 게 없을 때(2026-10-23 「기간 상관없이 유의미한 데이터, 내가 참고하면 좋을 데이터 추천으로」):
   // 최근 30일 가장 잘 된 게시물 · 작년 이맘때 잘 된 게시물 · 더 만들면 좋은 조합 · 줄이면 좋은 조합(전략 화면 「이번 주 처방」과 같은 계산)
@@ -3417,10 +3426,11 @@
         const n = sum(RP.map(p => f === 'rx' ? (p.l || 0) + (p.cm || 0) + (p.sh || 0) + (p.sv || 0) : p[f] || 0)), v = n / R, us = RP.map(p => [p, tdRate(p.c, p.t, j)]).filter(x => x[1] != null);
         const u = us.length ? sum(us.map(x => x[1] * x[0].r)) / sum(us.map(x => x[0].r)) : null;
         const sub = goal ? (v >= goal ? ['목표 ' + pctA(goal) + ' 넘음', 'up'] : ['목표 ' + pctA(goal) + ' 아래', 'down']) : u ? ['평소 대비 ' + vsP(v / u), xCls(v / u)] : ['평소 자료 적음', ''];
-        M.push(hmCard(nm, pctA(v), sub[0], sub[1], '도달 ' + fmt(R) + ' · ' + (f === 'rx' ? '반응' : '공유') + ' ' + fmt(n) + (u ? ' · 같은 형식 평소 ' + pctA(u) : '')));
+        const RS = D.items.filter(it => it.c === '인스타그램' && it.t !== '스토리' && !it.ad && it.r >= 300 && last(it)).sort((a, b) => a.d < b.d ? -1 : 1).slice(-12).map(it => { const x = last(it); return f === 'rx' ? ((x[1] || 0) + (x[2] || 0) + (x[3] || 0) + (x[4] || 0)) / it.r : x[3] == null ? null : x[3] / it.r; });
+        M.push(hmCard(nm, pctA(v), sub[0], sub[1], '도달 ' + fmt(R) + ' · ' + (f === 'rx' ? '반응' : '공유') + ' ' + fmt(n) + (u ? ' · 같은 형식 평소 ' + pctA(u) : '') + ' · 선 = 최근 인스타 게시물 12개', spark(RS, '최근 인스타 게시물 12개 ' + nm)));
       });
     }
-    M.push(hmCard('이번 주', wk + '개', (Math.round(avg * 10) / 10) + '개/일', '', '월요일부터 오늘까지 올린 게시물(스토리 빼고) · 지난주 같은 때 ' + lastW + '개 · 최근 2주 하루 평균'));
+    M.push(hmCard('이번 주', wk + '개', (Math.round(avg * 10) / 10) + '개/일', '', '월요일부터 오늘까지 올린 게시물(스토리 빼고) · 지난주 같은 때 ' + lastW + '개 · 최근 2주 하루 평균', weekBars(WK_D.map((n, k) => k <= dow ? cnt[13 - dow + k] : undefined), WK_D.map((n, k) => cnt[6 - dow + k]), '요일별 게시 수 · 회색 = 지난주')));
     const st = (d.story || []).filter(x => chs.includes(x.ch));
     if (M.length < 3 && st.length) M.push(hmCard('오늘 스토리', fmtK(sum(st.map(x => x.views))), st.length + '개', '', '1시간마다 받아요'));
     // ③ 게시물 목록: 오른쪽 위 = 조회, 오른쪽 아래 = 조회 평소 대비(하루치 평소와 견줄 땐 20시간 뒤부터, 유튜브는 6시간 뒤부터), 아랫줄 = 채널·시간·반응 + 오른쪽 조회
@@ -3456,7 +3466,7 @@
       if (H.length > 1) FT.push(kpiTile('유튜브 구독자', fmt(y.subs) + '<small>명</small>', yr ? '1년 전보다 ' + dNum(y.subs - yr[1], '명') : '', '', spark(hv, '최근 1년 구독자 수 · 날마다 늘고 준 수로 거꾸로 계산(유튜브 분석은 1~2일 늦음)') + '<div class="td-foot">' + (y.subs >= hi ? '1년 중 가장 많아요' : '1년 최고 ' + fmt(hi) + '명') + '</div>'));
     }
     const FG = hmFol(chs, d, today, 'day');
-    const fol = FG.length ? '<details class="hm-fold hm-fol"><summary title="누르면 추이">' + hmCards(FG.map(folCard)) + '</summary>' + (FT.length ? '<div class="kpi-row td-k n' + FT.length + '">' + FT.join('') + '</div>' : '') + '</details>' : '';
+    const fol = FG.length ? '<details class="hm-fold hm-fol"><summary title="누르면 추이">' + hmCards(FG.map(g => folCard(g))) + '</summary>' + (FT.length ? '<div class="kpi-row td-k n' + FT.length + '">' + FT.join('') + '</div>' : '') + '</details>' : '';
     return '<section class="sec hm">' + hero + hmCards(M) + list + attn + tdPlan(d) + fol + secClose;
   }
   // 게시 예정(「공식 SNS 발행 일정」 오늘~7일). 오늘 예정이 실제로 올라갔으면 「게시 완료」, 누르면 업로드 폴더

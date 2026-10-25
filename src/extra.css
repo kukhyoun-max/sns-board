@@ -1144,3 +1144,5 @@ body { background: var(--bg); }
 /* 홈 구역 사이(지금 볼 것 · 참고하면 좋을 것 …): 줄 구분선과 같은 1px이면 한 목록처럼 보여서 화면 너비 8px 회색 띠로 나눔(2026-10-25 담당자 「두 내용이 한 내용 같아」) */
 .sec.hm > .hm-sec + .hm-sec { margin: 28px calc(-1 * clamp(16px, 4vw, 32px)) 0; padding: 24px clamp(16px, 4vw, 32px) 0; border-top: 8px solid var(--soft); }
 @media print { .sec.hm > .hm-sec + .hm-sec { margin: 16px 0 0; padding: 12px 0 0; border-top-width: 1px; } }
+/* 홈 숫자 칸에도 추이(2026-10-25 「다른 데도 그래프」): 칸 아래에 붙임 */
+.hm-card .kspark, .hm-card .kbars { margin-top: auto; padding-top: 8px; height: 24px; box-sizing: content-box; }
