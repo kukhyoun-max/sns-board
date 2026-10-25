@@ -251,7 +251,7 @@
       // 순위 탭(2026-10-24): opt.top이 있으면 오른쪽 위 = 그 탭이 줄 세운 값, 평소 대비는 오른쪽 아래(색만 유지)
       const vsLow = v ? '<b class="' + vc + '">' + (r != null && !yg && !it.ad && !it.hid ? vsTxt(r) : v) + '</b>' : '';
       const top = opt.top ? opt.top(it, mvTxt) : null;
-      return hmRow({ tag: 'li', cls: 'hm-rk', attr: 'tabindex="0" data-i="' + i + '"', tip, thumb: opt.thumb ? ovImg(it, 'hm-th ov-th') : '', c: it.c, t: esc(title(it.n)), v: top != null ? top : v, vc: top != null ? '' : vc,
+      return hmRow({ tag: 'li', cls: 'hm-rk', attr: 'tabindex="0" data-i="' + i + '"', tip, thumb: opt.thumb === 0 ? '' : ovImg(it, 'hm-th ov-th'), c: it.c, t: esc(title(it.n)), v: top != null ? top : v, vc: top != null ? '' : vc,
         m: [ty ? esc(ty) : '', '<span title="' + esc(dot(it.d)) + '">' + whenTxt(it.d) + '</span>', ...warn.map(w => '<span class="down">' + esc(w) + '</span>')].filter(Boolean).join(' · '),
         r: opt.right ? opt.right(it) : top != null ? vsLow : mName(it) + ' <span class="num">' + mvTxt + '</span>' });
     }).join('') || '<li class="empty">조건에 맞는 콘텐츠가 없어요.</li>';
@@ -348,7 +348,11 @@
     return r ? r[3] : '';
   };
   const needThumbs = again => { if (TD.d && TD.d.thumbs) return; if (needThumbs.w) return; needThumbs.w = 1; loadToday(false).then(() => { needThumbs.w = 0; if (TD.d && TD.d.thumbs) again(); }, () => { needThumbs.w = 0; }); };
-  const ovImg = (it, cls) => { const u = ovThumb(it); return '<span class="' + cls + '" style="--c:' + chColor(it.c) + '" aria-hidden="true">' + (u ? '<img loading="lazy" alt="" src="' + esc(u) + '" onerror="this.remove()">' : '') + '<b>' + esc(chName(it.c)) + '</b></span>'; };
+  const OV_WAIT = [];
+  const ovFill = () => document.querySelectorAll('[data-ovw]').forEach(el => { const it = OV_WAIT[+el.dataset.ovw], u = it && ovThumb(it); el.removeAttribute('data-ovw'); if (u) el.insertAdjacentHTML('afterbegin', '<img loading="lazy" alt="" src="' + esc(u) + '" onerror="this.remove()">'); });
+  const ovImg = (it, cls) => { const u = ovThumb(it), wait = !u && it.c !== '유튜브' && !(TD.d && TD.d.thumbs);
+    if (wait) needThumbs(() => setTimeout(ovFill, 0));
+    return '<span class="' + cls + '" style="--c:' + chColor(it.c) + '" aria-hidden="true"' + (wait ? ' data-ovw="' + (OV_WAIT.push(it) - 1) + '"' : '') + '>' + (u ? '<img loading="lazy" alt="" src="' + esc(u) + '" onerror="this.remove()">' : '') + '<b>' + esc(chName(it.c)) + '</b></span>'; };
   const dayLab = d => (+d.slice(8, 10)) + '일';
   const fmtM = v => v == null ? '–' : Math.abs(v) >= 1e4 ? (Math.round(v / 1e3) / 10) + '만' : fmt(v);
   function ovModel(chs) {
@@ -1876,7 +1880,6 @@
       options: chartOpts({ scales: { y: { display: false, beginAtZero: true } }, plugins: { tooltip: { callbacks: { title: c => wd[c[0].dataIndex].k + '요일', label: c => '조회 ' + vsTxt(c.raw) + ' · ' + wd[c.dataIndex].n + '개' + (wd[c.dataIndex].n < MIN_N ? ' · 게시물 적음' : '') } } } }),
       plugins: [{ id: 'lb', afterDatasetsDraw(c) { const x = c.ctx; x.save(); x.font = '600 14px ' + css('--font'); x.fillStyle = css('--muted'); x.textAlign = 'center'; c.getDatasetMeta(0).data.forEach((b, i) => { if (wd[i].idx != null) x.fillText(wd[i].n < MIN_N ? '적음' : vsP(wd[i].idx), b.x, b.y - 6); }); x.restore(); } }] });
     if (own) wireStrat(chs, RX, PLAN);
-    if (own && RX.again.some(it => it.c !== '유튜브')) needThumbs(() => S.view === 'strategy' && viewStrategy());
   }
   function wireStrat(chs, RX, PLAN) {
     $('view').querySelectorAll('[data-rx]').forEach(b => b.addEventListener('click', () => {
@@ -2580,8 +2583,7 @@
       share: { top: it => RXM.share[1] + ' ' + pctA(rxRate(it, 'share')), right: rxSame('share') },
       talk: { top: it => '댓글 ' + fmt(val(it, 2)), right: it => val(it, 1) > 0 ? '좋아요 <span class="num">' + fmtK(val(it, 1)) + '</span>' : '' },
     }[S.rankBy] || null;
-    $('rank').innerHTML = rankRows(shown, Object.assign({ thumb: 1 }, OPT || {}));
-    needThumbs(() => S.view === 'explore' && $('rank') && (renderRank(), renderTable()));
+    $('rank').innerHTML = rankRows(shown, OPT);
     wireRank($('rank'), shown);
     $('rankMore').hidden = S.rankShown >= sorted.length;
   }

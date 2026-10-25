@@ -1120,3 +1120,18 @@ body { background: var(--bg); }
 .ct-b small { font-size: 14px; color: var(--muted); white-space: nowrap; }
 #tbody td.tt2 { min-width: 0; width: 100%; max-width: none; white-space: normal; }
 #tbody .ct-b b { white-space: normal; }
+
+/* 스튜디오형 5단계(2026-10-25): 제작·사람 · 입시 · 광고 등 나머지 화면 공통 부품
+   숫자 칸 = 회색 카드 대신 테두리 한 장을 선으로 나눔 · 용어 칸 = 회색 상자 대신 선 위 목록 · 안내 상자 = 채운 면 대신 왼쪽 선 */
+.kpi-row { gap: 0; border: 1px solid var(--line); border-radius: 12px; overflow: hidden; }
+.kpi-row .kpi-t { background: none; border-radius: 0; box-shadow: none; border-left: 1px solid var(--line); border-top: 1px solid var(--line); margin: -1px 0 0 -1px; }
+.kpi-row .kpi-t.go:hover, .kpi-row .kpi-t.go:focus-visible { background: var(--plane); transform: none; }
+@media (max-width: 560px) { .kpi-row { gap: 0; } }
+.kpis { gap: 0; border: 1px solid var(--line); border-radius: 12px; overflow: hidden; }
+.kpis .kpi { background: none; border-radius: 0; border-left: 1px solid var(--line); border-top: 1px solid var(--line); margin: -1px 0 0 -1px; }
+.defs { display: flex; flex-wrap: wrap; gap: 6px 20px; padding-top: 12px; border-top: 1px solid var(--line); }
+.defs > div { background: none; border: 0; padding: 0; border-radius: 0; flex: 1 1 260px; min-width: 0; }
+.defs dt { display: inline; } .defs dt::after { content: " "; }
+.defs dd { display: inline; margin: 0; }
+.callout, .callout.warn { background: none; border-radius: 0; border-left: 3px solid var(--jj); padding: 4px 0 4px 14px; font-weight: 500; }
+.callout.warn { border-left-color: var(--muted); }
