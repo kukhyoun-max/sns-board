@@ -1507,12 +1507,12 @@
     const near = [[sh, KPI_D20.share, '공유율'], [v310, KPI_D20.view310, '시청 비율'], [stu, KPI_D20.student, '학생 제작'], [sv, KPI_D20.save, '저장률']].filter(x => x[0] != null && x[0] < x[1] && x[0] >= x[1] * 0.9).map(x => x[2]);
     const lead = '<p class="k7-lead">KPI 7개 중 ' + okN + '개는 목표를 넘었' + (near.length ? '고, ' + near.join('과 ') + '은 거의 다 왔어요' : '어요') + '</p>';
     const h = [
-      row('k7share', '인스타 공유율', '도달 대비 · 최근 90일 중간값', sh == null ? null : pctA(sh), pctA(KPI_D20.share), sh >= KPI_D20.share, '', sh, KPI_D20.share, 0, sh == null ? '' : ppA(KPI_D20.share, sh)),
-      row('k7v310', '3~10분 평균 시청 비율', '평균 시청 ÷ 영상 길이(완료율 아님) · 최근 90일', v310 == null ? null : pct0(v310), pct0(KPI_D20.view310), v310 >= KPI_D20.view310, '', v310, KPI_D20.view310, 0, v310 == null ? '' : pp(KPI_D20.view310, v310)),
-      row('k7yt', '유튜브 롱폼 평소 대비', '채널 롱폼 1년 중간값 대비 · 최근 90일', ytR == null ? null : vsP(ytR), '평소 이상', ytR >= KPI_D20.ytLong, '', ytR, KPI_D20.ytLong, 0, ytR == null ? '' : '평소까지 ' + Math.round((1 - ytR) * 100) + '%'),
+      row('k7share', '인스타 공유율', '도달 대비 · 최근 90일 중간값', sh == null ? null : pctA(sh), pctA(KPI_D20.share), sh >= KPI_D20.share, '최근 90일', sh, KPI_D20.share, 0, sh == null ? '' : ppA(KPI_D20.share, sh)),
+      row('k7v310', '3~10분 평균 시청 비율', '평균 시청 ÷ 영상 길이(완료율 아님) · 최근 90일', v310 == null ? null : pct0(v310), pct0(KPI_D20.view310), v310 >= KPI_D20.view310, '최근 90일', v310, KPI_D20.view310, 0, v310 == null ? '' : pp(KPI_D20.view310, v310)),
+      row('k7yt', '유튜브 롱폼 평소 대비', '채널 롱폼 1년 중간값 대비 · 최근 90일', ytR == null ? null : vsP(ytR), '평소 이상', ytR >= KPI_D20.ytLong, '최근 90일', ytR, KPI_D20.ytLong, 0, ytR == null ? '' : '평소까지 ' + Math.round((1 - ytR) * 100) + '%'),
       row('k7stu', '학생 제작 비율', '인스타 최근 1년 · 제작 주체 홍보대사', stu == null ? null : pct0(stu), pct0(KPI_D20.student) + ' 이상', stu >= KPI_D20.student, '인스타 최근 1년', stu, KPI_D20.student, 0, stu == null ? '' : pp(KPI_D20.student, stu)),
-      row('k7save', '인스타 저장률', '코너 캐러셀 · 도달 대비 · 최근 90일 중간값', sv == null ? null : pctA(sv), pctA(KPI_D20.save), sv >= KPI_D20.save, carC.length >= 3 ? '' : '캐러셀 전체', sv, KPI_D20.save, 0, sv == null ? '' : '목표의 ' + Math.round(sv / KPI_D20.save * 100) + '%'),
-      row('k7cov', '경험 지도 커버리지', '이번 분기 · 20개 영역 중 2건 이상', cv.n + '/' + cv.all, KPI_D20.cover + '/' + cv.all, cv.n >= KPI_D20.cover, cv.sug ? '자동 제안 섞임' : '이번 분기', cv.n, KPI_D20.cover, cv.all, (KPI_D20.cover - cv.n) + '개 더'),
+      row('k7save', '인스타 저장률', '코너 캐러셀 · 도달 대비 · 최근 90일 중간값', sv == null ? null : pctA(sv), pctA(KPI_D20.save), sv >= KPI_D20.save, (carC.length >= 3 ? '' : '캐러셀 전체 · ') + '최근 90일', sv, KPI_D20.save, 0, sv == null ? '' : '목표의 ' + Math.round(sv / KPI_D20.save * 100) + '%'),
+      row('k7cov', '경험 지도 커버리지', '이번 분기 · 20개 영역 중 2건 이상', cv.n + '/' + cv.all, KPI_D20.cover + '/' + cv.all, cv.n >= KPI_D20.cover, cv.sug ? '이번 분기 · 자동 제안 섞임' : '이번 분기', cv.n, KPI_D20.cover, cv.all, (KPI_D20.cover - cv.n) + '개 더'),
       row('k7dept', '노출 학과 수', '최근 1년 제목·캡션 앞부분에 나온 학과(하한값)', dep.size + '곳', '2년 안에 ' + (EXP.depts || []).length + '곳', null, '최근 1년', dep.size, (EXP.depts || []).length, (EXP.depts || []).length, '달마다 ' + Math.max(1, Math.ceil(((EXP.depts || []).length - dep.size) / 24)) + '곳씩')
     ].join('');
     // 2026-10-25 스튜디오형 3단계: 빈 영역 글 목록 대신 작은 빙고판(칸 = 영역, 파랑 = 2건 이상, 점선 = 1건). 누르면 커버리지 상세
@@ -1526,7 +1526,7 @@
     const e90 = f90.filter(it => it.tg === '이벤트'), eRx = median(e90.map(it => k7Rate(it, 2)).filter(v => v != null));
     const fl = f90.length ? '<p class="note">피드 점검 · 인스타 피드 중 공지·소식 ' + pct0(fN / f90.length) + ' (최근 90일 ' + fN + '/' + f90.length + '개' + (fMon.length ? ' · ' + esc(fMon.join(' · ')) : '') + ') · 낮을수록 매거진답게' +
       (e90.length ? ' · 이벤트 ' + e90.length + '개, 댓글 ÷ 도달 ' + pctA(eRx) : '') + (f90.some(it => !trustTy(it)) ? ' · 자동 판정 포함' : '') + '</p>' : '';
-    return secOpen('KPI 7개', '2026-10-23 승인(결정 대기 D20) · 줄을 누르면 자세한 데이터와 목표까지 할 일') + lead + '<div class="k7">' + h + '</div>' + emp + fl + secClose;
+    return secOpen('KPI 7개', '기간·채널 버튼과 관계없이 줄마다 적힌 기간으로 계산 · 2026-10-23 승인(결정 대기 D20) · 줄을 누르면 자세한 데이터와 목표까지 할 일') + lead + '<div class="k7">' + h + '</div>' + emp + fl + secClose;
   }
   function prescribe(chs) {
     const s365 = addDays(D.updated, -365), s60 = addDays(D.updated, -60);
