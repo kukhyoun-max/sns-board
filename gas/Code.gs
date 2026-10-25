@@ -5594,7 +5594,11 @@ function partToday_(ss) {
     if (cal) plan = cal.getEvents(new Date(today + 'T00:00:00+09:00'), new Date(shiftDate_(today, 8) + 'T00:00:00+09:00'))
       .slice(0, 12).map(e => [Utilities.formatDate(e.getStartTime(), TZ, 'yyyy-MM-dd'), String(e.getTitle()).slice(0, 80), planFolder_(e.getDescription())]);
   } catch (e) { notes.push('게시 예정 확인 실패'); }
-  return { ts: now.getTime(), at: Utilities.formatDate(now, TZ, 'yyyy-MM-dd HH:mm'), today: today, posts: p, acct: acct, story: briefStories_(ss, today), hist: hr.hist, hbase: hr.base, plan: plan, notes: notes };
+  // 최근 게시물 썸네일(2026-10-25 홈 「개요」 인기 콘텐츠·인스타 격자): 계정마다 최신 30개 [게시물 코드, 게시일, 캡션 앞 30자, 사진 주소, 채널].
+  // 브라우저에서 instagram.com 사진 주소는 막혀서 메타 CDN 주소를 씀(며칠 뒤 만료되지만 10분마다 새로 받음). hong은 보드에 주소가 없어 게시일·캡션으로 맞춤
+  const thumbs = [];
+  try { igxChannels_().forEach(c => { (igxGet_(c.conf, c.user + '/media', { fields: 'permalink,timestamp,caption,media_url,thumbnail_url', limit: 30 }).data || []).forEach(x => { const m = String(x.permalink || '').match(/\/(?:p|reel|reels|tv)\/([^/?#]+)/), img = x.thumbnail_url || x.media_url || ''; if (m && img) thumbs.push([m[1], Utilities.formatDate(new Date(x.timestamp), TZ, 'yyyy-MM-dd'), String(x.caption || '').replace(/\s+/g, ' ').trim().slice(0, 30), img, c.ch]); }); }); } catch (e) { notes.push('썸네일 확인 실패'); }
+  return { ts: now.getTime(), at: Utilities.formatDate(now, TZ, 'yyyy-MM-dd HH:mm'), today: today, posts: p, acct: acct, story: briefStories_(ss, today), hist: hr.hist, hbase: hr.base, plan: plan, thumbs: thumbs, notes: notes };
 }
 
 // ───────── 상대 계정이 올린 공동작업 게시물(2026-10-21) ─────────
