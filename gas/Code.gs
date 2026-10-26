@@ -3836,6 +3836,8 @@ function storySnapshot() {
   try { logMirror_(); } catch (e) {}
   try { ensureBackfill_(); } catch (e) {}
   try { ensureFbBackfill_(); } catch (e) {}
+  // 타 대학 월별 게시 수: 탭이 없으면 한 번 받음(2026-10-26 원광대 작년·올해 게시 건수 보고용)
+  try { if (!ss.getSheetByName(YC_SHEET)) { const n = yearCountStep_(ss); logRows_(ss, [[new Date(), YC_SHEET, n, '정상']]); } } catch (e) { logRows_(ss, [[new Date(), YC_SHEET, 0, '오류: ' + String(e.message).slice(0, 120)]]); }
   // 타 대학 유튜브: 탭이 아직 없으면(처음 배포 뒤) 아침 기록을 기다리지 않고 한 번 받음(2026-10-26)
   try { if (!ss.getSheetByName(YTB_CH_SHEET)) { const L = []; ytbStep_(ss, Utilities.formatDate(new Date(), TZ, 'yyyy-MM-dd'), L); logRows_(ss, L); CacheService.getScriptCache().removeAll(['part:ytb:meta']); } } catch (e) { logRows_(ss, [[new Date(), '타대학 유튜브', 0, '오류: ' + String(e.message).slice(0, 120)]]); }
   try {
@@ -5870,4 +5872,43 @@ function partYtb_(ss) {
 function testYtbPublic() {
   const C = ytbGet_('channels', { part: 'snippet,statistics', id: YTB_CH.map(c => c.id).join(',') }).items || [];
   Logger.log(C.map(c => c.snippet.title + ' · 구독자 ' + c.statistics.subscriberCount + ' · 영상 ' + c.statistics.videoCount).join('\n'));
+}
+
+// ───────── 타 대학 월별 게시 수(한 번 받는 표, 2026-10-26 「원광대 작년·올해 채널별 게시 건수」) ─────────
+// 인스타 = 비즈니스 계정 공개 조회(business_discovery, 스토리 없음), 유튜브 = 공개 영상(API 키, 비공개·일부 공개·예정 라이브 없음)
+// 페이스북 페이지·네이버 블로그는 여기서 받지 않음(페이스북은 남의 페이지 게시물 권한 없음, 블로그는 PC에서 RSS·목록으로 셈)
+// 다시 받으려면 「타대학 월별 게시 수」 탭을 지우면 다음 1시간 트리거가 다시 씀
+const YC_SHEET = '타대학 월별 게시 수', YC_SINCE = '2025-01-01';
+const YC_TARGET = [{ n: '원광대', ig: 'wonkwang_univ', yt: 'UCh5FgONuGDNnTXuxGz-mo5A' }];
+function yearCountStep_(ss) {
+  const now = Utilities.formatDate(new Date(), TZ, 'yyyy-MM-dd HH:mm'), cnt = {};
+  const add = (n, ch, ym, t) => { const k = [n, ch, ym, t].join('§'); cnt[k] = (cnt[k] || 0) + 1; };
+  YC_TARGET.forEach(cf => {
+    if (cf.ig) benchFetch_(cf.ig, YC_SINCE, 60).media.forEach(x => add(cf.n, '인스타그램', x.date.slice(0, 7), typeLabel_(x.m.media_product_type, x.m.media_type)));
+    if (cf.yt) {
+      const c = (ytbGet_('channels', { part: 'contentDetails', id: cf.yt }).items || [])[0];
+      const up = c && c.contentDetails.relatedPlaylists.uploads, ids = [];
+      let tok = '';
+      for (let p = 0; p < 40 && up; p++) {
+        const L = ytbGet_('playlistItems', Object.assign({ part: 'contentDetails', playlistId: up, maxResults: 50 }, tok ? { pageToken: tok } : {}));
+        let old = false;
+        (L.items || []).forEach(x => { const d = String(x.contentDetails.videoPublishedAt || ''); if (!d) return; if (d.slice(0, 10) < YC_SINCE) old = true; else ids.push(x.contentDetails.videoId); });
+        tok = L.nextPageToken || ''; if (!tok || old) break;
+      }
+      for (let i = 0; i < ids.length; i += 50) {
+        (ytbGet_('videos', { part: 'snippet,contentDetails,status', id: ids.slice(i, i + 50).join(',') }).items || []).forEach(v => {
+          if (v.status && v.status.privacyStatus !== 'public') return;
+          if (v.snippet.liveBroadcastContent && v.snippet.liveBroadcastContent !== 'none') return;
+          const d = Utilities.formatDate(new Date(v.snippet.publishedAt), TZ, 'yyyy-MM-dd'), sec = ytbSec_(v.contentDetails.duration);
+          if (d >= YC_SINCE) add(cf.n, '유튜브', d.slice(0, 7), sec !== '' && sec <= 60 ? '1분 이하' : '1분 넘음');
+        });
+      }
+    }
+  });
+  const head = ['대학', '채널', '연월', '형식', '게시 수', '받은 시각'];
+  const rows = Object.keys(cnt).sort().map(k => k.split('§').concat([cnt[k], now]));
+  const sh = ss.getSheetByName(YC_SHEET) || ss.insertSheet(YC_SHEET);
+  sh.clear(); sh.getRange(1, 1, 1, head.length).setValues([head]).setFontWeight('bold'); sh.setFrozenRows(1);
+  if (rows.length) { sh.getRange(2, 3, rows.length, 1).setNumberFormat('@'); sh.getRange(2, 1, rows.length, head.length).setValues(rows); }
+  return rows.length;
 }
