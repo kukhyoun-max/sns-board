@@ -5829,7 +5829,8 @@ const YTB_CH = [
 const YTB_DAYS = 400, YTB_YOUNG = 30;
 const YTB_CH_SHEET = '타대학 유튜브 채널', YTB_V_SHEET = '타대학 유튜브 영상', YTB_H_SHEET = '타대학 유튜브 기록';
 const YTB_CH_HEAD = ['날짜', '채널', '채널 ID', '구독자', '총 조회', '영상 수'];
-const YTB_V_HEAD = ['채널', '영상 ID', '올린 날', '제목', '길이(초)', '조회', '좋아요', '댓글', '받은 시각'];
+// 설명란·태그(2026-10-26 담당자 「타 대학도 모아야지」): 주제·유형 태깅용. 보드 응답(part=ytb)에는 싣지 않음
+const YTB_V_HEAD = ['채널', '영상 ID', '올린 날', '제목', '길이(초)', '조회', '좋아요', '댓글', '받은 시각', '설명란', '태그'];
 const YTB_H_HEAD = ['날짜', '영상 ID', '채널', '조회', '좋아요', '댓글'];
 function ytbGet_(kind, prm) {
   const key = PropertiesService.getScriptProperties().getProperty('YT_API_KEY');
@@ -5842,6 +5843,8 @@ function ytbGet_(kind, prm) {
 }
 // ISO 8601 길이(PT1H2M3S) → 초
 const ytbSec_ = d => { const m = /^P(?:(\d+)D)?T?(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?$/.exec(String(d || '')); return m ? ((+m[1] || 0) * 86400 + (+m[2] || 0) * 3600 + (+m[3] || 0) * 60 + (+m[4] || 0)) : ''; };
+// =·+·-·@로 시작하는 글은 시트가 수식으로 읽으므로 앞에 '(글자 표시, 값에는 안 남음)
+const ytbTxt_ = s => /^[=+\-@]/.test(s) ? "'" + s : s;
 function ytbStep_(ss, today, logs) {
   const now = Utilities.formatDate(new Date(), TZ, 'yyyy-MM-dd HH:mm'), since = shiftDate_(today, -YTB_DAYS), young = shiftDate_(today, -YTB_YOUNG);
   const C = ytbGet_('channels', { part: 'statistics,contentDetails', id: YTB_CH.map(c => c.id).join(','), maxResults: 50 }).items || [];
@@ -5868,7 +5871,8 @@ function ytbStep_(ss, today, logs) {
         if (v.snippet.liveBroadcastContent && v.snippet.liveBroadcastContent !== 'none') return; // 예정·진행 중 라이브는 뺌
         const d = Utilities.formatDate(new Date(v.snippet.publishedAt), TZ, 'yyyy-MM-dd'), q = v.statistics || {};
         const num = x => x == null ? '' : Number(x);
-        vRows.push([cf.n, v.id, d, cut_(String(v.snippet.title || ''), 120), ytbSec_(v.contentDetails.duration), num(q.viewCount), num(q.likeCount), num(q.commentCount), now]);
+        vRows.push([cf.n, v.id, d, cut_(String(v.snippet.title || ''), 120), ytbSec_(v.contentDetails.duration), num(q.viewCount), num(q.likeCount), num(q.commentCount), now,
+          ytbTxt_(cut_(String(v.snippet.description || ''), 5000)), ytbTxt_((v.snippet.tags || []).join(', ').slice(0, 2000))]);
         if (d >= young) hRows.push([today, v.id, cf.n, num(q.viewCount), num(q.likeCount), num(q.commentCount)]);
         n++;
       });
