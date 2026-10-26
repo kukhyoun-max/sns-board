@@ -1979,7 +1979,7 @@ function promoteYtTagFixOnce_(ss) {
   const b = [], h = v.map((r, i) => {
     const u = String(r[0]).trim();
     b.push([YT_PROMOTE_FIX[u] || r[1]]);
-    const ok = /^https://www.youtube.com//.test(u) && YT_PROMOTE_MEMO.indexOf(String(r[3]).trim()) >= 0 && String(r[7]).trim() === 'Claude' && YT_PROMOTE_SKIP.indexOf(u) < 0;
+    const ok = /^https:\/\/www\.youtube\.com\//.test(u) && YT_PROMOTE_MEMO.indexOf(String(r[3]).trim()) >= 0 && String(r[7]).trim() === 'Claude' && YT_PROMOTE_SKIP.indexOf(u) < 0;
     if (ok) n++;
     return [ok ? '검토' : r[7]];
   });
@@ -5863,7 +5863,8 @@ function ytbStep_(ss, today, logs) {
     }
     let n = 0;
     for (let i = 0; i < ids.length; i += 50) {
-      (ytbGet_('videos', { part: 'snippet,statistics,contentDetails', id: ids.slice(i, i + 50).join(','), maxResults: 50 }).items || []).forEach(v => {
+      // videos는 id와 maxResults를 같이 주면 빈 목록이 옴(2026-10-26 영상 탭이 비던 원인)
+      (ytbGet_('videos', { part: 'snippet,statistics,contentDetails', id: ids.slice(i, i + 50).join(',') }).items || []).forEach(v => {
         if (v.snippet.liveBroadcastContent && v.snippet.liveBroadcastContent !== 'none') return; // 예정·진행 중 라이브는 뺌
         const d = Utilities.formatDate(new Date(v.snippet.publishedAt), TZ, 'yyyy-MM-dd'), q = v.statistics || {};
         const num = x => x == null ? '' : Number(x);
