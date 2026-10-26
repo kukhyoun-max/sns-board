@@ -1467,7 +1467,16 @@ function addAdMapRows_(sh) {
   if (sh.getLastRow() > 1) sh.getRange(2, 1, sh.getLastRow() - 1, 1).getValues().forEach(r => { have[String(r[0]).trim()] = 1; });
   const add = ADMAP_ADD.filter(r => !have[r[0]]);
   if (add.length) sh.getRange(sh.getLastRow() + 1, 1, add.length, 3).setValues(add);
+  // 있는 줄에 영상 더하기: B열에 has가 있고 id가 없으면 덧붙임
+  if (sh.getLastRow() > 1) {
+    const r = sh.getRange(2, 2, sh.getLastRow() - 1, 1), b = r.getValues();
+    let ch = 0;
+    b.forEach(x => ADMAP_VID_ADD.forEach(p => { const s = String(x[0]); if (s.indexOf(p.has) >= 0 && s.indexOf(p.id) < 0) { x[0] = s + ', ' + p.id; ch++; } }));
+    if (ch) r.setValues(b);
+  }
 }
+// 2026-10-26 담당자 「저거 다 광고영상」: 「이곳에서 함께」 CF 2020 3편도 2020 CF 본편 캠페인 소재(1·2편 줄에 3편 추가)
+const ADMAP_VID_ADD = [{ has: 'E8XcB6NX-Yg', id: 'cO8P14eAFys' }];
 
 /* 콘텐츠 분류 태깅 규칙 (서버에서만 계산 — src/app.js에는 이 규칙이 없고 응답의 g를 그대로 씀)
  * 위에서부터 처음 맞는 분류. 2026-10-16 개선:
