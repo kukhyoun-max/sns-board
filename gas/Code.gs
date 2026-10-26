@@ -1912,6 +1912,7 @@ function ensureTagSheets_(ss) {
   }
   importTagFixOnce_(ss);
   promoteTagFixOnce_(ss);
+  promoteYtTagFixOnce_(ss);
   setExpOnce_(ss);
 }
 
@@ -1961,6 +1962,28 @@ function promoteTagFixOnce_(ss) {
     return [ok ? '검토' : r[7]];
   });
   if (n) sh.getRange(2, 8, h.length, 1).setValues(h);
+  p.setProperty(pk, new Date().toISOString() + ' · ' + n + '줄');
+}
+// 담당자 유튜브 30건 확인(2026-10-26, 26/27 맞음 · 3건 빈칸 · 15번 주제 틀림 「유튜브 태그 확인 30건」 https://claude.ai/artifact/LVyNtQ4v4cAp4Skxk1QqrV)
+// → 유튜브 2017~2024 확신 높은 Claude 판정 줄(메모가 정확히 아래 둘 중 하나)을 출처 「검토」로. 15번은 주제를 E18로 고쳐 「검토」, 7번(광고 집행 기록 없는 CF)은 「Claude」로 남김. 한 번만
+const YT_PROMOTE_MEMO = ['Claude 판정 2026-10-24 (2021~2024)', 'Claude 판정 2026-10-24 (2017~2020)'];
+const YT_PROMOTE_SKIP = ['https://www.youtube.com/watch?v=cO8P14eAFys'];
+const YT_PROMOTE_FIX = { 'https://www.youtube.com/watch?v=HlKoJrggqss': 'E18' };
+function promoteYtTagFixOnce_(ss) {
+  const p = PropertiesService.getScriptProperties(), pk = 'TAGFIX_YT_PROMOTED_20261026';
+  if (p.getProperty(pk)) return;
+  const sh = ss.getSheetByName(TAGFIX_SHEET);
+  if (!sh || sh.getLastRow() < 2) return;
+  const v = sh.getRange(2, 1, sh.getLastRow() - 1, 8).getValues();
+  let n = 0;
+  const b = [], h = v.map((r, i) => {
+    const u = String(r[0]).trim();
+    b.push([YT_PROMOTE_FIX[u] || r[1]]);
+    const ok = /^https://www.youtube.com//.test(u) && YT_PROMOTE_MEMO.indexOf(String(r[3]).trim()) >= 0 && String(r[7]).trim() === 'Claude' && YT_PROMOTE_SKIP.indexOf(u) < 0;
+    if (ok) n++;
+    return [ok ? '검토' : r[7]];
+  });
+  if (n) { sh.getRange(2, 2, b.length, 1).setValues(b); sh.getRange(2, 8, h.length, 1).setValues(h); }
   p.setProperty(pk, new Date().toISOString() + ' · ' + n + '줄');
 }
 // 경험영역 두 번째 코드(2026-10-24 담당자 「응」, 이번 분기 29개 대조): 「태그 수정」 E열이 비었으면 채움. 줄이 없으면 A·D·E·H(Claude)만 새로 붙임.
@@ -5380,7 +5403,7 @@ function buildPart_(part, e) {
   if (part === 'yv') return partYv_(ss, String((e && e.parameter && e.parameter.v) || '').replace(/[^\w-]/g, '').slice(0, 20));
   if (part === 'today') return partToday_(ss);
   if (part === 'ytb') return partYtb_(ss);
-  if (part === 'yc') return { rows: partRows_(ss, YC_SHEET, 6).map(r => [String(r[0]), String(r[1]), String(r[2]), String(r[3]), partN_(r[4]), String(r[5])]), ts: Date.now() };
+  if (part === 'yc') { const lg = ss.getSheetByName(LOG), ln = lg ? Math.min(40, lg.getLastRow() - 1) : 0; return { rows: partRows_(ss, YC_SHEET, 6).map(r => [String(r[0]), String(r[1]), String(r[2]), String(r[3]), partN_(r[4]), String(r[5])]), log: ln > 0 ? lg.getRange(lg.getLastRow() - ln + 1, 1, ln, 4).getDisplayValues().reverse().map(r => r.map(x => String(x).slice(0, 300))) : [], ts: Date.now() }; } // log = 실행 로그 최근 40줄(확인용 시트가 2시간마다라 늦을 때)
   return { error: 'part' };
 }
 function partRows_(ss, name, cols) {
