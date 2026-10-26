@@ -440,7 +440,7 @@ function loadFresh_() {
 }
 
 // ───────── 기록 뒤 단계 (시간 초과 시 다음 실행에서 이어 받음) ─────────
-const SNAP_STEPS = ['acct', 'meta', 'igx', 'yta', 'igm', 'hong', 'fb', 'tags', 'daily', 'age', 'build', 'cache'];
+const SNAP_STEPS = ['acct', 'meta', 'igx', 'yta', 'ytb', 'igm', 'hong', 'fb', 'tags', 'daily', 'age', 'build', 'cache'];
 const STEP_FN = {
   acct: x => {
     try { accountSnapshot_(x.ss, x.today, x.logs); } catch (e) { x.logs.push([new Date(), '계정 지표', 0, '오류: ' + e.message]); }
@@ -453,6 +453,9 @@ const STEP_FN = {
   },
   yta: x => {
     try { ytaStep_(x.ss, x.today, x.logs); } catch (e) { x.logs.push([new Date(), '유튜브 추가 수집', 0, '오류: ' + e.message]); }
+  },
+  ytb: x => {
+    try { ytbStep_(x.ss, x.today, x.logs); } catch (e) { x.logs.push([new Date(), '타대학 유튜브', 0, '오류: ' + String(e.message).slice(0, 120)]); }
   },
   igm: x => {
     try { igmStep_(x.ss, x.today, x.logs); } catch (e) { x.logs.push([new Date(), '인스타 게시물 추가', 0, '오류: ' + e.message]); }
@@ -1293,7 +1296,7 @@ function cacheGet_(pre) {
   return Utilities.ungzip(Utilities.newBlob(Utilities.base64Decode(b64), 'application/x-gzip')).getDataAsString('UTF-8');
 }
 function cacheClear_() {
-  CacheService.getScriptCache().removeAll([CACHE_PREFIX + ':meta', 'part:yt:meta', 'part:ig:meta']); // 영상 하나(pyv)는 6시간 뒤 저절로 지워짐
+  CacheService.getScriptCache().removeAll([CACHE_PREFIX + ':meta', 'part:yt:meta', 'part:ig:meta', 'part:ytb:meta']); // 영상 하나(pyv)는 6시간 뒤 저절로 지워짐
 }
 function dropCache_() { try { cacheClear_(); } catch (e) {} }
 function cacheBuild_() {
@@ -3833,6 +3836,8 @@ function storySnapshot() {
   try { logMirror_(); } catch (e) {}
   try { ensureBackfill_(); } catch (e) {}
   try { ensureFbBackfill_(); } catch (e) {}
+  // 타 대학 유튜브: 탭이 아직 없으면(처음 배포 뒤) 아침 기록을 기다리지 않고 한 번 받음(2026-10-26)
+  try { if (!ss.getSheetByName(YTB_CH_SHEET)) { const L = []; ytbStep_(ss, Utilities.formatDate(new Date(), TZ, 'yyyy-MM-dd'), L); logRows_(ss, L); CacheService.getScriptCache().removeAll(['part:ytb:meta']); } } catch (e) { logRows_(ss, [[new Date(), '타대학 유튜브', 0, '오류: ' + String(e.message).slice(0, 120)]]); }
   try {
     if (!igxChannels_().length) return;
     const s = igxStories_(ss);
@@ -5365,13 +5370,14 @@ function briefHtml_(posts, stories, recent, notes, today, stamp, ideas) {
 //       | yv&v=<영상 ID>(그 영상의 시청 지속 곡선·검색어). 기본 응답(약 1MB)에 넣지 않아 첫 화면이 느려지지 않음
 //  · JSONP 콜백은 __sbData 또는 __sbP + 숫자(동시에 여러 개 부를 수 있게). 캐시는 part마다 따로, 매일 기록 때 비움
 const PART_CB = /^__sbP\d{1,6}$/;
-const PART_TABS = { yt: 1, ig: 1, yv: 1, today: 1 };
+const PART_TABS = { yt: 1, ig: 1, yv: 1, today: 1, ytb: 1 };
 function buildPart_(part, e) {
   const ss = SpreadsheetApp.openById(SS_ID);
   if (part === 'yt') return partYt_(ss);
   if (part === 'ig') return partIg_(ss);
   if (part === 'yv') return partYv_(ss, String((e && e.parameter && e.parameter.v) || '').replace(/[^\w-]/g, '').slice(0, 20));
   if (part === 'today') return partToday_(ss);
+  if (part === 'ytb') return partYtb_(ss);
   return { error: 'part' };
 }
 function partRows_(ss, name, cols) {
@@ -5779,4 +5785,89 @@ function collabCheck() {
   L.forEach(x => Logger.log(x));
   try { logRows_(SpreadsheetApp.getActive() || SpreadsheetApp.openById(SS_ID), [[new Date(), '공동작업 확인', L.length, L.join(' / ').slice(0, 45000)]]); } catch (e) {}
   try { logMirror_(true); } catch (e) {}
+}
+
+// ───────── 타 대학 유튜브(공개 데이터, 2026-10-26 담당자 「B안 · 일단 3개 대학만」) ─────────
+// 유튜브 공식 API 키(스크립트 속성 YT_API_KEY, 댓글 수집과 같은 키)로 채널·영상의 공개 숫자만 받음. Supermetrics를 쓰지 않음
+//  · 우리 채널도 같은 공개 숫자로 함께 받아 같은 기준으로 비교(보드의 우리 유튜브 값은 유튜브 분석 API라 기준이 다름)
+//  · 「타대학 유튜브 채널」: 날짜마다 구독자·총 조회·영상 수(구독자는 유튜브가 앞 세 자리까지만 줌)
+//  · 「타대학 유튜브 영상」: 최근 YTB_DAYS일 영상의 지금 값(매일 덮어씀)
+//  · 「타대학 유튜브 기록」: 올린 지 YTB_YOUNG일 안 된 영상의 날짜별 조회(첫 주 속도 비교용)
+//  · 하루 사용량: 채널 1 + 목록 50개당 1 + 영상 50개당 1 — 4개 채널이면 하루 30회 안팎(한도 10,000)
+const YTB_CH = [
+  { n: '전주대', id: 'UCWDlAgk4plR9RlEEycxC7jg', own: true },
+  { n: '전북대', id: 'UCXUBJhaDkqPRqiKpzt_W_iA' },
+  { n: '원광대', id: 'UCh5FgONuGDNnTXuxGz-mo5A' },
+  { n: '우석대', id: 'UCLTxOuZgxgJOY0CJD5yH0_A' },
+];
+const YTB_DAYS = 400, YTB_YOUNG = 30;
+const YTB_CH_SHEET = '타대학 유튜브 채널', YTB_V_SHEET = '타대학 유튜브 영상', YTB_H_SHEET = '타대학 유튜브 기록';
+const YTB_CH_HEAD = ['날짜', '채널', '채널 ID', '구독자', '총 조회', '영상 수'];
+const YTB_V_HEAD = ['채널', '영상 ID', '올린 날', '제목', '길이(초)', '조회', '좋아요', '댓글', '받은 시각'];
+const YTB_H_HEAD = ['날짜', '영상 ID', '채널', '조회', '좋아요', '댓글'];
+function ytbGet_(kind, prm) {
+  const key = PropertiesService.getScriptProperties().getProperty('YT_API_KEY');
+  if (!key) throw new Error('스크립트 속성 YT_API_KEY 없음');
+  const q = Object.assign({ key: key }, prm);
+  const res = UrlFetchApp.fetch('https://www.googleapis.com/youtube/v3/' + kind + '?' + Object.keys(q).map(k => k + '=' + encodeURIComponent(q[k])).join('&'), { muteHttpExceptions: true });
+  const j = JSON.parse(res.getContentText() || '{}');
+  if (j.error) throw new Error(String(j.error.message || ('HTTP ' + res.getResponseCode())).replace(/key=[^&\s]+/g, 'key=…').slice(0, 120));
+  return j;
+}
+// ISO 8601 길이(PT1H2M3S) → 초
+const ytbSec_ = d => { const m = /^P(?:(\d+)D)?T?(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?$/.exec(String(d || '')); return m ? ((+m[1] || 0) * 86400 + (+m[2] || 0) * 3600 + (+m[3] || 0) * 60 + (+m[4] || 0)) : ''; };
+function ytbStep_(ss, today, logs) {
+  const now = Utilities.formatDate(new Date(), TZ, 'yyyy-MM-dd HH:mm'), since = shiftDate_(today, -YTB_DAYS), young = shiftDate_(today, -YTB_YOUNG);
+  const C = ytbGet_('channels', { part: 'statistics,contentDetails', id: YTB_CH.map(c => c.id).join(','), maxResults: 50 }).items || [];
+  const byId = {}; C.forEach(c => { byId[c.id] = c; });
+  const chRows = [], vRows = [], hRows = [], parts = [];
+  YTB_CH.forEach(cf => {
+    const c = byId[cf.id];
+    if (!c) { parts.push(cf.n + ' 채널 못 찾음'); return; }
+    const st = c.statistics || {};
+    chRows.push([today, cf.n, cf.id, st.hiddenSubscriberCount ? '' : Number(st.subscriberCount), Number(st.viewCount), Number(st.videoCount)]);
+    // 올린 영상 목록(최신순)에서 since 이후만
+    const up = c.contentDetails && c.contentDetails.relatedPlaylists && c.contentDetails.relatedPlaylists.uploads;
+    const ids = []; let tok = '';
+    for (let p = 0; p < 20 && up; p++) {
+      const L = ytbGet_('playlistItems', Object.assign({ part: 'contentDetails', playlistId: up, maxResults: 50 }, tok ? { pageToken: tok } : {}));
+      let old = false;
+      (L.items || []).forEach(x => { const d = String(x.contentDetails.videoPublishedAt || '').slice(0, 10); if (d && d < since) old = true; else if (d) ids.push(x.contentDetails.videoId); });
+      tok = L.nextPageToken || ''; if (!tok || old) break;
+    }
+    let n = 0;
+    for (let i = 0; i < ids.length; i += 50) {
+      (ytbGet_('videos', { part: 'snippet,statistics,contentDetails', id: ids.slice(i, i + 50).join(','), maxResults: 50 }).items || []).forEach(v => {
+        if (v.snippet.liveBroadcastContent && v.snippet.liveBroadcastContent !== 'none') return; // 예정·진행 중 라이브는 뺌
+        const d = Utilities.formatDate(new Date(v.snippet.publishedAt), TZ, 'yyyy-MM-dd'), q = v.statistics || {};
+        const num = x => x == null ? '' : Number(x);
+        vRows.push([cf.n, v.id, d, cut_(String(v.snippet.title || ''), 120), ytbSec_(v.contentDetails.duration), num(q.viewCount), num(q.likeCount), num(q.commentCount), now]);
+        if (d >= young) hRows.push([today, v.id, cf.n, num(q.viewCount), num(q.likeCount), num(q.commentCount)]);
+        n++;
+      });
+    }
+    parts.push(cf.n + ' 영상 ' + n);
+  });
+  igxUpsert_(ss, YTB_CH_SHEET, YTB_CH_HEAD, [0, 2], chRows);
+  // 영상 탭은 지금 값으로 통째로 바꿈(기간을 넘긴 영상은 빠짐)
+  const vs = ss.getSheetByName(YTB_V_SHEET) || ss.insertSheet(YTB_V_SHEET);
+  vs.clear(); vs.getRange(1, 1, 1, YTB_V_HEAD.length).setValues([YTB_V_HEAD]).setFontWeight('bold'); vs.setFrozenRows(1);
+  if (vRows.length) { vs.getRange(2, 2, vRows.length, 2).setNumberFormat('@'); vs.getRange(2, 1, vRows.length, YTB_V_HEAD.length).setValues(vRows); }
+  if (hRows.length) igxUpsert_(ss, YTB_H_SHEET, YTB_H_HEAD, [0, 1], hRows);
+  logs.push([new Date(), '타대학 유튜브', vRows.length, '정상 (' + parts.join(' · ') + ')']);
+}
+// 보드 ?part=ytb: { ch: [[이름, 채널 ID, 우리 채널 여부]], a: [[날짜, 이름, 구독자, 총 조회, 영상 수]], v: [[이름, 영상 ID, 올린 날, 제목, 길이(초), 조회, 좋아요, 댓글]], h: {영상 ID: [[날짜, 조회]]} }
+function partYtb_(ss) {
+  const a = partRows_(ss, YTB_CH_SHEET, 6).map(r => [partD_(r[0]), String(r[1]).trim(), partN_(r[3]), partN_(r[4]), partN_(r[5])]).filter(r => r[1] && /^\d{4}-\d{2}-\d{2}$/.test(r[0]))
+    .sort((x, y) => x[0] < y[0] ? -1 : x[0] > y[0] ? 1 : 0);
+  const v = partRows_(ss, YTB_V_SHEET, 8).map(r => [String(r[0]).trim(), String(r[1]).trim(), partD_(r[2]), String(r[3]), partN_(r[4]), partN_(r[5]), partN_(r[6]), partN_(r[7])]).filter(r => r[0] && r[1]);
+  const h = {};
+  partRows_(ss, YTB_H_SHEET, 4).forEach(r => { const id = String(r[1]).trim(), d = partD_(r[0]), n = partN_(r[3]); if (id && n != null) (h[id] = h[id] || []).push([d, n]); });
+  Object.keys(h).forEach(k => h[k].sort((x, y) => x[0] < y[0] ? -1 : 1));
+  return { ch: YTB_CH.map(c => [c.n, c.id, c.own ? 1 : 0]), a: a, v: v, h: h, ts: Date.now() };
+}
+// 편집기에서 한 번: 시트에 쓰지 않고 채널·영상 수만 확인
+function testYtbPublic() {
+  const C = ytbGet_('channels', { part: 'snippet,statistics', id: YTB_CH.map(c => c.id).join(',') }).items || [];
+  Logger.log(C.map(c => c.snippet.title + ' · 구독자 ' + c.statistics.subscriberCount + ' · 영상 ' + c.statistics.videoCount).join('\n'));
 }

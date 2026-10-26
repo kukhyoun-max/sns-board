@@ -433,9 +433,9 @@
   function viewBrief() {
     if (S.ch === '타 대학') {
       viewBench();
-      $('view').insertAdjacentHTML('afterbegin', benchCmpHtml() + '<div class="gap"></div>');
+      $('view').insertAdjacentHTML('afterbegin', benchCmpHtml() + '<div class="gap"></div><section class="sec" id="ytbSec"></section><div class="gap"></div>');
       $('view').insertAdjacentHTML('beforeend', advHtml());
-      wireBenchCmp(); wireAdv(); return;
+      wireBenchCmp(); wireAdv(); paintYtb(); return;
     }
     const chs = viewChannels();
     const cur = pool({ channels: chs, since: addDays(D.updated, -30) });
@@ -1228,9 +1228,49 @@
       blk('주당 게시', 'wk', r => r.wk.toFixed(1) + '개/주', () => '–') + '</div>' +
       '<p class="note">타 대학은 릴스만 조회가 공개돼요' + (S.ch === '전체' ? ' · 자세한 비교는 위 「타 대학」 탭' : '') + '</p></section>';
   }
+
+  // ───────── 타 대학 유튜브(공개 숫자, ?part=ytb · 2026-10-26~ 매일 기록) ─────────
+  // 우리 채널도 같은 공개 숫자로 받아 같은 기준으로 비교. 조회 중간값은 올린 지 7일 지난 영상만(막 올린 영상이 낮게 끌지 않게)
+  const YTB_IG = { 전주대: '유튜브', 전북대: 'jbnu1947', 원광대: 'wonkwang_univ', 우석대: 'woosukuni' }; // 색·이름표는 인스타 비교와 같게
+  function ytbHtml(Y) {
+    const head = '<div class="sh"><div><h2>유튜브 비교</h2><p>공개 숫자 기준(유튜브 API) · 최근 ' + ({ 91: 3, 182: 6, 365: 12 })[BC.p] + '개월 영상 · 조회는 올린 지 7일 지난 영상의 중간값 · 구독자는 유튜브가 앞 세 자리까지만 알려 줘요</p></div></div>';
+    if (!Y || !Y.v || !Y.v.length) return head + '<div class="wait">' + (Y ? '아직 기록이 없어요. 다음 아침 기록부터 보여요.' : '유튜브 비교를 불러오지 못했어요.') + '</div>';
+    const today = D.updated, from = addDays(today, -BC.p), ripe = addDays(today, -7);
+    const R = Y.ch.map(([n, , own]) => {
+      const A = Y.a.filter(r => r[1] === n), a = A[A.length - 1], V = Y.v.filter(r => r[0] === n && r[2] >= from);
+      const ok = V.filter(r => r[2] <= ripe && r[5] != null), sh = ok.filter(r => r[4] !== null && r[4] <= 60), lg = ok.filter(r => !(r[4] !== null && r[4] <= 60));
+      return { n, own, ch: YTB_IG[n] || n, subs: a ? a[2] : null, dSubs: A.length > 1 && a[2] != null && A[0][2] != null ? a[2] - A[0][2] : null, since: A.length > 1 ? A[0][0] : null,
+        up: V.length / (BC.p / 30.4), lg: median(lg.map(r => r[5])), nl: lg.length, sh: median(sh.map(r => r[5])), ns: sh.length };
+    });
+    const blk = (ttl, key, f, tip) => {
+      const mx = Math.max(...R.map(r => r[key] || 0)) || 1;
+      return '<div class="bc-b"><h3' + (tip ? ' title="' + esc(tip) + '"' : '') + '>' + ttl + '</h3>' + R.map(r => '<div class="bc-r' + (r.own ? ' ours' : '') + '"><span class="bc-n">' + esc(r.n) + '</span>' +
+        '<span class="bc-t">' + (r[key] == null ? '' : '<i style="width:' + Math.max(2, r[key] / mx * 100) + '%;background:' + chColor(r.ch) + '"></i>') + '</span>' +
+        '<span class="bc-v num">' + (r[key] == null ? '<span class="mu">없음</span>' : f(r)) + '</span></div>').join('') + '</div>';
+    };
+    // 타 대학 최근 30일 영상 중 조회 많은 5개(우리 채널 빼고)
+    const top = Y.v.filter(r => !Y.ch.some(c => c[0] === r[0] && c[2]) && r[2] >= addDays(today, -30) && r[5] != null).sort((x, y) => y[5] - x[5]).slice(0, 5);
+    const len = x => x == null ? '' : x <= 60 ? '1분 이하' : x < 180 ? '1~3분' : x < 600 ? '3~10분' : '10분 넘음';
+    const rows = top.map(r => hmRow({ tag: 'a', attr: 'href="https://www.youtube.com/watch?v=' + esc(r[1]) + '" target="_blank" rel="noopener"',
+      thumb: '<span class="hm-th ov-th" style="--c:' + chColor(YTB_IG[r[0]] || r[0]) + '" aria-hidden="true"><img loading="lazy" alt="" src="https://i.ytimg.com/vi/' + esc(r[1]) + '/mqdefault.jpg" onerror="this.remove()"></span>',
+      t: esc(r[3]), v: '조회 ' + fmtK(r[5]), m: esc(r[0]) + ' · ' + dot(r[2]) + (len(r[4]) ? ' · ' + len(r[4]) : ''), r: r[6] != null ? '좋아요 ' + fmtK(r[6]) : '' })).join('');
+    const ss = R.filter(r => r.since);
+    return head + '<div class="bc-grid n4">' +
+      blk('구독자', 'subs', r => fmtK(r.subs) + (r.dSubs ? ' <small class="' + (r.dSubs > 0 ? 'up' : 'down') + '">' + sgn(r.dSubs) + fmtK(Math.abs(r.dSubs)) + '</small>' : ''), ss.length ? '작은 숫자 = ' + dot(ss[0].since) + ' 기록 시작 뒤 변화' : '') +
+      blk('한 달 평균 올린 영상', 'up', r => (Math.round(r.up * 10) / 10) + '개') +
+      blk('1분 넘는 영상 조회', 'lg', r => fmtK(r.lg) + ' <small class="mu">' + r.nl + '개</small>', '1분 넘는 영상의 조회 중간값 · 작은 숫자 = 영상 수') +
+      blk('1분 이하 영상 조회', 'sh', r => fmtK(r.sh) + ' <small class="mu">' + r.ns + '개</small>', '쇼츠 등 1분 이하 영상의 조회 중간값 · 작은 숫자 = 영상 수') + '</div>' +
+      (rows ? '<div class="hm-sec"><div class="hm-h"><h3>타 대학 최근 30일 조회 많은 영상</h3><span>누르면 유튜브로</span></div><div class="hm-list">' + rows + '</div></div>' : '');
+  }
+  function paintYtb() {
+    const box = $('ytbSec'); if (!box) return;
+    if (PART.ytb) { box.innerHTML = ytbHtml(PART.ytb); return; }
+    box.innerHTML = '<div class="sh"><div><h2>유튜브 비교</h2></div></div><div class="wait">불러오는 중이에요</div>';
+    loadPart('ytb').then(Y => { const b = $('ytbSec'); if (b) b.innerHTML = ytbHtml(Y); });
+  }
   function wireBenchCmp() {
     const sec = $('bcSec'); if (!sec) return;
-    sec.querySelectorAll('[data-bcp]').forEach(b => b.addEventListener('click', () => { BC.p = +b.dataset.bcp; sec.outerHTML = benchCmpHtml(); wireBenchCmp(); }));
+    sec.querySelectorAll('[data-bcp]').forEach(b => b.addEventListener('click', () => { BC.p = +b.dataset.bcp; sec.outerHTML = benchCmpHtml(); wireBenchCmp(); paintYtb(); }));
   }
   // 예전 「현황」 차트는 「직접 골라 보기」로 접어 둠
   const advHtml = () => '<div class="gap"></div><div class="adv' + (S.adv ? ' open' : '') + '" id="advBox"><button type="button" class="adv-h" aria-expanded="' + !!S.adv + '" aria-controls="advBody"><span><b>직접 골라 보기</b><small>지표 · 항목 · 기간 · 단위를 바꿔 가며 보는 차트와 표</small></span><span class="chev">›</span></button><div id="advBody"' + (S.adv ? '' : ' hidden') + '>' + chartHtml() + '</div></div>';

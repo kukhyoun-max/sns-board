@@ -1146,3 +1146,9 @@ body { background: var(--bg); }
 @media print { .sec.hm > .hm-sec + .hm-sec { margin: 16px 0 0; padding: 12px 0 0; border-top-width: 1px; } }
 /* 홈 숫자 칸에도 추이(2026-10-25 「다른 데도 그래프」): 칸 아래에 붙임 */
 .hm-card .kspark, .hm-card .kbars { margin-top: auto; padding-top: 8px; height: 24px; box-sizing: content-box; }
+
+/* 타 대학 유튜브 비교(2026-10-26): 칸 4개는 2×2 */
+.bc-grid.n4 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+@media (max-width: 560px) { .bc-grid.n4 { grid-template-columns: minmax(0, 1fr); } }
+.bc-v small { font-size: 14px; font-weight: 500; } .bc-v small.up { color: var(--up-tx); } .bc-v small.down { color: var(--down); }
+#ytbSec .hm-sec { margin-top: 20px; }
