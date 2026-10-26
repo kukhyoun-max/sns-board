@@ -1240,10 +1240,10 @@ function doGet(e) {
     if (!PART_TABS[part]) json = JSON.stringify({ error: 'part' });
     else {
       const pre = part === 'yv' ? 'pyv:' + String(e.parameter.v || '').replace(/[^\w-]/g, '').slice(0, 20) : 'part:' + part;
-      try { json = cacheGet_(pre); } catch (err) { json = null; }
+      try { json = part === 'yc' || (part === 'ytb' && e.parameter.fresh) ? null : cacheGet_(pre); } catch (err) { json = null; }
       if (json && part === 'today' && e.parameter.fresh) { try { if (Date.now() - Number(JSON.parse(json).ts || 0) > 2 * 60 * 1000) json = null; } catch (err) { json = null; } }
       if (!json) {
-        try { json = JSON.stringify(buildPart_(part, e)); if (!isRecording_() || part === 'today') { try { cachePut_(json, pre, part === 'today' ? TODAY_TTL : 0); } catch (err) {} } }
+        try { json = JSON.stringify(buildPart_(part, e)); if (part !== 'yc' && (!isRecording_() || part === 'today')) { try { cachePut_(json, pre, part === 'today' ? TODAY_TTL : 0); } catch (err) {} } }
         catch (err) { json = JSON.stringify({ error: '분석 데이터를 만들지 못했어요: ' + String(err && err.message || err) }); }
       }
     }
@@ -5372,7 +5372,7 @@ function briefHtml_(posts, stories, recent, notes, today, stamp, ideas) {
 //       | yv&v=<영상 ID>(그 영상의 시청 지속 곡선·검색어). 기본 응답(약 1MB)에 넣지 않아 첫 화면이 느려지지 않음
 //  · JSONP 콜백은 __sbData 또는 __sbP + 숫자(동시에 여러 개 부를 수 있게). 캐시는 part마다 따로, 매일 기록 때 비움
 const PART_CB = /^__sbP\d{1,6}$/;
-const PART_TABS = { yt: 1, ig: 1, yv: 1, today: 1, ytb: 1 };
+const PART_TABS = { yt: 1, ig: 1, yv: 1, today: 1, ytb: 1, yc: 1 };
 function buildPart_(part, e) {
   const ss = SpreadsheetApp.openById(SS_ID);
   if (part === 'yt') return partYt_(ss);
@@ -5380,6 +5380,7 @@ function buildPart_(part, e) {
   if (part === 'yv') return partYv_(ss, String((e && e.parameter && e.parameter.v) || '').replace(/[^\w-]/g, '').slice(0, 20));
   if (part === 'today') return partToday_(ss);
   if (part === 'ytb') return partYtb_(ss);
+  if (part === 'yc') return { rows: partRows_(ss, YC_SHEET, 6).map(r => [String(r[0]), String(r[1]), String(r[2]), String(r[3]), partN_(r[4]), String(r[5])]), ts: Date.now() };
   return { error: 'part' };
 }
 function partRows_(ss, name, cols) {
