@@ -1184,20 +1184,39 @@ function makeBoardKeys() {
   const made = accessFill_(ss);
   try { ss.toast(made ? '접속 키 ' + made + '개를 만들었어요. 「접속 링크」 열을 그 사람에게 보내 주세요.' : '새로 만들 키가 없어요. 이름을 적은 줄에만 키가 생겨요.', '보드 접근'); } catch (e) {}
 }
-// 허용된 키 → {이름, 줄}. 5분 캐시
+// 기한 있는 링크(2026-10-27 「내일 저녁까지는 누구나 들어올 수 있는 링크」): 메모에 「만료 yyyy-MM-dd HH:mm」이 있으면 그 시각부터 막힘
+const ACCESS_TEMP = { name: '총장 보고 임시 링크', until: '2026-10-28 22:00' };
+const accessUntil_ = memo => { const m = String(memo).match(/만료\s*(\d{4}-\d{2}-\d{2} \d{2}:\d{2})/); return m ? new Date(m[1].replace(' ', 'T') + ':00+09:00').getTime() : null; };
+// 임시 링크 줄이 없고 기한 전이면 한 번 만들고, 링크는 실행 로그(→ 확인용 시트)에 남김
+function accessTemp_(sh) {
+  if (!sh || Date.now() >= accessUntil_('만료 ' + ACCESS_TEMP.until)) return;
+  if (sh.getLastRow() > 1 && sh.getRange(2, 1, sh.getLastRow() - 1, 1).getValues().some(r => String(r[0]).trim() === ACCESS_TEMP.name)) return;
+  const key = newKey_(), url = BOARD_URL + '#k=' + key;
+  sh.appendRow([ACCESS_TEMP.name, key, 'O', '만료 ' + ACCESS_TEMP.until + ' (그때 자동으로 막힘)', Utilities.formatDate(new Date(), TZ, 'yyyy-MM-dd'), '', '', url]);
+  const ss = accessSS_();
+  logRows_(ss, [[new Date(), '보드 임시 링크', 1, url]]);
+  try { logMirror_(true); } catch (e) {}
+}
+// 허용된 키 → {이름, 줄}. 5분 캐시(기한이 그보다 빨리 오면 그때까지)
 function accessKeys_() {
   const c = CacheService.getScriptCache();
   const hit = c.get(ACCESS_CACHE);
   if (hit) return JSON.parse(hit);
   const sh = accessSS_().getSheetByName(ACCESS_SHEET);
-  const o = {};
+  try { accessTemp_(sh); } catch (e) {}
+  const o = {}, now = Date.now();
+  let ttl = 300;
   if (sh && sh.getLastRow() > 1) {
-    sh.getRange(2, 1, sh.getLastRow() - 1, 3).getValues().forEach((r, i) => {
-      const k = String(r[1]).trim();
-      if (String(r[0]).trim() && k.length >= 16 && String(r[2]).trim().toUpperCase() === 'O') o[k] = { n: String(r[0]).trim(), row: i + 2 };
+    sh.getRange(2, 1, sh.getLastRow() - 1, 4).getValues().forEach((r, i) => {
+      const k = String(r[1]).trim(), until = accessUntil_(r[3]);
+      if (until != null && now >= until) return;
+      if (String(r[0]).trim() && k.length >= 16 && String(r[2]).trim().toUpperCase() === 'O') {
+        o[k] = { n: String(r[0]).trim(), row: i + 2 };
+        if (until != null) ttl = Math.max(1, Math.min(ttl, Math.floor((until - now) / 1000)));
+      }
     });
   }
-  c.put(ACCESS_CACHE, JSON.stringify(o), 300);
+  c.put(ACCESS_CACHE, JSON.stringify(o), ttl);
   return o;
 }
 // 키 확인. 맞으면 이름, 아니면 null. 마지막 접속·접속 수는 키마다 30분에 한 번만 적음
@@ -5613,6 +5632,8 @@ function partToday_(ss) {
     acct.forEach(a => { const b = base[a.c]; if (b) { a.base = b.v; a.baseAt = b.at || b.d; } });
   } catch (e) {}
   try { const y = ytaGet_('https://www.googleapis.com/youtube/v3/channels?part=statistics&mine=true').items[0].statistics; acct.push({ c: '유튜브', subs: n(y.subscriberCount), views: n(y.viewCount) }); } catch (e) { notes.push('유튜브 구독자 확인 실패'); }
+  // 페이스북 팔로워(2026-10-27 총장 보고 채널 현황용): 「페이스북 일별」 마지막 값
+  try { let fb = null; partRows_(ss, FB_DAY_SHEET, 2).forEach(r => { const d = partD_(r[0]), v = n(r[1]); if (d && v != null && (!fb || d >= fb.d)) fb = { d: d, v: v }; }); if (fb) acct.push({ c: '페이스북', fol: fb.v, at: fb.d }); } catch (e) {}
   // 유튜브 구독자 추이(2026-10-21): 「구독자 수」 기록이 수집 오류로 비어 있어서, 지금 구독자 수에서 「유튜브 채널 일별」 하루 증감(구독 증가 − 감소)을 거슬러 빼 날마다 값을 만듦(최근 400일)
   try {
     const ya = acct.filter(a => a.c === '유튜브')[0];
