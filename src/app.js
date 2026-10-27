@@ -3655,16 +3655,23 @@
     const kst = new Date(Date.now() + 9 * 3600000), day = kst.toISOString().slice(0, 10);
     return day === d.today && kst.getUTCHours() >= 19 && !(d.posts || []).some(p => String(p.at).slice(0, 10) === d.today);
   }
+  // 받는 간격(2026-10-27 「볼 때마다 정확한 수치」): 서버 캐시(최대 10분) 값을 먼저 그리고, 2분 넘은 값이면 바로 지금 값을 새로 받아 다시 그림(서버 새로 받기 약 18초).
+  // 화면을 연 동안: 올린 지 6시간 안 된 게시물이 있으면 5분마다(첫 3시간 릴스는 시간당 수천 회씩 늘어남), 아니면 10분마다. 인스타 API 한 번에 약 8번 호출이라 더 짧게는 안 함
+  const TD_FRESH = 2 * 60 * 1000;
+  const tdGap = () => { const d = TD.d, now = Date.now(); return d && (d.posts || []).some(p => now - new Date(p.at + ':00+09:00') < 6 * 3600000) ? 5 * 60 * 1000 : 10 * 60 * 1000; };
+  function tdRefresh() {
+    return loadToday(false).then(d => { paintToday(); if (d && Date.now() - (d.ts || 0) > TD_FRESH) return loadToday(true).then(paintToday); });
+  }
   function wireToday(chs) {
     TD.chs = chs;
-    loadToday(false).then(paintToday);
-    if (!TD.timer) TD.timer = setInterval(() => { if (document.visibilityState === 'visible') { if (!tdQuiet()) loadToday(false).then(paintToday); refreshMain(); } }, 10 * 60 * 1000);
+    tdRefresh();
+    if (!TD.timer) TD.timer = setInterval(() => { if (document.visibilityState !== 'visible') return; if (!tdQuiet() && !TD.p && Date.now() - ((TD.d && TD.d.ts) || 0) >= tdGap()) loadToday(true).then(paintToday); refreshMain(); }, 60 * 1000);
   }
   // 다른 탭으로 나갈 때 지금 값을 「지난번」으로 저장, 돌아오면 새로 받음(기본 기록도 30분 넘었으면 새로)
   document.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'hidden') { tdSaveSeen(); return; }
     try { TD.seen = JSON.parse(localStorage.getItem(TD_SEEN) || 'null'); } catch (e) {}
-    if (D && S.view === 'brief' && !tdQuiet()) loadToday(false).then(paintToday);
+    if (D && S.view === 'brief' && !tdQuiet()) tdRefresh();
     refreshMain();
   });
   window.addEventListener('pagehide', tdSaveSeen);
@@ -3839,7 +3846,10 @@
   function openDetail(it) {
     if (!it) return;
     if (TD.d) tdLive(TD.d); // 기본 데이터보다 「오늘」 응답이 먼저 왔을 때도 지금 값으로
-    lastFocus = document.activeElement;
+    // 어제·오늘 게시물인데 받은 지 2분 넘었으면 지금 값을 새로 받아, 그 상세가 아직 열려 있으면 다시 그림
+    if (it.T && TD.d && Date.now() - (TD.d.ts || 0) > TD_FRESH && !TD.p) loadToday(true).then(() => { const el = $('detail'); if (el && !el.hidden && openDetail.cur === it) { const y = el.scrollTop; openDetail(it); el.scrollTop = y; } });
+    openDetail.cur = it;
+    if ($('detail').hidden) lastFocus = document.activeElement;
     const v = last(it) || [], m = mainM(it.c), r = it.ad ? null : ratio(it), d = r == null ? null : r - 1;
     // 아직 판정 전(조회 모이는 중)은 하락색이 아니라 회색
     const cls = d == null || young(it) ? 'flat' : dCls(d);
