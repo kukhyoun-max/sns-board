@@ -3434,6 +3434,17 @@
   const folSpark = g => { const t = D.updated; if (g.c === '유튜브') { const y = (D.acct || []).find(a => a.c === '유튜브'); const H = ((y && y.hist) || []).filter(x => x[0] >= addDays(t, -365)); return spark(H.map(x => x[1]).concat([g.now]), '최근 1년 구독자 수'); }
     return spark((D.fol || []).filter(r => r[1] === g.c && r[0] >= addDays(t, -30)).map(r => r[2]).concat([g.now]), '최근 30일 팔로워 수'); };
   const folCard = (g, sp) => hmCard(chName(g.c), fmt(g.now), g.d == null ? '지난 기록 없음' : g.lab + sgnN(g.d), g.d ? (g.d > 0 ? 'up' : 'down') : '', (g.c === '유튜브' ? '구독자' : '팔로워') + (g.since ? ' · ' + md2(g.since) + ' 대비' : ''), sp ? folSpark(g) : '');
+  // 채널 탭에서 카드가 하나뿐이면(2026-10-28 「구독자 칸 진짜 멋없다」): 넓은 칸 하나에 숫자 + 증감 두 개(최근 30일·1년) + 오른쪽 큰 추이선
+  function folWide(g) {
+    const t = D.updated, yt = g.c === '유튜브', y = (D.acct || []).find(a => a.c === '유튜브');
+    const S0 = (yt ? ((y && y.hist) || []).map(x => [x[0], x[1]]) : (D.fol || []).filter(r => r[1] === g.c).map(r => [r[0], r[2]])).filter(x => x[0] >= addDays(t, yt ? -365 : -180));
+    const at = d0 => { const a = S0.filter(x => x[0] <= d0).pop(); return a ? a[1] : null; };
+    const m1 = at(addDays(t, -30)), d30 = m1 == null ? null : g.now - m1;
+    const chip = (lab, v) => v == null ? '' : '<span class="fw-d ' + (v > 0 ? 'up' : v < 0 ? 'down' : 'mu') + '"><small>' + lab + '</small> ' + sgnN(v) + '</span>';
+    const sp = spark(S0.map(x => x[1]).concat([g.now]), (yt ? '최근 1년 구독자 수' : '최근 6달 팔로워 수'));
+    return '<div class="hm-card fw"><div class="fw-l"><span class="hm-cl">' + esc(chName(g.c)) + ' ' + (yt ? '구독자' : '팔로워') + '</span><b class="num">' + fmt(g.now) + '<small>명</small></b>' +
+      '<span class="fw-ds">' + chip('30일', d30) + chip(g.lab ? g.lab.trim() : '', g.d) + '</span></div>' + (sp ? '<div class="fw-r">' + sp + '<span class="fw-cap">' + (yt ? '1년' : '6달') + '</span></div>' : '') + '</div>';
+  }
   // 업로드 없는 날 맨 위(2026-10-23 「우리 채널 성장 데이터를 보여 주면 동기부여·사기 진작」): 팔로워·구독자 합계와 1년 전보다 늘어난 수, 채널별 카드, 올해 히트 수
   function tdGrow(chs, d, today) {
     const G = hmFol(chs, d, today, 'year');
@@ -3543,7 +3554,7 @@
       if (H.length > 1) FT.push(kpiTile('유튜브 구독자', fmt(y.subs) + '<small>명</small>', yr ? '1년 전보다 ' + dNum(y.subs - yr[1], '명') : '', '', spark(hv, '최근 1년 구독자 수 · 날마다 늘고 준 수로 거꾸로 계산(유튜브 분석은 1~2일 늦음)') + '<div class="td-foot">' + (y.subs >= hi ? '1년 중 가장 많아요' : '1년 최고 ' + fmt(hi) + '명') + '</div>'));
     }
     const FG = hmFol(chs, d, today, 'day');
-    const fol = FG.length ? '<details class="hm-fold hm-fol"><summary title="누르면 추이">' + hmCards(FG.map(g => folCard(g))) + '</summary>' + (FT.length ? '<div class="kpi-row td-k n' + FT.length + '">' + FT.join('') + '</div>' : '') + '</details>' : '';
+    const fol = FG.length ? '<details class="hm-fold hm-fol"><summary title="누르면 추이">' + (FG.length === 1 ? '<div class="hm-cards n1">' + folWide(FG[0]) + '</div>' : hmCards(FG.map(g => folCard(g)))) + '</summary>' + (FT.length ? '<div class="kpi-row td-k n' + FT.length + '">' + FT.join('') + '</div>' : '') + '</details>' : '';
     return '<section class="sec hm">' + hero + hmCards(M) + list + attn + tdPlan(d) + fol + secClose;
   }
   // 게시 예정(「공식 SNS 발행 일정」 오늘~7일). 오늘 예정이 실제로 올라갔으면 「게시 완료」, 누르면 업로드 폴더(게시 완료면 올린 게시물, 2026-10-27)
