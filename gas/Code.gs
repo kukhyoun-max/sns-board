@@ -2106,20 +2106,35 @@ function saveTags_(ss, bySrc, today) {
   ensureTagSheets_(ss);
   loadRoster_(ss);
   const sh = ss.getSheetByName(TAG_SHEET);
-  const map = {}, txt = {};
+  const map = {}, txt = {}, meta = {};
   if (sh.getLastRow() > 1) sh.getRange(2, 1, sh.getLastRow() - 1, 9).getValues().forEach(r => { map[r[0] + '§' + r[1]] = r; });
   bySrc.forEach(byCh => Object.keys(byCh).forEach(ch => Object.keys(byCh[ch]).forEach(k => {
     const it = byCh[ch][k];
     const t = tagItem_(ch, it);
     map[ch + '§' + k] = [ch, k, t.g, t.p, t.w.join(', '), today, it.url || '', '', t.tc];
     txt[ch + '§' + k] = t.tx;
+    if (ch.indexOf(BENCH_PREFIX) !== 0) meta[ch + '§' + k] = { ch: ch, d: fmtDate_(it.date), h: tagHead_(it.title) };
   })));
+  tagSibling_(map, meta);
   const fx = tagFixG_(ss);
   const rows = Object.keys(map).map(k => { const r = map[k].slice(0, 9); while (r.length < 9) r.push(''); r[7] = finalG_(r, fx, txt[k]); return r; });
   sh.getRange(2, 1, Math.max(sh.getLastRow() - 1, 1), 9).clearContent();
   if (rows.length) sh.getRange(2, 1, rows.length, 9).setValues(rows);
 }
 
+// 같은 영상을 채널마다 올린 것(2026-10-28 「오늘 올린 아바타 소개팅이 주제가 없어?」): 인스타 릴스 캡션엔 낱말이 없고 유튜브 쇼츠 제목엔 「태권도학과 아바타 소개팅」이 있음
+// → 자동 주제가 빈 게시물은 다른 우리 채널에 ±3일 안에 제목 앞부분(글자·숫자 8자)이 같은 게시물이 있으면 그 주제·유형을 물려받음. 「태그 수정」이 늘 먼저
+const tagHead_ = t => String(t || '').replace(/[^0-9A-Za-z가-힣]/g, '').slice(0, 8);
+function tagSibling_(map, meta) {
+  const K = Object.keys(meta).filter(k => meta[k].h.length >= 6 && meta[k].d);
+  K.filter(k => !map[k][2]).forEach(k => {
+    const a = meta[k];
+    const b = K.find(j => j !== k && meta[j].ch !== a.ch && map[j][2] && meta[j].h === a.h && Math.abs(new Date(meta[j].d) - new Date(a.d)) <= 3 * 864e5);
+    if (!b) return;
+    map[k][2] = map[b][2];
+    if (!map[k][8]) map[k][8] = map[b][8];
+  });
+}
 // 「태그 수정」 B열(주제)·G열(유형) — 「태그」 탭 H열 「최종」을 보드와 같게 보여 주려고(2026-10-24)
 function tagFixG_(ss) {
   const fx = {}, fs = ss.getSheetByName(TAGFIX_SHEET);
