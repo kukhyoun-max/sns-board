@@ -5588,6 +5588,7 @@ function postHourly_(ss) {
   return rows.length;
 }
 // 오늘 게시물의 시간별 [경과(시간), 조회] · 지난 게시물로 만든 평소 {채널|형식|경과 시간(반올림): 조회 중간값}(게시물 3개 이상)
+// 같은 게시물이 한 시간 칸에 두 번 기록되면(이어서 실행 등) 마지막 값 하나만 셈(2026-10-27, 줄 수가 아니라 게시물 수로 3개)
 function hourlyFor_(ss, ids) {
   const hist = {}, pool = {}, base = {};
   const sh = ss.getSheetByName(HOURLY_SHEET);
@@ -5597,9 +5598,9 @@ function hourlyFor_(ss, ids) {
     const id = String(r[2]), h = num(r[5]), v = num(r[6]);
     if (h == null || v == null || h < 0) return;
     if (ids[id]) (hist[id] = hist[id] || []).push([h, v]);
-    else if (h <= 48) { const k = r[1] + '|' + r[3] + '|' + Math.round(h); (pool[k] = pool[k] || []).push(v); }
+    else if (h <= 48) { const k = r[1] + '|' + r[3] + '|' + Math.round(h); (pool[k] = pool[k] || {})[id] = v; }
   });
-  Object.keys(pool).forEach(k => { if (pool[k].length >= 3) base[k] = briefMed_(pool[k]); });
+  Object.keys(pool).forEach(k => { const vs = Object.keys(pool[k]).map(id => pool[k][id]); if (vs.length >= 3) base[k] = briefMed_(vs); });
   Object.keys(hist).forEach(id => hist[id].sort((a, b) => a[0] - b[0]));
   return { hist: hist, base: base };
 }
