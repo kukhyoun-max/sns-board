@@ -1937,14 +1937,19 @@
     }));
     PLAN.forEach((p, pi) => wireRank($('plBest' + pi), p.best));
     if ($('planCopy')) $('planCopy').addEventListener('click', () => { const t = planText(PLAN); try { navigator.clipboard.writeText(t).then(() => toast('편성 제안을 복사했어요'), () => toast('복사하지 못했어요')); } catch (e) { toast('복사하지 못했어요'); } });
-    ownIn(chs).forEach(ch => { const el = $('lt_' + OWN.indexOf(ch)); const r = longtail(ch); if (el && r) wireRank(el, r.top); });
+    // 채널마다 10개씩 세 묶음이면 휴대폰에서 2,500px라 처음엔 5개만(2026-10-27 전략 화면 길이 점검)
+    ownIn(chs).forEach(ch => { const el = $('lt_' + OWN.indexOf(ch)); const r = longtail(ch); if (!el || !r) return; wireRank(el, r.top);
+      const rest = [...el.children].slice(5); if (!rest.length) return;
+      rest.forEach(li => { li.hidden = true; });
+      el.insertAdjacentHTML('afterend', '<button type="button" class="more">더 보기 › ' + rest.length + '개</button>');
+      el.nextElementSibling.addEventListener('click', e => { rest.forEach(li => { li.hidden = false; }); e.currentTarget.remove(); }); });
     const LC = lifeCurve(ownIn(chs));
     if (!LC.length) { $('lifeNote2').textContent = '기록이 쌓인 기간이 아직 짧아서, 게시물이 언제까지 조회를 모으는지 그리기 어려워요.'; return; }
     // 색 = 채널색, 형식 = 선 모양(릴스·쇼츠 실선, 캐러셀·긴 영상 [6,3], 그 밖 [2,2]) · 범례 대신 선 끝 라벨
     const dashOf = g => /릴스|쇼츠/.test(g) ? undefined : /캐러셀|긴 영상/.test(g) ? [6, 3] : [2, 2];
     const allV = LC.flatMap(r => r.med.filter(v => v != null).map(v => v * 100)), ymin = Math.max(0, Math.floor((Math.min(...allV) - 5) / 25) * 25);
     draw('lifeChart2', { type: 'line', data: { labels: LIFE_AGES.map(a => '게시 후 ' + a[1]), datasets: LC.map(r => ({ label: r.k, data: r.med.map(v => v == null ? null : Math.round(v * 100)), borderColor: chColor(r.ch), backgroundColor: chColor(r.ch), borderDash: dashOf(r.g), borderWidth: 2, pointRadius: 3, cubicInterpolationMode: 'monotone', spanGaps: true })) },
-      options: chartOpts({ layout: { padding: { top: 12, right: 84 } }, plugins: { legend: { display: false }, endLabels: { max: 9 }, tooltip: { displayColors: true, callbacks: { label: c => c.dataset.label + ' ' + c.raw + '% · 게시물 ' + LC[c.datasetIndex].n[c.dataIndex] + '개' } } }, scales: { y: { display: true, min: ymin, max: 100, grid: { color: css('--line') }, ticks: { stepSize: 25, callback: v => v + '%' } } } }),
+      options: chartOpts({ layout: { padding: { top: 12, right: 104 } }, plugins: { legend: { display: false }, endLabels: { max: 9 }, tooltip: { displayColors: true, callbacks: { label: c => c.dataset.label + ' ' + c.raw + '% · 게시물 ' + LC[c.datasetIndex].n[c.dataIndex] + '개' } } }, scales: { y: { display: true, min: ymin, max: 100, grid: { color: css('--line') }, ticks: { stepSize: 25, callback: v => v + '%' } } } }),
       plugins: [endLabels] });
     const at30 = LC.filter(r => r.med[0] != null).sort((a, b) => b.med[0] - a.med[0]);
     const fin = '→ 빨리 끝나는 형식은 올린 첫 주에 스토리·공유로 밀어 주고, 오래 가는 형식은 검색에 걸리는 제목·설명에 힘을 주세요.';
@@ -3384,7 +3389,7 @@
   }
   // 오늘 칸(2026-10-22 홈 위계 시안 반영 「바꾸자」): 큰 숫자 하나(어제·오늘 게시물 조회와 평소 비교) → 카드 없는 지표 한 줄 → 게시물 목록 줄 → 게시 예정 → 팔로워 한 줄. 그래프·팔로워 추이는 접어 둠
   // 목록 썸네일(2026-10-22, 토스·Stripe 목록처럼 왼쪽 작은 그림): 인스타·hong = 서버가 받은 img, 유튜브 = 영상 번호로 만든 주소
-  const tdThumb = p => { const src = p.img || (p.c === '유튜브' && /^[w-]{11}$/.test(p.id) ? 'https://i.ytimg.com/vi/' + p.id + '/mqdefault.jpg' : ''); return '<span class="hm-th" style="--c:' + chColor(p.c) + '" aria-hidden="true">' + (src ? '<img src="' + esc(src) + '" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.remove()">' : '') + '</span>'; };
+  const tdThumb = p => { const src = p.img || (p.c === '유튜브' && /^[\w-]{11}$/.test(p.id) ? 'https://i.ytimg.com/vi/' + p.id + '/mqdefault.jpg' : ''); return '<span class="hm-th" style="--c:' + chColor(p.c) + '" aria-hidden="true">' + (src ? '<img src="' + esc(src) + '" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.remove()">' : '') + '</span>'; };
   // 홈 시안 2(2026-10-23 「이대로」, 캔버스 「디자인 기준」): 글자 40·20·16·14, 굵기 400·700, 카드 둥글기 16 · 버튼 알약, 간격 8·12·16·24.
   // 목록은 모두 hmRow 한 모양 — 윗줄 = 제목 + 오른쪽 값, 아랫줄 = 채널 색 글자 · 이름표 + 오른쪽 보조
   function hmRow(o) {
@@ -4224,9 +4229,10 @@
     const x = c.ctx, a = c.chartArea, X = (c.scales.y && c.scales.y.position === 'right' ? c.scales.y.right : a.right) + 6, L = [];
     c.data.datasets.forEach((d, i) => { const m = c.getDatasetMeta(i); if (m.hidden) return; let j = d.data.length - 1; while (j >= 0 && d.data[j] == null) j--; if (j < 0 || !m.data[j]) return; L.push({ y: m.data[j].y, t: d.label, col: d.borderColor }); });
     L.forEach(l => { l.y = Math.min(Math.max(l.y, a.top + 6), a.bottom - 6); });
-    L.sort((p, q) => p.y - q.y); for (let i = 1; i < L.length; i++) if (L[i].y - L[i - 1].y < 14) L[i].y = L[i - 1].y + 14;
+    const GAP = 18; // 14px 글자라 18px 띄워야 줄끼리 안 겹침(2026-10-27 콘텐츠 수명 라벨 겹침)
+    L.sort((p, q) => p.y - q.y); for (let i = 1; i < L.length; i++) if (L[i].y - L[i - 1].y < GAP) L[i].y = L[i - 1].y + GAP;
     // 아래로 밀려 칸 밖으로 나가면 아래에서부터 위로 다시 쌓아 겹치지 않게
-    for (let i = L.length - 1; i >= 0; i--) { const lim = i === L.length - 1 ? a.bottom - 6 : L[i + 1].y - 14; if (L[i].y > lim) L[i].y = lim; }
+    for (let i = L.length - 1; i >= 0; i--) { const lim = i === L.length - 1 ? a.bottom - 6 : L[i + 1].y - GAP; if (L[i].y > lim) L[i].y = lim; }
     x.save(); x.textAlign = 'left'; x.textBaseline = 'middle';
     L.forEach(l => { x.font = '700 14px ' + css('--font'); x.fillStyle = typeof l.col === 'string' ? l.col : css('--sub'); x.fillText(l.t.length > LMAX ? l.t.slice(0, LMAX) : l.t, X, Math.min(Math.max(l.y, a.top + 6), a.bottom)); });
     x.restore(); } };
