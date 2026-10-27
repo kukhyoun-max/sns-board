@@ -1157,3 +1157,10 @@ body { background: var(--bg); }
 .fc-line b { color: var(--fg); }
 .fc-line .up { color: var(--up-tx); }
 .fc-line .down { color: var(--down); }
+
+/* 점검할 것: 분류 줄을 누르면 게시물 5개(2026-10-27) */
+.hm-ins > summary { display: flex; }
+.hm-ins .chev { display: inline-block; margin-left: 4px; transition: transform .15s; }
+.hm-ins[open] .chev { transform: rotate(90deg); }
+.hm-ins-l { margin: 0 0 8px; padding-left: 12px; border-left: 2px solid var(--line); }
+@media (prefers-reduced-motion: reduce) { .hm-ins .chev { transition: none; } }

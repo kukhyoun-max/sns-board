@@ -458,7 +458,7 @@
     html += advHtml();
     $('view').innerHTML = html;
     wireWeek(); wireTrend(); wireBenchCmp(); wireAdv(); wireTop(chs);
-    wireRank($('bLow'), low);
+    wireRank($('bLow'), low); wireIns();
     if (S.ch !== '전체') bars('bCat', groupBy(pool({ channels: chs, since: addDays(D.updated, -90) }), 'g').filter(r => r.n >= MIN_N).sort(byIdx), subN, k => { S.view = 'explore'; S.g = k; render(); window.scrollTo({ top: 0 }); });
     wireBrief(); wireDeep(chs); wireToday(chs); wireOv(chs);
     // 접힌 칸 안 그래프는 폭이 0으로 그려져서, 펼칠 때 크기를 다시 잼
@@ -515,7 +515,10 @@
     return '<dl class="defs">' + D4.map(d => '<div' + (d[2] ? ' title="' + esc(d[2]) + '"' : '') + '><dt>' + d[0] + '</dt><dd>' + d[1] + '</dd></div>').join('') + '</dl>';
   }
   // 최근 3달 분류별 요약을 채널마다 한 줄 덩어리로(가장 높은 분류 · 가장 약한 분류)
+  const INS_L = [];
+  function wireIns() { document.querySelectorAll('ol[data-ins]').forEach(el => { if (el.__w) return; el.__w = 1; wireRank(el, INS_L[+el.dataset.ins] || []); }); }
   function insightRows(chs) {
+    INS_L.length = 0;
     const own = (chs || OWN).filter(c => OWN.includes(c)), R = [];
     own.forEach(ch => {
       const L = pool({ channels: [ch], since: addDays(D.updated, -90) }).filter(it => ratio(it) != null);
@@ -524,7 +527,10 @@
       if (!g.length) { R.push(hmRow({ c: ch, t: '분류 비교 전', m: '한 분류에 ' + MIN_N + '개 이상 모인 게 없어요' })); return; }
       // 홈 시안 2 모양: 분류마다 hmRow(윗줄 분류 + 조회 평소 대비, 아랫줄 채널 · 추천/비추천 · 개수 + 히트율)
       const t = g[0], w = g.length > 1 ? g[g.length - 1] : null;
-      const cell = (lab, r) => hmRow({ c: ch, t: esc(r.k), v: vsP(r.idx), vc: xCls(r.idx) === 'flat' ? 'mu' : xCls(r.idx), m: lab + ' · ' + r.n + '개', r: '히트율 ' + pct0(r.hit), tip: lab + ' · 조회 ' + vsTxt(r.idx) + ' · 최근 3달' });
+      // 누르면 그 분류 게시물 5개가 펼쳐짐(2026-10-27 「5개만 보여주면 이해도가 높을 거 같아」): 추천·보통 = 평소 대비 높은 순, 비추천 = 낮은 순
+      const cell = (lab, r) => { const L5 = r.arr.slice().sort((a, b) => lab === '비추천' ? (ratio(a) || 0) - (ratio(b) || 0) : (ratio(b) || 0) - (ratio(a) || 0)).slice(0, 5), k = INS_L.push(L5) - 1;
+        return '<details class="hm-fold hm-ins">' + hmRow({ tag: 'summary', c: ch, t: esc(r.k), v: vsP(r.idx), vc: xCls(r.idx) === 'flat' ? 'mu' : xCls(r.idx), m: lab + ' · ' + r.n + '개', r: '히트율 ' + pct0(r.hit) + ' <span class="chev" aria-hidden="true">›</span>', tip: lab + ' · 조회 ' + vsTxt(r.idx) + ' · 최근 3달 · 누르면 게시물 ' + L5.length + '개' }) +
+          '<ol class="hm-list hm-ins-l" data-ins="' + k + '">' + rankRows(L5) + '</ol></details>'; };
       R.push(cell(t && t.idx != null && t.idx < 1 ? '보통' : '추천', t) + (w ? cell('비추천', w) : ''));
     });
     const ig = pool({ channels: ['인스타그램'], since: addDays(D.updated, -90) }).filter(it => ratio(it) != null);
