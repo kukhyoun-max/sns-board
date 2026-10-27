@@ -5130,10 +5130,10 @@ function nightBrief(test) {
   test = test === true;
   const ss = SpreadsheetApp.getActive() || SpreadsheetApp.openById(SS_ID);
   const now = new Date(), today = Utilities.formatDate(now, TZ, 'yyyy-MM-dd'), stamp = Utilities.formatDate(now, TZ, 'yyyy-MM-dd HH:mm');
-  const notes = [];
-  let posts = [];
-  try { posts = posts.concat(briefInstagram_(today, notes)); } catch (e) { notes.push('인스타 확인 실패: ' + String(e.message).slice(0, 100)); }
-  try { posts = posts.concat(briefYouTube_(today)); } catch (e) { notes.push('유튜브 확인 실패: ' + String(e.message).slice(0, 100)); }
+  const LV = livePosts_(120), notes = LV.notes.slice();
+  if (LV.err.ig) notes.push('인스타 확인 실패: ' + LV.err.ig);
+  if (LV.err.yt) notes.push('유튜브 확인 실패: ' + LV.err.yt);
+  let posts = LV.posts.filter(x => Utilities.formatDate(x.at, TZ, 'yyyy-MM-dd') === today); // 메일은 오늘 올린 것만
   posts.forEach(x => { x.hours = Math.max(0, (now - x.at) / 3600000); });
   posts.sort((a, b) => a.at - b.at);
   let stories = [];
@@ -5166,6 +5166,21 @@ function nightBrief(test) {
 }
 
 // 인스타(jjuniv·hong): 최신 게시물 25개 중 오늘 올린 것 + 지표
+// 어제·오늘 게시물 지금 값 한 곳에서(2026-10-28 「불러오는 데이터는 최대한 통일」): 보드 「오늘」(partToday_)·1시간마다 기록(postHourly_)·22시 메일(nightBrief)이
+// 같은 인스타·유튜브 호출을 따로 하던 것을 묶음. 받은 값은 스크립트 캐시에 10분 두고, 부르는 쪽이 허용하는 나이(maxAge초)보다 젊으면 다시 받지 않음
+function livePosts_(maxAge) {
+  const now = new Date(), today = Utilities.formatDate(now, TZ, 'yyyy-MM-dd'), key = 'live2|' + today, cache = CacheService.getScriptCache();
+  if (maxAge > 0) {
+    try { const j = JSON.parse(cache.get(key) || 'null'); if (j && now.getTime() - j.ts < maxAge * 1000) { j.p.forEach(x => { x.at = new Date(x.at); }); return { posts: j.p, notes: j.n, err: j.e, ts: j.ts, today: today }; } } catch (e) {}
+  }
+  const yday = shiftDate_(today, -1), notes = [], err = {};
+  let posts = [];
+  try { posts = posts.concat(briefInstagram_(today, notes, yday)); } catch (e) { err.ig = String(e.message).slice(0, 100); }
+  try { posts = posts.concat(briefYouTube_(today, yday)); } catch (e) { err.yt = String(e.message).slice(0, 100); }
+  const ts = now.getTime();
+  try { cache.put(key, JSON.stringify({ ts: ts, p: posts.map(x => Object.assign({}, x, { at: x.at.getTime() })), n: notes, e: err }), 600); } catch (e) {}
+  return { posts: posts, notes: notes, err: err, ts: ts, today: today };
+}
 function briefInstagram_(today, notes, from) {
   from = from || today;
   const out = [];
@@ -5623,10 +5638,7 @@ function partYv_(ss, id) {
 const HOURLY_SHEET = '게시물 시간별';
 const HOURLY_HEAD = ['기록 시각', '채널', '게시물 ID', '형식', '게시 시각', '경과(시간)', '조회', '좋아요', '댓글', '공유', '저장', '도달'];
 function postHourly_(ss) {
-  const now = new Date(), today = Utilities.formatDate(now, TZ, 'yyyy-MM-dd'), yday = shiftDate_(today, -1), notes = [];
-  let posts = [];
-  try { posts = posts.concat(briefInstagram_(today, notes, yday)); } catch (e) {}
-  try { posts = posts.concat(briefYouTube_(today, yday)); } catch (e) {}
+  const LV = livePosts_(300), now = new Date(LV.ts), posts = LV.posts; // 5분 안에 보드가 받은 값이 있으면 그대로 씀 · 기록 시각·경과는 값을 받은 때 기준
   if (!posts.length) return 0;
   const stamp = Utilities.formatDate(now, TZ, 'yyyy-MM-dd HH:mm');
   const rows = posts.map(x => [stamp, x.ch, String(x.id), x.type, Utilities.formatDate(x.at, TZ, 'yyyy-MM-dd HH:mm'), Math.round((now - x.at) / 360000) / 10, x.views, x.likes, x.comments, x.shares, x.saves, x.reach]);
@@ -5667,10 +5679,9 @@ function planFolder_(desc) {
   try { const it = DriveApp.getFoldersByName(n[1].trim()); return it.hasNext() ? it.next().getUrl() : ''; } catch (e) { return ''; }
 }
 function partToday_(ss) {
-  const now = new Date(), today = Utilities.formatDate(now, TZ, 'yyyy-MM-dd'), yday = shiftDate_(today, -1), notes = [];
-  let posts = [];
-  try { posts = posts.concat(briefInstagram_(today, notes, yday)); } catch (e) { notes.push('인스타 확인 실패'); }
-  try { posts = posts.concat(briefYouTube_(today, yday)); } catch (e) { notes.push('유튜브 확인 실패'); }
+  const LV = livePosts_(120), now = new Date(), today = LV.today, notes = LV.notes.slice(), posts = LV.posts; // 2분 안에 받은 값이면 다시 받지 않음(보드는 2분 넘은 값만 새로 요청)
+  if (LV.err.ig) notes.push('인스타 확인 실패');
+  if (LV.err.yt) notes.push('유튜브 확인 실패');
   const n = v => v === '' || v == null || isNaN(Number(v)) ? null : Number(v);
   const p = posts.map(x => ({ c: x.ch, id: x.id, at: Utilities.formatDate(x.at, TZ, "yyyy-MM-dd'T'HH:mm"), t: x.type, n: briefTitle_(x.title, 80), u: x.url,
     v: n(x.views), l: n(x.likes), cm: n(x.comments), sh: n(x.shares), sv: n(x.saves), r: n(x.reach), f: n(x.follows), pa: n(x.pact), aw: n(x.avgw), img: x.img || '' }));
