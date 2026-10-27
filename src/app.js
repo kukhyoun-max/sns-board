@@ -82,7 +82,8 @@
   const last0 = it => { for (let i = it.h.length - 1; i >= 0; i--) if (it.h[i]) return it.h[i]; return it.P || null; };
   // 유튜브는 전체 기간 값(it.L: 조회·좋아요·댓글·공유)이 있으면 그걸 누적 수치로 사용
   const mx2 = (a, b) => a == null ? b : b == null ? a : Math.max(a, b);
-  const last = it => { const b = last0(it); if (!it.L) return b; return [mx2(it.L[0], b && b[0]), mx2(it.L[1], b && b[1]), mx2(it.L[2], b && b[2]), mx2(it.L[3], b && b[3]), b ? b[4] : null]; };
+  // it.T = 「오늘」 응답(어제·오늘 올린 게시물의 지금 값, 2026-10-27): 하루 4번 기록 사이에도 상세·목록이 밤 브리핑 메일과 같은 지금 값을 씀
+  const last = it => { const b0 = last0(it), T = it.T, b = !T ? b0 : [0, 1, 2, 3, 4].map(k => mx2(T[k], b0 && b0[k])); if (!it.L) return b; return [mx2(it.L[0], b && b[0]), mx2(it.L[1], b && b[1]), mx2(it.L[2], b && b[2]), mx2(it.L[3], b && b[3]), b ? b[4] : null]; };
   const val = (it, m) => { const v = last(it); return v ? v[m] : null; };
   const weekly = () => D.dates.length > 1;
   const incBetween = (it, j, i, m) => {
@@ -3325,11 +3326,15 @@
   const TD = { d: null, at: 0, p: null, chs: null, seen: null, timer: null };
   const TD_SEEN = 'sb-today-seen';
   try { TD.seen = JSON.parse(localStorage.getItem(TD_SEEN) || 'null'); } catch (e) { TD.seen = null; }
+  function tdLive(d) {
+    if (!d || typeof D === 'undefined' || !D || !D.items) return;
+    (d.posts || []).forEach(p => { const it = tdItem(p); if (!it) return; it.T = [p.v, p.l, p.cm, p.sh, p.sv]; if (p.r != null) it.r = mx2(p.r, it.r); });
+  }
   function loadToday(force) {
     if (TD.p) return TD.p;
     if (!force && TD.d && Date.now() - TD.at < 9 * 60 * 1000) return Promise.resolve(TD.d);
     TD.p = new Promise(res => {
-      const done = d => { TD.p = null; if (d && !d.error && d.posts) { TD.d = d; TD.at = Date.now(); } res(TD.d); };
+      const done = d => { TD.p = null; if (d && !d.error && d.posts) { TD.d = d; TD.at = Date.now(); tdLive(d); } res(TD.d); };
       if (!window.SNS_API_URL) { fetch('part_today.json').then(r => r.ok ? r.json() : null).then(done, () => done(null)); return; }
       const cb = '__sbP' + (++partSeq), sc = document.createElement('script');
       const t = setTimeout(() => { window[cb] = () => {}; done(null); }, 45000);
@@ -3833,6 +3838,7 @@
   }
   function openDetail(it) {
     if (!it) return;
+    if (TD.d) tdLive(TD.d); // 기본 데이터보다 「오늘」 응답이 먼저 왔을 때도 지금 값으로
     lastFocus = document.activeElement;
     const v = last(it) || [], m = mainM(it.c), r = it.ad ? null : ratio(it), d = r == null ? null : r - 1;
     // 아직 판정 전(조회 모이는 중)은 하락색이 아니라 회색
