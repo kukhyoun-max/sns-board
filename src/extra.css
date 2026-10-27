@@ -1152,3 +1152,8 @@ body { background: var(--bg); }
 @media (max-width: 560px) { .bc-grid.n4 { grid-template-columns: minmax(0, 1fr); } }
 .bc-v small { font-size: 14px; font-weight: 500; } .bc-v small.up { color: var(--up-tx); } .bc-v small.down { color: var(--down); }
 #ytbSec .hm-sec { margin-top: 20px; }
+/* 업로드 전 예상(2026-10-27): 상세 큰 숫자 아래 한 줄 */
+.fc-line { margin: 8px 0 0; font-size: var(--fs-sm); line-height: 1.5; color: var(--muted); word-break: keep-all; }
+.fc-line b { color: var(--fg); }
+.fc-line .up { color: var(--up-tx); }
+.fc-line .down { color: var(--down); }

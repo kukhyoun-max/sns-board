@@ -3360,6 +3360,17 @@
   const tdAgo = (at, now) => { const m = Math.max(0, Math.round((now - new Date(at + ':00+09:00')) / 60000)); return m < 60 ? m + '분 전' : m < 24 * 60 ? Math.floor(m / 60) + '시간 전' : '어제 ' + at.slice(11, 16); }; // 목록 아랫줄이 한 줄에 들어가게 시간 단위까지만(2026-10-23)
   // 인스타 주소는 /p/·/reel/이 섞여 있어 짧은 코드로 맞춤
   const igCode = u => (String(u || '').match(/\/(?:p|reel|reels|tv)\/([^/?#]+)/) || [])[1] || igKey(u);
+  // 업로드 전 예상(2026-10-27 「링크를 줘서 업로드를 알린 콘텐츠는 예상치가 보이면」): fc.json(예상 기록.tsv에서 게시 주소 있는 줄, 빌드 때 넣음) → 게시물 키로 찾음
+  const FC = (window.SNS_FC && window.SNS_FC.s) || {};
+  const fcOf = (c, u, id) => { const a = FC[c === '유튜브' ? (id || ytId(u)) : igCode(u)]; return a ? { lo: a[0], hi: a[1], rate: a[2], rev: a[3], fmt: a[4], act: a[6], inR: a[7] } : null; };
+  const fcRange = f => fmtK(f.lo) + '~' + fmtK(f.hi);
+  // 지금 조회가 예상 범위 어디쯤인지(판정은 게시 14일 뒤 예상 기록에 채워진 값이 먼저)
+  const fcState = (f, v) => {
+    const j = { '안': ['범위 안', 'up'], '높음': ['예상보다 높음', 'up'], '낮음': ['예상보다 낮음', 'down'] }[f.inR];
+    if (j) return j;
+    if (v == null) return ['', ''];
+    return v > f.hi ? ['벌써 상한 넘음', 'up'] : v >= f.lo ? ['지금 범위 안', ''] : ['하한까지 ' + Math.round(v / f.lo * 100) + '%', 'mu'];
+  };
   const tdItem = p => D.items.find(it => it.c === p.c && (p.c === '유튜브' ? ytId(it.u) === p.id : igCode(it.u) === igCode(p.u)));
   function todayShell(chs) {
     TD.chs = chs;
@@ -3482,11 +3493,13 @@
       const vr = vb && (vb.k === 'h' || vb.h >= 20) && !yt6 ? p.v / vb.v : null;
       const wait = yt6 ? '6시간 뒤부터 비교' : vb ? '첫날 평소까지 ' + Math.round(p.v / vb.v * 100) + '%' : '평소 자료 모으는 중';
       const was = sn && sn.p && sn.p[p.id] ? p.v - sn.p[p.id][0] : null;
-      const tip = (vb ? '조회 ' + fmt(p.v) + ' · 평소 ' + (vb.k === 'h' ? '올린 지 ' + Math.round(vb.h) + '시간' : '첫날') + ' 조회 ' + fmt(vb.v) : '') + (rx != null ? ' · 반응률 ' + pctA(rx) + (u ? '(평소 ' + pctA(u) + ')' : '') : '') + (vr == null ? ' · ' + wait : '');
+      const fc = fcOf(p.c, p.u, p.id);
+      const tip = (vb ? '조회 ' + fmt(p.v) + ' · 평소 ' + (vb.k === 'h' ? '올린 지 ' + Math.round(vb.h) + '시간' : '첫날') + ' 조회 ' + fmt(vb.v) : '') + (rx != null ? ' · 반응률 ' + pctA(rx) + (u ? '(평소 ' + pctA(u) + ')' : '') : '') + (vr == null ? ' · ' + wait : '') +
+        (fc ? ' · 업로드 전 예상(2주 조회) ' + fmt(fc.lo) + '~' + fmt(fc.hi) + (fc.rate ? ', ' + fc.rate : '') : '');
       return hmRow({ tag: 'li', attr: 'data-td="' + i + '" tabindex="0" role="button" aria-label="' + esc(title(p.n)) + ' 열기"', tip, thumb: tdThumb(p), t: esc(title(p.n)),
         // 2026-10-24 위 = 결과(조회), 아래 = 평소 대비(색). 퍼센트만 위에 있으면 무엇이 몇 %인지 몰라서
         v: '조회 ' + fmtK(p.v) + (was > 0 ? ' <small class="up">+' + fmtK(was) + '</small>' : ''), vc: '', c: p.c,
-        m: tdAgo(p.at, now) + (r == null || few ? '' : ' · <span class="' + xCls(r) + '">반응 ' + vsP(r) + '</span>') + ((tdItem(p) || {}).co ? ' · 공동작업' : ''),
+        m: tdAgo(p.at, now) + (r == null || few ? '' : ' · <span class="' + xCls(r) + '">반응 ' + vsP(r) + '</span>') + ((tdItem(p) || {}).co ? ' · 공동작업' : '') + (fc ? ' · 예상 ' + fcRange(fc) : ''),
         r: vr != null ? '<b class="' + xCls(vr) + '">' + vsTxt(vr) + '</b>' : '<span class="mu">' + (yt6 ? '6시간 뒤 비교' : '모으는 중') + '</span>' });
     }).join('');
     const C = tdCurves(P);
@@ -3823,6 +3836,9 @@
     if (it.x && it.im != null) metrics.push(['노출', fmt(it.im)]);
     metrics.push(['게시일', dot(it.d) + ' · ' + whenTxt(it.d)], ['형식', fmtType(it.t)]);
     if (it.x) metrics.push(['데이터', '엑셀 과거 기록(기록 당시 수치)']);
+    // 예상은 조회 기준이라 지금 조회와 견줌(유튜브는 전체 기간 값이 있으면 그쪽, mainVal)
+    const fc = fcOf(it.c, it.u), fs = fc ? fcState(fc, MN[m] === '조회' ? mainVal(it) : v[0]) : null;
+    if (fc) metrics.push(['업로드 전 예상', fmt(fc.lo) + '~' + fmt(fc.hi) + '회'], ['예상 반응률', fc.rate || '–']);
     if (it.w && it.w.length) metrics.push(['참여자', it.w.join(', ')]);
     if (it.ad && it.ad.mk && D.ads && D.ads.meta) { const ms = D.ads.meta.filter(c => it.ad.mk.includes(c.n)); if (ms.length) metrics.push(['메타 광고비', wonF(sum(ms.map(c => c.spend)))], ['메타 광고 노출', fmt(sum(ms.map(c => c.imp)))], ['메타 링크 클릭', fmt(sum(ms.map(c => c.clk)))]); }
     if (it.ad && it.ad.k.length && D.ads) { const cs = D.ads.camps.filter(c => it.ad.k.includes(c.n)); if (cs.length) metrics.push(['광고 캠페인', cs.length + '개 · ' + dot(cs.map(c => c.from).sort()[0]) + '~' + dot(cs.map(c => c.to).sort().pop())], ['캠페인 광고비', fmt(sum(cs.map(c => c.cost))) + '원' + (cs.some(c => c.videos.length > 1) ? ' (여러 영상 공동)' : '')], ['캠페인 노출', fmt(sum(cs.map(c => c.imp)))]); }
@@ -3834,6 +3850,7 @@
       '<section class="dsec" id="dChart"><h1 class="dtitle">' + line(it) + '</h1>' +
         '<div class="dbig num">' + fmt(mainVal(it)) + '<small class="' + cls + '">' + (it.ad ? '광고 영상이라 평소 대비는 계산하지 않아요' : it.hid ? '비공개로 보임 · 평소 계산에서 뺌' : d == null ? '' : (young(it) ? (youngTxt(it) ? youngTxt(it) + ' · 조회 모이는 중' : '조회 모이는 중 · ' + youngWait(it)) : MN[m] + ' ' + vsTxt(d + 1))) + '</small></div>' +
         (wk != null ? '<div class="num ' + (wk >= 0 ? 'up' : 'down') + '" style="font-weight:700;margin-top:2px">이번 주 ' + MN[m] + ' ' + sgn(wk) + fmt(wk) + '</div>' : '') +
+        (fc ? '<p class="fc-line" title="' + esc(fc.rev + ' 업로드 전 검토 · ' + fc.fmt + ' · 같은 시리즈·같은 형식 과거 게시물 분포로 낸 범위' + (fc.rate ? ' · 예상 반응률 ' + fc.rate : '')) + '">업로드 전 예상 <b class="num">조회 ' + fcRange(fc) + '</b>' + (fs[0] ? ' · <span class="' + fs[1] + '">' + fs[0] + '</span>' : '') + (fc.inR ? '' : ' · 판정은 게시 14일 뒤(' + md2(addDays(it.d, 14)) + ')') + '</p>' : '') +
         '<div class="dtags">' + gTag(it) + tyTag(it) + ptag(it.p) + adtag(it) + coTag(it) + archTag(it) + credTag(it) + susTag(it) + hidTag(it) + histTag(it) + '<span class="tag">' + esc(fmtType(it.t)) + '</span>' + (it.w || []).map(n => '<span class="tag">' + esc(n) + '</span>').join('') + '</div>' +
         '<div class="cmp"><canvas id="dCanvas"></canvas></div>' +
         // 누를 수 없는 토글 대신 실제로 그린 차트 이름 한 줄

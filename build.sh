@@ -21,6 +21,8 @@ my $n = () = $html =~ /\Q$tag\E/g;
 die "chart.js 태그를 찾을 수 없음\n" unless $n == 1;
 # 경험 영역 자동 제안·이름·학과 목록(exp.json, 2026-10-23) — 공개 게시물 주소와 영역 코드뿐이라 화면에 그대로 넣음
 if (-e 'exp.json') { my $e = rd('exp.json'); $e =~ s/<\//<\\\//g; $html =~ s/\Q$tag\E/<script>window.SNS_EXP = $e;<\/script>\n$tag/; }
+# 업로드 전 예상(fc.json, 2026-10-27) — 게시 주소가 있는 예상 기록만, 숫자·채널·날짜뿐(메모·슬러그 없음). 미리보기는 sample/fc.json
+{ my $ff = ($mode eq 'preview' && -e 'sample/fc.json') ? 'sample/fc.json' : 'fc.json'; if (-e $ff) { my $e = rd($ff); $e =~ s/<\//<\\\//g; $html =~ s/\Q$tag\E/<script>window.SNS_FC = $e;<\/script>\n$tag/; } }
 # 배포본에도 doctype·viewport·lang을 붙인다(없으면 휴대폰에서 PC 폭으로 그려 축소됨)
 my $pre = '<!doctype html><html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head><body>';
 my $post = '</body></html>';
