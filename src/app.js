@@ -3522,33 +3522,36 @@
     const fol = FG.length ? '<details class="hm-fold hm-fol"><summary title="누르면 추이">' + hmCards(FG.map(g => folCard(g))) + '</summary>' + (FT.length ? '<div class="kpi-row td-k n' + FT.length + '">' + FT.join('') + '</div>' : '') + '</details>' : '';
     return '<section class="sec hm">' + hero + hmCards(M) + list + attn + tdPlan(d) + fol + secClose;
   }
-  // 게시 예정(「공식 SNS 발행 일정」 오늘~7일). 오늘 예정이 실제로 올라갔으면 「게시 완료」, 누르면 업로드 폴더
+  // 게시 예정(「공식 SNS 발행 일정」 오늘~7일). 오늘 예정이 실제로 올라갔으면 「게시 완료」, 누르면 업로드 폴더(게시 완료면 올린 게시물, 2026-10-27)
   function tdPlan(d) {
     if (!d.plan) return '';
     const pl = d.plan.filter(x => x[0] >= d.today);
     // 캘린더 제목 「(인스타) 제목」·「(유튜브/인스타) 제목」 → 채널 색 글자 + 제목 한 줄
     const pch = k => /유튜브|숏츠|쇼츠/.test(k) ? '유튜브' : /hong|홍/.test(k) ? 'hong._.video' : '인스타그램';
     const wd = x => '일월화수목금토'[new Date(x + 'T00:00:00Z').getUTCDay()];
-    const PL = pl.slice(0, 6).map(x => { const m = String(x[1]).match(/^\(([^)]+)\)\s*(.*)$/); return { x, m, ks: m ? m[1].split('/').map(k => k.trim()) : [], ok: [] }; });
+    const PL = pl.slice(0, 6).map(x => { const m = String(x[1]).match(/^\(([^)]+)\)\s*(.*)$/); return { x, m, ks: m ? m[1].split('/').map(k => k.trim()) : [], ok: [], lk: [] }; });
     // 오늘 예정이 실제로 올라갔는지(2026-10-22): 오늘 올린 게시물·스토리와 채널로 맞춤. 제목 낱말이 캡션에 겹치는 게시물을 먼저, 없으면 같은 채널 아무거나(게시물 하나는 한 예정에만)
     const pool = (d.posts || []).filter(p => p.at.slice(0, 10) === d.today), words = t => (String(t).match(/[가-힣A-Za-z0-9]{2,}/g) || []);
-    let stLeft = (d.story || []).length;
+    const ST = d.story || [];
+    let stLeft = ST.length;
     [true, false].forEach(strict => PL.forEach(q => {
       if (q.x[0] !== d.today) return;
       q.ks.forEach((k, j) => {
         if (q.ok[j]) return;
-        if (/스토리/.test(k)) { if (!strict && stLeft > 0) { stLeft--; q.ok[j] = 1; } return; }
+        if (/스토리/.test(k)) { if (!strict && stLeft > 0) { q.lk[j] = ST[ST.length - stLeft].u; stLeft--; q.ok[j] = 1; } return; }
         const one = PL.filter(o => o.x[0] === d.today && o.ks.some(kk => !/스토리/.test(kk) && pch(kk) === pch(k))).length === 1;
         if (!strict && !one) return;
         const W = words(q.m ? q.m[2] : q.x[1]), i = pool.findIndex(p => p.c === pch(k) && (!strict || W.some(w => String(p.n).includes(w))));
-        if (i >= 0) { pool.splice(i, 1); q.ok[j] = 1; }
+        if (i >= 0) { q.lk[j] = pool[i].u; pool.splice(i, 1); q.ok[j] = 1; }
       });
     }));
-    const rows = pl.length ? PL.map(({ x, m, ks, ok }) => {
+    const rows = pl.length ? PL.map(({ x, m, ks, ok, lk }) => {
       const done = ks.length && ks.every((k, j) => ok[j]), some = ok.some(Boolean), now = x[0] === d.today;
+      // 게시 완료면 올린 게시물로(채널이 여럿이면 피드 게시물 먼저), 주소를 못 받았으면 폴더 그대로
+      const pu = done && (ks.map((k, j) => /스토리/.test(k) ? '' : lk[j]).find(Boolean) || lk.find(Boolean)), href = pu || x[2];
       const meta = '<span class="' + (now ? 'hm-now' : '') + '">' + (now ? '오늘' : md2(x[0]) + ' ' + wd(x[0])) + '</span> · ' + ks.map((k, j) => '<span class="hm-ch' + (ok[j] ? ' ok' : '') + '" style="--c:' + chInk(pch(k)) + '"' + (ok[j] ? ' title="올라간 것 확인"' : '') + '>' + esc(k) + '</span>').join(' ');
-      return hmRow({ tag: x[2] ? 'a' : 'div', attr: x[2] ? 'href="' + esc(x[2]) + '" target="_blank" rel="noopener" title="업로드 폴더 열기"' : '', cls: done ? 'done' : '',
-        t: esc(m ? m[2] : x[1]), m: meta, v: done ? '게시 완료' : some ? '일부 올림' : '', vc: 'up', r: x[2] ? '폴더 ›' : '' });
+      return hmRow({ tag: href ? 'a' : 'div', attr: href ? 'href="' + esc(href) + '" target="_blank" rel="noopener" title="' + (pu ? '올린 게시물 열기' : '업로드 폴더 열기') + '"' : '', cls: done ? 'done' : '',
+        t: esc(m ? m[2] : x[1]), m: meta, v: done ? '게시 완료' : some ? '일부 올림' : '', vc: 'up', r: pu ? '게시물 ›' : x[2] ? '폴더 ›' : '' });
     }).join('') : hmRow({ t: '7일 안에 잡힌 일정이 없어요', m: '공식 SNS 발행 일정 캘린더 기준' });
     return hmSec2('게시 예정', pl.length ? '공식 SNS 발행 일정 · 7일' : '', '<div class="hm-list">' + rows + '</div>');
   }

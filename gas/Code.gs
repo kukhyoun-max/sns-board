@@ -5155,7 +5155,7 @@ function briefStories_(ss, today) {
   const n = v => Number(String(v).replace(/,/g, '')) || 0;
   return sh.getRange(2, 1, sh.getLastRow() - 1, IGX_STORY_HEAD.length).getDisplayValues()
     .filter(r => String(r[2]).slice(0, 10) === today)
-    .map(r => ({ ch: r[0], at: String(r[2]).slice(11, 16), views: n(r[5]), reach: n(r[6]), exits: n(r[14]) }));
+    .map(r => ({ ch: r[0], at: String(r[2]).slice(11, 16), u: r[4], views: n(r[5]), reach: n(r[6]), exits: n(r[14]) })); // u = 「게시 예정」 게시 완료 → 스토리 열기(2026-10-27)
 }
 // 「당일 22시 기록」의 지난 기록 → 채널|형식별 조회 중간값(기록 BRIEF_MIN개 이상만)
 function briefNightBase_(ss, today) {
