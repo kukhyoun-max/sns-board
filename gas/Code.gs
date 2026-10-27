@@ -1761,7 +1761,16 @@ function isVideo_(channel, type) {
 }
 function tagCode_(text, channel, type) {
   var t = String(text || ''), old = tagCategory(t, channel);
-  return { ec: pickCode_(old, t), tc: pickType_(old, t, isVideo_(channel, type)) };
+  return { ec: seriesCode_(t) || pickCode_(old, t), tc: pickType_(old, t, isVideo_(channel, type)) };
+}
+// 시리즈별 주제(2026-10-28 담당자 「아바타 소개팅은 기본적으로 학과/체육부/동아리 소개 콘텐츠」): 「소개팅」 낱말로 연애·관계(E16)에 가지 않게
+// 학과·학부·전공 → E02 학과·전공 소개, 동아리 → E03, 운동부·종목 → E10, 그 밖 → E02
+function seriesCode_(t) {
+  if (!/아바타\s?소개팅/.test(t)) return '';
+  if (/학과|학부|전공/.test(t)) return 'E02';
+  if (/동아리/.test(t)) return 'E03';
+  if (/운동부|체육부|씨름|축구|농구|야구|배구|태권도|유도|검도|싸울아비/.test(t)) return 'E10';
+  return 'E02';
 }
 
 // ───────── 제작 주체 · 참여자 ─────────
