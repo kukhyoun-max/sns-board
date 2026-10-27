@@ -440,7 +440,8 @@
     const chs = viewChannels();
     const cur = pool({ channels: chs, since: addDays(D.updated, -30) });
     const low = cur.filter(it => judged(it) && ratio(it) < 0.5).sort((a, b) => ratio(a) - ratio(b)).slice(0, 3);
-    let html = '<div id="ov">' + ovHtml(chs) + '</div><div id="today">' + todayShell(chs) + '</div>';
+    const ovB = '<div id="ov">' + ovHtml(chs) + '</div>', tdB = '<div id="today">' + todayShell(chs) + '</div>';
+    let html = tdFirst(chs) ? tdB + ovB : ovB + tdB;
     const topH = topHtml(chs); let chk = '';
     // 용어 뜻은 맨 아래 접은 칸으로, 조건 설명 줄은 제목에 마우스를 올리면
     chk += '<section class="sec"><div class="sh"><div><h2>점검할 것</h2><p>최근 3달 분류별 · 평소보다 낮은 콘텐츠</p></div></div>' +
@@ -3622,10 +3623,16 @@
     (d.acct || []).forEach(a => { if (a.fol != null) o.a[a.c] = a.fol; });
     try { localStorage.setItem(TD_SEEN, JSON.stringify(o)); } catch (e) {}
   }
+  // 전체 탭은 오늘 올린 게시물·스토리가 있으면 「오늘」 칸을 맨 위로(2026-10-27)
+  function tdFirst(chs) {
+    const d = TD.d;
+    return S.ch === '전체' && !!d && ((d.posts || []).some(p => chs.includes(p.c) && p.at.slice(0, 10) === d.today) || (d.story || []).length > 0);
+  }
   function paintToday() {
     const box = $('today'); if (!box || !TD.chs || S.view !== 'brief') return;
     if (!TD.d) { box.innerHTML = '<section class="sec hm"><div class="hm-hero"><span class="hm-lab">오늘</span><span class="hm-note">지금 값을 받지 못했어요 · 10분 뒤 다시 받아요</span></div>' + attnHtml(TD.chs, calWeek(TD.chs)) + secClose; box.querySelectorAll('[data-wa]').forEach(b => b.addEventListener('click', () => { const it = (window.__attn || [])[+b.dataset.wa]; if (it) openDetail(it); })); return; }
     box.innerHTML = todayInner(TD.chs);
+    const ov = $('ov'); if (ov && tdFirst(TD.chs) && box.compareDocumentPosition(ov) & Node.DOCUMENT_POSITION_PRECEDING) ov.before(box);
     tdDraw();
     const tl = $('tdLast'); if (tl && window.__tdLast) tl.addEventListener('click', () => openDetail(window.__tdLast));
     box.querySelectorAll('[data-wa]').forEach(b => b.addEventListener('click', () => { const it = (window.__attn || [])[+b.dataset.wa]; if (it) openDetail(it); }));
