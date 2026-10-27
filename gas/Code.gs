@@ -1419,6 +1419,7 @@ function buildDashboardData_() {
     items: list.filter(it => !it._drop && !ytHidden_(it)),
     acct: acct,
     roles: extra.roles,
+    left: LEFT.slice(),
     ads: extra.ads,
     coverage: COVERAGE,
     hist: hist,
@@ -1780,6 +1781,7 @@ var STAFF = ['***'];
 // 「명단」 역할 '서포터즈'(대학혁신지원사업 JUNI:ON 등 학과·기관 학생 기자단) → 제작 주체 학과·기관 협업
 // 「명단」 역할 '출연'(크레딧에 이름이 있지만 제작자가 아닌 동아리원·출연자) → 참여자·제작 판단에서 뺌
 var PARTNER = [], EXCLUDE = [];
+var LEFT = []; // 「명단」 메모에 「활동 끝」이 있는 사람(2026-10-27) — 보드 사람별 성과에 표시
 var NAME_STOP = /(학과|학부|대학|대학교|교수|센터|사업단|위원회|학생회|홍보실|홍보대사|서포터즈|콘텐츠|숏폼|유튜브|인스타|기획|제작|촬영|편집|출연|시나리오|재학생|박물관|지원실|입학처|입학|협조|제공|그림|디자인|사진|영상|음악|내레이션|나레이션|썸네일|자막|모델|도움|주니온|홈페이지|전주대|자세히|애플워치|졸업생|베이스|글로벌|호텔리어|서비스|이벤트|당첨자|안내|일정|장소|기간|문의|블로그|페이스북|트위터|카카오톡)$/;
 
 function creditBlock(caption) {
@@ -1942,6 +1944,17 @@ function ensureTagSheets_(ss) {
   promoteTagFixOnce_(ss);
   promoteYtTagFixOnce_(ss);
   setExpOnce_(ss);
+  markLeftOnce_(ss);
+}
+// 나간 홍보대사(2026-10-27): 이름은 실명이라 git 밖 IdSeed.gs의 leftSeed_()에만 둠 → 「명단」 메모에 「활동 끝」을 한 번 적음(이미 있으면 그대로). 앞으로는 메모 칸에 직접 적으면 됨
+function markLeftOnce_(ss) {
+  if (typeof leftSeed_ !== 'function') return;
+  const sh = ss.getSheetByName(ROSTER_SHEET), L = leftSeed_();
+  if (!sh || sh.getLastRow() < 2 || !L || !L.length) return;
+  const rg = sh.getRange(2, 1, sh.getLastRow() - 1, 3), v = rg.getValues();
+  let ch = 0;
+  v.forEach(r => { if (L.indexOf(String(r[0]).trim()) >= 0 && !/활동 ?끝/.test(String(r[2]))) { r[2] = String(r[2] || '') ? r[2] + ' · 활동 끝' : '활동 끝'; ch++; } });
+  if (ch) sh.getRange(2, 3, v.length, 1).setValues(v.map(r => [r[2]]));
 }
 
 // 「태그 수정」 한 번만 가져오기(2026-10-24 담당자 「진행」): Claude가 글을 읽고 붙인 주제·유형(2025-01 이후 400건)을 출처 「Claude」(확인 전)로 맨 아래에 붙임.
@@ -2052,11 +2065,13 @@ function setExpOnce_(ss) {
 function loadRoster_(ss) {
   const sh = ss.getSheetByName(ROSTER_SHEET);
   if (!sh || sh.getLastRow() < 2) return;
-  const v = sh.getRange(2, 1, sh.getLastRow() - 1, 2).getValues();
+  const v = sh.getRange(2, 1, sh.getLastRow() - 1, 3).getValues();
   const amb = [], ws = [], st = [], pt = [], ex = [];
+  LEFT = [];
   v.forEach(r => {
     const n = String(r[0]).trim(), role = String(r[1]).trim();
     if (!/^[가-힣]{2,4}$/.test(n)) return;
+    if (/활동 ?끝/.test(String(r[2]))) LEFT.push(n);
     if (role === '홍보대사') amb.push(n); else if (role === '근로장학생') ws.push(n); else if (role === '직원') st.push(n);
     else if (role === '동문' && ALUMNI.indexOf(n) < 0) ALUMNI.push(n);
     else if (role === '서포터즈' || role === '협업') pt.push(n);
@@ -2708,6 +2723,16 @@ function metaConf_() {
   const acts = String(p.getProperty('META_ACCOUNT') || '').split(/[,\s]+/).map(x => x.replace(/^act_/, '').trim()).filter(x => /^\d+$/.test(x)).map(x => 'act_' + x);
   return token && acts.length ? { token: token, act: acts[0], acts: acts, warn: [] } : null;
 }
+// 예전 광고 계정 빼기(2026-10-27 담당자 「없애도 데이터에 문제없으면 내려」): 10/19 토큰 재발급 뒤 「계정 없음·권한 없음」(code 100)만 나던 계정.
+// 캠페인·소재 탭은 매번 접근되는 계정으로 새로 쓰고, 「메타 일별」은 최근 기간 밖 행을 그대로 두므로 빼도 남은 기록은 그대로. 끝 4자리로만 맞춤(계정 ID는 저장소에 안 남김)
+const META_DROP = ['0075'];
+function dropMetaActOnce_(logs) {
+  const p = PropertiesService.getScriptProperties(), raw = String(p.getProperty('META_ACCOUNT') || '');
+  const ids = raw.split(/[,\s]+/).filter(Boolean), keep = ids.filter(x => !META_DROP.some(t => x.replace(/^act_/, '').slice(-4) === t));
+  if (!keep.length || keep.length === ids.length) return;
+  p.setProperty('META_ACCOUNT', keep.join(','));
+  logs.push([new Date(), '메타 광고 API', 0, '설정 — 접근 안 되는 예전 광고 계정 ' + (ids.length - keep.length) + '개를 META_ACCOUNT에서 뺌']);
+}
 // 모든 광고 계정에서 같은 요청 → 행을 합침. 일부 계정만 실패하면 conf.warn에 남기고 나머지로 진행, 전부 실패하면 오류
 function metaAll_(conf, edge, params) {
   const out = [], errs = [];
@@ -2837,6 +2862,7 @@ function metaRefreshInfo_(ss, conf) {
 }
 // 매일 기록 단계: 최근 META_DAYS일 일별 + 캠페인·소재 갱신
 function metaStep_(ss, today, logs) {
+  dropMetaActOnce_(logs);
   const conf = metaConf_();
   if (!conf) { logs.push([new Date(), '메타 광고 API', 0, '건너뜀: 스크립트 속성 META_TOKEN·META_ACCOUNT 없음']); return; }
   // 과거 채우기가 덜 끝났는데 예약이 없으면 1분 뒤로 예약(편집기에서 다시 누르지 않아도 이어짐)

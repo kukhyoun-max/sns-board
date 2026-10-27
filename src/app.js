@@ -1868,37 +1868,44 @@
     }
     const own = ownIn(chs).length > 0;
     const RX = own ? prescribe(ownIn(chs)) : null, PLAN = own ? nextPlan(chs) : null;
-    let top = '';
+    // 접는 칸(2026-10-27 「너가 판단해서 접어」): 위에는 이번 주·이번 달 결정에 바로 쓰는 것(KPI·목표·처방·편성 제안·무엇을 만들면), 나머지 분석은 「더 보기」
+    let top = '', fold = '';
+    const FN = [];
     if (own) {
       const gh = goalsHtml();
       // 빈 설정 안내는 종 알림으로 옮기고 화면에는 한 줄만(원칙 9)
       top += kpi7Html(chs);
       top += secOpen('이번 달 목표', gh ? '목표를 얼마나 채웠는지 · 세로선(오늘 기준) = 오늘까지 와 있어야 할 위치 · 주황 = 뒤처짐' : '') + (gh || '<p class="note">목표가 아직 없어요 · 오른쪽 위 알림에서 적는 법을 볼 수 있어요</p>') + secClose;
       top += secOpen('이번 주 처방', (ch ? '' : esc(scopeLabel()) + ' · ') + '잘 되는데 최근 2달 덜 올린 것 · 많이 올렸는데 약한 것') + rxHtml(RX) + secClose;
-      top += secOpen('시도한 전략 채점', '「전략 기록」 탭에 적은 시도가 평소보다 잘 됐는지 채점해요') + stratHtml() + secClose;
-      top += secOpen('잘 되는 조건', '해당 게시물과 나머지가 25% 넘게 차이 나는 조건만 골랐어요') + rulesHtml(chs) + secClose;
+      fold += secOpen('시도한 전략 채점', '「전략 기록」 탭에 적은 시도가 평소보다 잘 됐는지 채점해요') + stratHtml() + secClose; FN.push('전략 채점');
+      FN.push('잘 되는 조건'); fold += secOpen('잘 되는 조건', '해당 게시물과 나머지가 25% 넘게 차이 나는 조건만 골랐어요') + rulesHtml(chs) + secClose;
       top += secOpen((+monthStart(D.updated, 1).slice(5, 7)) + '월 편성 제안', '최근 6달 올린 양에서 잘 되는 형식은 늘리고 약한 건 줄였어요 · 작년 같은 달 인기 주제도 함께') + planHtml(PLAN) + secClose;
     }
     let html = top + secOpen('무엇을 만들면 잘 되나', (ch ? '' : esc(scopeLabel()) + ' · ') + periodPhrase() + ' 게시물 · 칸의 숫자 = 히트율 · 진할수록 잘 돼요', '<div class="seg" id="mxBy" aria-label="행 기준">' + [['g', '형식 × 분류'], ['p', '형식 × 제작']].map(o => '<button type="button" data-v="' + o[0] + '" aria-pressed="' + (MXB === o[0]) + '">' + o[1] + '</button>').join('') + '</div>') + '<dl class="defs"><div><dt>히트율</dt><dd>조회가 평소의 1.5배 이상인 게시물(히트)의 비율</dd></div><div><dt>모이는 중</dt><dd>올린 지 ' + AGE_MIN + '일 안 된 게시물만 있는 칸</dd></div></dl>' + mx + sel + secClose;
 
     // 반응의 종류
-    if (ch && OWN.includes(ch)) html += secOpen('콘텐츠 역할 — 반응의 종류', reactNote(ch)) + reactTable(ch, cats) + secClose;
-    else if (S.ch === '전체') html += secOpen('콘텐츠 역할 — 반응의 종류', '채널을 고르면 분류별 반응을 볼 수 있어요') + '<div class="chips go-ch">' + [['인스타그램', '저장 · 공유 · 댓글'], ['유튜브', '끝까지 본 비율'], ['hong._.video', '좋아요 · 댓글']].map(c => '<button class="chip" type="button" data-goch="' + c[0] + '">' + badge(c[0]) + '<small>' + c[1] + '</small></button>').join('') + '</div>' + secClose;
+    if (ch && OWN.includes(ch) || S.ch === '전체') FN.push('콘텐츠 역할');
+    if (ch && OWN.includes(ch)) fold += secOpen('콘텐츠 역할 — 반응의 종류', reactNote(ch)) + reactTable(ch, cats) + secClose;
+    else if (S.ch === '전체') fold += secOpen('콘텐츠 역할 — 반응의 종류', '채널을 고르면 분류별 반응을 볼 수 있어요') + '<div class="chips go-ch">' + [['인스타그램', '저장 · 공유 · 댓글'], ['유튜브', '끝까지 본 비율'], ['hong._.video', '좋아요 · 댓글']].map(c => '<button class="chip" type="button" data-goch="' + c[0] + '">' + badge(c[0]) + '<small>' + c[1] + '</small></button>').join('') + '</div>' + secClose;
 
     // 저장·공유(타 대학은 좋아요)가 많은 형식·분류
     const RXS = rxSec(chs, L);
-    if (RXS) html += RXS.html;
+    if (RXS) { fold += RXS.html; FN.push('저장·공유 많은'); }
 
     // 분류별 + 요일별
-    html += secOpen('분류별 · 요일별 성과', '조회 평소 대비 중간값 · 세로선(평소)보다 길면 평소보다 잘 됨') +
+    FN.push('분류별·요일별'); fold += secOpen('분류별 · 요일별 성과', '조회 평소 대비 중간값 · 세로선(평소)보다 길면 평소보다 잘 됨') +
       '<div class="two"><div><h3>분류별</h3><div class="bars" id="byCat"></div></div><div><h3>게시 요일별</h3><div class="chart" id="wdBox"><canvas id="wdChart"></canvas></div><p class="note" id="wdNote"></p></div></div>' + secClose;
 
     // 수명
     if (own) {
-      html += secOpen('오래돼도 계속 크는 콘텐츠', '올린 지 1년 넘었는데 최근 기록 사이 조회가 늘어난 게시물') + longtailHtml(chs) + secClose;
-      html += secOpen('콘텐츠 수명 — 조회가 언제까지 붙나', '올린 지 1·3·6달째 지금 조회의 몇 %가 쌓였는지 · 중간값 · 낮을수록 오래 커요') + '<div class="chart tall"><canvas id="lifeChart2"></canvas></div><p class="note" id="lifeNote2"></p>' + secClose;
+      FN.push('오래돼도 크는 콘텐츠', '콘텐츠 수명');
+      fold += secOpen('오래돼도 계속 크는 콘텐츠', '올린 지 1년 넘었는데 최근 기록 사이 조회가 늘어난 게시물') + longtailHtml(chs) + secClose;
+      fold += secOpen('콘텐츠 수명 — 조회가 언제까지 붙나', '올린 지 1·3·6달째 지금 조회의 몇 %가 쌓였는지 · 중간값 · 낮을수록 오래 커요') + '<div class="chart tall"><canvas id="lifeChart2"></canvas></div><p class="note" id="lifeNote2"></p>' + secClose;
     }
+    let so = false; try { so = localStorage.getItem('sb-strat-more') === '1'; } catch (e) {}
+    html += '<details class="home-more"' + (so ? ' open' : '') + ' id="stratMore"><summary><span>' + esc(FN.join(' · ')) + '</span><b>더 보기</b></summary>' + fold + '</details>';
     $('view').innerHTML = html.replace(/^<div class="gap"><\/div>/, '');
+    const smo = $('stratMore'); if (smo) smo.addEventListener('toggle', () => { try { localStorage.setItem('sb-strat-more', smo.open ? '1' : '0'); } catch (e) {} if (smo.open) Object.keys(charts).forEach(k => { try { charts[k].resize(); } catch (e) {} }); });
     $('view').querySelectorAll('[data-goch]').forEach(b => b.addEventListener('click', () => { S.ch = b.dataset.goch; render(); window.scrollTo({ top: 0 }); }));
     document.querySelectorAll('[data-k7]').forEach(b => { const go = () => openKpi(b.dataset.k7, chs); b.addEventListener('click', go); b.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); go(); } }); });
     if ($('mxBy')) $('mxBy').querySelectorAll('button').forEach(b => b.addEventListener('click', () => { S.mxBy = b.dataset.v; S.mx = null; viewStrategy(); }));
@@ -2083,7 +2090,7 @@
     L.forEach(it => (it.w || []).forEach(n => { (m[n] = m[n] || []).push(it); }));
     return Object.entries(m).map(([n, arr]) => {
       const best = arr.slice().sort((a, b) => (mainVal(b) || 0) - (mainVal(a) || 0))[0];
-      return { n, role: (D.roles || {})[n] || '근로장학생', k: arr.length, views: sum(arr.map(it => val(it, 0))), idx: median(arr.map(ratio)), hits: arr.filter(isHit).length, score: Math.round(sum(arr.map(it => SCORE(val(it, 0)))) * 10) / 10, best, arr };
+      return { n, role: (D.roles || {})[n] || '근로장학생', left: (D.left || []).includes(n), k: arr.length, views: sum(arr.map(it => val(it, 0))), idx: median(arr.map(ratio)), hits: arr.filter(isHit).length, score: Math.round(sum(arr.map(it => SCORE(val(it, 0)))) * 10) / 10, best, arr };
     });
   }
   function viewMaker() {
@@ -2118,11 +2125,11 @@
       '<div class="chips">' + roleChips + '</div>' +
       // 휴대폰은 표 대신 홈 시안 2 목록(hmRow): 윗줄 이름 + 조회 평소 대비, 아랫줄 역할 · 참여 · 히트 + 조회 합. 15명씩, 정렬은 칩
       (pMob ? '<div class="chips" id="pSort">' + [['n', '참여'], ['views', '조회 합'], ['idx', '평소 대비'], ['hits', '히트'], ['score', '등급 점수']].map(x => '<button class="chip" type="button" data-s="' + x[0] + '" aria-pressed="' + (S.psort === x[0] || (!S.psort && x[0] === 'n')) + '">' + x[1] + '</button>').join('') + '</div>' +
-        '<ol class="hm-list" id="pTbl">' + (ps.length ? ps.slice(0, S.pAll ? ps.length : 15).map(p => hmRow({ tag: 'li', attr: 'data-n="' + esc(p.n) + '" tabindex="0" role="button"', cls: S.person === p.n ? 'on' : '', tip: '등급 점수 ' + fmt(p.score) + (p.best ? ' · 최고 ' + title(p.best.n) : ''), t: esc(p.n), v: vsP(p.idx), vc: p.idx == null || p.k < MIN_N ? 'mu' : xCls(p.idx), m: esc(p.role) + ' · 참여 ' + p.k + ' · 히트 ' + p.hits, r: '조회 ' + fmtK(p.views) }) +
+        '<ol class="hm-list" id="pTbl">' + (ps.length ? ps.slice(0, S.pAll ? ps.length : 15).map(p => hmRow({ tag: 'li', attr: 'data-n="' + esc(p.n) + '" tabindex="0" role="button"', cls: S.person === p.n ? 'on' : '', tip: '등급 점수 ' + fmt(p.score) + (p.best ? ' · 최고 ' + title(p.best.n) : ''), t: esc(p.n), v: vsP(p.idx), vc: p.idx == null || p.k < MIN_N ? 'mu' : xCls(p.idx), m: esc(p.role) + (p.left ? ' <span class="mu">활동 끝</span>' : '') + ' · 참여 ' + p.k + ' · 히트 ' + p.hits, r: '조회 ' + fmtK(p.views) }) +
           (S.person === p.n ? '<li class="hm-open"><ol class="rank" id="pList">' + rankRows(p.arr.slice().sort((a, b) => b.d < a.d ? -1 : 1).slice(0, 10)) + '</ol></li>' : '')).join('') : '<li class="empty">' + periodPhrase() + ' 동안 크레딧에 이름이 있는 콘텐츠가 없어요.</li>') + '</ol>' +
         (!S.pAll && ps.length > 15 ? '<button type="button" class="more" id="pAll">' + (ps.length - 15) + '명 더 보기 ›</button>' : '') :
       '<div class="tw"><table class="tbl" id="pTbl"><thead><tr><th>이름</th><th>역할</th>' + th('n', '참여') + th('views', '조회 합') + th('idx', '조회 평소 대비') + th('hits', '히트') + th('score', '등급 점수') + '<th>최고 콘텐츠</th></tr></thead><tbody>' +
-      ps.map(p => '<tr class="click' + (S.person === p.n ? ' on' : '') + '" data-n="' + esc(p.n) + '"><td><b>' + esc(p.n) + '</b></td><td>' + ptag(p.role) + '</td><td class="n">' + p.k + '</td><td class="n">' + fmtK(p.views) + '</td><td class="n ' + (p.idx == null || p.k < MIN_N ? 'mu' : xCls(p.idx)) + '">' + vsP(p.idx) + '</td><td class="n">' + p.hits + '</td><td class="n ' + (p.score >= 0 ? 'up' : 'down') + '">' + (p.score > 0 ? '+' : '') + p.score + '</td><td><div class="ellip">' + line(p.best) + '</div></td></tr>' +
+      ps.map(p => '<tr class="click' + (S.person === p.n ? ' on' : '') + '" data-n="' + esc(p.n) + '"><td><b>' + esc(p.n) + '</b></td><td>' + ptag(p.role) + (p.left ? ' <small class="mu">활동 끝</small>' : '') + '</td><td class="n">' + p.k + '</td><td class="n">' + fmtK(p.views) + '</td><td class="n ' + (p.idx == null || p.k < MIN_N ? 'mu' : xCls(p.idx)) + '">' + vsP(p.idx) + '</td><td class="n">' + p.hits + '</td><td class="n ' + (p.score >= 0 ? 'up' : 'down') + '">' + (p.score > 0 ? '+' : '') + p.score + '</td><td><div class="ellip">' + line(p.best) + '</div></td></tr>' +
         (S.person === p.n ? '<tr><td colspan="8" style="padding:0 0 10px;white-space:normal"><ol class="rank" id="pList">' + rankRows(p.arr.slice().sort((a, b) => b.d < a.d ? -1 : 1).slice(0, 10)) + '</ol>' + (p.arr.length > 10 ? '<p class="note">최근 10개만 보여요. 전체 목록은 「엑셀로 받기」나 「데이터 추출 → 사람」에서 받을 수 있어요.</p>' : '') + '</td></tr>' : '')).join('') +
       (ps.length ? '' : '<tr><td colspan="8" class="empty">' + periodPhrase() + ' 동안 크레딧에 이름이 있는 콘텐츠가 없어요.</td></tr>') +
       '</tbody></table></div>') +
@@ -2136,7 +2143,7 @@
     if (S.person) { const p = ps.find(x => x.n === S.person); if (p) wireRank($('pList'), p.arr.slice().sort((a, b) => b.d < a.d ? -1 : 1).slice(0, 10)); }
     $('pXls').addEventListener('click', () => {
       const head = ['이름', '역할', '참여 콘텐츠', '조회 합', '조회 평소 대비(중간값, 배)', '히트 수', '등급 점수', '최고 콘텐츠', '최고 콘텐츠 조회'];
-      const rows = ps.map(p => [p.n, p.role, p.k, p.views, p.idx == null ? null : +p.idx.toFixed(2), p.hits, p.score, title(p.best.n), val(p.best, 0)]);
+      const rows = ps.map(p => [p.n, p.role + (p.left ? '(활동 끝)' : ''), p.k, p.views, p.idx == null ? null : +p.idx.toFixed(2), p.hits, p.score, title(p.best.n), val(p.best, 0)]);
       const detail = [['이름', '역할', '게시일', '채널', '형식', '분류', '제목', '조회', '좋아요', '댓글', '조회 평소 대비(배)', '등급 점수']];
       ps.forEach(p => p.arr.forEach(it => { const v = last(it) || []; detail.push([p.n, p.role, it.d, chName(it.c), fmtType(it.t), it.g, title(it.n), v[0], v[1], v[2], ratio(it) == null ? null : +ratio(it).toFixed(2), SCORE(v[0])]); }));
       writeXlsx('사람별성과_' + rangeLabel() + '_' + D.updated, [['사람별 성과', [head].concat(rows)], ['참여 콘텐츠', detail], ['조건', [['채널', chs.join(', ')], ['기간', rangeLabel() + ' (게시일 기준)'], ['역할', S.roleF], ['기준 데이터', D.updated], ['등급 점수', '상벌점표 조회 기준: 100만 +10, 50만 +5, 10만 +1, 1만 +0.1, 1만 미만 -0.1']]]]);
