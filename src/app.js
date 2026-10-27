@@ -3646,16 +3646,19 @@
     (d.acct || []).forEach(a => { if (a.fol != null) o.a[a.c] = a.fol; });
     try { localStorage.setItem(TD_SEEN, JSON.stringify(o)); } catch (e) {}
   }
-  // 전체 탭은 오늘 올린 게시물·스토리가 있으면 「오늘」 칸을 맨 위로(2026-10-27)
+  // 전체 탭은 어제·오늘 올린 게시물·스토리가 있으면 「오늘」 칸을 맨 위로(2026-10-27). 자정이 지나도 어제 올린 게 있으면 그대로(2026-10-28 「왜 처음 켜면 이 화면」)
+  // 아직 「오늘」 응답 전이면 「오늘」 칸을 먼저 깔아 둠(거의 매일 올려서) → 받아 보니 이틀 동안 올린 게 없으면 7일 요약을 위로
   function tdFirst(chs) {
     const d = TD.d;
-    return S.ch === '전체' && !!d && ((d.posts || []).some(p => chs.includes(p.c) && p.at.slice(0, 10) === d.today) || (d.story || []).length > 0);
+    if (S.ch !== '전체') return false;
+    return !d || (d.posts || []).some(p => chs.includes(p.c)) || (d.story || []).length > 0;
   }
   function paintToday() {
     const box = $('today'); if (!box || !TD.chs || S.view !== 'brief') return;
-    if (!TD.d) { box.innerHTML = '<section class="sec hm"><div class="hm-hero"><span class="hm-lab">오늘</span><span class="hm-note">지금 값을 받지 못했어요 · 10분 뒤 다시 받아요</span></div>' + attnHtml(TD.chs, calWeek(TD.chs)) + secClose; box.querySelectorAll('[data-wa]').forEach(b => b.addEventListener('click', () => { const it = (window.__attn || [])[+b.dataset.wa]; if (it) openDetail(it); })); return; }
+    if (!TD.d) { const ov0 = $('ov'); if (ov0 && !(box.compareDocumentPosition(ov0) & Node.DOCUMENT_POSITION_PRECEDING)) box.before(ov0); // 못 받았으면 7일 요약을 위로
+   if (!TD.d) { box.innerHTML = '<section class="sec hm"><div class="hm-hero"><span class="hm-lab">오늘</span><span class="hm-note">지금 값을 받지 못했어요 · 10분 뒤 다시 받아요</span></div>' + attnHtml(TD.chs, calWeek(TD.chs)) + secClose; box.querySelectorAll('[data-wa]').forEach(b => b.addEventListener('click', () => { const it = (window.__attn || [])[+b.dataset.wa]; if (it) openDetail(it); })); return; }
     box.innerHTML = todayInner(TD.chs);
-    const ov = $('ov'); if (ov && tdFirst(TD.chs) && box.compareDocumentPosition(ov) & Node.DOCUMENT_POSITION_PRECEDING) ov.before(box);
+    const ov = $('ov'), first = tdFirst(TD.chs); if (ov) { const ovUp = box.compareDocumentPosition(ov) & Node.DOCUMENT_POSITION_PRECEDING; if (first && ovUp) ov.before(box); else if (!first && !ovUp) box.before(ov); }
     tdDraw();
     const tl = $('tdLast'); if (tl && window.__tdLast) tl.addEventListener('click', () => openDetail(window.__tdLast));
     box.querySelectorAll('[data-wa]').forEach(b => b.addEventListener('click', () => { const it = (window.__attn || [])[+b.dataset.wa]; if (it) openDetail(it); }));
