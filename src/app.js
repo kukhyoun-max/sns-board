@@ -3656,7 +3656,7 @@
   function paintToday() {
     const box = $('today'); if (!box || !TD.chs || S.view !== 'brief') return;
     if (!TD.d) { const ov0 = $('ov'); if (ov0 && !(box.compareDocumentPosition(ov0) & Node.DOCUMENT_POSITION_PRECEDING)) box.before(ov0); // 못 받았으면 7일 요약을 위로
-   if (!TD.d) { box.innerHTML = '<section class="sec hm"><div class="hm-hero"><span class="hm-lab">오늘</span><span class="hm-note">지금 값을 받지 못했어요 · 10분 뒤 다시 받아요</span></div>' + attnHtml(TD.chs, calWeek(TD.chs)) + secClose; box.querySelectorAll('[data-wa]').forEach(b => b.addEventListener('click', () => { const it = (window.__attn || [])[+b.dataset.wa]; if (it) openDetail(it); })); return; }
+      box.innerHTML = '<section class="sec hm"><div class="hm-hero"><span class="hm-lab">오늘</span><span class="hm-note">지금 값을 받지 못했어요 · 10분 뒤 다시 받아요</span></div>' + attnHtml(TD.chs, calWeek(TD.chs)) + secClose; box.querySelectorAll('[data-wa]').forEach(b => b.addEventListener('click', () => { const it = (window.__attn || [])[+b.dataset.wa]; if (it) openDetail(it); })); return; }
     box.innerHTML = todayInner(TD.chs);
     const ov = $('ov'), first = tdFirst(TD.chs); if (ov) { const ovUp = box.compareDocumentPosition(ov) & Node.DOCUMENT_POSITION_PRECEDING; if (first && ovUp) ov.before(box); else if (!first && !ovUp) box.before(ov); }
     tdDraw();
