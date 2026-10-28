@@ -1259,10 +1259,10 @@ function doGet(e) {
     if (!PART_TABS[part]) json = JSON.stringify({ error: 'part' });
     else {
       const pre = part === 'yv' ? 'pyv:' + String(e.parameter.v || '').replace(/[^\w-]/g, '').slice(0, 20) : 'part:' + part;
-      try { json = part === 'yc' || (part === 'ytb' && e.parameter.fresh) ? null : cacheGet_(pre); } catch (err) { json = null; }
+      try { json = part === 'yc' || part === 'ma' || (part === 'ytb' && e.parameter.fresh) ? null : cacheGet_(pre); } catch (err) { json = null; }
       if (json && part === 'today' && e.parameter.fresh) { try { if (Date.now() - Number(JSON.parse(json).ts || 0) > 2 * 60 * 1000) json = null; } catch (err) { json = null; } }
       if (!json) {
-        try { json = JSON.stringify(buildPart_(part, e)); if (part !== 'yc' && (!isRecording_() || part === 'today')) { try { cachePut_(json, pre, part === 'today' ? TODAY_TTL : 0); } catch (err) {} } }
+        try { json = JSON.stringify(buildPart_(part, e)); if (part !== 'yc' && part !== 'ma' && (!isRecording_() || part === 'today')) { try { cachePut_(json, pre, part === 'today' ? TODAY_TTL : 0); } catch (err) {} } }
         catch (err) { json = JSON.stringify({ error: '분석 데이터를 만들지 못했어요: ' + String(err && err.message || err) }); }
       }
     }
@@ -5488,7 +5488,7 @@ function briefHtml_(posts, stories, recent, notes, today, stamp, ideas) {
 //       | yv&v=<영상 ID>(그 영상의 시청 지속 곡선·검색어). 기본 응답(약 1MB)에 넣지 않아 첫 화면이 느려지지 않음
 //  · JSONP 콜백은 __sbData 또는 __sbP + 숫자(동시에 여러 개 부를 수 있게). 캐시는 part마다 따로, 매일 기록 때 비움
 const PART_CB = /^__sbP\d{1,6}$/;
-const PART_TABS = { yt: 1, ig: 1, yv: 1, today: 1, ytb: 1, yc: 1 };
+const PART_TABS = { yt: 1, ig: 1, yv: 1, today: 1, ytb: 1, yc: 1, ma: 1 };
 function buildPart_(part, e) {
   const ss = SpreadsheetApp.openById(SS_ID);
   if (part === 'yt') return partYt_(ss);
@@ -5496,6 +5496,7 @@ function buildPart_(part, e) {
   if (part === 'yv') return partYv_(ss, String((e && e.parameter && e.parameter.v) || '').replace(/[^\w-]/g, '').slice(0, 20));
   if (part === 'today') return partToday_(ss);
   if (part === 'ytb') return partYtb_(ss);
+  if (part === 'ma') return partMetaAudit_();
   if (part === 'yc') { const lg = ss.getSheetByName(LOG), ln = lg ? Math.min(40, lg.getLastRow() - 1) : 0; return { rows: partRows_(ss, YC_SHEET, 6).map(r => [String(r[0]), String(r[1]), String(r[2]), String(r[3]), partN_(r[4]), String(r[5])]), log: ln > 0 ? lg.getRange(lg.getLastRow() - ln + 1, 1, ln, 4).getDisplayValues().reverse().map(r => r.map(x => String(x).slice(0, 300))) : [], ts: Date.now() }; } // log = 실행 로그 최근 40줄(확인용 시트가 2시간마다라 늦을 때)
   return { error: 'part' };
 }
@@ -6032,4 +6033,50 @@ function yearCountStep_(ss) {
   sh.clear(); sh.getRange(1, 1, 1, head.length).setValues([head]).setFontWeight('bold'); sh.setFrozenRows(1);
   if (rows.length) { sh.getRange(2, 3, rows.length, 1).setNumberFormat('@'); sh.getRange(2, 1, rows.length, head.length).setValues(rows); }
   return rows.length;
+}
+
+// ───────── 메타 광고 설정 점검(part=ma, 2026-10-28): 광고 설정 점검 목록 M2~M4용, 읽기만 ─────────
+// 광고마다 실제 웹사이트 주소·URL 매개변수·Advantage+ 크리에이티브 개선 설정, 광고 세트의 최적화 목표·픽셀,
+// 계정 픽셀의 마지막 이벤트 시각. 캐시하지 않음(부를 때마다 새로). 토큰·계정 ID는 응답에 넣지 않음(계정은 끝 4자리)
+const MA_FROM = '2025-01-01';   // 이 날 이후 만든 광고 + 이름에 2026·2027이 든 광고. total·first·last = 계정에서 받은 전체 광고 수와 만든 날 범위
+function partMetaAudit_() {
+  const conf = metaConf_();
+  if (!conf) return { error: 'META_TOKEN·META_ACCOUNT 없음' };
+  const links = c => {
+    const s = c.object_story_spec || {}, out = [];
+    const ld = s.link_data || {}, vd = s.video_data || {};
+    if (ld.link) out.push(ld.link);
+    (ld.child_attachments || []).forEach(x => x.link && out.push(x.link));
+    const cta = (ld.call_to_action || vd.call_to_action || {}).value || {};
+    if (cta.link) out.push(cta.link);
+    ((c.asset_feed_spec || {}).link_urls || []).forEach(x => x.website_url && out.push(x.website_url));
+    if (c.link_url) out.push(c.link_url);
+    if (c.object_url) out.push(c.object_url);
+    return out.filter((x, i, a) => a.indexOf(x) === i);
+  };
+  const ads = [], pixels = [], warn = [], seen = [];
+  conf.acts.forEach(act => {
+    try {
+      metaGet_(conf, act + '/ads', {
+        fields: 'name,effective_status,created_time,campaign{name,objective},adset{name,optimization_goal,destination_type,promoted_object},creative{object_story_spec,asset_feed_spec,degrees_of_freedom_spec,url_tags,link_url,object_url}',
+        effective_status: '["ACTIVE","PAUSED","ARCHIVED","CAMPAIGN_PAUSED","ADSET_PAUSED","IN_PROCESS","WITH_ISSUES","DISAPPROVED","PENDING_REVIEW","PREAPPROVED","PENDING_BILLING_INFO"]', limit: 50
+      }).forEach(a => {
+        seen.push(String(a.created_time || '').slice(0, 10) + ' ' + (a.effective_status || ''));
+        if (String(a.created_time || '').slice(0, 10) < MA_FROM && !/202[67]/.test(((a.campaign || {}).name || '') + (a.name || ''))) return;
+        const c = a.creative || {}, st = a.adset || {}, po = st.promoted_object || {};
+        const dof = ((c.degrees_of_freedom_spec || {}).creative_features_spec) || {};
+        const feat = {};
+        Object.keys(dof).forEach(k => { feat[k] = (dof[k] || {}).enroll_status || ''; });
+        ads.push({ act: act.slice(-4), camp: (a.campaign || {}).name || '', obj: (a.campaign || {}).objective || '', adset: st.name || '',
+          goal: st.optimization_goal || '', dest: st.destination_type || '', pixel: po.pixel_id ? String(po.pixel_id).slice(-4) : '', event: po.custom_event_type || '',
+          ad: a.name || '', status: a.effective_status || '', created: String(a.created_time || '').slice(0, 10),
+          links: links(c), tags: c.url_tags || '', feat: feat });
+      });
+      metaGet_(conf, act + '/adspixels', { fields: 'name,last_fired_time,is_unavailable,creation_time', limit: 50 }).forEach(p => {
+        pixels.push({ act: act.slice(-4), name: p.name || '', last: String(p.last_fired_time || ''), off: !!p.is_unavailable, made: String(p.creation_time || '').slice(0, 10) });
+      });
+    } catch (e) { warn.push(act.slice(-4) + ': ' + e.message); }
+  });
+  seen.sort();
+  return { ads: ads, pixels: pixels, warn: warn, total: seen.length, first: seen[0] || '', last: seen[seen.length - 1] || '', ts: Date.now() };
 }
