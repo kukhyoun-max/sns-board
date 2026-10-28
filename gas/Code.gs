@@ -6055,6 +6055,10 @@ function partMetaAudit_() {
     return out.filter((x, i, a) => a.indexOf(x) === i);
   };
   const ads = [], pixels = [], warn = [], seen = [];
+  // 시스템 사용자에게 할당된 광고 계정 전부(META_ACCOUNT에 없는 계정도 점검). 응답에는 이름·끝 4자리만
+  let accts = [];
+  try { accts = metaGet_(conf, 'me/adaccounts', { fields: 'name,account_id,account_status', limit: 50 }); } catch (e) { warn.push('계정 목록: ' + e.message); }
+  accts.forEach(a => { const id = 'act_' + a.account_id; if (conf.acts.indexOf(id) < 0) conf.acts.push(id); });
   conf.acts.forEach(act => {
     try {
       metaGet_(conf, act + '/ads', {
@@ -6078,5 +6082,5 @@ function partMetaAudit_() {
     } catch (e) { warn.push(act.slice(-4) + ': ' + e.message); }
   });
   seen.sort();
-  return { ads: ads, pixels: pixels, warn: warn, total: seen.length, first: seen[0] || '', last: seen[seen.length - 1] || '', ts: Date.now() };
+  return { accts: accts.map(a => ({ act: String(a.account_id).slice(-4), name: a.name || '', status: a.account_status })), ads: ads, pixels: pixels, warn: warn, total: seen.length, first: seen[0] || '', last: seen[seen.length - 1] || '', ts: Date.now() };
 }
