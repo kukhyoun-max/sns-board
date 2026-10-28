@@ -3582,6 +3582,16 @@
         if (i >= 0) { q.lk[j] = pool[i].u; pool.splice(i, 1); q.ok[j] = 1; }
       });
     }));
+    // 날짜보다 먼저 올린 것(2026-10-28 「캠퍼스 투어 2화」 10/29 일정이 28일에 올라감): 오늘 남은 게시물 중 제목 낱말이 2개 이상 겹치면 그 예정도 올라간 것으로
+    PL.forEach(q => {
+      if (q.x[0] <= d.today) return;
+      const W = words(q.m ? q.m[2] : q.x[1]);
+      q.ks.forEach((k, j) => {
+        if (/스토리/.test(k)) return;
+        const i = pool.findIndex(p => p.c === pch(k) && W.filter(w => String(p.n).includes(w)).length >= 2);
+        if (i >= 0) { q.lk[j] = pool[i].u; pool.splice(i, 1); q.ok[j] = 1; q.early = 1; }
+      });
+    });
     const rows = pl.length ? PL.map(({ x, m, ks, ok, lk }) => {
       const done = ks.length && ks.every((k, j) => ok[j]), some = ok.some(Boolean), now = x[0] === d.today;
       // 게시 완료면 올린 게시물로(채널이 여럿이면 피드 게시물 먼저), 주소를 못 받았으면 폴더 그대로
