@@ -1192,4 +1192,4 @@ body { background: var(--bg); }
   .sg .cmpb { grid-template-columns: 108px minmax(0, 1fr) 52px; }
   .sg .k.info { box-shadow: inset 0 0 0 1px var(--line); }
 }
-.sg em.nm { font-style: normal; font-weight: 700; color: var(--fg); }
+.sg em.nm { font-style: normal; font-weight: 700; color: var(--fg); white-space: nowrap; }

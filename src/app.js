@@ -3827,7 +3827,7 @@
       if (young(it)) out.push(['info', '결과', (age <= 0 ? '오늘 올려서' : '올린 지 ' + age + '일째라') + ' 아직 판정 전이에요.', (youngTxt(it) || youngWait(it)) + ' · ' + AGE_MIN + '일이 지나면 판정해요']);
       else out.push([r >= HIT ? 'good' : r < 0.5 ? 'bad' : 'info', '결과', MN[mainM(it.c)] + '가 ' + vsTxt(r) + (r >= HIT ? '로 히트 게시물이에요.' : r < 0.5 ? '로 절반에 못 미쳤어요.' : r >= 1 ? '로 평소보다 조금 높아요.' : '로 평소보다 조금 낮아요.'), baseTxt]);
       const use = F.filter(x => !x.ext), pos = use.filter(x => x.m >= 1.2).sort((a, b) => b.m - a.m), neg = use.filter(x => x.m <= 0.85).sort((a, b) => a.m - b.m);
-      const names = L => L.slice(0, 3).map(x => x.nm).join(' · ');
+      const names = L => L.slice(0, 3).map(x => x.nm).join(', '); // 이름 안에 「·」가 있어 쉼표로 나눔
       const over = tg && tg.m > 0 && r / tg.m >= 1.5 ? '같은 주제 평소보다도 ' + vsP(r / tg.m) + ' 높아요' : '';
       if (young(it)) out.push(['info', '요약', pos.length ? '지금 보이는 잘 되는 특징은 ' + ieyo(names(pos)) + '.' : '눈에 띄게 잘 되는 특징은 아직 없어요.', [neg.length ? '약한 특징 ' + names(neg) : '', '잘 된 이유는 ' + AGE_MIN + '일 뒤 판정과 함께 봐요'].filter(Boolean).join(' · ')]);
       else if (r >= 1) out.push(['good', '요약', pos.length ? '잘 된 이유로 보이는 것은 ' + ieyo(names(pos)) + '.' : '주제·시기·제작만 보면 평범한 조합이에요. 장면·편집 같은 콘텐츠 자체의 힘으로 보여요.', [over, neg.length ? '약한 특징 ' + names(neg) : ''].filter(Boolean).join(' · ')]);
