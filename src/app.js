@@ -3836,6 +3836,8 @@
     F.forEach(x => out.push([x.k === '소재' ? 'good' : lvl(x.m), x.k, x.h, x.s, x.bars || '']));
     return out;
   }
+  // 성과 진단 문장의 이름(주제·시리즈·제작): 「」 대신 진하게(2026-10-28 담당자 「칸을 치는 게 띄어쓰기도 어색하고 공간도 차지」)
+  const nmz = t => esc(t).replace(/「([^」]*)」/g, '<em class="nm">$1</em>');
   function signals(it) {
     const out = [];
     const r = ratio(it), base = baseFor(it), v = last(it) || [];
@@ -3930,7 +3932,7 @@
         '<p class="note" style="text-align:center">' + (detailLine(it) ? '기록 날짜별 쌓인 값 ' + MN[m] : '이 콘텐츠 · 같은 분류 · 같은 형식 중간값' + (young(it) ? ' · 중간값은 다 자란 게시물의 최종 조회' : '')) + '</p></section>' +
       '<div class="gap"></div><section class="dsec why"><div class="lb"><span>' + ICO.spark + ' ' + (it.ad ? '광고 집행 정보' : d == null || young(it) ? '성과 요약' : d >= 0 ? '왜 잘 됐을까?' : '왜 아쉬웠을까?') + '</span><small>' + mdLabel(D.updated) + ' 기준</small></div><p>' + esc(whyText(it)) + '</p></section>' +
       '<div class="gap"></div><section class="dsec sig" id="dSig"><h3>성과 진단</h3><div class="h">' + (OWN.includes(it.c) ? '우리 과거 게시물·타 대학 게시물과 견준 결과' : '이 학교 과거 게시물과 견준 결과') + '</div>' +
-        signals(it).map(s => '<div class="sg"><span class="k ' + s[0] + '">' + s[1] + '</span><div><b>' + esc(s[2]) + '</b>' + (s[3] ? '<span>' + esc(s[3]) + '</span>' : '') + (s[4] || '') + '</div></div>').join('') +
+        signals(it).map(s => '<div class="sg"><span class="k ' + s[0] + '">' + s[1] + '</span><div><b>' + nmz(s[2]) + '</b>' + (s[3] ? '<span>' + nmz(s[3]) + '</span>' : '') + (s[4] || '') + '</div></div>').join('') +
         '<p class="note">우리 자료는 최근 2년 게시물 중간값이에요 · 타 대학 제목·소재는 2026년 10월 대학·입시 채널 15곳 유튜브 조사 · 함께 나타난 특징이라 원인이라고 단정하진 않아요 · 평균 차이일 뿐 게시물 하나를 맞히는 힘은 약해요(2026-10-23 시간 순서 검증, 인스타 저장률만 형식·분류로 오차 13~20% 줄어요)</p></section>' +
       deepDetailHtml(it) +
       '<div class="gap"></div><section class="dsec" id="dMet"><h3 style="margin:0 0 6px;font-size:var(--fs-xl);font-weight:700">지표</h3><div class="mgrid">' + metrics.map(m2 => '<div><span>' + esc(m2[0]) + '</span><b>' + esc(m2[1]) + '</b></div>').join('') + '</div>' +
