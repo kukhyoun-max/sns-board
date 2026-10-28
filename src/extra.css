@@ -1177,3 +1177,18 @@ body { background: var(--bg); }
 .fw-r { flex: 0 0 42%; display: flex; flex-direction: column; justify-content: flex-end; gap: 2px; }
 .hm-card.fw .fw-r .kspark { height: 56px; margin: 0; padding: 0; width: 100%; }
 .fw-cap { font-size: 14px; color: var(--muted); text-align: right; }
+/* 성과 진단 가독성(2026-10-28 「성과진단 부분 가독성이 떨어진다」): 휴대폰에선 왼쪽 56px 칸이 본문 폭을 깎아 한 줄에 10자 남짓 → 라벨을 위로 올린 한 줄 배치.
+   제목 18→16px·줄 간격 1.5, 항목 사이 구분선, 비교 막대 바탕·회색 막대를 더 진하게 */
+.cmpb .ct { background: var(--plane); }
+.cmpb .ct i { background: var(--muted); opacity: .5; }
+.cmpb .ct i.up, .cmpb .ct i.down { opacity: 1; }
+@media (max-width: 640px) {
+  .sg { display: block; padding: 16px 0; border-top: 1px solid var(--line); }
+  .sig .h + .sg { border-top: 0; padding-top: 4px; }
+  .sg .k { display: inline-flex; width: auto; height: auto; padding: 3px 9px; border-radius: 6px; font-size: var(--fs-tag); margin-bottom: 8px; }
+  .sg b { font-size: var(--fs-md); line-height: 1.5; }
+  .sg > div > span { margin-top: 4px; line-height: 1.5; }
+  .sg .cmps { margin-top: 10px; gap: 6px; }
+  .sg .cmpb { grid-template-columns: 108px minmax(0, 1fr) 52px; }
+  .sg .k.info { box-shadow: inset 0 0 0 1px var(--line); }
+}
