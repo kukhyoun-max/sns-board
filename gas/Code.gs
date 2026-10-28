@@ -5149,9 +5149,11 @@ function nightBrief(test) {
   try { extra = briefExtraBase_(ss, D, today); } catch (e) { notes.push('팔로우·시청 평소 읽기 실패'); }
   posts.forEach(x => { x.night = night[x.ch + '|' + x.type] || null; x.usual = briefUsual_(D, x.ch, x.type, today); x.ex = extra[x.ch + '|' + (x.ch === 'hong._.video' && /릴스/.test(x.type) ? '릴스' : x.type)] || null; });
   const recent = posts.length ? [] : briefRecent_(D, today), ideas = posts.length ? [] : briefIdeas_(D, today);
+  let chans = [];
+  try { chans = briefChannels_(ss, today); } catch (e) { notes.push('채널 전체 계산 실패: ' + String(e.message).slice(0, 80)); }
   const to = String(PropertiesService.getScriptProperties().getProperty('BRIEF_TO') || '').trim();
   const subject = '[SNS 브리핑] ' + briefDay_(today) + ' 오늘 올린 콘텐츠 ' + posts.length + '개' + (test ? ' (테스트)' : '');
-  if (to) MailApp.sendEmail({ to: to, subject: subject, htmlBody: briefHtml_(posts, stories, recent, notes, today, stamp, ideas), name: 'SNS 성과 보드' });
+  if (to) MailApp.sendEmail({ to: to, subject: subject, htmlBody: briefHtml_(posts, stories, recent, notes, today, stamp, ideas, chans), name: 'SNS 성과 보드' });
   let saved = '';
   if (posts.length) {
     const rows = posts.map(x => [today, x.ch, x.id, x.type, Utilities.formatDate(x.at, TZ, 'yyyy-MM-dd HH:mm'), Math.round(x.hours * 10) / 10,
@@ -5379,7 +5381,47 @@ function briefMetrics_(x) {
   }
   return out.filter(m => m[1] != null && !isNaN(m[1])).map(m => ({ name: m[0], v: m[1], base: m[2], fmt: m[3], grow: !!m[4], r: m[2] > 0 ? m[1] / m[2] : null }));
 }
-function briefHtml_(posts, stories, recent, notes, today, stamp, ideas) {
+// 오늘 채널 전체(2026-10-28 담당자 「오늘 올린 콘텐츠 제외하고도 오늘 채널별로 얻은 성과 브리핑」): 어제까지 올린 게시물이 오늘 더 받은 조회·좋아요 + 팔로워·구독자
+//  · 조회·좋아요 = 「일별 합계」 오늘 줄(08·12·16·20시 기록이 같은 날 줄을 덮어씀 → 20시 기록) − 그 전 기록일 줄 − 오늘 올린 게시물 값(「게시물 시간별」 20시까지 마지막 기록)
+//  · 누적이 줄었으면(원본 게시물 묶음이 바뀜) 그 채널은 비교 못 함. 오늘 줄이 없으면(주말은 일별 합계를 쉼) 칸을 뺌
+//  · 팔로워 = 지금 − 「인스타 계정 일별」 오늘 아침 기록 · 유튜브 구독자 = 지금 − 어젯밤 메일 때 값(스크립트 속성 NIGHT_ACCT)
+function briefChannels_(ss, today) {
+  const own = ['인스타그램', 'hong._.video', '유튜브'], out = [];
+  const rows = loadDailyTotals_(ss).filter(r => own.indexOf(r[1]) >= 0 && r[0] <= today);
+  const ymdhm = v => v instanceof Date ? Utilities.formatDate(v, TZ, 'yyyy-MM-dd HH:mm') : String(v || '');
+  const tp = {}; // 오늘 올린 게시물의 20시까지 마지막 값 {채널: {id: [조회, 좋아요]}}
+  const sh = ss.getSheetByName(HOURLY_SHEET);
+  if (sh && sh.getLastRow() > 1) {
+    const r0 = Math.max(2, sh.getLastRow() - 800);
+    sh.getRange(r0, 1, sh.getLastRow() - r0 + 1, 8).getValues().forEach(r => {
+      const st = ymdhm(r[0]);
+      if (st.slice(0, 10) !== today || st.slice(11, 13) > '20' || ymdhm(r[4]).slice(0, 10) !== today) return;
+      (tp[r[1]] = tp[r[1]] || {})[String(r[2])] = [Number(r[6]) || 0, Number(r[7]) || 0];
+    });
+  }
+  const prevAcct = (() => { try { return JSON.parse(PropertiesService.getScriptProperties().getProperty('NIGHT_ACCT') || '{}'); } catch (e) { return {}; } })();
+  const fol = {}, now = {};
+  try { igxChannels_().forEach(c => { const u = igxGet_(c.conf, c.user, { fields: 'followers_count' }); now[c.ch] = partN_(u.followers_count); }); } catch (e) {}
+  try { partRows_(ss, IGX_DAY_SHEET, 3).forEach(r => { const c = String(r[0]).trim(), v = partN_(r[2]); if (partD_(r[1]) === today && v != null) fol[c] = v; }); } catch (e) {}
+  try { now['유튜브'] = partN_(ytaGet_('https://www.googleapis.com/youtube/v3/channels?part=statistics&mine=true').items[0].statistics.subscriberCount); } catch (e) {}
+  own.forEach(ch => {
+    const L = rows.filter(r => r[1] === ch), t = L.filter(r => r[0] === today)[0], p = L.filter(r => r[0] < today).pop();
+    const o = { ch: ch, fol: now[ch] != null ? now[ch] : null, folD: null };
+    if (o.fol != null) { const b = ch === '유튜브' ? (prevAcct.d === shiftDate_(today, -1) ? prevAcct[ch] : null) : fol[ch]; if (b != null) o.folD = o.fol - b; }
+    if (t && p && t[3] != null && p[3] != null) {
+      const sub = Object.keys(tp[ch] || {}).reduce((a, id) => [a[0] + tp[ch][id][0], a[1] + tp[ch][id][1]], [0, 0]);
+      const dv = t[3] - p[3], dl = (t[4] || 0) - (p[4] || 0);
+      o.days = Math.round((new Date(today) - new Date(p[0])) / 864e5);
+      if (dv < 0) o.bad = 1;
+      else { o.v = Math.max(0, dv - sub[0]); o.l = Math.max(0, dl - sub[1]); o.nv = sub[0]; o.nn = Object.keys(tp[ch] || {}).length; }
+    }
+    if (o.v != null || o.bad || o.fol != null) out.push(o);
+  });
+  const keep = { d: today }; own.forEach(ch => { if (now[ch] != null) keep[ch] = now[ch]; });
+  try { PropertiesService.getScriptProperties().setProperty('NIGHT_ACCT', JSON.stringify(keep)); } catch (e) {}
+  return out;
+}
+function briefHtml_(posts, stories, recent, notes, today, stamp, ideas, chans) {
   const wrap = s => '<div style="background:' + BR.soft + ';padding:20px 12px"><div style="font-family:\'Noto Sans KR\',\'Apple SD Gothic Neo\',sans-serif;max-width:560px;margin:0 auto;color:' + BR.fg + ';line-height:1.7">' + s + '</div></div>';
   const card = s => '<div style="background:#fff;border:1px solid ' + BR.line + ';border-radius:16px;padding:16px 18px;margin:0 0 12px">' + s + '</div>';
   const h2 = (t, sub) => '<div style="margin:18px 4px 8px"><div style="font-size:16px;font-weight:800">' + t + '</div>' + (sub ? '<div style="font-size:12px;color:' + BR.mu + '">' + sub + '</div>' : '') + '</div>';
@@ -5427,6 +5469,24 @@ function briefHtml_(posts, stories, recent, notes, today, stamp, ideas) {
     + briefTile_('반응률 잘 됨 이상', judgedRc.length ? goodRc + ' / ' + judgedRc.length : '–', '평소 대비 +30% 이상 · 판정된 것만') + '</tr><tr>'
     + briefTile_('오늘 게시물로 새 팔로우', hasF ? briefNum_(sumF) + '명' : '–', hasF ? '인스타·hong 피드 게시물' : '릴스는 메타가 주지 않음')
     + briefTile_('오늘 스토리 조회수', stories.length ? briefNum_(sv) : '–', '스토리 ' + stories.length + '개') + '</tr></table>';
+  // 채널 전체 오늘(2026-10-28): 어제까지 올린 게시물이 오늘 더 받은 조회 + 팔로워 — briefChannels_
+  if (chans && chans.length) {
+    let g = '';
+    chans.forEach((o, i) => {
+      const bd = i ? 'border-top:1px solid ' + BR.line + ';' : '';
+      const fd = o.folD == null ? '' : ' <span style="color:' + (o.folD > 0 ? BR.up : o.folD < 0 ? BR.downTx : BR.mu) + '">' + (o.folD > 0 ? '+' : o.folD < 0 ? '−' : '±') + Math.abs(o.folD).toLocaleString('ko-KR') + '</span>';
+      const fl = o.fol != null ? (o.ch === '유튜브' ? '구독자 ' : '팔로워 ') + Number(o.fol).toLocaleString('ko-KR') + fd : '';
+      const main = o.bad ? '<span style="font-size:13px;color:' + BR.mu + '">원본 게시물 묶음이 바뀌어 오늘은 비교하지 못해요</span>'
+        : o.v != null ? '<span style="font-size:20px;font-weight:800">+' + briefNum_(o.v) + '</span><span style="font-size:12px;color:' + BR.mu + '"> 조회</span>'
+        : '<span style="font-size:13px;color:' + BR.mu + '">오늘 기록이 없어요</span>';
+      const subl = [o.v != null ? '좋아요 +' + briefNum_(o.l) : '', o.nn ? '오늘 올린 ' + o.nn + '개는 빼고 셈(+' + briefNum_(o.nv) + ')' : '', o.days > 1 ? o.days + '일치 · 지난 기록부터' : ''].filter(Boolean).join(' · ');
+      g += '<tr><td style="' + bd + 'padding:12px 0 2px">' + briefChip_(o.ch) + '</td><td style="' + bd + 'padding:12px 0 2px;text-align:right;font-size:13px;font-weight:700;white-space:nowrap">' + fl + '</td></tr>'
+        + '<tr><td colspan="2" style="padding:2px 0 ' + (subl ? '0' : '12px') + '">' + main + '</td></tr>'
+        + (subl ? '<tr><td colspan="2" style="padding:2px 0 12px;font-size:12px;color:' + BR.sub + ';line-height:1.5">' + subl + '</td></tr>' : '');
+    });
+    h += h2('채널 전체 오늘', '어제까지 올린 게시물이 오늘 더 받은 조회 · 20시 기록 기준 · 팔로워는 지금 값(인스타·hong은 오늘 아침, 유튜브는 어젯밤보다)');
+    h += card(tbl(g));
+  }
   // 게시물별 카드
   if (posts.length) h += h2('게시물별 자세히', '반응 좋은 순 · 지표마다 같은 형식의 평소와 견줘요');
   const stat = (k, v) => '<td width="20%" style="padding:3px" valign="top"><div style="background:' + BR.soft + ';border-radius:10px;padding:6px 8px;text-align:center"><div style="font-size:11px;color:' + BR.mu + '">' + k + '</div><div style="font-size:14px;font-weight:800">' + v + '</div></div></td>';
