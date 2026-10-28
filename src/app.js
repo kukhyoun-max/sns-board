@@ -758,9 +758,12 @@
     const rows = (D.daily || []).filter(r => chs.includes(r[1]));
     const by = {}; rows.forEach(r => { (by[r[0]] = by[r[0]] || {})[r[1]] = r; });
     const okc = chs.filter(c => rows.some(r => r[1] === c));
-    const tot = (d, cs) => { const o = by[d]; if (!o || !cs.every(c => o[c] && o[c][3] != null)) return null; return sum(cs.map(c => o[c][3])); };
-    const totLE = (d, cs) => { for (let k = 0; k <= 3; k++) { const v = tot(addDays(d, -k), cs); if (v != null) return v; } return null; };
-    const span = (a, b, cs) => { const x = tot(b, cs) != null ? tot(b, cs) : (a === b ? null : totLE(b, cs)), y = totLE(addDays(a, -1), cs); return x != null && y != null ? Math.max(0, x - y) : null; };
+    // 채널마다 기록과 기록 사이 증가를 더함. 게시물 수나 누적 조회가 줄어든 구간은 0(2026-10-28: hong 원본 갱신으로 게시물 141→131개, 누적 −10만 → 이번 주 전체가 +0으로 보임)
+    const has = (d, c) => by[d] && by[d][c] && by[d][c][3] != null;
+    const le = (d, c) => { for (let k = 0; k <= 3; k++) { const x = addDays(d, -k); if (has(x, c)) return x; } return null; };
+    const recs = {}; okc.forEach(c => { recs[c] = Object.keys(by).filter(d => has(d, c)).sort(); });
+    const chInc = (c, d0, d1) => { let s = 0, p = by[d0][c]; recs[c].filter(d => d > d0 && d <= d1).forEach(d => { const r = by[d][c]; if (r[2] >= p[2] && r[3] >= p[3]) s += r[3] - p[3]; p = r; }); return s; };
+    const span = (a, b, cs) => { let s = 0; for (const c of cs) { const x = has(b, c) ? b : (a === b ? null : le(b, c)), y = le(addDays(a, -1), c); if (!x || !y) return null; s += chInc(c, y, x); } return s; };
     const dayInc = (d, cs) => span(d, d, cs);
     const days = WK_D.map((n, k) => { const d = addDays(mon, k); return { d, n, v: d <= end ? dayInc(d, okc) : undefined, pv: dayInc(addDays(d, -7), okc) }; });
     const cur = span(mon, end, okc), prev = span(pm, pe, okc);
