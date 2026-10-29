@@ -1210,3 +1210,4 @@ em.nm { font-style: normal; font-weight: 700; color: var(--fg); }
 /* 호남권 릴스 막대: 값 칸 폭 고정(값 길이에 따라 막대 끝이 들쭉날쭉하던 것), 지표 버튼 줄 */
 #hrSec .bc-r { grid-template-columns: 92px minmax(0, 1fr) 104px; }
 #hrSec .hr-seg { margin-bottom: 12px; }
+#ytbSec .bc-n { white-space: nowrap; } /* 광주여대처럼 네 글자 학교 이름이 두 줄로 접히지 않게(2026-10-30) */

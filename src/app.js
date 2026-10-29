@@ -1209,7 +1209,7 @@
   }
 
   // ═════════ 홈 ③ 타 대학 비교 ═════════
-  const BC = { p: 182 };
+  const BC = { p: 182, ar: 'jb' }; // ar = 릴스·유튜브 비교 학교 범위(jb 전북 4곳 기본 · hn 호남권 전체, 2026-10-30 담당자 「전북 3개 대학만 보여주고 버튼으로 호남권」)
   function benchRows(days) {
     const f = addDays(D.updated, -days + 1);
     return ['인스타그램'].concat(benchNames()).map(ch => {
@@ -1242,9 +1242,14 @@
 
   // ───────── 타 대학 유튜브(공개 숫자, ?part=ytb · 2026-10-26~ 매일 기록) ─────────
   // 우리 채널도 같은 공개 숫자로 받아 같은 기준으로 비교. 조회 중간값은 올린 지 7일 지난 영상만(막 올린 영상이 낮게 끌지 않게)
+  const AR_JB = { jjuniv: 1, jbnu1947: 1, wonkwang_univ: 1, woosukuni: 1, 전주대: 1, 전북대: 1, 원광대: 1, 우석대: 1 };
+  const arSeg = () => '<div class="seg" role="group" aria-label="학교 범위">' + [['jb', '전북'], ['hn', '호남권 전체']].map(a => '<button type="button" data-bca="' + a[0] + '" aria-pressed="' + (BC.ar === a[0]) + '">' + a[1] + '</button>').join('') + '</div>';
+  const arOk = k => BC.ar === 'hn' || !!AR_JB[k];
+  function wireAr(b) { b.querySelectorAll('[data-bca]').forEach(x => x.addEventListener('click', () => { if (BC.ar === x.dataset.bca) return; BC.ar = x.dataset.bca; paintHreel(); paintYtb(); })); }
   const YTB_IG = { 전주대: '유튜브', 전북대: 'jbnu1947', 원광대: 'wonkwang_univ', 우석대: 'woosukuni' }; // 색·이름표는 인스타 비교와 같게
   function ytbHtml(Y) {
-    const head = '<div class="sh"><div><h2>유튜브 비교</h2><p>공개 숫자 기준(유튜브 API) · 최근 ' + ({ 91: 3, 182: 6, 365: 12 })[BC.p] + '개월 영상 · 조회는 올린 지 7일 지난 영상의 중간값 · 구독자는 유튜브가 앞 세 자리까지만 알려 줘요</p></div></div>';
+    const head = '<div class="sh"><div><h2>유튜브 비교</h2><p>공개 숫자 기준(유튜브 API) · 최근 ' + ({ 91: 3, 182: 6, 365: 12 })[BC.p] + '개월 영상 · 조회는 올린 지 7일 지난 영상의 중간값 · 구독자는 유튜브가 앞 세 자리까지만 알려 줘요</p></div>' + arSeg() + '</div>';
+    if (Y && Y.ch) Y = Object.assign({}, Y, { ch: Y.ch.filter(c => arOk(c[0])), v: (Y.v || []).filter(r => arOk(r[0])), a: (Y.a || []).filter(r => arOk(r[1])) });
     if (!Y || !Y.v || !Y.v.length) return head + '<div class="wait">' + (Y ? '아직 기록이 없어요. 다음 아침 기록부터 보여요.' : '유튜브 비교를 불러오지 못했어요.') + '</div>';
     const today = D.updated, from = addDays(today, -BC.p), ripe = addDays(today, -7);
     const R = Y.ch.map(([n, , own]) => {
@@ -1275,9 +1280,9 @@
   }
   function paintYtb() {
     const box = $('ytbSec'); if (!box) return;
-    if (PART.ytb) { box.innerHTML = ytbHtml(PART.ytb); return; }
+    if (PART.ytb) { box.innerHTML = ytbHtml(PART.ytb); wireAr(box); return; }
     box.innerHTML = '<div class="sh"><div><h2>유튜브 비교</h2></div></div><div class="wait">불러오는 중이에요</div>';
-    loadPart('ytb').then(Y => { const b = $('ytbSec'); if (b) b.innerHTML = ytbHtml(Y); });
+    loadPart('ytb').then(Y => { const b = $('ytbSec'); if (b) { b.innerHTML = ytbHtml(Y); wireAr(b); } });
   }
   // ───────── 호남권 대학 릴스(공개 재생수, ?part=hreel · Apify 주 1회 · 2026-10-29~) ─────────
   // 인스타 API가 타 계정 릴스 재생수를 안 줘서 따로 받음. 계정마다 최근 릴스만 쌓이므로 「주당 게시」는 내지 않음
@@ -1322,10 +1327,10 @@
     return '<div class="hm-sec"><div class="hm-h"><h3>하지 말아야 할 주제·유형</h3><span>평소의 ' + HR_BAD + '배 이하</span></div>' +
       (list ? '<div class="hm-list">' + list + '</div>' : '<div class="wait">평소의 ' + HR_BAD + '배 아래로 떨어지는 주제·유형이 아직 없어요.</div>') +
       (low.length ? '<p class="note">조금 낮음(' + HR_BAD + '~' + HR_LOW + '배): ' + low.map(o => esc(o.name) + (o.our ? '(우리 ' + o.our + '개)' : '')).join(', ') + '</p>' : '') +
-      '<p class="note">주제·유형은 캡션 낱말로 자동 판정(우리 게시물과 같은 규칙) · 받은 타 대학 릴스 전체 기준 · 릴스 ' + MIN_N + '개·3개 학교 이상만 · 「우리도」 = 최근 ' + ({ 91: 3, 182: 6, 365: 12 })[BC.p] + '개월 우리 릴스 수</p></div>';
+      '<p class="note">주제·유형은 캡션 낱말로 자동 판정(우리 게시물과 같은 규칙) · 학교 범위와 상관없이 호남권 전체 릴스 기준 · 릴스 ' + MIN_N + '개·3개 학교 이상만 · 「우리도」 = 최근 ' + ({ 91: 3, 182: 6, 365: 12 })[BC.p] + '개월 우리 릴스 수</p></div>';
   }
-  function hrAdList(H, flag, name, from) {
-    const L = H.v.filter(r => flag[r[0]] && r[2] >= from).sort((a, b) => flag[b[0]].x - flag[a[0]].x);
+  function hrAdList(H, flag, name, from, ok) {
+    const L = H.v.filter(r => flag[r[0]] && ok(r[1]) && r[2] >= from).sort((a, b) => flag[b[0]].x - flag[a[0]].x);
     if (!L.length) return '';
     const rows = L.slice(0, 8).map(r => { const f = flag[r[0]]; return hmRow({ tag: 'a', attr: 'href="https://www.instagram.com/reel/' + esc(r[0]) + '/" target="_blank" rel="noopener"',
       t: esc(r[7] || '(첫 문장 없음)'), v: '<span class="tag p-guess">' + f.why + '</span>',
@@ -1335,7 +1340,7 @@
   }
   function hrHtml(H) {
     const at = H && H.at ? ' · ' + dot(H.at) + ' 받음' : '';
-    const head = '<div class="sh"><div><h2>호남권 대학 릴스</h2><p>공개 재생수 · 최근 ' + ({ 91: 3, 182: 6, 365: 12 })[BC.p] + '개월 릴스 · 재생은 중간값</p></div></div>';
+    const head = '<div class="sh"><div><h2>' + (BC.ar === 'hn' ? '호남권' : '전북') + ' 대학 릴스</h2><p>공개 재생수 · 최근 ' + ({ 91: 3, 182: 6, 365: 12 })[BC.p] + '개월 릴스 · 재생은 중간값</p></div>' + arSeg() + '</div>';
     if (!H || !H.v || !H.v.length) return head + '<div class="wait">' + (H ? '아직 기록이 없어요. 첫 수집이 끝나면 보여요.' : '호남권 릴스를 불러오지 못했어요.') + '</div>';
     const from = addDays(D.updated, -BC.p), name = {}, own = {};
     H.acc.forEach(a => { name[a[0]] = a[1]; own[a[0]] = a[2]; });
@@ -1344,7 +1349,7 @@
     const all = {}; CV.forEach(r => (all[r[1]] = all[r[1]] || []).push(r[3]));
     const base = {}; for (const u in all) base[u] = median(all[u]);
     const M = HR_M.find(m => m[0] === BC.hm) || HR_M[0];
-    const R = H.acc.map(([u]) => { const V = CV.filter(r => r[1] === u && r[2] >= from), hd = AD.hid[u];
+    const R = H.acc.filter(a => arOk(a[0])).map(([u]) => { const V = CV.filter(r => r[1] === u && r[2] >= from), hd = AD.hid[u];
       const val = M[0] === 'n' ? V.length : !V.length || (M[0] === 'l' && hd) ? null : M[0] === 'e' ? median(V.map(r => ((hd ? 0 : r[4] || 0) + (r[5] || 0)) / Math.max(1, r[3]))) : median(V.map(r => r[M[0] === 'l' ? 4 : M[0] === 'c' ? 5 : 3] || 0));
       return { u, n: V.length, med: val, hid: hd }; })
       .sort((a, b) => (b.med == null ? -1 : b.med) - (a.med == null ? -1 : a.med));
@@ -1353,20 +1358,20 @@
       '<span class="bc-t">' + (r.med == null ? '' : '<i style="width:' + Math.max(2, r.med / mx * 100) + '%;background:' + col(r.u) + '"></i>') + '</span>' +
       '<span class="bc-v num">' + (r.med == null ? '<span class="mu">' + (r.hid && M[0] === 'l' ? '숨김' : '없음') + '</span>' : fv(r.med) + (M[0] === 'n' ? '' : ' <small class="mu">' + r.n + '개</small>')) + '</span></div>').join('');
     const seg = '<div class="seg hr-seg" role="group" aria-label="막대 지표">' + HR_M.map(m => '<button type="button" data-hrm="' + m[0] + '" aria-pressed="' + (m === M) + '">' + m[1] + '</button>').join('') + '</div>';
-    const top = CV.filter(r => !own[r[1]] && r[2] >= from && base[r[1]]).map(r => ({ r, x: r[3] / base[r[1]] })).sort((a, b) => b.x - a.x).filter((o, i, A) => A.findIndex(p => p.r[1] === o.r[1]) === i).slice(0, 6); // 학교마다 1개(수시 광고 몰림으로 한 학교가 다 차지하지 않게)
+    const top = CV.filter(r => !own[r[1]] && arOk(r[1]) && r[2] >= from && base[r[1]]).map(r => ({ r, x: r[3] / base[r[1]] })).sort((a, b) => b.x - a.x).filter((o, i, A) => A.findIndex(p => p.r[1] === o.r[1]) === i).slice(0, 6); // 학교마다 1개(수시 광고 몰림으로 한 학교가 다 차지하지 않게)
     const rows = top.map(({ r, x }) => hmRow({ tag: 'a', attr: 'href="https://www.instagram.com/reel/' + esc(r[0]) + '/" target="_blank" rel="noopener"',
       t: esc(r[7] || '(첫 문장 없음)'), v: '평소의 ' + (Math.round(x * 10) / 10) + '배', vc: 'up', m: hrWho(name[r[1]], col(r[1])) + ' · ' + dot(r[2]), r: '재생 ' + fmtK(r[3]) })).join('');
     const hid = R.filter(r => r.hid).map(r => name[r.u]);
     return head + '<div class="bc-grid n1"><div class="bc-b">' + seg + '<h3>' + M[2] + '</h3>' + bars + '</div></div>' +
       (rows ? '<div class="hm-sec"><div class="hm-h"><h3>평소보다 잘 된 릴스</h3><span>학교마다 1개</span></div><div class="hm-list">' + rows + '</div></div>' : '') +
-      hrAvoid(H, CV, base, own, from) + hrAdList(H, AD.flag, name, from) +
+      hrAvoid(H, CV, base, own, from) + hrAdList(H, AD.flag, name, from, arOk) +
       '<p class="note">매주 월요일 갱신' + at + '. 재생에는 반복 재생과 광고 재생이 들어가요. 순위·잘 된 릴스·하지 말 것은 광고로 보이는 릴스를 빼고 계산해요' + (hid.length ? ' · 좋아요를 숨긴 학교: ' + esc(hid.join(', ')) : '') + '</p>';
   }
   function paintHreel() {
     const box = $('hrSec'); if (!box) return;
-    const put = (b, H) => { b.innerHTML = hrHtml(H); b.querySelectorAll('[data-hrm]').forEach(x => x.addEventListener('click', () => { BC.hm = x.dataset.hrm; put(b, H); })); };
+    const put = (b, H) => { b.innerHTML = hrHtml(H); wireAr(b); b.querySelectorAll('[data-hrm]').forEach(x => x.addEventListener('click', () => { BC.hm = x.dataset.hrm; put(b, H); })); };
     if (PART.hreel) { put(box, PART.hreel); return; }
-    box.innerHTML = '<div class="sh"><div><h2>호남권 대학 릴스</h2></div></div><div class="wait">불러오는 중이에요</div>';
+    box.innerHTML = '<div class="sh"><div><h2>' + (BC.ar === 'hn' ? '호남권' : '전북') + ' 대학 릴스</h2></div></div><div class="wait">불러오는 중이에요</div>';
     loadPart('hreel').then(H => { const b = $('hrSec'); if (b) put(b, H); });
   }
   function wireBenchCmp() {
