@@ -3965,7 +3965,7 @@ function storySnapshot() {
   // 타 대학 월별 게시 수: 탭이 없으면 한 번 받음(2026-10-26 원광대 작년·올해 게시 건수 보고용)
   try { if (!ss.getSheetByName(YC_SHEET)) { const n = yearCountStep_(ss); logRows_(ss, [[new Date(), YC_SHEET, n, '정상']]); } } catch (e) { logRows_(ss, [[new Date(), YC_SHEET, 0, '오류: ' + String(e.message).slice(0, 120)]]); }
   // 타 대학 유튜브: 탭이 아직 없으면(처음 배포 뒤) 아침 기록을 기다리지 않고 한 번 받음(2026-10-26)
-  try { if (!ss.getSheetByName(YTB_CH_SHEET)) { const L = []; ytbStep_(ss, Utilities.formatDate(new Date(), TZ, 'yyyy-MM-dd'), L); logRows_(ss, L); CacheService.getScriptCache().removeAll(['part:ytb:meta']); } } catch (e) { logRows_(ss, [[new Date(), '타대학 유튜브', 0, '오류: ' + String(e.message).slice(0, 120)]]); }
+  try { const yp = PropertiesService.getScriptProperties(); if (!ss.getSheetByName(YTB_CH_SHEET) || yp.getProperty('YTB_CH_N') !== String(YTB_CH.length)) { const L = []; ytbStep_(ss, Utilities.formatDate(new Date(), TZ, 'yyyy-MM-dd'), L); logRows_(ss, L); yp.setProperty('YTB_CH_N', String(YTB_CH.length)); CacheService.getScriptCache().removeAll(['part:ytb:meta']); } } catch (e) { logRows_(ss, [[new Date(), '타대학 유튜브', 0, '오류: ' + String(e.message).slice(0, 120)]]); } // 채널을 더하면(2026-10-29 호남권) 아침을 기다리지 않고 한 번
   // 호남권 릴스: 탭이 없으면(처음 배포 뒤) 월요일을 기다리지 않고 한 번 받음(2026-10-29)
   try { if (hreelDue_(ss, Utilities.formatDate(new Date(), TZ, 'yyyy-MM-dd'))) { const L = []; hreelStep_(ss, Utilities.formatDate(new Date(), TZ, 'yyyy-MM-dd'), L); logRows_(ss, L); } } catch (e) { logRows_(ss, [[new Date(), HREEL_SHEET, 0, '오류: ' + String(e.message).slice(0, 120)]]); }
   try {
@@ -6082,6 +6082,11 @@ const YTB_CH = [
   { n: '전북대', id: 'UCXUBJhaDkqPRqiKpzt_W_iA' },
   { n: '원광대', id: 'UCh5FgONuGDNnTXuxGz-mo5A' },
   { n: '우석대', id: 'UCLTxOuZgxgJOY0CJD5yH0_A' },
+  // 호남권(2026-10-29 담당자 「호남지역 유튜브 데이터도」) — 홈페이지 링크·유튜브 공식 채널로 확인
+  { n: '군산대', id: 'UCMa-iliD3RCPflvx2XAHwzQ' }, { n: '호원대', id: 'UC34r-ZJNBLw99F4XEckbniA' }, { n: '전남대', id: 'UC3NfRMkJ20K55g_sjCeegiA' },
+  { n: '조선대', id: 'UCr0vMKw8iI5B1CYvX1ZsamQ' }, { n: '순천대', id: 'UCHapuxVzXNG7x9SEQ_z_33Q' }, { n: '목포대', id: 'UCxm4lw_qATcnrFNboXcjkiA' },
+  { n: '호남대', id: 'UCPzjcfaoZVV0xQAABKhLbdw' }, { n: '광주대', id: 'UCPmhkwF-ROTBwgwvzKkhAsg' }, { n: '동신대', id: 'UCXdczA3YqZwGx1Cim8mwJYg' },
+  { n: '광주여대', id: 'UCuiKP3QUUMr44yuJ4LZAh5A' },
 ];
 const YTB_DAYS = 400, YTB_YOUNG = 30;
 const YTB_CH_SHEET = '타대학 유튜브 채널', YTB_V_SHEET = '타대학 유튜브 영상', YTB_H_SHEET = '타대학 유튜브 기록';
