@@ -2755,15 +2755,21 @@ function metaConf_() {
   const acts = String(p.getProperty('META_ACCOUNT') || '').split(/[,\s]+/).map(x => x.replace(/^act_/, '').trim()).filter(x => /^\d+$/.test(x)).map(x => 'act_' + x);
   return token && acts.length ? { token: token, act: acts[0], acts: acts, warn: [] } : null;
 }
-// 예전 광고 계정 빼기(2026-10-27 담당자 「없애도 데이터에 문제없으면 내려」): 10/19 토큰 재발급 뒤 「계정 없음·권한 없음」(code 100)만 나던 계정.
-// 캠페인·소재 탭은 매번 접근되는 계정으로 새로 쓰고, 「메타 일별」은 최근 기간 밖 행을 그대로 두므로 빼도 남은 기록은 그대로. 끝 4자리로만 맞춤(계정 ID는 저장소에 안 남김)
-const META_DROP = ['0075'];
-function dropMetaActOnce_(logs) {
-  const p = PropertiesService.getScriptProperties(), raw = String(p.getProperty('META_ACCOUNT') || '');
-  const ids = raw.split(/[,\s]+/).filter(Boolean), keep = ids.filter(x => !META_DROP.some(t => x.replace(/^act_/, '').slice(-4) === t));
-  if (!keep.length || keep.length === ids.length) return;
-  p.setProperty('META_ACCOUNT', keep.join(','));
-  logs.push([new Date(), '메타 광고 API', 0, '설정 — 접근 안 되는 예전 광고 계정 ' + (ids.length - keep.length) + '개를 META_ACCOUNT에서 뺌']);
+// 광고 계정 자동 추가(2026-10-29): 10/27에 「예전 계정」으로 뺀 0075는 실제로는 2027 수시 광고 계정이었음(10/19 토큰 재발급 때 시스템 사용자 할당이 빠졌던 것).
+// 이제 시스템 사용자 「sns-board」에 할당된 광고 계정(me/adaccounts)이 META_ACCOUNT에 없으면 매일 기록 때 더함. 계정을 빼는 일은 하지 않음
+function addMetaActs_(logs) {
+  const p = PropertiesService.getScriptProperties(), token = p.getProperty('META_TOKEN');
+  if (!token) return;
+  const ids = String(p.getProperty('META_ACCOUNT') || '').split(/[,\s]+/).map(x => x.replace(/^act_/, '').trim()).filter(x => /^\d+$/.test(x));
+  let got = [];
+  try { got = metaGet_({ token: token }, 'me/adaccounts', { fields: 'account_id', limit: 50 }).map(a => String(a.account_id)); }
+  catch (e) { logs.push([new Date(), '메타 광고 API', 0, '광고 계정 목록 못 받음: ' + e.message]); return; }
+  const add = got.filter(x => ids.indexOf(x) < 0);
+  if (!add.length) return;
+  p.setProperty('META_ACCOUNT', ids.concat(add).join(','));
+  // 새 계정의 2026-07 이후 일별을 다시 받음(2027 수시 8/1~9/11 포함). 이미 과거 채우기 중이면 그대로 둠
+  if (!p.getProperty('META_BF')) { const y = shiftDate_(Utilities.formatDate(new Date(), TZ, 'yyyy-MM-dd'), -1); p.setProperty('META_BF', JSON.stringify({ start: '2026-07-01', a: '2026-07-01', end: y, got: 1, n: 0, skipped: [], warn: [] })); }
+  logs.push([new Date(), '메타 광고 API', 0, '설정 — 시스템 사용자에 할당된 광고 계정 ' + add.length + '개(끝 ' + add.map(x => x.slice(-4)).join('·') + ')를 META_ACCOUNT에 더함']);
 }
 // 모든 광고 계정에서 같은 요청 → 행을 합침. 일부 계정만 실패하면 conf.warn에 남기고 나머지로 진행, 전부 실패하면 오류
 function metaAll_(conf, edge, params) {
@@ -2894,7 +2900,7 @@ function metaRefreshInfo_(ss, conf) {
 }
 // 매일 기록 단계: 최근 META_DAYS일 일별 + 캠페인·소재 갱신
 function metaStep_(ss, today, logs) {
-  dropMetaActOnce_(logs);
+  addMetaActs_(logs);
   const conf = metaConf_();
   if (!conf) { logs.push([new Date(), '메타 광고 API', 0, '건너뜀: 스크립트 속성 META_TOKEN·META_ACCOUNT 없음']); return; }
   // 과거 채우기가 덜 끝났는데 예약이 없으면 1분 뒤로 예약(편집기에서 다시 누르지 않아도 이어짐)
@@ -6123,6 +6129,7 @@ function partMetaAudit_() {
     return out.filter((x, i, a) => a.indexOf(x) === i);
   };
   const ads = [], pixels = [], warn = [], seen = [];
+  const idx = {};
   // 시스템 사용자에게 할당된 광고 계정 전부(META_ACCOUNT에 없는 계정도 점검). 응답에는 이름·끝 4자리만
   let accts = [];
   try { accts = metaGet_(conf, 'me/adaccounts', { fields: 'name,account_id,account_status', limit: 50 }); } catch (e) { warn.push('계정 목록: ' + e.message); }
@@ -6139,10 +6146,23 @@ function partMetaAudit_() {
         const dof = ((c.degrees_of_freedom_spec || {}).creative_features_spec) || {};
         const feat = {};
         Object.keys(dof).forEach(k => { feat[k] = (dof[k] || {}).enroll_status || ''; });
+        idx[a.id] = ads.length;
         ads.push({ act: act.slice(-4), camp: (a.campaign || {}).name || '', obj: (a.campaign || {}).objective || '', adset: st.name || '',
           goal: st.optimization_goal || '', dest: st.destination_type || '', pixel: po.pixel_id ? String(po.pixel_id).slice(-4) : '', event: po.custom_event_type || '',
           ad: a.name || '', status: a.effective_status || '', created: String(a.created_time || '').slice(0, 10),
           links: links(c), tags: c.url_tags || '', feat: feat });
+      });
+      // 기존 게시물 광고의 웹사이트 주소는 object_story_spec에 없어서 따로 받음. 필드가 안 맞으면 그 요청만 건너뜀
+      ['creative{call_to_action_type,link_destination_display_url,template_url}', 'creative{call_to_action}'].forEach(f => {
+        try {
+          metaGet_(conf, act + '/ads', { fields: f, effective_status: META_STATUS, limit: 100 }).forEach(a => {
+            const i = idx[a.id], c = a.creative || {};
+            if (i == null) return;
+            const cta = (c.call_to_action || {}).value || {};
+            [cta.link, c.link_destination_display_url, c.template_url].forEach(u => { if (u && ads[i].links.indexOf(u) < 0) ads[i].links.push(u); });
+            if (c.call_to_action_type) ads[i].cta = c.call_to_action_type;
+          });
+        } catch (e) { warn.push(act.slice(-4) + ' ' + f.slice(9, 30) + ': ' + e.message); }
       });
       metaGet_(conf, act + '/adspixels', { fields: 'name,last_fired_time,is_unavailable,creation_time', limit: 50 }).forEach(p => {
         pixels.push({ act: act.slice(-4), name: p.name || '', last: String(p.last_fired_time || ''), off: !!p.is_unavailable, made: String(p.creation_time || '').slice(0, 10) });
