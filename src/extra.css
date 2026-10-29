@@ -1197,3 +1197,5 @@ body { background: var(--bg); }
 .tag small { margin-left: 6px; font-size: .82em; font-weight: 400; color: var(--muted); opacity: .8; }
 /* PC(900px 이상)에서 .hm-rx의 align-items:start가 세로 목록(.hm-stack)에도 걸려 줄이 글자 폭으로 줄어들던 것(2026-10-29) */
 .hm-rx.hm-stack { align-items: stretch; }
+/* 문장 안 게시물·분류 이름: 괄호 대신 진하게(2026-10-29) */
+em.nm { font-style: normal; font-weight: 700; color: var(--fg); }

@@ -394,8 +394,8 @@
     const vd = M.vCur == null || !M.vPrev ? null : M.vCur / M.vPrev - 1, fd = M.fNow != null && M.fWas != null ? M.fNow - M.fWas : null;
     const best = M.top[0];
     const lead = M.vCur == null ? '지난 7일 조회 기록이 아직 없어요' : '지난 7일 동안 ' + scope + ' 조회수가 ' + fmtM(M.vCur) + ' 회 늘었어요';
-    const sub = [vd == null ? '' : '지난주(' + fmtM(M.vPrev) + ')보다 ' + (Math.abs(vd) < 0.03 ? '비슷해요' : Math.round(Math.abs(vd) * 100) + '% ' + (vd > 0 ? '많아요' : '적어요')),
-      best ? '가장 많이 본 건 「' + esc(title(best.it.n)) + '」(' + fmtK(best.g) + ')이에요' : ''].filter(Boolean).join('. ');
+    const sub = [vd == null ? '' : '지난주 ' + fmtM(M.vPrev) + ' 회' + (Math.abs(vd) < 0.03 ? '와 비슷해요' : '보다 ' + Math.round(Math.abs(vd) * 100) + '% ' + (vd > 0 ? '많아요' : '적어요')),
+      best ? '가장 많이 본 건 <em class="nm">' + esc(title(best.it.n)) + '</em>, ' + fmtK(best.g) + ' 회예요' : ''].filter(Boolean).join('. ');
     const tab = (k, lab, val, d) => '<button type="button" class="ov-t" data-m="' + k + '" aria-pressed="' + (k === m) + '"><small>' + lab + '</small><b class="num">' + val + '</b>' + d + '</button>';
     const vdT = vd == null ? '<i class="mu">비교 전</i>' : '<i class="' + (Math.abs(vd) < 0.03 ? 'mu' : vd > 0 ? 'up arr' : 'down arr dn') + '">' + Math.round(Math.abs(vd) * 100) + '%</i>';
     const fdT = fd == null ? '<i class="mu">비교 전</i>' : '<i class="' + (fd === 0 ? 'mu' : fd > 0 ? 'up arr' : 'down arr dn') + '">' + (fd === 0 ? '변화 없음' : fmt(Math.abs(fd)) + '명') + '</i>';
@@ -3970,7 +3970,7 @@
       if (avgs.length >= 3) A.push(kRow(rk <= Math.ceil(avgs.length / 3) ? 'good' : rk > avgs.length * 2 / 3 ? 'bad' : 'info', '순위', '하루 평균이 기록된 ' + avgs.length + '개 기간 중 ' + rk + '번째예요', '최근 4달 · 기간 = 기록과 기록 사이'));
       if (!one) { const by = chs.map(c => [c, sum(p.nw.concat(p.old).filter(it => it.c === c).map(p.inc0))]).sort((a, b) => b[1] - a[1]); A.push(kRow('info', '채널', by.map(x => chName(x[0]) + ' +' + fmtK(x[1])).join(' · '), p.v ? chName(by[0][0]) + ' 몫 ' + pct0(by[0][1] / p.v) : '')); }
       const top = p.nw.concat(p.old).filter(it => p.inc0(it) > 0).sort((a, b) => p.inc0(b) - p.inc0(a)).slice(0, 8);
-      if (top[0] && p.v) A.push(kRow('info', '1위', '「' + esc((t => t.length > 18 ? t.slice(0, 18) + '…' : t)(title(top[0].n))) + '」 하나가 ' + pct0(p.inc0(top[0]) / p.v), '+' + fmtK(p.inc0(top[0])) + ' 조회'));
+      if (top[0] && p.v) A.push(kRow('info', '1위', '<em class="nm">' + esc((t => t.length > 18 ? t.slice(0, 18) + '…' : t)(title(top[0].n))) + '</em> 하나가 ' + pct0(p.inc0(top[0]) / p.v), '+' + fmtK(p.inc0(top[0])) + ' 조회'));
       return { scope, title: wLab(p) + ' 늘어난 조회', big: '+' + fmt(p.v), sub: md2(p.d0) + ' → ' + md2(p.d1) + ' · ' + p.days + '일 · 광고 제외', A,
         note: '기록 사이 하루 평균 늘어난 조회 · 진한 색 = 새 게시물, 연한 색 = 예전 게시물',
         chart: { type: 'bar', data: { labels: S12.map(x => md2(x.d1)), datasets: [{ label: '새 게시물', data: S12.map(x => x.vn / x.days), backgroundColor: col, stack: 's', borderRadius: 3, maxBarThickness: 30 }, { label: '예전 게시물', data: S12.map(x => x.vo / x.days), backgroundColor: col + '55', stack: 's', borderRadius: 3, maxBarThickness: 30 }] },
