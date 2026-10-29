@@ -3603,7 +3603,9 @@ function fbDailyBack_(ss, c, miss, deadline) {
 }
 
 // 지표는 최근 FB_POST_DAYS일 게시물 + 아직 탭에 없는 게시물만 받음. deadline이 지나면 지표가 필요한 게시물은 탭에 쓰지 않고 남겨 둠 → 다음 실행이 이어서 받음
-function fbPosts_(ss, c, today, miss, deadline) {
+// quick: 과거 채우기가 끝났고 월요일이 아니면 최근 FB_POST_DAYS일 밖의, 이미 탭에 있는 게시물이 나온 쪽에서 멈춤
+// (2026-10-29 중복 점검 C3: 기록마다 2021-07 이후 720개를 다 넘겼는데 새 게시물은 0. 옛 게시물 반응 수는 월요일 전체 훑기에서 갱신)
+function fbPosts_(ss, c, today, miss, deadline, quick) {
   const sh = ss.getSheetByName(FB_POST_SHEET);
   const have = {};
   if (sh && sh.getLastRow() > 1) sh.getRange(2, 1, sh.getLastRow() - 1, 1).getDisplayValues().forEach(r => { have[r[0]] = 1; });
@@ -3617,8 +3619,14 @@ function fbPosts_(ss, c, today, miss, deadline) {
     try { j = JSON.parse(UrlFetchApp.fetch(url, { muteHttpExceptions: true }).getContentText()); } catch (e) { throw new Error('메타 응답을 읽지 못함'); }
     if (j.error) throw new Error('code ' + j.error.code + ': ' + String(j.error.message || '').replace(/access_token=[^&\s"]+/g, 'access_token=…'));
     let old = false;
-    (j.data || []).forEach(x => { if (Utilities.formatDate(new Date(x.created_time), TZ, 'yyyy-MM-dd') >= FB_FROM) list.push(x); else old = true; });
+    let seenOld = false;
+    (j.data || []).forEach(x => {
+      const d = Utilities.formatDate(new Date(x.created_time), TZ, 'yyyy-MM-dd');
+      if (d >= FB_FROM) list.push(x); else old = true;
+      if (quick && d < recent && have[String(x.id)]) seenOld = true;
+    });
     if (old) { end = FB_FROM + ' 이전 도달'; break; }
+    if (seenOld) { end = '최근 ' + FB_POST_DAYS + '일까지(전체는 월요일)'; break; }
     url = j.paging && j.paging.next || '';
   }
   const now = Utilities.formatDate(new Date(), TZ, 'yyyy-MM-dd HH:mm');
@@ -3653,7 +3661,7 @@ function fbStep_(ss, today, logs, sec) {
   const deadline = Date.now() + (sec || 90) * 1000;
   const c = fbPage_(token), parts = [], miss = [];
   try { parts.push('일별 ' + fbDaily_(ss, c, today, miss) + '일'); } catch (e) { parts.push('일별 오류: ' + String(e.message).slice(0, 120)); }
-  try { const r = fbPosts_(ss, c, today, miss, deadline); if (!r.left && r.end !== '쪽 한도') p.setProperty('FB_POST_BACK', 'done'); else p.deleteProperty('FB_POST_BACK'); parts.push('게시물 ' + r.n + '개(' + r.from + '~ · 새 ' + r.added + ' · 지표 받음 ' + r.ins + (r.left ? ' · 다음에 이어서 ' + r.left : '') + ' · 끝: ' + r.end + ')'); } catch (e) { parts.push('게시물 오류: ' + String(e.message).slice(0, 120)); }
+  try { const r = fbPosts_(ss, c, today, miss, deadline, p.getProperty('FB_POST_BACK') === 'done' && !isMonday_(today)); if (!r.left && r.end !== '쪽 한도') p.setProperty('FB_POST_BACK', 'done'); else p.deleteProperty('FB_POST_BACK'); parts.push('게시물 ' + r.n + '개(' + r.from + '~ · 새 ' + r.added + ' · 지표 받음 ' + r.ins + (r.left ? ' · 다음에 이어서 ' + r.left : '') + ' · 끝: ' + r.end + ')'); } catch (e) { parts.push('게시물 오류: ' + String(e.message).slice(0, 120)); }
   try { const b = fbDailyBack_(ss, c, miss, deadline); if (b.n || !b.done) parts.push('일별 과거 ' + b.n + '일' + (b.done ? '(끝)' : '(다음에 이어서, ' + (b.to || '') + '까지 받음)')); } catch (e) { parts.push('일별 과거 오류: ' + String(e.message).slice(0, 120)); }
   logs.push([new Date(), '페이스북', 0, parts.join(' · ') + (miss.length ? ' · 받지 못한 지표: ' + miss.join(', ') : '')]);
 }
@@ -4053,7 +4061,17 @@ function ytHidden_(it) {
   const m = String(it.u || '').match(/(?:v=|shorts\/|youtu\.be\/)([\w-]{11})/), st = m ? ytPrivMap_()[m[1]] : '';
   return !!st && st !== 'public';
 }
+// 한 실행 안에서는 업로드 목록을 한 번만 받음: 가장 긴 기간으로 받은 목록을 기억해 두고 짧은 기간은 거기서 거름
+// (2026-10-29 중복 점검 C1: 공개 상태 4000일·최근 영상·영상별 시청자 30일이 같은 재생목록을 따로 처음부터 넘겼음)
+let YTA_RECENT_ = null;
 function ytaRecent_(days, today) {
+  const cut = shiftDate_(today, -days);
+  if (YTA_RECENT_ && YTA_RECENT_.today === today && YTA_RECENT_.cut <= cut) return YTA_RECENT_.list.filter(v => v.date >= cut);
+  const list = ytaRecentFetch_(days, today);
+  if (!YTA_RECENT_ || YTA_RECENT_.today !== today || cut < YTA_RECENT_.cut) YTA_RECENT_ = { today: today, cut: cut, list: list };
+  return list;
+}
+function ytaRecentFetch_(days, today) {
   const ch = ytaGet_('https://www.googleapis.com/youtube/v3/channels?part=contentDetails&mine=true');
   const up = ch.items[0].contentDetails.relatedPlaylists.uploads;
   const cut = shiftDate_(today, -days), out = [];
@@ -4268,8 +4286,13 @@ function ytaVideoInfo_(ss, today) {
 function ytaStep_(ss, today, logs) {
   if (!PropertiesService.getScriptProperties().getProperty('YT_REFRESH')) { logs.push([new Date(), '유튜브 추가 수집', 0, '건너뜀: 브랜드 계정 승인(YT_REFRESH) 없음']); return; }
   ensureWeeklyTrigger_();
+  // 하루 한 번만(2026-10-29 중복 점검 C2): 분석 API 값은 1~2일 늦게 바뀌는데 하루 4번 기록마다 같은 기간을 다시 받아 기록 1회가 6분을 넘겼음.
+  // 그날 첫 기록이 끝까지 받으면 YTA_DAY = 오늘 → 12·16·20시 기록은 건너뜀. 공개 상태는 1시간마다 스토리 실행이 따로 갱신함
+  const props = PropertiesService.getScriptProperties();
+  if (props.getProperty('YTA_DAY') === today) { logs.push([new Date(), '유튜브 추가 수집', 0, '건너뜀: 오늘 이미 받음(분석 값은 1~2일 늦게 바뀜, 공개 상태는 1시간마다 갱신)']); return; }
   const parts = [];
-  const run = (name, fn) => { try { parts.push(name + ' ' + fn()); } catch (e) { parts.push(name + ' 오류: ' + String(e.message).slice(0, 120)); } };
+  let bad = 0;
+  const run = (name, fn) => { try { parts.push(name + ' ' + fn()); } catch (e) { bad++; parts.push(name + ' 오류: ' + String(e.message).slice(0, 120)); } };
   run('공개 상태', () => '일부 공개·비공개 ' + ytaPrivacy_(ss, today) + '개(보드·메일에서 뺌)');
   run('채널 일별', () => ytaChannelDaily_(ss, today) + '일');
   run('시청자', () => { const a = ytaAudience_(ss, today, 2); return a.n + '줄' + (a.left ? '(지난달 ' + a.left + '개는 주간 수집에서)' : ''); });
@@ -4279,6 +4302,7 @@ function ytaStep_(ss, today, logs) {
   run('노출·최종 화면(보고서 API)', () => ytrStep_(ss, 60 * 1000).text);
   run('유형 일별', () => ytaTypeDaily_(ss, today) + '줄');
   run('영상 추가 지표', () => ytaVideoMore_(ss, today) + '개');
+  if (!bad) props.setProperty('YTA_DAY', today);   // 오류가 있으면 다음 기록이 다시 받음
   logs.push([new Date(), '유튜브 추가 수집', 0, parts.join(' · ') + ytaFailText_()]);
 }
 
