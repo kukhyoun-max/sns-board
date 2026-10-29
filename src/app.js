@@ -367,8 +367,8 @@
     const cur = inc.filter(x => x.b > s7), prev = inc.filter(x => x.b > s14 && x.b <= s7);
     const vCur = cur.length ? sum(cur.map(x => x.v)) : null, vPrev = prev.length ? sum(prev.map(x => x.v)) : null;
     const share = okc.map((c, j) => ({ c, v: sum(cur.map(x => x.per[j])) })).sort((a, b) => b.v - a.v);
-    // 팔로워: 계정 기록이 있는 채널(인스타·hong) 합의 7일 변화
-    const fc = chs.filter(c => (D.fol || []).some(r => r[1] === c)), F = {};
+    // 팔로워: 계정 기록이 있는 채널의 7일 변화. 여러 계정을 더하면 실제 팔로워와 달라 보여서 인스타가 있으면 인스타만(2026-10-30 「현재 팔로워랑 달라」)
+    const fc0 = chs.filter(c => (D.fol || []).some(r => r[1] === c)), fc = fc0.includes('인스타그램') ? ['인스타그램'] : fc0, F = {};
     (D.fol || []).filter(r => fc.includes(r[1])).forEach(r => { (F[r[1]] = F[r[1]] || {})[r[0]] = r[2]; });
     const fAt = (c, d) => { const k = Object.keys(F[c] || {}).filter(x => x <= d).sort().pop(); return k ? F[c][k] : null; };
     const fFrom = (c, d) => { const v = fAt(c, d); if (v != null) return v; const k = Object.keys(F[c] || {}).filter(x => x > d).sort()[0]; return k ? F[c][k] : null; };
