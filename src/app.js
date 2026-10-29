@@ -1281,6 +1281,27 @@
   }
   // ───────── 호남권 대학 릴스(공개 재생수, ?part=hreel · Apify 주 1회 · 2026-10-29~) ─────────
   // 인스타 API가 타 계정 릴스 재생수를 안 줘서 따로 받음. 계정마다 최근 릴스만 쌓이므로 「주당 게시」는 내지 않음
+  // 하지 말 것(2026-10-29 담당자 「성과가 정말 낮은 태깅·유형·주제는 하면 안 된다고 안내」): 받은 타 대학 릴스 전체를 그 학교 중간값 대비 배수로 바꿔
+  // 주제·유형별 중간값이 HR_BAD(0.7배) 이하인 것. 표본 MIN_N개 이상·3개 학교 이상만(한 학교 사정이 섞이지 않게). 0.7~0.8배는 「조금 낮음」 한 줄
+  const HR_BAD = 0.7, HR_LOW = 0.8;
+  function hrAvoid(H, base, own, from) {
+    const rows = H.v.filter(r => !own[r[1]] && base[r[1]]);
+    const mine = H.v.filter(r => own[r[1]] && r[2] >= from);
+    const grp = (i, names, kind) => {
+      const g = {}; rows.forEach(r => { if (r[i]) (g[r[i]] = g[r[i]] || []).push(r); });
+      return Object.keys(g).map(k => ({ k, kind, name: (names[k] || [k])[0], n: g[k].length, s: new Set(g[k].map(r => r[1])).size, x: median(g[k].map(r => r[3] / base[r[1]])), our: mine.filter(r => r[i] === k).length }))
+        .filter(o => o.n >= MIN_N && o.s >= 3);
+    };
+    const all = grp(8, H.E || {}, '주제').concat(grp(9, H.T || {}, '유형')).sort((a, b) => a.x - b.x);
+    const bad = all.filter(o => o.x <= HR_BAD), low = all.filter(o => o.x > HR_BAD && o.x <= HR_LOW);
+    if (!all.length) return '';
+    const list = bad.map(o => hmRow({ t: esc(o.kind + ' · ' + o.name), v: '평소의 ' + (Math.round(o.x * 10) / 10) + '배', vc: 'down',
+      m: '릴스 ' + o.n + '개 · ' + o.s + '개 학교', r: o.our ? '<b class="down">우리도 ' + o.our + '개</b>' : '' })).join('');
+    return '<div class="hm-sec"><div class="hm-h"><h3>하지 말아야 할 주제·유형</h3><span>다른 학교에서 평소의 ' + HR_BAD + '배 이하</span></div>' +
+      (list ? '<div class="hm-list">' + list + '</div>' : '<div class="wait">평소의 ' + HR_BAD + '배 아래로 떨어지는 주제·유형이 아직 없어요.</div>') +
+      (low.length ? '<p class="note">조금 낮음(' + HR_BAD + '~' + HR_LOW + '배): ' + low.map(o => esc(o.name) + (o.our ? '(우리 ' + o.our + '개)' : '')).join(', ') + '</p>' : '') +
+      '<p class="note">주제·유형은 캡션 낱말로 자동 판정(우리 게시물과 같은 규칙) · 받은 타 대학 릴스 전체 기준 · 릴스 ' + MIN_N + '개·3개 학교 이상만 · 「우리도」 = 최근 ' + ({ 91: 3, 182: 6, 365: 12 })[BC.p] + '개월 우리 릴스 수</p></div>';
+  }
   function hrHtml(H) {
     const at = H && H.at ? ' · ' + dot(H.at) + ' 받음' : '';
     const head = '<div class="sh"><div><h2>호남권 대학 릴스</h2><p>공개 재생수 · 최근 ' + ({ 91: 3, 182: 6, 365: 12 })[BC.p] + '개월 릴스 · 재생은 중간값</p></div></div>';
@@ -1302,6 +1323,7 @@
     const hid = R.filter(r => r.hid).map(r => name[r.u]);
     return head + '<div class="bc-grid n1"><div class="bc-b"><h3>릴스 재생 중간값 · 작은 숫자 = 릴스 수</h3>' + bars + '</div></div>' +
       (rows ? '<div class="hm-sec"><div class="hm-h"><h3>평소보다 잘 된 릴스</h3><span>학교마다 1개 · 누르면 인스타로</span></div><div class="hm-list">' + rows + '</div></div>' : '') +
+      hrAvoid(H, base, own, from) +
       '<p class="note">매주 월요일 갱신' + at + '. 재생에는 반복 재생과 광고 재생이 들어가요. 수시 직전에 몰아 올린 입시 릴스는 광고로 크게 나올 수 있어요' + (hid.length ? ' · 좋아요를 숨긴 학교: ' + esc(hid.join(', ')) : '') + '</p>';
   }
   function paintHreel() {

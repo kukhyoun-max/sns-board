@@ -3967,7 +3967,7 @@ function storySnapshot() {
   // 타 대학 유튜브: 탭이 아직 없으면(처음 배포 뒤) 아침 기록을 기다리지 않고 한 번 받음(2026-10-26)
   try { if (!ss.getSheetByName(YTB_CH_SHEET)) { const L = []; ytbStep_(ss, Utilities.formatDate(new Date(), TZ, 'yyyy-MM-dd'), L); logRows_(ss, L); CacheService.getScriptCache().removeAll(['part:ytb:meta']); } } catch (e) { logRows_(ss, [[new Date(), '타대학 유튜브', 0, '오류: ' + String(e.message).slice(0, 120)]]); }
   // 호남권 릴스: 탭이 없으면(처음 배포 뒤) 월요일을 기다리지 않고 한 번 받음(2026-10-29)
-  try { if (!ss.getSheetByName(HREEL_SHEET)) { const L = []; hreelStep_(ss, Utilities.formatDate(new Date(), TZ, 'yyyy-MM-dd'), L); logRows_(ss, L); } } catch (e) { logRows_(ss, [[new Date(), HREEL_SHEET, 0, '오류: ' + String(e.message).slice(0, 120)]]); }
+  try { if (hreelDue_(ss, Utilities.formatDate(new Date(), TZ, 'yyyy-MM-dd'))) { const L = []; hreelStep_(ss, Utilities.formatDate(new Date(), TZ, 'yyyy-MM-dd'), L); logRows_(ss, L); } } catch (e) { logRows_(ss, [[new Date(), HREEL_SHEET, 0, '오류: ' + String(e.message).slice(0, 120)]]); }
   try {
     if (!igxChannels_().length) return;
     const s = igxStories_(ss);
@@ -6214,7 +6214,7 @@ const HREEL = [
   { u: 'kwangju_w_univ', n: '광주여대' },
 ];
 const HREEL_SHEET = '호남권 릴스', HREEL_N = 12;
-const HREEL_HEAD = ['게시물 코드', '학교 계정', '올린 계정', '올린 날', '주소', '재생', '좋아요', '댓글', '길이(초)', '첫 문장', '받은 시각'];
+const HREEL_HEAD = ['게시물 코드', '학교 계정', '올린 계정', '올린 날', '주소', '재생', '좋아요', '댓글', '길이(초)', '첫 문장', '받은 시각', '주제 코드', '유형 코드']; // 주제·유형 = 우리 게시물과 같은 규칙(tagCode_, 캡션 전체)
 function apifyKey_() {
   const p = PropertiesService.getScriptProperties();
   let k = p.getProperty('APIFY_KEY');
@@ -6222,7 +6222,8 @@ function apifyKey_() {
   return k || '';
 }
 function hreelDue_(ss, today) {
-  if (!ss.getSheetByName(HREEL_SHEET)) return true;
+  const sh = ss.getSheetByName(HREEL_SHEET);
+  if (!sh || sh.getLastColumn() < HREEL_HEAD.length) return true; // 탭이 없거나 태그 열이 없으면 바로
   const last = PropertiesService.getScriptProperties().getProperty('HREEL_AT') || '';
   return isMonday_(today) && last !== today;
 }
@@ -6248,18 +6249,22 @@ function hreelStep_(ss, today, logs) {
     const home = String(x.inputUrl || '').replace(/^https?:\/\/(www\.)?instagram\.com\//, '').replace(/[/?#].*$/, '');
     if (!x.shortCode || !known[home]) return;
     const cap = String(x.caption || '').split('\n').map(s => s.trim()).filter(s => s && !/^[#⠀]/.test(s))[0] || '';
+    const tg = tagCode_(String(x.caption || ''), '인스타그램', '릴스');
     rows.push([x.shortCode, home, x.ownerUsername || '', x.timestamp ? Utilities.formatDate(new Date(x.timestamp), TZ, 'yyyy-MM-dd') : '', x.url || '',
       x.videoPlayCount == null ? '' : x.videoPlayCount, x.likesCount == null || x.likesCount < 0 ? '' : x.likesCount, x.commentsCount == null ? '' : x.commentsCount,
-      x.videoDuration == null ? '' : Math.round(x.videoDuration), ytbTxt_(cut_(cap, 80)), now]);
+      x.videoDuration == null ? '' : Math.round(x.videoDuration), ytbTxt_(cut_(cap, 80)), now, tg.ec || '', tg.tc || '']);
   });
   const res = igxUpsert_(ss, HREEL_SHEET, HREEL_HEAD, [0, 1, 2, 3], rows);
   PropertiesService.getScriptProperties().setProperty('HREEL_AT', today);
   CacheService.getScriptCache().removeAll(['part:hreel:meta']);
   logs.push([new Date(), HREEL_SHEET, rows.length, '정상 · 새 ' + res.added + '개 · 갱신 ' + res.updated + '개']);
 }
-// 보드 ?part=hreel: { acc: [[계정, 이름, 우리 여부]], v: [[코드, 학교 계정, 올린 날, 재생, 좋아요(빈칸=숨김), 댓글, 길이, 첫 문장]], at }
+// 보드 ?part=hreel: { acc: [[계정, 이름, 우리 여부]], v: [[코드, 학교 계정, 올린 날, 재생, 좋아요(빈칸=숨김), 댓글, 길이, 첫 문장, 주제 코드, 유형 코드]], E: {코드: [주제, 큰 분류]}, T: {코드: [유형, 큰 유형]}, at }
 function partHreel_(ss) {
-  const v = partRows_(ss, HREEL_SHEET, 11).map(r => [String(r[0]).trim(), String(r[1]).trim(), partD_(r[3]), partN_(r[5]), partN_(r[6]), partN_(r[7]), partN_(r[8]), String(r[9] || '')])
+  const sh = ss.getSheetByName(HREEL_SHEET), nc = sh ? Math.min(sh.getLastColumn(), HREEL_HEAD.length) : 11;
+  const v = partRows_(ss, HREEL_SHEET, nc).map(r => [String(r[0]).trim(), String(r[1]).trim(), partD_(r[3]), partN_(r[5]), partN_(r[6]), partN_(r[7]), partN_(r[8]), String(r[9] || ''), String(r[11] || ''), String(r[12] || '')])
     .filter(r => r[0] && r[1] && r[3] != null);
-  return { acc: HREEL.map(a => [a.u, a.n, a.own ? 1 : 0]), v: v, at: PropertiesService.getScriptProperties().getProperty('HREEL_AT') || '', ts: Date.now() };
+  const E = {}, T = {}; // 쓰인 코드의 이름만: E 코드 → [주제, 큰 분류], T 코드 → [유형, 큰 유형]
+  v.forEach(r => { if (r[8] && CODE_TABLE[r[8]]) E[r[8]] = CODE_TABLE[r[8]]; if (r[9] && TYPE_TABLE[r[9]]) T[r[9]] = TYPE_TABLE[r[9]]; });
+  return { acc: HREEL.map(a => [a.u, a.n, a.own ? 1 : 0]), v: v, E: E, T: T, at: PropertiesService.getScriptProperties().getProperty('HREEL_AT') || '', ts: Date.now() };
 }
