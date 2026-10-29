@@ -4,3 +4,4 @@ node_modules/
 .DS_Store
 gas/.clasp.json
 gas/IdSeed.gs
+gas/TagSeed.gs

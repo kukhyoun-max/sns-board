@@ -1977,23 +1977,31 @@ const TAGFIX_IMPORTS = [
 ];
 function importTagFixOnce_(ss) {
   TAGFIX_IMPORTS.forEach(s => { try { importTagFixFrom_(ss, s.id, s.memo); } catch (e) {} });
+  // 2026-10-29 담당자 「주제 없음이 너무 많아」 → 「2번 먼저」: 규칙으로만 판정되던 인스타 과거·hong·유튜브 1,005건. 값은 git 밖 TagSeed.gs(Apps Script 프로젝트에만)
+  try { if (typeof tagSeed1029_ === 'function') importTagFixRows_(ss, 'TAGFIX_IMPORTED_seed1029', tagSeed1029_(), 'Claude 판정 2026-10-29 (인스타 과거·hong)'); } catch (e) {}
 }
 function importTagFixFrom_(ss, id, memo) {
-  const p = PropertiesService.getScriptProperties(), pk = 'TAGFIX_IMPORTED_' + id.slice(0, 12);
-  if (p.getProperty(pk)) return;
+  const pk = 'TAGFIX_IMPORTED_' + id.slice(0, 12);
+  if (PropertiesService.getScriptProperties().getProperty(pk)) return;
   let src = null;
   try { src = SpreadsheetApp.openById(id).getSheets()[0]; } catch (e) { return; }
+  if (!src || src.getLastRow() < 2) return;
+  importTagFixRows_(ss, pk, src.getRange(2, 1, src.getLastRow() - 1, Math.min(5, src.getLastColumn())).getDisplayValues(), memo);
+}
+// 원본 줄 [주소 또는 콘텐츠키, 주제, 메모(낮음), 유형, 출처] → 「태그 수정」 맨 아래
+function importTagFixRows_(ss, pk, src, memo) {
+  const p = PropertiesService.getScriptProperties();
+  if (p.getProperty(pk)) return;
   const sh = ss.getSheetByName(TAGFIX_SHEET);
-  if (!sh || !src || src.getLastRow() < 2) return;
+  if (!sh || !src || !src.length) return;
   const have = {};
   if (sh.getLastRow() > 1) sh.getRange(2, 1, sh.getLastRow() - 1, 1).getValues().forEach(r => { have[String(r[0]).trim()] = 1; });
   const url = v => { const s = String(v).trim(); return /^[\w-]{11}$/.test(s) ? 'https://www.youtube.com/watch?v=' + s : s; };
-  const nc = Math.min(5, src.getLastColumn());
-  const rows = src.getRange(2, 1, src.getLastRow() - 1, nc).getDisplayValues()
+  const rows = src
     .map(r => [url(r[0])].concat(r.slice(1)))
-    .filter(r => /^https:\/\//.test(r[0]) && !have[r[0]])
+    .filter(r => (/^https:\/\//.test(r[0]) || /^\d{4}-\d{2}-\d{2}\|/.test(r[0])) && !have[r[0]]) // 주소 없는 게시물(인스타 과거·hong)은 콘텐츠키(2026-10-29)
     .map(r => { const m = String(r[2] || '').trim(); return [r[0], String(r[1]).trim(), '', memo + (m ? ' · ' + (m === '낮음' ? '확신 낮음' : m) : ''), '', '', String(r[3]).trim(), String(r[4] || '').trim() || 'Claude']; });
-  if (rows.length) sh.getRange(sh.getLastRow() + 1, 1, rows.length, 8).setValues(rows);
+  if (rows.length) { const at = sh.getLastRow() + 1; sh.getRange(at, 1, rows.length, 1).setNumberFormat('@'); sh.getRange(at, 1, rows.length, 8).setValues(rows); }
   p.setProperty(pk, new Date().toISOString() + ' · ' + rows.length + '줄');
 }
 // 담당자 30건 확인(2026-10-24, 26/30 맞음 · 유형 30/30 · 주제 4건 틀림 「태그 확인 30건」 https://claude.ai/artifact/FL6aHcJxozszhn2SWinNGs)
