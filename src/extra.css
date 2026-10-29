@@ -1195,3 +1195,5 @@ body { background: var(--bg); }
 .sg em.nm { font-style: normal; font-weight: 700; color: var(--fg); white-space: nowrap; }
 /* 자동 판정 표시(2026-10-28 「자동이 왜 붙어?」: 「소개자동」처럼 붙어 보임) → 띄우고 작고 가늘게 */
 .tag small { margin-left: 6px; font-size: .82em; font-weight: 400; color: var(--muted); opacity: .8; }
+/* PC(900px 이상)에서 .hm-rx의 align-items:start가 세로 목록(.hm-stack)에도 걸려 줄이 글자 폭으로 줄어들던 것(2026-10-29) */
+.hm-rx.hm-stack { align-items: stretch; }
