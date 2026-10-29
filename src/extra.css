@@ -1203,3 +1203,10 @@ em.nm { font-style: normal; font-weight: 700; color: var(--fg); }
 #hrSec .bc-r { grid-template-columns: 92px minmax(0, 1fr) auto; }
 #hrSec .hr-n { font-size: var(--fs-sm); color: var(--sub); white-space: nowrap; }
 #hrSec .bc-r.ours .hr-n { color: var(--fg); font-weight: 700; }
+/* 새 칸 기준(2026-10-29, CLAUDE.md 「새 칸을 더할 때」): 목록 줄 오른쪽 값 색은 어느 구역에서나 먹게 — 타 대학 칸에서 파랑·주황이 검정으로 보이던 것 */
+.hm-row b.num.up { color: var(--up-tx); } .hm-row b.num.down { color: var(--down); } .hm-row b.num.mu { color: var(--muted); }
+.hm-m .hm-who, .hm-m .hr-k { font-weight: 700; color: var(--fg); }
+.hm-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 6px; vertical-align: 1px; }
+/* 호남권 릴스 막대: 값 칸 폭 고정(값 길이에 따라 막대 끝이 들쭉날쭉하던 것), 지표 버튼 줄 */
+#hrSec .bc-r { grid-template-columns: 92px minmax(0, 1fr) 104px; }
+#hrSec .hr-seg { margin-bottom: 12px; }

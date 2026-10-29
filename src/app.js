@@ -1286,6 +1286,10 @@
   //  · 반응률 0.25배 이하 → 「광고 의심」  · 0.5배 이하 + (평소 낮은 유형이거나 입시·모집 문구) → 「광고 가능」
   // 둘 다 순위·잘 된 릴스·하지 말 것 계산에서 빼고 따로 보여 줌(우리 릴스도 같은 기준으로 표시 — 「광고 매핑」 점검용)
   const HR_AD_X = 3;
+  // 막대 지표 [키, 버튼 이름, 막대 제목] — 고른 값은 BC.hm(새로고침 전까지)
+  const HR_M = [['v', '재생', '릴스 1개 재생 중간값 · 작은 숫자 = 릴스 수'], ['l', '좋아요', '릴스 1개 좋아요 중간값'], ['c', '댓글', '릴스 1개 댓글 중간값'], ['e', '반응률', '좋아요·댓글 ÷ 재생 중간값']]; // 올린 수는 계정마다 최근 릴스만 쌓여 실제보다 적게 나와 뺌
+  // 아랫줄 첫 낱말 = 누구 것인지(학교 이름 굵게 + 막대와 같은 색 점) — 「새 칸 기준」 3번
+  const hrWho = (n, c) => (c ? '<i class="hm-dot" style="background:' + c + '"></i>' : '') + '<b class="hm-who">' + esc(n) + '</b>';
   function hrAd(H) {
     const by = {}; H.v.forEach(r => (by[r[1]] = by[r[1]] || []).push(r));
     const hid = {}, b0 = {}, e0 = {}, eng = r => ((hid[r[1]] ? 0 : r[4] || 0) + (r[5] || 0)) / Math.max(1, r[3]);
@@ -1313,9 +1317,9 @@
     const all = grp(8, H.E || {}, '주제').concat(grp(9, H.T || {}, '유형')).sort((a, b) => a.x - b.x);
     const bad = all.filter(o => o.x <= HR_BAD), low = all.filter(o => o.x > HR_BAD && o.x <= HR_LOW);
     if (!all.length) return '';
-    const list = bad.map(o => hmRow({ t: esc(o.kind + ' · ' + o.name), v: '평소의 ' + (Math.round(o.x * 10) / 10) + '배', vc: 'down',
-      m: '릴스 ' + o.n + '개 · ' + o.s + '개 학교', r: o.our ? '<b class="down">우리도 ' + o.our + '개</b>' : '' })).join('');
-    return '<div class="hm-sec"><div class="hm-h"><h3>하지 말아야 할 주제·유형</h3><span>다른 학교에서 평소의 ' + HR_BAD + '배 이하</span></div>' +
+    const list = bad.map(o => hmRow({ t: esc(o.name), v: '평소의 ' + (Math.round(o.x * 10) / 10) + '배', vc: 'down',
+      m: '<b class="hr-k">' + o.kind + '</b> · 릴스 ' + o.n + '개 · ' + o.s + '개 학교', r: o.our ? '<b class="down">우리도 ' + o.our + '개</b>' : '' })).join('');
+    return '<div class="hm-sec"><div class="hm-h"><h3>하지 말아야 할 주제·유형</h3><span>평소의 ' + HR_BAD + '배 이하</span></div>' +
       (list ? '<div class="hm-list">' + list + '</div>' : '<div class="wait">평소의 ' + HR_BAD + '배 아래로 떨어지는 주제·유형이 아직 없어요.</div>') +
       (low.length ? '<p class="note">조금 낮음(' + HR_BAD + '~' + HR_LOW + '배): ' + low.map(o => esc(o.name) + (o.our ? '(우리 ' + o.our + '개)' : '')).join(', ') + '</p>' : '') +
       '<p class="note">주제·유형은 캡션 낱말로 자동 판정(우리 게시물과 같은 규칙) · 받은 타 대학 릴스 전체 기준 · 릴스 ' + MIN_N + '개·3개 학교 이상만 · 「우리도」 = 최근 ' + ({ 91: 3, 182: 6, 365: 12 })[BC.p] + '개월 우리 릴스 수</p></div>';
@@ -1325,8 +1329,8 @@
     if (!L.length) return '';
     const rows = L.slice(0, 8).map(r => { const f = flag[r[0]]; return hmRow({ tag: 'a', attr: 'href="https://www.instagram.com/reel/' + esc(r[0]) + '/" target="_blank" rel="noopener"',
       t: esc(r[7] || '(첫 문장 없음)'), v: '<span class="tag p-guess">' + f.why + '</span>',
-      m: esc(name[r[1]]) + ' · ' + dot(r[2]) + ' · 재생 ' + fmtK(r[3]) + '(평소의 ' + Math.round(f.x) + '배)', r: '반응률 평소의 ' + (Math.round(f.e * 100) / 100) + '배' }); }).join('');
-    return '<div class="hm-sec"><div class="hm-h"><h3>광고로 보여 뺀 릴스</h3><span>' + L.length + '개 · 재생은 크게 늘었는데 좋아요·댓글이 안 따라옴</span></div><div class="hm-list">' + rows + '</div>' +
+      m: hrWho(name[r[1]]) + ' · ' + dot(r[2]) + ' · 재생 평소의 ' + Math.round(f.x) + '배', r: '반응 평소의 ' + (Math.round(f.e * 100) / 100) + '배' }); }).join('');
+    return '<div class="hm-sec"><div class="hm-h"><h3>광고로 보여 뺀 릴스</h3><span>' + L.length + '개</span></div><div class="hm-list">' + rows + '</div>' +
       '<p class="note">재생이 평소의 ' + HR_AD_X + '배 이상인데 반응률(좋아요·댓글 ÷ 재생)이 그 학교 평소의 0.25배 이하면 「광고 의심」, 0.5배 이하이면서 평소 낮은 유형이거나 입시·모집 문구면 「광고 가능」. 확인된 광고가 아니라 추정이에요</p></div>';
   }
   function hrHtml(H) {
@@ -1339,26 +1343,31 @@
     const AD = hrAd(H), CV = H.v.filter(r => !AD.flag[r[0]]); // 광고로 보이는 릴스를 뺀 나머지로 계산
     const all = {}; CV.forEach(r => (all[r[1]] = all[r[1]] || []).push(r[3]));
     const base = {}; for (const u in all) base[u] = median(all[u]);
-    const R = H.acc.map(([u]) => { const V = CV.filter(r => r[1] === u && r[2] >= from); return { u, n: V.length, med: V.length ? median(V.map(r => r[3])) : null, hid: AD.hid[u] }; })
+    const M = HR_M.find(m => m[0] === BC.hm) || HR_M[0];
+    const R = H.acc.map(([u]) => { const V = CV.filter(r => r[1] === u && r[2] >= from), hd = AD.hid[u];
+      const val = M[0] === 'n' ? V.length : !V.length || (M[0] === 'l' && hd) ? null : M[0] === 'e' ? median(V.map(r => ((hd ? 0 : r[4] || 0) + (r[5] || 0)) / Math.max(1, r[3]))) : median(V.map(r => r[M[0] === 'l' ? 4 : M[0] === 'c' ? 5 : 3] || 0));
+      return { u, n: V.length, med: val, hid: hd }; })
       .sort((a, b) => (b.med == null ? -1 : b.med) - (a.med == null ? -1 : a.med));
-    const mx = Math.max(...R.map(r => r.med || 0)) || 1;
+    const mx = Math.max(...R.map(r => r.med || 0)) || 1, fv = v => M[0] === 'e' ? pct(v) : M[0] === 'n' ? fmt(v) + '개' : fmtK(v);
     const bars = R.map((r, i) => '<div class="bc-r' + (own[r.u] ? ' ours' : '') + '"><span class="bc-n hr-n">' + (i + 1) + '. ' + esc(name[r.u]) + '</span>' +
       '<span class="bc-t">' + (r.med == null ? '' : '<i style="width:' + Math.max(2, r.med / mx * 100) + '%;background:' + col(r.u) + '"></i>') + '</span>' +
-      '<span class="bc-v num">' + (r.med == null ? '<span class="mu">없음</span>' : fmtK(r.med) + ' <small class="mu">' + r.n + '개</small>') + '</span></div>').join('');
+      '<span class="bc-v num">' + (r.med == null ? '<span class="mu">' + (r.hid && M[0] === 'l' ? '숨김' : '없음') + '</span>' : fv(r.med) + (M[0] === 'n' ? '' : ' <small class="mu">' + r.n + '개</small>')) + '</span></div>').join('');
+    const seg = '<div class="seg hr-seg" role="group" aria-label="막대 지표">' + HR_M.map(m => '<button type="button" data-hrm="' + m[0] + '" aria-pressed="' + (m === M) + '">' + m[1] + '</button>').join('') + '</div>';
     const top = CV.filter(r => !own[r[1]] && r[2] >= from && base[r[1]]).map(r => ({ r, x: r[3] / base[r[1]] })).sort((a, b) => b.x - a.x).filter((o, i, A) => A.findIndex(p => p.r[1] === o.r[1]) === i).slice(0, 6); // 학교마다 1개(수시 광고 몰림으로 한 학교가 다 차지하지 않게)
     const rows = top.map(({ r, x }) => hmRow({ tag: 'a', attr: 'href="https://www.instagram.com/reel/' + esc(r[0]) + '/" target="_blank" rel="noopener"',
-      t: esc(r[7] || '(첫 문장 없음)'), v: '재생 ' + fmtK(r[3]), m: esc(name[r[1]]) + ' · ' + dot(r[2]) + ' · 평소의 ' + (Math.round(x * 10) / 10) + '배', r: r[5] != null ? '댓글 ' + fmtK(r[5]) : '' })).join('');
+      t: esc(r[7] || '(첫 문장 없음)'), v: '평소의 ' + (Math.round(x * 10) / 10) + '배', vc: 'up', m: hrWho(name[r[1]], col(r[1])) + ' · ' + dot(r[2]), r: '재생 ' + fmtK(r[3]) })).join('');
     const hid = R.filter(r => r.hid).map(r => name[r.u]);
-    return head + '<div class="bc-grid n1"><div class="bc-b"><h3>릴스 재생 중간값 · 작은 숫자 = 릴스 수</h3>' + bars + '</div></div>' +
-      (rows ? '<div class="hm-sec"><div class="hm-h"><h3>평소보다 잘 된 릴스</h3><span>학교마다 1개 · 누르면 인스타로</span></div><div class="hm-list">' + rows + '</div></div>' : '') +
+    return head + '<div class="bc-grid n1"><div class="bc-b">' + seg + '<h3>' + M[2] + '</h3>' + bars + '</div></div>' +
+      (rows ? '<div class="hm-sec"><div class="hm-h"><h3>평소보다 잘 된 릴스</h3><span>학교마다 1개</span></div><div class="hm-list">' + rows + '</div></div>' : '') +
       hrAvoid(H, CV, base, own, from) + hrAdList(H, AD.flag, name, from) +
       '<p class="note">매주 월요일 갱신' + at + '. 재생에는 반복 재생과 광고 재생이 들어가요. 순위·잘 된 릴스·하지 말 것은 광고로 보이는 릴스를 빼고 계산해요' + (hid.length ? ' · 좋아요를 숨긴 학교: ' + esc(hid.join(', ')) : '') + '</p>';
   }
   function paintHreel() {
     const box = $('hrSec'); if (!box) return;
-    if (PART.hreel) { box.innerHTML = hrHtml(PART.hreel); return; }
+    const put = (b, H) => { b.innerHTML = hrHtml(H); b.querySelectorAll('[data-hrm]').forEach(x => x.addEventListener('click', () => { BC.hm = x.dataset.hrm; put(b, H); })); };
+    if (PART.hreel) { put(box, PART.hreel); return; }
     box.innerHTML = '<div class="sh"><div><h2>호남권 대학 릴스</h2></div></div><div class="wait">불러오는 중이에요</div>';
-    loadPart('hreel').then(H => { const b = $('hrSec'); if (b) b.innerHTML = hrHtml(H); });
+    loadPart('hreel').then(H => { const b = $('hrSec'); if (b) put(b, H); });
   }
   function wireBenchCmp() {
     const sec = $('bcSec'); if (!sec) return;
