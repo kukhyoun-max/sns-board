@@ -440,7 +440,7 @@ function loadFresh_() {
 }
 
 // ───────── 기록 뒤 단계 (시간 초과 시 다음 실행에서 이어 받음) ─────────
-const SNAP_STEPS = ['acct', 'meta', 'igx', 'yta', 'ytb', 'igm', 'hong', 'fb', 'tags', 'daily', 'age', 'build', 'cache'];
+const SNAP_STEPS = ['acct', 'meta', 'igx', 'yta', 'ytb', 'hreel', 'igm', 'hong', 'fb', 'tags', 'daily', 'age', 'build', 'cache'];
 const STEP_FN = {
   acct: x => {
     try { accountSnapshot_(x.ss, x.today, x.logs); } catch (e) { x.logs.push([new Date(), '계정 지표', 0, '오류: ' + e.message]); }
@@ -456,6 +456,9 @@ const STEP_FN = {
   },
   ytb: x => {
     try { ytbStep_(x.ss, x.today, x.logs); } catch (e) { x.logs.push([new Date(), '타대학 유튜브', 0, '오류: ' + String(e.message).slice(0, 120)]); }
+  },
+  hreel: x => {
+    try { hreelStep_(x.ss, x.today, x.logs); } catch (e) { x.logs.push([new Date(), HREEL_SHEET, 0, '오류: ' + String(e.message).slice(0, 120)]); }
   },
   igm: x => {
     try { igmStep_(x.ss, x.today, x.logs); } catch (e) { x.logs.push([new Date(), '인스타 게시물 추가', 0, '오류: ' + e.message]); }
@@ -1315,7 +1318,7 @@ function cacheGet_(pre) {
   return Utilities.ungzip(Utilities.newBlob(Utilities.base64Decode(b64), 'application/x-gzip')).getDataAsString('UTF-8');
 }
 function cacheClear_() {
-  CacheService.getScriptCache().removeAll([CACHE_PREFIX + ':meta', 'part:yt:meta', 'part:ig:meta', 'part:ytb:meta']); // 영상 하나(pyv)는 6시간 뒤 저절로 지워짐
+  CacheService.getScriptCache().removeAll([CACHE_PREFIX + ':meta', 'part:yt:meta', 'part:ig:meta', 'part:ytb:meta', 'part:hreel:meta']); // 영상 하나(pyv)는 6시간 뒤 저절로 지워짐
 }
 function dropCache_() { try { cacheClear_(); } catch (e) {} }
 function cacheBuild_() {
@@ -3963,6 +3966,8 @@ function storySnapshot() {
   try { if (!ss.getSheetByName(YC_SHEET)) { const n = yearCountStep_(ss); logRows_(ss, [[new Date(), YC_SHEET, n, '정상']]); } } catch (e) { logRows_(ss, [[new Date(), YC_SHEET, 0, '오류: ' + String(e.message).slice(0, 120)]]); }
   // 타 대학 유튜브: 탭이 아직 없으면(처음 배포 뒤) 아침 기록을 기다리지 않고 한 번 받음(2026-10-26)
   try { if (!ss.getSheetByName(YTB_CH_SHEET)) { const L = []; ytbStep_(ss, Utilities.formatDate(new Date(), TZ, 'yyyy-MM-dd'), L); logRows_(ss, L); CacheService.getScriptCache().removeAll(['part:ytb:meta']); } } catch (e) { logRows_(ss, [[new Date(), '타대학 유튜브', 0, '오류: ' + String(e.message).slice(0, 120)]]); }
+  // 호남권 릴스: 탭이 없으면(처음 배포 뒤) 월요일을 기다리지 않고 한 번 받음(2026-10-29)
+  try { if (!ss.getSheetByName(HREEL_SHEET)) { const L = []; hreelStep_(ss, Utilities.formatDate(new Date(), TZ, 'yyyy-MM-dd'), L); logRows_(ss, L); } } catch (e) { logRows_(ss, [[new Date(), HREEL_SHEET, 0, '오류: ' + String(e.message).slice(0, 120)]]); }
   try {
     if (!igxChannels_().length) return;
     const s = igxStories_(ss);
@@ -5586,7 +5591,7 @@ function briefHtml_(posts, stories, recent, notes, today, stamp, ideas, chans) {
 //       | yv&v=<영상 ID>(그 영상의 시청 지속 곡선·검색어). 기본 응답(약 1MB)에 넣지 않아 첫 화면이 느려지지 않음
 //  · JSONP 콜백은 __sbData 또는 __sbP + 숫자(동시에 여러 개 부를 수 있게). 캐시는 part마다 따로, 매일 기록 때 비움
 const PART_CB = /^__sbP\d{1,6}$/;
-const PART_TABS = { yt: 1, ig: 1, yv: 1, today: 1, ytb: 1, yc: 1, ma: 1 };
+const PART_TABS = { yt: 1, ig: 1, yv: 1, today: 1, ytb: 1, hreel: 1, yc: 1, ma: 1 };
 function buildPart_(part, e) {
   const ss = SpreadsheetApp.openById(SS_ID);
   if (part === 'yt') return partYt_(ss);
@@ -5594,6 +5599,7 @@ function buildPart_(part, e) {
   if (part === 'yv') return partYv_(ss, String((e && e.parameter && e.parameter.v) || '').replace(/[^\w-]/g, '').slice(0, 20));
   if (part === 'today') return partToday_(ss);
   if (part === 'ytb') return partYtb_(ss);
+  if (part === 'hreel') return partHreel_(ss);
   if (part === 'ma') return partMetaAudit_();
   if (part === 'yc') { const lg = ss.getSheetByName(LOG), ln = lg ? Math.min(40, lg.getLastRow() - 1) : 0; return { rows: partRows_(ss, YC_SHEET, 6).map(r => [String(r[0]), String(r[1]), String(r[2]), String(r[3]), partN_(r[4]), String(r[5])]), log: ln > 0 ? lg.getRange(lg.getLastRow() - ln + 1, 1, ln, 4).getDisplayValues().reverse().map(r => r.map(x => String(x).slice(0, 300))) : [], ts: Date.now() }; } // log = 실행 로그 최근 40줄(확인용 시트가 2시간마다라 늦을 때)
   return { error: 'part' };
@@ -6195,4 +6201,65 @@ function partMetaAudit_() {
   });
   seen.sort();
   return { accts: accts.map(a => ({ act: String(a.account_id).slice(-4), name: a.name || '', status: a.account_status })), ads: ads, pixels: pixels, warn: warn, total: seen.length, first: seen[0] || '', last: seen[seen.length - 1] || '', ts: Date.now() };
+}
+
+// ───────── 호남권 대학 인스타 릴스 공개 재생수 (2026-10-29 담당자 「대시보드 타대학 보드에 반영」, 주 1회) ─────────
+// 인스타 API(business_discovery)는 타 계정 릴스 재생수를 안 줘서 Apify 공식 액터 apify/instagram-reel-scraper로 받는다.
+// 월요일(또는 탭이 없을 때) 한 번: 계정마다 최근 HREEL_N개(처음엔 30개) → 「호남권 릴스」 탭에 게시물 코드로 덮어씀.
+// 키: 스크립트 속성 APIFY_KEY(없으면 저장소 밖 ApifyKey.gs의 APIFY_KEY_를 한 번 옮김). 무료 플랜 월 $5 안(주 13×12개 ≈ 월 $1.5)
+const HREEL = [
+  { u: 'jjuniv', n: '전주대', own: 1 }, { u: 'jbnu1947', n: '전북대' }, { u: 'wonkwang_univ', n: '원광대' }, { u: 'woosukuni', n: '우석대' },
+  { u: 'kunsan.ac.kr', n: '군산대' }, { u: 'chonnam_univ', n: '전남대' }, { u: 'chosununiversity', n: '조선대' }, { u: 'scnu_official', n: '순천대' },
+  { u: 'mnu__official', n: '목포대' }, { u: 'honam.univ', n: '호남대' }, { u: 'gwangjuuniv', n: '광주대' }, { u: 'ds.univ', n: '동신대' },
+  { u: 'kwangju_w_univ', n: '광주여대' },
+];
+const HREEL_SHEET = '호남권 릴스', HREEL_N = 12;
+const HREEL_HEAD = ['게시물 코드', '학교 계정', '올린 계정', '올린 날', '주소', '재생', '좋아요', '댓글', '길이(초)', '첫 문장', '받은 시각'];
+function apifyKey_() {
+  const p = PropertiesService.getScriptProperties();
+  let k = p.getProperty('APIFY_KEY');
+  if (!k && typeof APIFY_KEY_ !== 'undefined' && APIFY_KEY_) { k = APIFY_KEY_; p.setProperty('APIFY_KEY', k); }
+  return k || '';
+}
+function hreelDue_(ss, today) {
+  if (!ss.getSheetByName(HREEL_SHEET)) return true;
+  const last = PropertiesService.getScriptProperties().getProperty('HREEL_AT') || '';
+  return isMonday_(today) && last !== today;
+}
+function hreelStep_(ss, today, logs) {
+  if (!hreelDue_(ss, today)) return;
+  const key = apifyKey_();
+  if (!key) { logs.push([new Date(), HREEL_SHEET, 0, '건너뜀: APIFY_KEY 없음']); return; }
+  const first = !ss.getSheetByName(HREEL_SHEET), H = { Authorization: 'Bearer ' + key };
+  const api = (path, opt) => {
+    const r = UrlFetchApp.fetch('https://api.apify.com/v2/' + path, Object.assign({ headers: H, muteHttpExceptions: true }, opt || {}));
+    if (r.getResponseCode() >= 300) throw new Error('Apify ' + r.getResponseCode() + ' ' + r.getContentText().slice(0, 100));
+    return JSON.parse(r.getContentText());
+  };
+  let run = api('acts/apify~instagram-reel-scraper/runs?waitForFinish=50', { method: 'post', contentType: 'application/json',
+    payload: JSON.stringify({ username: HREEL.map(a => a.u), resultsLimit: first ? 30 : HREEL_N }) }).data;
+  for (let i = 0; i < 4 && /READY|RUNNING/.test(run.status); i++) run = api('actor-runs/' + run.id + '?waitForFinish=50').data;
+  if (run.status !== 'SUCCEEDED') throw new Error('Apify 실행 ' + run.status);
+  const items = api('datasets/' + run.defaultDatasetId + '/items?clean=true&fields=inputUrl,ownerUsername,shortCode,url,timestamp,videoPlayCount,likesCount,commentsCount,videoDuration,caption');
+  const now = Utilities.formatDate(new Date(), TZ, 'yyyy-MM-dd HH:mm'), known = {};
+  HREEL.forEach(a => { known[a.u] = 1; });
+  const rows = [];
+  (items || []).forEach(x => {
+    const home = String(x.inputUrl || '').replace(/^https?:\/\/(www\.)?instagram\.com\//, '').replace(/[/?#].*$/, '');
+    if (!x.shortCode || !known[home]) return;
+    const cap = String(x.caption || '').split('\n').map(s => s.trim()).filter(s => s && !/^[#⠀]/.test(s))[0] || '';
+    rows.push([x.shortCode, home, x.ownerUsername || '', x.timestamp ? Utilities.formatDate(new Date(x.timestamp), TZ, 'yyyy-MM-dd') : '', x.url || '',
+      x.videoPlayCount == null ? '' : x.videoPlayCount, x.likesCount == null || x.likesCount < 0 ? '' : x.likesCount, x.commentsCount == null ? '' : x.commentsCount,
+      x.videoDuration == null ? '' : Math.round(x.videoDuration), ytbTxt_(cut_(cap, 80)), now]);
+  });
+  const res = igxUpsert_(ss, HREEL_SHEET, HREEL_HEAD, [0, 1, 2, 3], rows);
+  PropertiesService.getScriptProperties().setProperty('HREEL_AT', today);
+  CacheService.getScriptCache().removeAll(['part:hreel:meta']);
+  logs.push([new Date(), HREEL_SHEET, rows.length, '정상 · 새 ' + res.added + '개 · 갱신 ' + res.updated + '개']);
+}
+// 보드 ?part=hreel: { acc: [[계정, 이름, 우리 여부]], v: [[코드, 학교 계정, 올린 날, 재생, 좋아요(빈칸=숨김), 댓글, 길이, 첫 문장]], at }
+function partHreel_(ss) {
+  const v = partRows_(ss, HREEL_SHEET, 11).map(r => [String(r[0]).trim(), String(r[1]).trim(), partD_(r[3]), partN_(r[5]), partN_(r[6]), partN_(r[7]), partN_(r[8]), String(r[9] || '')])
+    .filter(r => r[0] && r[1] && r[3] != null);
+  return { acc: HREEL.map(a => [a.u, a.n, a.own ? 1 : 0]), v: v, at: PropertiesService.getScriptProperties().getProperty('HREEL_AT') || '', ts: Date.now() };
 }

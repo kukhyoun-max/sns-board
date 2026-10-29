@@ -434,9 +434,9 @@
   function viewBrief() {
     if (S.ch === '타 대학') {
       viewBench();
-      $('view').insertAdjacentHTML('afterbegin', benchCmpHtml() + '<div class="gap"></div><section class="sec" id="ytbSec"></section><div class="gap"></div>');
+      $('view').insertAdjacentHTML('afterbegin', benchCmpHtml() + '<div class="gap"></div><section class="sec" id="hrSec"></section><div class="gap"></div><section class="sec" id="ytbSec"></section><div class="gap"></div>');
       $('view').insertAdjacentHTML('beforeend', advHtml());
-      wireBenchCmp(); wireAdv(); paintYtb(); return;
+      wireBenchCmp(); wireAdv(); paintHreel(); paintYtb(); return;
     }
     const chs = viewChannels();
     const cur = pool({ channels: chs, since: addDays(D.updated, -30) });
@@ -1279,9 +1279,40 @@
     box.innerHTML = '<div class="sh"><div><h2>유튜브 비교</h2></div></div><div class="wait">불러오는 중이에요</div>';
     loadPart('ytb').then(Y => { const b = $('ytbSec'); if (b) b.innerHTML = ytbHtml(Y); });
   }
+  // ───────── 호남권 대학 릴스(공개 재생수, ?part=hreel · Apify 주 1회 · 2026-10-29~) ─────────
+  // 인스타 API가 타 계정 릴스 재생수를 안 줘서 따로 받음. 계정마다 최근 릴스만 쌓이므로 「주당 게시」는 내지 않음
+  function hrHtml(H) {
+    const at = H && H.at ? ' · ' + dot(H.at) + ' 받음' : '';
+    const head = '<div class="sh"><div><h2>호남권 대학 릴스</h2><p>공개 재생수 · 최근 ' + ({ 91: 3, 182: 6, 365: 12 })[BC.p] + '개월 릴스 · 재생은 중간값</p></div></div>';
+    if (!H || !H.v || !H.v.length) return head + '<div class="wait">' + (H ? '아직 기록이 없어요. 첫 수집이 끝나면 보여요.' : '호남권 릴스를 불러오지 못했어요.') + '</div>';
+    const from = addDays(D.updated, -BC.p), name = {}, own = {};
+    H.acc.forEach(a => { name[a[0]] = a[1]; own[a[0]] = a[2]; });
+    const col = u => own[u] ? css('--ch-ig') : benchNames().includes(u) ? chColor(u) : css('--ch-b3');
+    const all = {}; H.v.forEach(r => (all[r[1]] = all[r[1]] || []).push(r[3]));
+    const base = {}; for (const u in all) base[u] = median(all[u]);
+    const R = H.acc.map(([u]) => { const V = H.v.filter(r => r[1] === u && r[2] >= from); return { u, n: V.length, med: V.length ? median(V.map(r => r[3])) : null, hid: V.length >= 3 && V.every(r => r[4] == null) }; })
+      .sort((a, b) => (b.med == null ? -1 : b.med) - (a.med == null ? -1 : a.med));
+    const mx = Math.max(...R.map(r => r.med || 0)) || 1;
+    const bars = R.map((r, i) => '<div class="bc-r' + (own[r.u] ? ' ours' : '') + '"><span class="bc-n hr-n">' + (i + 1) + '. ' + esc(name[r.u]) + '</span>' +
+      '<span class="bc-t">' + (r.med == null ? '' : '<i style="width:' + Math.max(2, r.med / mx * 100) + '%;background:' + col(r.u) + '"></i>') + '</span>' +
+      '<span class="bc-v num">' + (r.med == null ? '<span class="mu">없음</span>' : fmtK(r.med) + ' <small class="mu">' + r.n + '개</small>') + '</span></div>').join('');
+    const top = H.v.filter(r => !own[r[1]] && r[2] >= from && base[r[1]]).map(r => ({ r, x: r[3] / base[r[1]] })).sort((a, b) => b.x - a.x).filter((o, i, A) => A.findIndex(p => p.r[1] === o.r[1]) === i).slice(0, 6); // 학교마다 1개(수시 광고 몰림으로 한 학교가 다 차지하지 않게)
+    const rows = top.map(({ r, x }) => hmRow({ tag: 'a', attr: 'href="https://www.instagram.com/reel/' + esc(r[0]) + '/" target="_blank" rel="noopener"',
+      t: esc(r[7] || '(첫 문장 없음)'), v: '재생 ' + fmtK(r[3]), m: esc(name[r[1]]) + ' · ' + dot(r[2]) + ' · 평소의 ' + (Math.round(x * 10) / 10) + '배', r: r[5] != null ? '댓글 ' + fmtK(r[5]) : '' })).join('');
+    const hid = R.filter(r => r.hid).map(r => name[r.u]);
+    return head + '<div class="bc-grid n1"><div class="bc-b"><h3>릴스 재생 중간값 · 작은 숫자 = 릴스 수</h3>' + bars + '</div></div>' +
+      (rows ? '<div class="hm-sec"><div class="hm-h"><h3>평소보다 잘 된 릴스</h3><span>학교마다 1개 · 누르면 인스타로</span></div><div class="hm-list">' + rows + '</div></div>' : '') +
+      '<p class="note">매주 월요일 갱신' + at + '. 재생에는 반복 재생과 광고 재생이 들어가요. 수시 직전에 몰아 올린 입시 릴스는 광고로 크게 나올 수 있어요' + (hid.length ? ' · 좋아요를 숨긴 학교: ' + esc(hid.join(', ')) : '') + '</p>';
+  }
+  function paintHreel() {
+    const box = $('hrSec'); if (!box) return;
+    if (PART.hreel) { box.innerHTML = hrHtml(PART.hreel); return; }
+    box.innerHTML = '<div class="sh"><div><h2>호남권 대학 릴스</h2></div></div><div class="wait">불러오는 중이에요</div>';
+    loadPart('hreel').then(H => { const b = $('hrSec'); if (b) b.innerHTML = hrHtml(H); });
+  }
   function wireBenchCmp() {
     const sec = $('bcSec'); if (!sec) return;
-    sec.querySelectorAll('[data-bcp]').forEach(b => b.addEventListener('click', () => { BC.p = +b.dataset.bcp; sec.outerHTML = benchCmpHtml(); wireBenchCmp(); paintYtb(); }));
+    sec.querySelectorAll('[data-bcp]').forEach(b => b.addEventListener('click', () => { BC.p = +b.dataset.bcp; sec.outerHTML = benchCmpHtml(); wireBenchCmp(); paintHreel(); paintYtb(); }));
   }
   // 예전 「현황」 차트는 「직접 골라 보기」로 접어 둠
   const advHtml = () => '<div class="gap"></div><div class="adv' + (S.adv ? ' open' : '') + '" id="advBox"><button type="button" class="adv-h" aria-expanded="' + !!S.adv + '" aria-controls="advBody"><span><b>직접 골라 보기</b><small>지표 · 항목 · 기간 · 단위를 바꿔 가며 보는 차트와 표</small></span><span class="chev">›</span></button><div id="advBody"' + (S.adv ? '' : ' hidden') + '>' + chartHtml() + '</div></div>';

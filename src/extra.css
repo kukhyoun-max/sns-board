@@ -1199,3 +1199,7 @@ body { background: var(--bg); }
 .hm-rx.hm-stack { align-items: stretch; }
 /* 문장 안 게시물·분류 이름: 괄호 대신 진하게(2026-10-29) */
 em.nm { font-style: normal; font-weight: 700; color: var(--fg); }
+.bc-grid.n1 { grid-template-columns: minmax(0, 1fr); }
+#hrSec .bc-r { grid-template-columns: 92px minmax(0, 1fr) auto; }
+#hrSec .hr-n { font-size: var(--fs-sm); color: var(--sub); white-space: nowrap; }
+#hrSec .bc-r.ours .hr-n { color: var(--fg); font-weight: 700; }

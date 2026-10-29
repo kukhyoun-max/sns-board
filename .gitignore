@@ -5,3 +5,4 @@ node_modules/
 gas/.clasp.json
 gas/IdSeed.gs
 gas/TagSeed.gs
+gas/ApifyKey.gs
