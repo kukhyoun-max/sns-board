@@ -4012,6 +4012,8 @@
     if (isBench(it.c) || it.c === 'hong._.video') metrics.push(['좋아요율', pct(likeRate(it))]);
     if (it.x && it.im != null) metrics.push(['노출', fmt(it.im)]);
     metrics.push(['게시일', dot(it.d) + ' · ' + whenTxt(it.d)], ['형식', fmtType(it.t)]);
+    // 유형(2026-10-30 「여기에 유형도」): 큰 유형 · 세부 유형, 사람이 정한 값이 아니면 출처를 붙임
+    if (it.t !== '스토리' && !isBench(it.c)) metrics.push(['유형', it.ty ? (it.tg && it.tg !== it.ty ? it.tg + ' · ' : '') + it.ty + (it.tya || it.src === 'c' ? ' · ' + srcTxt(it, it.tya) : '') : '아직 없음']);
     if (it.x) metrics.push(['데이터', '엑셀 과거 기록(기록 당시 수치)']);
     // 예상은 조회 기준이라 지금 조회와 견줌(유튜브는 전체 기간 값이 있으면 그쪽, mainVal)
     const fc = fcOf(it.c, it.u), fs = fc ? fcState(fc, MN[m] === '조회' ? mainVal(it) : v[0]) : null;
