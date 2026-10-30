@@ -1843,7 +1843,7 @@ var EVENT_RE = /이벤트|EVENT|𝗘𝗩𝗘𝗡𝗧|추첨|응모|당첨자?|�
 // 위에서부터 처음 맞는 것. 강한 안내 표시(【…안내】·신청 기간 등)는 영상 낱말보다 먼저
 var TYPE_RE = [
   ['T28', EVENT_RE],
-  ['T26', /【[^】]*(안내|모집|일정)[^】]*】|안내\s?📢|📢\s?안내|(신청|접수|모집)\s?기간|모집\s?요강|운영\s?(시간|안내)/],
+  ['T26', /【[^】]*(안내|모집|일정)[^】]*】|안내\s?📢|📢\s?안내|(신청|접수|모집)\s?기간|모집\s?요강|운영\s?(시간|안내)|오픈(해요|합니다|했어요|예정)|문을 열어요|서비스\s?(시작|오픈)/], // 새 서비스·공간 오픈 안내(2026-10-31 JJ AI 오픈)
   ['T15', /POV|𝗣𝗢𝗩|𝙋𝙊𝙑|1인칭/],
   ['T18', /챌린지|challenge|댄스|Dance|𝘿𝙖𝙣𝙘𝙚|춤/i],
   ['T17', /게임|퀴즈|맞혀|이상형\s?월드컵|밸런스|당신의 선택|버티기|초성|몇 초|초\s?안에/i], // VS·월드컵은 경기 안내·국가대표 소식에도 나와서 뺌
@@ -2591,7 +2591,9 @@ function attachTags_(ss, items, keys) {
     // 「태그 수정」 분류에 「제외」(비공개·테스트 업로드 등) → 대시보드 데이터에서 뺌(기록은 시트에 그대로)
     if (f.g === '제외') { it._drop = 1; return; }
     // 분류표(2026-10-24): 반영 순서 「태그 수정」 B열 > 「태그 수정」 E열 경험영역 첫 코드 > 「태그」 탭 자동 코드 > it.g(「인스타_과거기록」 탭 옛 이름) — 옛 분류 이름은 캡션으로 코드를 고름
-    const raw = f.g || (f.ex ? f.ex.split(',')[0] : '') || t.g || it.g || '';
+    // 「태그」 탭에 아직 줄이 없는 새 게시물(인스타 API로 막 들어온 것)은 캡션 낱말로 바로 자동 판정(2026-10-31 「왜 아직 없지?」)
+    const auto0 = !f.g && !f.ex && !t.g && !t.tc && !it.g ? tagCode_(it.n, it.c, it.t) : null;
+    const raw = f.g || (f.ex ? f.ex.split(',')[0] : '') || t.g || it.g || (auto0 ? auto0.ec : '');
     const ci = codeInfo_(resolveCode_(raw, it.n));
     it.g = ci.g; it.ec = ci.ec; if (ci.s) it.s = ci.s; else delete it.s;
     if (!f.g && !f.ex) it.ega = 1; // 주제가 자동(사람이 안 정함) — 유형의 tya와 같은 뜻
@@ -2600,7 +2602,7 @@ function attachTags_(ss, items, keys) {
     // 유형: 「태그 수정」 G열(사람) > 「태그」 탭 I열 자동 코드 > 옛 분류 이름으로 짐작(「태그 다시 계산」 전 값·과거 기록 탭)
     const tcH = resolveType_(f.ty), old = oldCat_(f.g, it.n) || oldCat_(t.g, it.n) || oldCat_(it.g, it.n);
     // 자동 유형은 지금 규칙으로 다시 판정(「태그」 탭 I열은 예전 규칙으로 저장된 값이 남아 있음, 2026-10-24 「키캡 드롭」이 행사 스케치로 보인 문제). 옛 분류를 모를 때만 I열 값
-    const yi = typeInfo_(tcH || (old ? pickType_(old, it.n, isVideo_(it.c, it.t)) : '') || resolveType_(t.tc));
+    const yi = typeInfo_(tcH || (old ? pickType_(old, it.n, isVideo_(it.c, it.t)) : '') || resolveType_(t.tc) || (auto0 ? auto0.tc : ''));
     if (yi.tc) { it.tc = yi.tc; it.ty = yi.ty; it.tg = yi.tg; if (!tcH) it.tya = 1; }
     if (it.tg === '공지·소식' && EVENT_RE.test(it.n || '')) { const ev = typeInfo_('T28'); it.tc = ev.tc; it.ty = ev.ty; it.tg = ev.tg; } // 이벤트는 따로(2026-10-24)
     // 입시 게시물 표시(입시 시즌 리포트·보관 후보 제외용) — 주제에서 빠진 옛 「입시·모집」을 따로 남김
