@@ -709,7 +709,11 @@ function accountSnapshot_(ss, today, logs, provDel) {
     const errCols = [];
     const data = (vertical ? v.map(r => r[1]) : v[1])
       .map((x, j) => {
-        if (typeof x === 'string' && (x.length > 40 || /can'?t be calculated|ALLOW_SUM_UNIQUE|^#?error/i.test(x))) { errCols.push(hdr[j] || ('열' + (j + 1))); return ACCT_ERR; }
+        if (typeof x === 'string' && (x.length > 40 || /can'?t be calculated|ALLOW_SUM_UNIQUE|^#?error/i.test(x))) {
+          // 유튜브 구독자는 Supermetrics가 기간 합으로 못 세는 날이 많아 유튜브 API 값으로 채움(2026-10-30 「오류 체크」)
+          if (a.channel === '유튜브' && /subscribers/i.test(hdr[j] || '')) { try { return Number(ytaGet_('https://www.googleapis.com/youtube/v3/channels?part=statistics&mine=true').items[0].statistics.subscriberCount); } catch (e) {} }
+          errCols.push(hdr[j] || ('열' + (j + 1))); return ACCT_ERR;
+        }
         return x;
       });
 
@@ -5379,7 +5383,7 @@ function nightBrief(test) {
   try { errs = briefErrors_(ss, today); } catch (e) { notes.push('실행 로그 읽기 실패: ' + String(e.message).slice(0, 80)); }
   if (isMonday_(today) || test) { try { cells = briefCells_(ss); } catch (e) { notes.push('시트 크기 계산 실패: ' + String(e.message).slice(0, 80)); } }
   const to = String(PropertiesService.getScriptProperties().getProperty('BRIEF_TO') || '').trim();
-  const subject = '[SNS 브리핑] ' + briefDay_(today) + ' 오늘 올린 콘텐츠 ' + posts.length + '개' + (errs && errs.stop ? ' · 수집 중단 경고' : '') + (test ? ' (테스트)' : '');
+  const subject = '[SNS 브리핑] ' + briefDay_(today) + ' 오늘 올린 콘텐츠 ' + posts.length + '개' + (errs && errs.stop.length ? ' · 수집 중단 경고' : '') + (test ? ' (테스트)' : '');
   if (to) MailApp.sendEmail({ to: to, subject: subject, htmlBody: briefHtml_(posts, stories, recent, notes, today, stamp, ideas, chans, errs, cells), name: 'SNS 성과 보드' });
   let saved = '';
   if (posts.length) {
@@ -5678,6 +5682,7 @@ function briefErrors_(ss, today) {
   log.getRange(log.getLastRow() - n + 1, 1, n, 4).getValues().forEach(r => {
     const d = r[0] instanceof Date ? Utilities.formatDate(r[0], TZ, 'yyyy-MM-dd') : String(r[0]).slice(0, 10), s = String(r[3] || '');
     if (d !== today || /^건너뜀/.test(s) || !/오류|경고|실패|시간 초과/.test(s)) return;
+    if (String(r[1]) === '시간 초과' && /1분 뒤 이어서 실행/.test(s)) return; // 나눠 돌기(2026-10-30 「오류 체크」): 자동으로 이어 돌아 끝까지 감
     ALERT_RE.forEach(a => { if (a[0].test(s) && out.stop.indexOf(a[1]) < 0) out.stop.push(a[1]); });
     const step = String(r[1] || '');
     if (!by[step]) { by[step] = { step: step, n: 0, msg: '' }; out.groups.push(by[step]); }
