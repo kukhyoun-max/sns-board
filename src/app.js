@@ -3220,7 +3220,9 @@
     const ct = d.ctype || [];
     if (ct.length) {
       const R3 = DP.ytR, e3 = ct[ct.length - 1][0], f3 = R3 === 'all' ? ct[0][0] : addDays(e3, -Number(R3) + 1), sel = ct.filter(r => r[0] >= f3);
-      const by = k => { const o = {}; sel.forEach(r => { o[r[1]] = (o[r[1]] || 0) + (r[k] || 0); }); return Object.keys(o).map(x => [x, o[x]]); };
+      // 유튜브 분석의 형식 이름을 우리말로(2026-10-30 「한글화」) · 구독 버튼을 채널 페이지 등에서 누르면 형식이 안 정해짐
+      const CTN = { videoOnDemand: '일반 영상', shorts: '쇼츠', liveStream: '라이브', creatorContentTypeUnspecified: '채널 페이지 등', story: '스토리' };
+      const by = k => { const o = {}; sel.forEach(r => { const n = CTN[r[1]] || r[1]; o[n] = (o[n] || 0) + (r[k] || 0); }); return Object.keys(o).map(x => [x, o[x]]); };
       h += secOpen('형식별로 보면', (R3 === 'all' ? '전체 기간' : '최근 ' + R3 + '일') + ' · 쇼츠·일반 영상·라이브 비율 · 유튜브 분석') + stackRow('조회', by(2), chColor('유튜브')) + stackRow('시청 시간', by(3), chColor('유튜브')) + stackRow('새 구독', by(4), chColor('유튜브')) + secClose;
     }
     if ((d.pl || []).length) {
