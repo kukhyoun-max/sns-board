@@ -3146,7 +3146,24 @@
   // 성별 한 글자(인스타 M·F·U)와 도시(「Jeonju, Jeollabuk-do」 → 전주)도 한국어로
   const AUD_1 = { M: '남', F: '여', U: '미표기' };
   const CITY_KO = { Jeonju: '전주', Seoul: '서울', Iksan: '익산', Gunsan: '군산', Busan: '부산', Incheon: '인천', Daegu: '대구', Daejeon: '대전', Gwangju: '광주', Ulsan: '울산', Suwon: '수원', Seongnam: '성남', Goyang: '고양', Yongin: '용인', Bucheon: '부천', Cheongju: '청주', Cheonan: '천안', Jeongeup: '정읍', Gimje: '김제', Wanju: '완주', Namwon: '남원', Changwon: '창원', Hwaseong: '화성', Ansan: '안산', Anyang: '안양', Sejong: '세종', Pohang: '포항', Gimhae: '김해', Jeju: '제주', Yeosu: '여수', Suncheon: '순천', Mokpo: '목포' };
-  const audKo = x => { const t = String(x).trim(); if (AUD_1[t]) return AUD_1[t]; const c = t.match(/^([A-Za-z-]+),/); if (c) return CITY_KO[c[1]] || c[1]; return t.replace(/[A-Za-z_]+/g, w => AUD_KO[w] || w); };
+  // API가 주는 영어 이름 사전(2026-10-31 「영어다 · 전체적으로 조사」): 대소문자·밑줄을 무시하고 찾음(YT_SEARCH = ytSearch = yt_search)
+  const EN_KO = { ...AUD_KO,
+    // 유튜브 공유 서비스
+    COPY_PASTE: '링크 복사', KAKAO: '카카오톡', KAKAO_STORY: '카카오스토리', NAVER: '네이버', BAND: '밴드', LINE: '라인', FACEBOOK: '페이스북', FACEBOOK_MESSENGER: '페이스북 메신저', INSTAGRAM: '인스타그램', TWITTER: 'X·트위터', THREADS: '스레드', WHATS_APP: '왓츠앱', TELEGRAM: '텔레그램', DISCORD: '디스코드', REDDIT: '레딧', PINTEREST: '핀터레스트', TUMBLR: '텀블러',
+    GMAIL: '지메일', MAIL: '메일', TEXT_MESSAGE: '문자', SMS: '문자', ANDROID_MESSENGER: '안드로이드 메시지', GOOGLE_MESSENGER: '구글 메시지', IMESSAGE: '아이메시지', SAMSUNG_NOTES: '삼성 노트', GOOGLE_KEEP: '구글 킵', EVERNOTE: '에버노트', SKYPE: '스카이프', SNAPCHAT: '스냅챗', TIKTOK: '틱톡', WECHAT: '위챗', OTHER: '기타', UNKNOWN: '알 수 없음', YOUTUBE: '유튜브', YOUTUBE_MUSIC: '유튜브 뮤직', YOUTUBE_KIDS: '유튜브 키즈',
+    // 유튜브 OS
+    ANDROID: '안드로이드', IOS: '아이폰·아이패드', WINDOWS: '윈도우', MACINTOSH: '맥', LINUX: '리눅스', CHROMECAST: '크롬캐스트', CHROME: '크롬 OS', SMART_TV: '스마트 TV', PLAYSTATION: '플레이스테이션', XBOX: '엑스박스', TIZEN: '삼성 TV', WEBOS: 'LG TV', ROKU: '로쿠', FIREOS: '파이어 TV', KAIOS: '카이OS', NINTENDO: '닌텐도', DOCOMO: '도코모', BADA: '바다', BLACKBERRY: '블랙베리', SYMBIAN: '심비안', WII: '닌텐도 위', HIPTOP: '힙탑', NOKIA: '노키아', WINDOWS_MOBILE: '윈도우 모바일', REALMEDIA: '리얼미디어',
+    // 유튜브 유입·재생 위치
+    SHORTS_FEED: '쇼츠 피드', SHORTS: '쇼츠', YT_SEARCH: '유튜브 검색', RELATED_VIDEO: '추천 영상', SUBSCRIBER: '구독 피드·홈', BROWSE: '홈·탐색', YT_CHANNEL: '채널 페이지', CHANNEL: '채널 페이지', YT_OTHER_PAGE: '유튜브 다른 화면', YT_OTHER: '기타 유튜브', EXT_URL: '외부 사이트·앱', EXTERNAL_APP: '외부 앱', EXTERNAL: '외부', NO_LINK_OTHER: '직접 입력·알 수 없음', NOTIFICATION: '알림', PLAYLIST: '재생목록', YT_PLAYLIST_PAGE: '재생목록 페이지', END_SCREEN: '최종 화면', ANNOTATION: '카드·특수효과', CAMPAIGN_CARD: '캠페인 카드', HASHTAGS: '해시태그', SOUND_PAGE: '사운드 페이지', VIDEO_REMIXES: '리믹스', LIVE_REDIRECT: '라이브 이동', PRODUCT_PAGE: '제품 페이지', ADVERTISING: '광고', PROMOTED: '홍보', IMMERSIVE_LIVE: '라이브 피드', SHORTS_CONTENT_LINKS: '쇼츠 링크', WATCH: '유튜브 시청 페이지', EMBEDDED: '다른 사이트에 삽입', SEARCH: '검색 결과 화면', NO_LINK_EMBEDDED: '삽입 영상',
+    // 유튜브 형식
+    VIDEO_ON_DEMAND: '일반 영상', LIVE_STREAM: '라이브', STORY: '스토리', CREATOR_CONTENT_TYPE_UNSPECIFIED: '채널 페이지 등', UNSPECIFIED: '알 수 없음',
+    // 인스타 프로필 활동
+    BIO_LINK_CLICKED: '프로필 링크', CALL: '전화', DIRECTION: '길찾기', EMAIL: '이메일', TEXT: '문자', BOOK_NOW: '예약', CALL_TO_ACTION: '행동 버튼' };
+  const EN_KEY = {}; Object.keys(EN_KO).forEach(k => { EN_KEY[k.replace(/[^A-Za-z0-9]/g, '').toUpperCase()] = EN_KO[k]; });
+  const enKo = t => EN_KEY[String(t).replace(/[^A-Za-z0-9]/g, '').toUpperCase()];
+  // 도시: 「Jeonju, Jeollabuk-do」·「Jeonju-si」·「Seoul」 → 전주·서울
+  const cityKo = t => { const c = String(t).split(',')[0].trim().replace(/-(si|gun|gu|do)$/i, ''); return CITY_KO[c]; };
+  const audKo = x => { const t = String(x).trim(); if (AUD_1[t]) return AUD_1[t]; const e = enKo(t); if (e) return e; const c = cityKo(t); if (c) return c; if (/^[A-Za-z-]+,/.test(t)) return t.split(',')[0]; return t.replace(/[A-Za-z_]+/g, w => AUD_KO[w] || enKo(w) || w); };
   function stackRow(kind, pairs, col) {
     const tot = sum(pairs.map(p => p[1] || 0)); if (!tot) return '';
     const s = pairs.filter(p => p[1] > 0).sort((a, b) => b[1] - a[1]), top = s.slice(0, 4), rest = sum(s.slice(4).map(p => p[1]));
@@ -3193,7 +3210,7 @@
     const pick = vids.filter(it => DP.ytS === 'all' || (DP.ytS === 'short' ? it.t === '1분 이하' : it.t !== '1분 이하'));
     const agg = {};
     pick.forEach(it => d.src[ytId(it.u)].forEach(p => { agg[p[0]] = (agg[p[0]] || 0) + p[1]; }));
-    const sr = shareRows(Object.keys(agg).map(i => [d.srcN[i], agg[i]]));
+    const sr = shareRows(Object.keys(agg).map(i => [audKo(d.srcN[i]), agg[i]]));
     h += secOpen('어디서 보러 왔나', '최근 1년에 올린 영상 ' + pick.length + '개 · 들어온 경로별 조회 비율 · 광고 영상 제외', segBtns('dpYtS', [['all', '전체'], ['short', '쇼츠'], ['long', '롱폼']], DP.ytS)) + (sr.length ? pbars(sr) : '<p class="d">이 조건의 유입 경로 자료가 없어요</p>') + secClose;
     // 누가 보나: 최근 28일
     const aud = (d.aud || []).filter(r => r[0] === '최근 28일'), kinds = [...new Set(aud.map(r => r[1]))];
@@ -3220,9 +3237,7 @@
     const ct = d.ctype || [];
     if (ct.length) {
       const R3 = DP.ytR, e3 = ct[ct.length - 1][0], f3 = R3 === 'all' ? ct[0][0] : addDays(e3, -Number(R3) + 1), sel = ct.filter(r => r[0] >= f3);
-      // 유튜브 분석의 형식 이름을 우리말로(2026-10-30 「한글화」) · 구독 버튼을 채널 페이지 등에서 누르면 형식이 안 정해짐
-      const CTN = { videoOnDemand: '일반 영상', shorts: '쇼츠', liveStream: '라이브', creatorContentTypeUnspecified: '채널 페이지 등', story: '스토리' };
-      const by = k => { const o = {}; sel.forEach(r => { const n = CTN[r[1]] || r[1]; o[n] = (o[n] || 0) + (r[k] || 0); }); return Object.keys(o).map(x => [x, o[x]]); };
+      const by = k => { const o = {}; sel.forEach(r => { const n = audKo(r[1]); o[n] = (o[n] || 0) + (r[k] || 0); }); return Object.keys(o).map(x => [x, o[x]]); };
       h += secOpen('형식별로 보면', (R3 === 'all' ? '전체 기간' : '최근 ' + R3 + '일') + ' · 쇼츠·일반 영상·라이브 비율 · 유튜브 분석') + stackRow('조회', by(2), chColor('유튜브')) + stackRow('시청 시간', by(3), chColor('유튜브')) + stackRow('새 구독', by(4), chColor('유튜브')) + secClose;
     }
     if ((d.pl || []).length) {
@@ -3362,7 +3377,7 @@
           if (vc) h += tileP('댓글', fmt(vc[0]) + '개') + tileP('우리가 답한 댓글', fmt(vc[1]) + '개');
           h += '</div>';
         }
-        if (s && s.length) h += '<h3 class="sub">어디서 보러 왔나</h3>' + pbars(shareRows(s.map(p => [d.srcN[p[0]], p[1]])));
+        if (s && s.length) h += '<h3 class="sub">어디서 보러 왔나</h3>' + pbars(shareRows(s.map(p => [audKo(d.srcN[p[0]]), p[1]])));
         h += '<div id="dYv2"></div>';
         h += '<h3 class="sub">어디까지 봤나</h3><div id="dRet"><p class="d">불러오는 중이에요</p></div><h3 class="sub">어떤 검색어로 왔나</h3><div id="dKw"><p class="d">불러오는 중이에요</p></div>';
         box.innerHTML = h; box.classList.remove('h');
@@ -3428,7 +3443,6 @@
   }
   const YTR_SRC = {};
   // 인스타 게시물 더 보기: 프로필에서 누른 것, 릴스 건너뛰기, 댓글 답한 비율
-  const PA_KO = { BIO_LINK_CLICKED: '링크', CALL: '전화', DIRECTION: '길찾기', EMAIL: '이메일', TEXT: '문자', OTHER: '기타' };
   function igPostMore(d, it) {
     const k = igKey(it.u), pm = (d.pm && d.pm[k]) || [], cm = d.cmt && d.cmt[k];
     let t = '';
@@ -3439,7 +3453,7 @@
     if (xp && xp[2] > 0) t += tileP('다른 앱에서 본 조회', fmt(xp[2]));
     if (fb && fb[2] > 0) t += tileP('페이스북 조회', fmt(fb[2]));
     if (cm) t += tileP('댓글', fmt(cm[0]) + '개') + tileP('우리가 답한 댓글', fmt(cm[1]) + '개');
-    const act = pm.filter(x => x[0] === '프로필 활동' && x[1] && x[1] !== '전체' && x[2] > 0).map(x => [PA_KO[x[1]] || x[1], x[2]]);
+    const act = pm.filter(x => x[0] === '프로필 활동' && x[1] && x[1] !== '전체' && x[2] > 0).map(x => [audKo(x[1]), x[2]]);
     return (t ? '<div class="mgrid">' + t + '</div>' : '') + (act.length ? '<h3 class="sub">프로필에서 누른 것</h3>' + pbars(shareRows(act)) : '');
   }
 
