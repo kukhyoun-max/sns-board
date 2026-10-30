@@ -130,12 +130,13 @@
   const fmtType = t => t === '1분 이하' ? '쇼츠(1분 이하)' : t;
 
   // 채널 기준값(최근 1년 중앙값, 광고·스토리 제외) — 성과 지수 = 콘텐츠 값 ÷ 기준값
+  // 올린 지 AGE_MIN(14)일 안 된 게시물은 표본에서 뺌(2026-10-30, 밤 메일 「평소」와 같게 — 조회가 덜 쌓인 새 게시물이 평소를 끌어내리지 않게)
   const BASE = {};
   function baseOf(ch, m) {
     m = m == null ? mainM(ch) : m;
     const k = ch + '|' + m;
     if (BASE[k]) return BASE[k];
-    const its = D.items.filter(it => it.c === ch && it.t !== '스토리' && !it.ad && !it.x && !it.hid && !(it.c === '인스타그램' && it.d < '2024-12-27') && it.d >= addDays(D.updated, -365));
+    const its = D.items.filter(it => it.c === ch && it.t !== '스토리' && !it.ad && !it.x && !it.hid && !(it.c === '인스타그램' && it.d < '2024-12-27') && it.d >= addDays(D.updated, -365) && daysBetween(it.d, D.updated) >= AGE_MIN);
     // 기준값이 0·없음이면(원광대 좋아요 0 수집 등) 1로 대체하지 않고 비교 불가로 둔다
     const bv = median(its.map(it => val(it, m)));
     BASE[k] = { v: bv > 0 ? bv : null, q: median(its.map(quality)) };
@@ -149,7 +150,7 @@
     m = m == null ? mainM(it.c) : m;
     const k = it.c + '|' + m + '|t:' + it.t;
     if (BASE[k]) return BASE[k];
-    const its = D.items.filter(x => x.c === it.c && x.t === it.t && x.t !== '스토리' && !x.ad && !x.x && !x.hid && x.d >= addDays(D.updated, -365));
+    const its = D.items.filter(x => x.c === it.c && x.t === it.t && x.t !== '스토리' && !x.ad && !x.x && !x.hid && x.d >= addDays(D.updated, -365) && daysBetween(x.d, D.updated) >= AGE_MIN);
     const bv = its.length >= BASE_T_MIN ? median(its.map(x => val(x, m))) : null;
     BASE[k] = bv > 0 ? { v: bv, by: '형식', n: its.length, q: median(its.map(quality)) } : Object.assign({ by: '채널' }, baseOf(it.c, m));
     return BASE[k];
@@ -1036,7 +1037,7 @@
     window.__wk = w;
     return h + '</section>';
   }
-  // 일별 증가 — 「일별 합계」 탭(채널별 합계를 평일마다 기록)에서 하루 사이 늘어난 값
+  // 일별 증가 — 「일별 합계」 탭(채널별 합계를 매일 기록)에서 하루 사이 늘어난 값
   const DY = { m: 3 };
   const DY_M = [[3, '조회'], [4, '좋아요'], [5, '댓글'], [6, '공유'], [7, '저장']];
   function dailyModel(chs) {
@@ -1058,7 +1059,7 @@
     const head = '<div class="dy"><div class="dy-h"><h3>일별 증가</h3></div>';
     if (!pts.length) return ''; // 일별 기록이 이틀치 쌓이기 전에는 칸을 숨긴다
     window.__dy = { pts, chs };
-    return head + '<div class="dy-chart"><canvas id="dyC"></canvas></div><p class="note" title="주말에는 원본이 갱신되지 않아 월요일 막대에 금~월이 함께 들어가요">새 글과 기존 글의 하루 ' + (DY_M.find(x => x[0] === DY.m) || DY_M[0])[1] + ' 증가 합계</p></div>';
+    return head + '<div class="dy-chart"><canvas id="dyC"></canvas></div><p class="note" title="원본이 안 바뀐 날은 기록을 쉬어서 다음 날 막대에 함께 들어가요 · 광고·비공개·제외 게시물은 따로 기록한 날부터 빼요">새 글과 기존 글의 하루 ' + (DY_M.find(x => x[0] === DY.m) || DY_M[0])[1] + ' 증가 합계</p></div>';
   }
   function wireDaily() {
     const box = document.querySelector('.dy'); if (!box) return;
@@ -4504,6 +4505,23 @@
       it.w = [...new Set(m[1].split(/[\s,&\/·]+/).map(x => x.replace(/^@/, '').replace(/\.+$/, '')).filter(x => x.length >= 2))].map(x => '@' + x);
       it.w.forEach(x => { if (!D.roles[x]) D.roles[x] = '홍보대사'; });
     });
+    // 「일별 합계」 광고 등 뺀 값(2026-10-30, 서버 I~N열 → r[8..13]): 광고 집행·유튜브 일부 공개·비공개·「태그 수정」 제외 게시물을 뺀 합계.
+    // 채널마다 그 값이 처음 있는 날부터 r[2..7]을 「뺀 값 + 첫날 (전체 − 뺀 값)」으로 바꿔 이어 붙임 → 첫날까지의 증가는 전체 기준, 그 뒤 증가는 뺀 값 기준(한 증가에 두 기준이 섞이지 않음).
+    // 첫날 뒤에 뺀 값이 빠진 날은 null(셀 수 없음)로 둠 — 전체 값과 섞지 않게
+    (() => {
+      const by = {};
+      (D.daily || []).forEach(r => (by[r[1]] = by[r[1]] || []).push(r));
+      Object.values(by).forEach(rs => {
+        rs.sort((a, b) => a[0] < b[0] ? -1 : a[0] > b[0] ? 1 : 0);
+        let off = null;
+        rs.forEach(r => {
+          const has = r.length >= 14 && r[9] != null;
+          if (!off && !has) return;
+          if (!off) off = [2, 3, 4, 5, 6, 7].map(j => r[j] != null && r[j + 6] != null ? r[j] - r[j + 6] : null);
+          for (let j = 2; j <= 7; j++) { const o = off[j - 2]; r[j] = has && o != null && r[j + 6] != null ? r[j + 6] + o : null; }
+        });
+      });
+    })();
     D.rec = {};
     D.items.forEach(it => { const r = D.rec[it.c] = D.rec[it.c] || D.dates.map(() => false); it.h.forEach((x, i) => { if (x) r[i] = true; }); });
     // 원본 미갱신 감지: 두 기록에 모두 있는 게시물(5개 이상)의 조회·좋아요가 하나도 안 바뀌었으면 원본이 갱신되지 않은 것.

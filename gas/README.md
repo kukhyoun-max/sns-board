@@ -15,7 +15,7 @@ cd gas
 clasp pull                  # 편집기 최신 코드 받기 (작업 전 필수)
 # Code.gs 수정
 clasp push                  # 편집기에 올리기
-clasp deploy -i AKfycbyGL0h1nmGMIMiG0KsZksAyOUaxcdwKiXLysmB2ExGLEhVX3eUiwmRbv7uTPhsWf6Q6 -d "변경 내용"
+clasp deploy -i <배포 ID> -d "변경 내용"   # 배포 ID·스크립트 ID는 저장소 밖 gas/배포.local.md 참고
 ```
 `-i`(기존 배포 ID)를 빼면 새 주소가 생겨 대시보드가 끊겨요.
 

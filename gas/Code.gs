@@ -284,12 +284,27 @@ function logRows_(ss, rows) {
   let log = ss.getSheetByName(LOG);
   if (!log) { ensureSheets_(ss); log = ss.getSheetByName(LOG); }
   log.getRange(log.getLastRow() + 1, 1, rows.length, 4).setValues(rows);
+  try { alertNow_(rows); } catch (e) {}
+}
+// 바로 알림(2026-10-30 「메타 데이터 잃는 건 절대 금지」): 데이터가 끊기기 시작하는 오류는 밤 브리핑을 기다리지 않고 BRIEF_TO로 메일, 하루 1번까지(속성 ALERT_DAY)
+// 메타 토큰 만료(code 190) · 유튜브 브랜드 계정 토큰 갱신 실패. 나머지 오류·경고는 밤 브리핑 「오늘 수집 오류」에 모음
+const ALERT_RE = [[/code 190\b|토큰 만료·무효/, '메타 토큰 만료 — 인스타·hong·페이스북·메타 광고 수집이 멈춤'], [/브랜드 계정 토큰 갱신 실패/, '유튜브 브랜드 토큰 갱신 실패 — 유튜브 분석 값 수집이 멈춤']];
+function alertNow_(rows) {
+  const hit = rows.filter(r => ALERT_RE.some(a => a[0].test(String(r[3]))));
+  if (!hit.length) return;
+  const p = PropertiesService.getScriptProperties(), today = Utilities.formatDate(new Date(), TZ, 'yyyy-MM-dd');
+  const to = String(p.getProperty('BRIEF_TO') || '').trim();
+  if (!to || p.getProperty('ALERT_DAY') === today) return;
+  const kinds = ALERT_RE.filter(a => hit.some(r => a[0].test(String(r[3])))).map(a => a[1]);
+  const body = kinds.join('\n') + '\n\n실행 로그:\n' + hit.slice(0, 10).map(r => '· ' + String(r[1]) + ' — ' + String(r[3]).replace(/access_token=[^&\s"]+/g, 'access_token=…').slice(0, 200)).join('\n')
+    + '\n\n메타 토큰은 비즈니스 설정에서 시스템 사용자 토큰을 다시 만들어 스크립트 속성 META_TOKEN에, 유튜브는 메뉴 「유튜브 분석 승인」으로 다시 승인해요.\n이미 시트에 있는 줄은 지우지 않아요. 오늘은 이 메일을 다시 보내지 않아요.\n' + BOARD_URL;
+  MailApp.sendEmail({ to: to, subject: '[SNS 보드] 수집 중단 경고 · ' + kinds.map(k => k.split(' — ')[0]).join(' · '), body: body, name: 'SNS 성과 보드' });
+  p.setProperty('ALERT_DAY', today);
 }
 
 // 요일(1=월 … 7=일). getDay()는 스크립트 프로젝트 시간대를 따르므로 TZ로 직접 계산한다
 function weekday_(ymd) { return Number(Utilities.formatDate(new Date(ymd + 'T12:00:00+09:00'), TZ, 'u')); }
 function isMonday_(ymd) { return weekday_(ymd) === 1; }
-function isWeekend_(ymd) { return weekday_(ymd) >= 6; }
 
 // 이번 주 임시 기록인가 (월요일 아님 · 최근 7일 안 · 오늘 아님)
 function isProvisional_(d, today) {
@@ -315,7 +330,7 @@ function runSnapshot_() {
   props.setProperty(PROP_RUNNING, String(t0));
   props.deleteProperty(PROP_PENDING);
   try { clearResumeTriggers_(); } catch (e) {}
-  try { cacheClear_(); } catch (e) {}
+  // 응답 캐시는 여기서 비우지 않음(2026-10-30): 기록하는 몇 분 동안 보드는 앞 기록의 캐시를 그대로 받고, 마지막 cache 단계가 한 번에 바꿈
   const today = Utilities.formatDate(new Date(), TZ, 'yyyy-MM-dd');
   const snap = ss.getSheetByName(SNAP);
   const logs = [];
@@ -351,9 +366,6 @@ function runSnapshot_() {
         logs.push([new Date(), src.channel, 0, '오류: ' + e.message]);
       }
     });
-    const allOk = failed.length === 0;
-    const isFailedCh = ch => failed.some(f => f.src.bench ? ch.indexOf(BENCH_PREFIX) === 0 : ch === f.src.channel);
-
     // 2) 원본 갱신 여부: 직전 기록 대비 값이 바뀐 게시물 수
     const last0 = snap.getLastRow();
     const col = last0 >= 2 ? snap.getRange(2, 1, last0 - 1, 1).getDisplayValues().map(r => r[0]) : [];
@@ -366,11 +378,29 @@ function runSnapshot_() {
         prevRows = snap.getRange(a + 2, 1, b - a + 1, M0 + METRICS.length).getValues()
           .filter(r => fmtDate_(r[0]) === prevDate);
       }
+      // 우리 채널 게시물 수가 직전 기록의 절반도 안 되면 읽기 실패로 봄(2026-10-30 「메타 데이터 잃는 건 절대 금지」)
+      // — 원본 시트가 반쯤 비어 들어온 날 그 값으로 오늘·임시 기록을 바꾸거나 일별 합계·게시물 일별을 쌓지 않게
+      const prevN = {};
+      prevRows.forEach(r => { prevN[String(r[1])] = (prevN[String(r[1])] || 0) + 1; });
+      SOURCES.filter(s => !s.bench && !failed.some(f => f.src === s)).forEach(s => {
+        const i = bySrc.findIndex(b => b[s.channel]);
+        if (i < 0) return;
+        const n = Object.keys(bySrc[i][s.channel]).length, was = prevN[s.channel] || 0;
+        if (was < 20 || n >= was * 0.5) return;
+        const msg = '게시물 수가 직전 기록의 절반도 안 됨(' + was + ' → ' + n + ') — 읽기 실패로 보고 오늘 앞서 기록한 값·임시 기록을 그대로 둠';
+        failed.push({ src: s, msg: msg });
+        bySrc.splice(i, 1);
+        const keep = rows.filter(r => r[1] !== s.channel);
+        rows.length = 0; Array.prototype.push.apply(rows, keep);
+        logs.push([new Date(), s.channel, n, '오류: ' + msg]);
+      });
       const fresh = freshStats_(prevRows, bySrc, prevDate, today);
       failed.filter(f => !f.src.bench).forEach(f => { fresh[f.src.channel] = { changed: null, total: 0, latest: '', prev: prevDate, d: today, error: f.msg }; });
       props.setProperty(PROP_FRESH, JSON.stringify(fresh));
       Object.keys(fresh).forEach(ch => logs.push(freshLog_(ch, fresh[ch])));
     } catch (e) { logs.push([new Date(), '원본 갱신', 0, '오류: ' + e.message]); }
+    const allOk = failed.length === 0;
+    const isFailedCh = ch => failed.some(f => f.src.bench ? ch.indexOf(BENCH_PREFIX) === 0 : ch === f.src.channel);
 
     // 3) 쓰기: 오늘 기존 기록 중 이번에 읽은 채널만 교체, 모든 원본이 성공했을 때만 지난 임시 기록 삭제
     const tail = scanTail_(col, today);
@@ -383,12 +413,8 @@ function runSnapshot_() {
     if (clearFrom < col.length) snap.getRange(clearFrom + 2, 1, col.length - clearFrom, SNAP_HEADER.length).clearContent();
     const out = keepToday.concat(rows);
     if (out.length) snap.getRange(snap.getLastRow() + 1, 1, out.length, SNAP_HEADER.length).setValues(out);
+    // 「계정 지표」의 같은 임시 기록일 줄은 여기서 지우지 않고, acct 단계가 오늘 줄을 쓴 채널만 지움(2026-10-30 — 예전엔 먼저 지워서 Supermetrics 탭 오류인 날 그 주 계정 기록이 사라졌음)
     if (allOk && tail.provDates.length) {
-      const acc = ss.getSheetByName(ACCOUNT);
-      if (acc && acc.getLastRow() >= 2) {
-        const d = acc.getRange(2, 1, acc.getLastRow() - 1, 1).getDisplayValues();
-        for (let i = d.length - 1; i >= 0; i--) if (tail.provDates.indexOf(d[i][0]) >= 0) acc.deleteRow(i + 2);
-      }
       logs.push([new Date(), '임시 기록 교체', 0, tail.provDates.join(', ') + ' → ' + today]);
     } else if (!allOk && tail.provDates.length) {
       logs.push([new Date(), '임시 기록 교체', 0, '보류: 원본 읽기 실패가 있어 ' + tail.provDates.join(', ') + ' 기록을 남겨 둠']);
@@ -397,7 +423,7 @@ function runSnapshot_() {
     logRows_(ss, logs.splice(0));
 
     // 4) 나머지 단계 (5분이 넘으면 멈추고 이어서 실행)
-    runSteps_({ ss: ss, today: today, bySrc: bySrc, logs: logs, t0: t0, n: 0 }, SNAP_STEPS.slice());
+    runSteps_({ ss: ss, today: today, bySrc: bySrc, logs: logs, t0: t0, n: 0, provDel: allOk ? tail.provDates : [] }, SNAP_STEPS.slice());
   } finally {
     try { logRows_(ss, logs); } catch (e) {}
     props.deleteProperty(PROP_RUNNING);
@@ -440,10 +466,10 @@ function loadFresh_() {
 }
 
 // ───────── 기록 뒤 단계 (시간 초과 시 다음 실행에서 이어 받음) ─────────
-const SNAP_STEPS = ['acct', 'meta', 'igx', 'yta', 'ytb', 'hreel', 'igm', 'hong', 'fb', 'tags', 'daily', 'age', 'build', 'cache'];
+const SNAP_STEPS = ['acct', 'meta', 'igx', 'yta', 'ytb', 'hreel', 'igm', 'hong', 'fb', 'pday', 'tags', 'daily', 'age', 'build', 'cache'];
 const STEP_FN = {
   acct: x => {
-    try { accountSnapshot_(x.ss, x.today, x.logs); } catch (e) { x.logs.push([new Date(), '계정 지표', 0, '오류: ' + e.message]); }
+    try { accountSnapshot_(x.ss, x.today, x.logs, x.provDel || []); } catch (e) { x.logs.push([new Date(), '계정 지표', 0, '오류: ' + e.message]); }
   },
   meta: x => {
     try { metaStep_(x.ss, x.today, x.logs); } catch (e) { x.logs.push([new Date(), '메타 광고 API', 0, '오류: ' + e.message]); }
@@ -470,6 +496,9 @@ const STEP_FN = {
   fb: x => {
     try { fbStep_(x.ss, x.today, x.logs); } catch (e) { x.logs.push([new Date(), '페이스북', 0, '오류: ' + e.message]); }
   },
+  pday: x => {
+    try { postDailyStep_(x); } catch (e) { x.logs.push([new Date(), PDAY_SHEET, 0, '오류: ' + e.message]); }
+  },
   tags: x => {
     try { const b = stepBySrc_(x, true); saveTags_(x.ss, b, x.today); x.logs.push([new Date(), '태그', b.length, '정상']); }
     catch (e) { x.logs.push([new Date(), '태그', 0, '오류: ' + e.message]); }
@@ -479,15 +508,23 @@ const STEP_FN = {
     catch (e) { x.logs.push([new Date(), '일별 합계', 0, '오류: ' + e.message]); }
   },
   age: x => {
-    try { const n = saveAgeViews_(x.ss, stepBySrc_(x, false), x.today); x.logs.push([new Date(), '게시 후 조회', n, '정상']); }
+    try { const n = saveAgeViews_(x.ss, stepBySrc_(x, false), x.today, new Date(x.t0)); x.logs.push([new Date(), '게시 후 조회', n, '정상']); }
     catch (e) { x.logs.push([new Date(), '게시 후 조회', 0, '오류: ' + e.message]); }
   },
   build: x => {
     try { buildAll(); } catch (e) { x.logs.push([new Date(), '분석 탭', 0, '오류: ' + e.message]); }
   },
+  // 보드 응답을 한 번 만들어 「일별 합계」의 광고 등 뺀 값(I~N열)을 쓰고, 분석(part) 캐시를 비운 뒤 기본 응답 캐시를 새것으로 바꿈
+  // (2026-10-30: 기록 시작 때 비우던 것을 여기로 — 실패하면 비워서 다음 doGet이 새로 계산)
   cache: x => {
-    try { const r = cacheBuild_(); x.logs.push([new Date(), '응답 캐시', r.n, '정상 (' + Math.round(r.raw / 1024) + 'KB → 압축 ' + Math.round(r.bytes / 1024) + 'KB)']); }
-    catch (e) { x.logs.push([new Date(), '응답 캐시', 0, '오류: ' + e.message]); }
+    try {
+      const D = buildDashboardData_();
+      try { const n = saveDailyClean_(x.ss, D, x.today); x.logs.push([new Date(), '일별 합계(광고 등 뺌)', n, '정상']); }
+      catch (e) { x.logs.push([new Date(), '일별 합계(광고 등 뺌)', 0, '오류: ' + e.message]); }
+      try { CacheService.getScriptCache().removeAll(['part:yt:meta', 'part:ig:meta', 'part:ytb:meta', 'part:hreel:meta']); } catch (e) {}
+      const r = cachePut_(JSON.stringify(D));
+      x.logs.push([new Date(), '응답 캐시', r.n, '정상 (' + Math.round(r.raw / 1024) + 'KB → 압축 ' + Math.round(r.bytes / 1024) + 'KB)']);
+    } catch (e) { dropCache_(); x.logs.push([new Date(), '응답 캐시', 0, '오류: ' + e.message]); }
   },
 };
 
@@ -497,6 +534,7 @@ function runSteps_(ctx, steps) {
       const rest = steps.slice(i);
       const again = ctx.n < RESUME_MAX;
       if (again) savePending_(ctx.today, rest, ctx.n + 1);
+      else dropCache_(); // 마지막 cache 단계까지 못 가면 앞 기록의 캐시를 6시간 들고 있지 않게 비움(다음 doGet이 지금 시트로 계산)
       ctx.logs.push([new Date(), '시간 초과', 0, '경고: 실행 ' + Math.round((Date.now() - ctx.t0) / 1000) + '초 — 남은 단계 ' + rest.join(', ') +
         (again ? ' 는 1분 뒤 이어서 실행' : ' 는 이어서 실행 한도(' + RESUME_MAX + '번)를 넘어 다음 정기 실행으로 넘김')]);
       return false;
@@ -522,7 +560,7 @@ function stepBySrc_(ctx, needFull) {
     const byCh = {};
     if (t.todayFrom < col.length) snap.getRange(t.todayFrom + 2, 1, col.length - t.todayFrom, SNAP_HEADER.length).getValues().forEach(r => {
       const ch = String(r[1]), k = String(r[2]); if (!ch || !k) return;
-      const it = { date: fmtDate_(r[C.date]) };
+      const it = { date: fmtDate_(r[C.date]), reach: r[C.reach], url: String(r[C.url] || '') }; // 도달·주소는 「게시물 일별」용
       METRICS.forEach((m, i) => { it[m] = r[M0 + i]; });
       (byCh[ch] = byCh[ch] || {})[k] = it;
     });
@@ -552,9 +590,8 @@ function resumeSnapshot() {
     if (!p || !p.steps || !p.steps.length) return;
     const ss = SpreadsheetApp.getActive() || SpreadsheetApp.openById(SS_ID);
     const today = Utilities.formatDate(new Date(), TZ, 'yyyy-MM-dd');
-    if (p.date !== today) { logRows_(ss, [[new Date(), '이어서 실행', 0, '건너뜀: ' + p.date + ' 기록의 남은 단계(다음 정기 실행이 다시 계산)']]); return; }
+    if (p.date !== today) { dropCache_(); logRows_(ss, [[new Date(), '이어서 실행', 0, '건너뜀: ' + p.date + ' 기록의 남은 단계(다음 정기 실행이 다시 계산)']]); return; }
     props.setProperty(PROP_RUNNING, String(Date.now()));
-    try { cacheClear_(); } catch (e) {}
     const ctx = { ss: ss, today: today, bySrc: null, logs: [[new Date(), '이어서 실행', p.n, p.steps.join(', ')]], t0: Date.now(), n: p.n };
     try { runSteps_(ctx, p.steps.filter(s => STEP_FN[s])); }
     finally { try { logRows_(ss, ctx.logs); } catch (e) {} props.deleteProperty(PROP_RUNNING); }
@@ -652,7 +689,8 @@ function readSource_(src, today) {
 }
 
 // ───────── 계정 단위 지표 (Supermetrics 탭 → 계정 지표 누적) ─────────
-function accountSnapshot_(ss, today, logs) {
+// provDel: 이번 기록이 교체한 임시 기록일 — 그 채널 오늘 줄을 쓴 뒤에만 그 날짜 줄을 지움(쓰기 전에 실패하면 옛 줄이 남음)
+function accountSnapshot_(ss, today, logs, provDel) {
   const acc = ss.getSheetByName(ACCOUNT);
   ACCOUNT_SOURCES.forEach(a => {
     const name = '계정·' + a.channel;
@@ -698,6 +736,10 @@ function accountSnapshot_(ss, today, logs) {
       }
     }
     acc.getRange(target, 1, 1, head.length).setValues([row]);
+    if (provDel && provDel.length) {
+      const kd = acc.getRange(2, 1, acc.getLastRow() - 1, 2).getDisplayValues();
+      for (let i = kd.length - 1; i >= 0; i--) if (kd[i][1] === a.channel && provDel.indexOf(kd[i][0]) >= 0) acc.deleteRow(i + 2);
+    }
     logs.push([new Date(), name, 1, errCols.length ? '정상 · 경고: 수집 오류 지표 — ' + errCols.join(', ') : '정상']);
   });
 }
@@ -888,6 +930,34 @@ function writeTable_(sh, header, rows, fmts) {
   }
   sh.setFrozenRows(1);
 }
+// 쌓는 탭 다시 쓰기(2026-10-30 「메타 데이터 잃는 건 절대 금지」): 2행부터 rows를 먼저 쓰고, 예전 줄이 더 많았을 때만 남는 아래 줄을 비움.
+// 예전엔 먼저 비우고 썼다 → 그 사이 실행이 끊기면(6분 한도·시트 오류) 탭이 빈 채로 남았음
+function putRows_(sh, rows, width) {
+  const old = Math.max(sh.getLastRow() - 1, 0);
+  if (rows.length) sh.getRange(2, 1, rows.length, width).setValues(rows);
+  if (old > rows.length) sh.getRange(rows.length + 2, 1, old - rows.length, width).clearContent();
+}
+// 열 머리글이 바뀐 탭(2026-10-30): 예전 igxUpsert_는 탭을 통째로 비웠다 → 옛 줄을 지우지 않고 옮김
+//  · 끝에 열만 더해졌으면 머리글만 바꿈 · 옛 열 이름이 새 머리글에 다 있으면 이름으로 열을 맞춰 다시 씀
+//  · 그 밖(열이 빠지거나 이름이 바뀜)은 옛 탭을 「<이름> (옛 열 yyyy-MM-dd HHmm)」으로 남기고 새 탭을 만듦
+function headMove_(ss, sh, name, head, was) {
+  was = was.slice();
+  while (was.length && !was[was.length - 1]) was.pop();
+  if (was.length <= head.length && was.every((h, i) => h === head[i])) { sh.getRange(1, 1, 1, head.length).setValues([head]).setFontWeight('bold'); return sh; }
+  const map = was.map(h => h ? head.indexOf(h) : -1);
+  if (map.every(j => j >= 0) && new Set(map).size === map.length) {
+    const n = sh.getLastRow() - 1;
+    const rows = (n > 0 ? sh.getRange(2, 1, n, was.length).getValues() : []).map(r => { const o = head.map(() => ''); map.forEach((j, i) => { o[j] = r[i]; }); return o; });
+    sh.getRange(1, 1, 1, head.length).setValues([head]).setFontWeight('bold');
+    putRows_(sh, rows, head.length);
+    return sh;
+  }
+  sh.setName(name + ' (옛 열 ' + Utilities.formatDate(new Date(), TZ, 'yyyy-MM-dd HHmm') + ')');
+  const nw = ss.insertSheet(name);
+  nw.getRange(1, 1, 1, head.length).setValues([head]).setFontWeight('bold');
+  nw.setFrozenRows(1);
+  return nw;
+}
 
 function ensureSheets_(ss) {
   let snap = ss.getSheetByName(SNAP);
@@ -1007,56 +1077,80 @@ function fmtDate_(v) {
 
 // ───────── 게시 후 1·3·7일 시점 조회 (「게시 후 조회」 탭) ─────────
 // 같은 나이에서 비교하려고, 게시물이 1·3·7일째가 됐을 때의 조회를 한 번만 적어 둔다.
-// 원본(Supermetrics)은 평일 06:00에만 갱신돼서 주말 실행분은 건너뛴다 → 「경과일」에 실제 나이를 같이 기록.
+// 원본이 안 바뀐 채널(staleChs_)은 어제 값 그대로라 건너뛴다 → 「경과일」에 실제 나이를 같이 기록.
+// (2026-10-30 주말 건너뛰기 없앰: 인스타·hong·유튜브는 API로 주말에도 값이 바뀜. 요일이 아니라 실제로 안 바뀐 채널만 뺌)
+// 경과 시간(K~M열, 2026-10-30): 게시 시각을 아는 게시물(인스타·hong·유튜브 API)은 「게시 시각 → 기록 시각」 시간으로 나이를 셈.
+//  · 1일 = 올린 지 24시간이 지난 첫 기록(예전 날짜 차이로는 23시에 올린 게시물이 다음 날 08시 = 9시간째도 「1일」이었음)
+//  · 경과 열(E·G·I)은 그대로 「온전히 지난 날 수」, 시간 열이 빈 칸은 예전처럼 날짜 차이로 센 값 → 두 뜻을 시간 열로 가를 수 있음
+//  · 같은 칸에서 시간 기준 값은 날짜 차이 값으로 덮지 않고, 날짜 차이 값은 시간 기준 값이 오면 바꿈
 const AGE_SHEET = '게시 후 조회';
-const AGE_HEADER = ['채널', '콘텐츠키', '게시일', '1일 조회', '1일 경과', '3일 조회', '3일 경과', '7일 조회', '7일 경과', '갱신일'];
+const AGE_HEADER = ['채널', '콘텐츠키', '게시일', '1일 조회', '1일 경과', '3일 조회', '3일 경과', '7일 조회', '7일 경과', '갱신일', '1일 시간', '3일 시간', '7일 시간'];
 const AGE_WIN = [[1, 2], [3, 6], [7, 10]]; // [최소, 최대] 경과일
 function ageSheet_(ss) {
   let sh = ss.getSheetByName(AGE_SHEET);
   if (!sh) {
     sh = ss.insertSheet(AGE_SHEET);
-    sh.getRange(1, 1, 1, AGE_HEADER.length).setValues([AGE_HEADER]).setFontWeight('bold');
     sh.setFrozenRows(1);
   }
+  wideHead_(sh, AGE_HEADER);
   return sh;
 }
-// obs: [[채널, 키, 게시일, 조회, 기록일], ...] → 탭에 반영. 반환: 새로 채운 칸 수
+// 머리글을 끝까지 맞춤(열을 끝에 더한 탭) — 열이 모자라면 늘림
+function wideHead_(sh, head) {
+  if (sh.getMaxColumns() < head.length) sh.insertColumnsAfter(sh.getMaxColumns(), head.length - sh.getMaxColumns());
+  if (sh.getLastColumn() < head.length || sh.getLastRow() === 0) sh.getRange(1, 1, 1, head.length).setValues([head]).setFontWeight('bold');
+}
+// obs: [[채널, 키, 게시일, 조회, 기록일, 경과 시간(모르면 null)], ...] → 탭에 반영. 반환: 새로 채운 칸 수
 function mergeAgeViews_(ss, obs) {
   const sh = ageSheet_(ss);
-  const map = {}, order = [];
-  if (sh.getLastRow() > 1) sh.getRange(2, 1, sh.getLastRow() - 1, AGE_HEADER.length).getValues().forEach(r => {
+  const W = AGE_HEADER.length, map = {}, order = [];
+  if (sh.getLastRow() > 1) sh.getRange(2, 1, sh.getLastRow() - 1, W).getValues().forEach(r => {
     const k = r[0] + '§' + r[1]; if (!map[k]) order.push(k); map[k] = r.map((x, j) => j === 2 ? fmtDate_(x) : j === 9 ? fmtDate_(x) : x);
   });
+  const blank = x => x === '' || x === null || x === undefined;
   let n = 0;
   obs.forEach(o => {
     const ch = o[0], key = o[1], posted = fmtDate_(o[2]), views = o[3] === '' || o[3] == null ? null : num_(o[3]), day = fmtDate_(o[4]);
     if (OWN_CHANNELS.indexOf(ch) < 0 || !/^\d{4}-\d{2}-\d{2}$/.test(posted) || views == null) return;
-    const age = Math.round((new Date(day + 'T00:00:00Z') - new Date(posted + 'T00:00:00Z')) / 864e5);
+    const hrs = o[5] == null || o[5] === '' || isNaN(Number(o[5])) ? null : Number(o[5]);
+    const age = hrs != null ? Math.floor(hrs / 24) : Math.round((new Date(day + 'T00:00:00Z') - new Date(posted + 'T00:00:00Z')) / 864e5);
     const k = ch + '§' + key;
     let r = map[k];
     AGE_WIN.forEach((w, j) => {
       if (age < w[0] || age > w[1]) return;
-      if (!r) { r = map[k] = [ch, key, posted, '', '', '', '', '', '', day]; order.push(k); }
-      const c = 3 + j * 2;
-      // 같은 구간에서는 목표 나이(최소값)에 가장 가까운 관측을 남김
-      if (r[c] === '' || r[c] === null || Math.abs(age - w[0]) < Math.abs(Number(r[c + 1]) - w[0])) { r[c] = views; r[c + 1] = age; r[9] = day; n++; }
+      if (!r) { r = map[k] = [ch, key, posted, '', '', '', '', '', '', day, '', '', '']; order.push(k); }
+      const c = 3 + j * 2, hc = 10 + j, oldH = blank(r[hc]) ? null : Number(r[hc]);
+      // 같은 구간에서는 목표 나이(최소값)에 가장 가까운 관측을 남김. 시간 기준 > 날짜 차이
+      let take;
+      if (blank(r[c])) take = true;
+      else if (hrs != null && oldH == null) take = true;
+      else if (hrs == null && oldH != null) take = false;
+      else if (hrs != null) take = Math.abs(hrs - w[0] * 24) < Math.abs(oldH - w[0] * 24);
+      else take = Math.abs(age - w[0]) < Math.abs(Number(r[c + 1]) - w[0]);
+      if (take) { r[c] = views; r[c + 1] = age; r[hc] = hrs == null ? '' : Math.round(hrs * 10) / 10; r[9] = day; n++; }
     });
   });
-  const rows = order.map(k => map[k]);
-  if (rows.length) {
-    sh.getRange(2, 1, Math.max(sh.getLastRow() - 1, 1), AGE_HEADER.length).clearContent();
-    sh.getRange(2, 1, rows.length, AGE_HEADER.length).setValues(rows);
-  }
+  putRows_(sh, order.map(k => { const r = map[k]; while (r.length < W) r.push(''); return r.slice(0, W); }), W);
   return n;
 }
-function saveAgeViews_(ss, bySrc, today) {
+// at: 이번 기록이 값을 받은 시각(경과 시간 계산용). 게시 시각(it.ts)은 인스타·유튜브 API로 받은 게시물에만 있음
+function saveAgeViews_(ss, bySrc, today, at) {
   if (!ss.getSheetByName(AGE_SHEET)) backfillAgeViews(); // 처음 한 번: 기존 스냅샷 기록으로 채움
-  if (isWeekend_(today)) return 0; // 주말: 원본이 금요일 값 그대로라 건너뜀
-  const obs = [];
-  bySrc.forEach(byCh => Object.keys(byCh).forEach(ch => Object.keys(byCh[ch]).forEach(k => {
-    const it = byCh[ch][k]; obs.push([ch, k, it.date, it.views, today]);
-  })));
+  const stale = staleChs_(), obs = [], t = at instanceof Date ? at.getTime() : Date.now();
+  bySrc.forEach(byCh => Object.keys(byCh).forEach(ch => {
+    if (stale[ch]) return;
+    Object.keys(byCh[ch]).forEach(k => {
+      const it = byCh[ch][k], ts = it.ts ? new Date(it.ts).getTime() : NaN;
+      obs.push([ch, k, it.date, it.views, today, isNaN(ts) || ts > t ? null : (t - ts) / 36e5]);
+    });
+  }));
   return mergeAgeViews_(ss, obs);
+}
+// 원본이 안 바뀐 채널 {채널: 1} — 이번 기록의 원본 갱신 여부(FRESH)에서 두 기록에 모두 있는 게시물 5개 이상인데 값이 하나도 안 바뀐 채널(벤치는 「벤치·계정」 이름으로)
+function staleChs_() {
+  const f = loadFresh_(), out = {};
+  Object.keys(f).forEach(c => { const x = f[c]; if (x && x.total >= 5 && x.changed === 0) { out[c] = 1; out[BENCH_PREFIX + c] = 1; } });
+  return out;
 }
 // 한 번만: 「스냅샷」 탭에 이미 있는 기록으로 채우기 (메뉴·편집기에서 실행)
 function backfillAgeViews() {
@@ -1080,17 +1174,22 @@ function loadAgeViews_(ss) {
 
 // ───────── 일별 합계 (「일별 합계」 탭) ─────────
 // 「스냅샷」 탭은 용량 때문에 화~일 기록을 최신 1개만 남긴다 → 채널별 합계만 매일 따로 남겨 일별 증가를 볼 수 있게 함
-// 원본이 평일에만 갱신돼서 주말은 건너뜀 (월요일 값 - 금요일 값 = 주말 포함 3일치)
+// 원본이 안 바뀐 채널(staleChs_)은 그날 줄을 쓰지 않음 → 다음 날 값 − 그 전 기록 = 며칠치(2026-10-30 주말 건너뛰기 대신, 인스타·hong·유튜브는 API로 주말에도 바뀜)
+// I~N열 「광고 등 뺌」(2026-10-30): 광고 집행·유튜브 일부 공개·비공개·「태그 수정」 제외 게시물을 뺀 합계. 보드 응답을 만드는 cache 단계가 씀(saveDailyClean_)
+//  · 새 열로 따로 둔 이유: A~H(전체 합계)는 지금까지와 같은 뜻으로 남기고, 뺀 값은 쓰기 시작한 날부터만 있음 → 보드가 두 값을 한 증가 안에서 섞지 않게 이어 붙임(app.js prep)
 const DAILY_SHEET = '일별 합계';
 const DAILY_HEADER = ['기록일', '채널', '게시물 수', '조회수', '좋아요', '댓글', '공유', '저장'];
+const DAILY_CLEAN = ['게시물 수(광고 등 뺌)', '조회수(광고 등 뺌)', '좋아요(광고 등 뺌)', '댓글(광고 등 뺌)', '공유(광고 등 뺌)', '저장(광고 등 뺌)'];
+const DAILY_ALL = DAILY_HEADER.concat(DAILY_CLEAN);
 function dailySheet_(ss) {
   let sh = ss.getSheetByName(DAILY_SHEET);
-  if (!sh) { sh = ss.insertSheet(DAILY_SHEET); sh.getRange(1, 1, 1, DAILY_HEADER.length).setValues([DAILY_HEADER]).setFontWeight('bold'); sh.setFrozenRows(1); }
+  if (!sh) { sh = ss.insertSheet(DAILY_SHEET); sh.setFrozenRows(1); }
+  wideHead_(sh, DAILY_ALL);
   return sh;
 }
-// rows: [[기록일, 채널, 콘텐츠키, 조회, 좋아요, 댓글, 공유, 저장], ...] → 날짜·채널별 합계로 탭에 반영(같은 날짜는 덮어씀)
+// rows: [[기록일, 채널, 콘텐츠키, 조회, 좋아요, 댓글, 공유, 저장], ...] → 날짜·채널별 합계로 탭에 반영(같은 날짜는 A~H를 덮어쓰고 I~N은 그대로)
 function mergeDailyTotals_(ss, rows) {
-  const sh = dailySheet_(ss);
+  const sh = dailySheet_(ss), W = DAILY_ALL.length;
   const agg = {};
   rows.forEach(r => {
     const d = fmtDate_(r[0]), ch = String(r[1]);
@@ -1099,21 +1198,47 @@ function mergeDailyTotals_(ss, rows) {
     a[2]++;
     for (let j = 0; j < 5; j++) { const v = r[3 + j]; if (v !== '' && v != null && !isNaN(Number(v))) a[3 + j] += Number(v); }
   });
-  const keep = [];
-  if (sh.getLastRow() > 1) sh.getRange(2, 1, sh.getLastRow() - 1, DAILY_HEADER.length).getValues().forEach(r => { const k = fmtDate_(r[0]) + '§' + r[1]; if (!agg[k]) keep.push([fmtDate_(r[0])].concat(r.slice(1))); });
-  const out = keep.concat(Object.keys(agg).map(k => agg[k])).sort((x, y) => x[0] < y[0] ? -1 : x[0] > y[0] ? 1 : String(x[1]).localeCompare(String(y[1])));
-  if (sh.getLastRow() > 1) sh.getRange(2, 1, sh.getLastRow() - 1, DAILY_HEADER.length).clearContent();
-  if (out.length) sh.getRange(2, 1, out.length, DAILY_HEADER.length).setValues(out);
+  const keep = [], ext = {};
+  if (sh.getLastRow() > 1) sh.getRange(2, 1, sh.getLastRow() - 1, W).getValues().forEach(r => {
+    const k = fmtDate_(r[0]) + '§' + r[1];
+    if (!agg[k]) keep.push([fmtDate_(r[0])].concat(r.slice(1))); else ext[k] = r.slice(DAILY_HEADER.length);
+  });
+  const blank = DAILY_CLEAN.map(() => '');
+  const out = keep.concat(Object.keys(agg).map(k => agg[k].concat(ext[k] || blank))).sort((x, y) => x[0] < y[0] ? -1 : x[0] > y[0] ? 1 : String(x[1]).localeCompare(String(y[1])));
+  putRows_(sh, out, W);
   return Object.keys(agg).length;
 }
 function saveDailyTotals_(ss, bySrc, today) {
   if (!ss.getSheetByName(DAILY_SHEET)) backfillDailyTotals();
-  if (isWeekend_(today)) return 0;
-  const rows = [];
-  bySrc.forEach(byCh => Object.keys(byCh).forEach(ch => Object.keys(byCh[ch]).forEach(k => {
-    const it = byCh[ch][k]; rows.push([today, ch, k].concat(METRICS.map(m => it[m])));
-  })));
+  const stale = staleChs_(), rows = [];
+  bySrc.forEach(byCh => Object.keys(byCh).forEach(ch => {
+    if (stale[ch]) return;
+    Object.keys(byCh[ch]).forEach(k => { const it = byCh[ch][k]; rows.push([today, ch, k].concat(METRICS.map(m => it[m]))); });
+  }));
   return mergeDailyTotals_(ss, rows);
+}
+// 보드 응답(D)으로 오늘 우리 채널 줄의 I~N열을 채움: D.items는 이미 「태그 수정」 제외·유튜브 일부 공개·비공개를 뺐고, 여기서 광고 표시(it.ad)를 더 뺌
+// 오늘 A~H 줄이 있는 채널만(원본이 안 바뀌어 건너뛴 채널은 쓰지 않음). 반환: 채운 줄 수
+function saveDailyClean_(ss, D, today) {
+  const di = (D && D.dates || []).indexOf(today);
+  if (di < 0) return 0;
+  const agg = {};
+  (D.items || []).forEach(it => {
+    if (OWN_CHANNELS.indexOf(it.c) < 0 || it.ad || !it.h || !it.h[di]) return;
+    const a = agg[it.c] || (agg[it.c] = [0, 0, 0, 0, 0, 0]);
+    a[0]++;
+    for (let j = 0; j < 5; j++) { const v = it.h[di][j]; if (v != null) a[1 + j] += v; }
+  });
+  const sh = dailySheet_(ss);
+  if (sh.getLastRow() < 2) return 0;
+  let n = 0;
+  sh.getRange(2, 1, sh.getLastRow() - 1, 2).getValues().forEach((r, i) => {
+    const a = agg[String(r[1])];
+    if (fmtDate_(r[0]) !== today || !a) return;
+    sh.getRange(i + 2, DAILY_HEADER.length + 1, 1, DAILY_CLEAN.length).setValues([a]);
+    n++;
+  });
+  return n;
 }
 // 한 번만: 「스냅샷」 탭의 기록일별로 합계 채우기
 function backfillDailyTotals() {
@@ -1137,10 +1262,61 @@ function loadFollowers_(ss) {
 function loadDailyTotals_(ss) {
   const sh = ss.getSheetByName(DAILY_SHEET);
   if (!sh || sh.getLastRow() < 2) return [];
-  return sh.getRange(2, 1, sh.getLastRow() - 1, DAILY_HEADER.length).getValues().map(r => {
+  // [기록일, 채널, 게시물 수, 조회, 좋아요, 댓글, 공유, 저장, 같은 6개(광고 등 뺌, 없으면 null)]
+  return sh.getRange(2, 1, sh.getLastRow() - 1, Math.min(DAILY_ALL.length, Math.max(sh.getLastColumn(), DAILY_HEADER.length))).getValues().map(r => {
     const raw = String(r[1]); const ch = raw.indexOf(BENCH_PREFIX) === 0 ? raw.slice(BENCH_PREFIX.length) : raw;
     return [fmtDate_(r[0]), ch].concat(r.slice(2).map(x => x === '' ? null : Number(x)));
   });
+}
+
+// ───────── 게시물 일별 (「게시물 일별」 탭, 2026-10-30) ─────────
+// 「스냅샷」은 화~일 기록을 최신 1개만 남겨 게시물마다 날짜별 값이 사라짐 → 최근 90일에 올린 우리 게시물 값을 하루 1줄씩 쌓는다(지우지 않음)
+//  · 키 = 날짜 + 채널 + 게시물 키(「스냅샷」 콘텐츠키, 페이스북은 게시물 ID). 채널마다 그날 처음 받은 값 한 번만 덧붙임(PDAY_DONE) → 하루 간격이 일정하고 탭을 다시 읽지 않음
+//  · 미디어 ID·주소 = 나중에 게시물 키를 바꿀 때 쓸 대응표(인스타·hong = 메타 미디어 ID·게시물 주소, 유튜브 = 영상 ID). 키 자체는 바꾸지 않음
+//  · 원본이 안 바뀐 채널(staleChs_)은 어제 값 그대로라 쓰지 않음. 페이스북은 오늘 「페이스북 게시물」에서 다시 받은 줄만(fb 단계 뒤)
+//  · 셀: 13열 × 하루 약 150개 ≈ 1년 70만 칸
+const PDAY_SHEET = '게시물 일별';
+const PDAY_HEAD = ['날짜', '채널', '게시물 키', '게시일', '조회', '좋아요', '댓글', '공유', '저장', '도달', '미디어 ID', '주소', '기록 시각'];
+const PDAY_DAYS = 90;
+function postDailyStep_(x) {
+  const p = PropertiesService.getScriptProperties(), today = x.today, from = shiftDate_(today, -PDAY_DAYS);
+  const done = {};
+  try { const o = JSON.parse(p.getProperty('PDAY_DONE') || '{}'); if (o.d === today) (o.ch || []).forEach(c => { done[c] = 1; }); } catch (e) {}
+  const stale = staleChs_(), stamp = Utilities.formatDate(new Date(), TZ, 'HH:mm'), rows = [], got = {}, skip = [];
+  const v_ = v => v === '' || v == null || isNaN(Number(v)) ? '' : Number(v);
+  const ymd = v => v instanceof Date ? Utilities.formatDate(v, TZ, 'yyyy-MM-dd') : String(v || '').slice(0, 10);
+  stepBySrc_(x, false).forEach(byCh => Object.keys(byCh).forEach(ch => {
+    if (OWN_CHANNELS.indexOf(ch) < 0 || done[ch]) return;
+    if (stale[ch]) { if (skip.indexOf(ch) < 0) skip.push(ch); return; }
+    Object.keys(byCh[ch]).forEach(k => {
+      const it = byCh[ch][k];
+      if (!it.date || it.date < from) return;
+      const yt = ch === '유튜브' && k.indexOf('yt:') === 0;
+      rows.push([today, ch, k, it.date, v_(it.views), v_(it.likes), v_(it.comments), v_(it.shares), v_(it.saves), v_(it.reach),
+        yt ? k.slice(3) : String(it.mid || ''), yt ? '' : igPermalink_(it.url), stamp]);
+      got[ch] = 1;
+    });
+  }));
+  if (!done['페이스북']) {
+    const fs = x.ss.getSheetByName(FB_POST_SHEET);
+    if (fs && fs.getLastRow() > 1) fs.getRange(2, 1, fs.getLastRow() - 1, FB_POST_HEAD.length).getValues().forEach(r => {
+      const d = ymd(r[1]);
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(d) || d < from || ymd(r[13]) !== today) return;
+      rows.push([today, '페이스북', String(r[0]), d, v_(r[8]), v_(r[5]), v_(r[6]), v_(r[7]), '', v_(r[9]), String(r[0]), String(r[3] || ''), stamp]);
+      got['페이스북'] = 1;
+    });
+  }
+  if (rows.length) {
+    let sh = x.ss.getSheetByName(PDAY_SHEET);
+    if (!sh) { sh = x.ss.insertSheet(PDAY_SHEET); sh.getRange(1, 1, 1, PDAY_HEAD.length).setValues([PDAY_HEAD]).setFontWeight('bold'); sh.setFrozenRows(1); }
+    const at = sh.getLastRow() + 1;
+    sh.getRange(at, 1, rows.length, 4).setNumberFormat('@');  // 날짜·채널·키·게시일은 글자로
+    sh.getRange(at, 11, rows.length, 3).setNumberFormat('@'); // 미디어 ID(17자리 넘음)·주소·기록 시각
+    sh.getRange(at, 1, rows.length, PDAY_HEAD.length).setValues(rows);
+    Object.keys(got).forEach(c => { done[c] = 1; });
+    p.setProperty('PDAY_DONE', JSON.stringify({ d: today, ch: Object.keys(done) }));
+  }
+  x.logs.push([new Date(), PDAY_SHEET, rows.length, '정상 — ' + (Object.keys(got).join('·') || '새로 쓸 채널 없음(오늘 이미 씀)') + (skip.length ? ' · 원본이 안 바뀌어 건너뜀: ' + skip.join(', ') : '')]);
 }
 
 // ───────── 대시보드용 데이터 API (GitHub Pages에서 JSONP로 읽음) ─────────
@@ -1626,7 +1802,7 @@ var EXP_RE = [
   ['E02', /[가-힣]+(학과|학부)|전공|과잠|단과대|[가-힣]{2,6}대학(을|를)?\s?소개/],
   ['E16', /소개팅|연애|커플|동기|선후배|썸|고백|데이트|단톡방|친구/],
   ['E17', /선배|동문|졸업생|조언|꿀팁|신입생|새내기|합격|후기|인터뷰|Q&A|브이로그|vlog|성공\s?스토리|롱터뷰/i],
-  ['E15', /전주(?!대)|한옥마을|객사|전북|지역|통학|시내버스|신시가지/],
+  ['E15', /전주(?!대|캠퍼스)|한옥마을|객사|전북(?!대)|지역(?!\s?사회)|통학|시내버스|신시가지/], // 2026-10-30 「전북대학교」·「우석대 전주캠퍼스」·「지역사회 협력」이 타 대학 게시물을 전주·지역으로 끌어오던 것 막음
   ['E18', /캠퍼스|계절|봄|여름|가을|겨울|벚꽃|단풍|눈|공간|풍경|포토\s?(존|스팟)|날씨|하늘|노을|도서관|라운지|박물관/]
 ];
 // 옛 분류 → [기본 주제 코드, 고를 수 있는 코드(null = 경험 코드 전부)]
@@ -1777,19 +1953,12 @@ function seriesCode_(t) {
 }
 
 // ───────── 제작 주체 · 참여자 ─────────
-// 이름 명단은 「태그 설정」에서 고칠 수 있게 할 예정 — 여기 있는 건 기본값
-var AMBASSADORS = [
-  // 2026
-  '***','***','***','***','***','***','***','***','***','***','***','***','***','***',
-  // 2025 이전
-  '***','***','***','***','***','***','***','***','***','***','***','***','***','***','***',
-  '***','***','***','***','***','***','***','***','***','***','***','***','***','***','***',
-  '***','***','***','***','***','***'
-];
-// 부서 근로장학생 — 홍보대사가 아닌 이름은 기본적으로 근로장학생으로 봄
-var WORKSTUDY = ['***','***','***','***','***','***','***','***'];
-// 홍보실 직원 — 이름이 있어도 자체 제작
-var STAFF = ['***'];
+// 기본 명단(홍보대사·근로장학생·직원 실명)은 git 밖 gas/Names.gs에 둠(2026-10-30, 공개 저장소라). clasp로는 Apps Script에 함께 올라감(.claspignore !Names.gs)
+// 파일을 읽는 순서와 상관없이 Names.gs 값이 남게 이미 있는 값을 그대로 씀. Names.gs가 없으면 빈 목록 → 「명단」 탭 값만 씀
+// 홍보실 직원(STAFF) — 이름이 있어도 자체 제작 · 근로장학생(WORKSTUDY) — 홍보대사가 아닌 이름은 기본적으로 근로장학생으로 봄
+var AMBASSADORS = typeof AMBASSADORS !== 'undefined' && AMBASSADORS ? AMBASSADORS : [];
+var WORKSTUDY = typeof WORKSTUDY !== 'undefined' && WORKSTUDY ? WORKSTUDY : [];
+var STAFF = typeof STAFF !== 'undefined' && STAFF ? STAFF : [];
 // 「명단」 역할 '서포터즈'(대학혁신지원사업 JUNI:ON 등 학과·기관 학생 기자단) → 제작 주체 학과·기관 협업
 // 「명단」 역할 '출연'(크레딧에 이름이 있지만 제작자가 아닌 동아리원·출연자) → 참여자·제작 판단에서 뺌
 var PARTNER = [], EXCLUDE = [];
@@ -2138,8 +2307,7 @@ function saveTags_(ss, bySrc, today) {
   tagSibling_(map, meta);
   const fx = tagFixG_(ss);
   const rows = Object.keys(map).map(k => { const r = map[k].slice(0, 9); while (r.length < 9) r.push(''); r[7] = finalG_(r, fx, txt[k]); return r; });
-  sh.getRange(2, 1, Math.max(sh.getLastRow() - 1, 1), 9).clearContent();
-  if (rows.length) sh.getRange(2, 1, rows.length, 9).setValues(rows);
+  putRows_(sh, rows, 9); // 먼저 쓰고 남는 줄만 비움(2026-10-30, 예전엔 비운 뒤 써서 그 사이 끊기면 탭이 빈 채로 남았음)
 }
 
 // 같은 영상을 채널마다 올린 것(2026-10-28 「오늘 올린 아바타 소개팅이 주제가 없어?」): 인스타 릴스 캡션엔 낱말이 없고 유튜브 쇼츠 제목엔 「태권도학과 아바타 소개팅」이 있음
@@ -2858,18 +3026,20 @@ function metaDailySplit_(conf, from, to) {
     return metaDailySplit_(conf, from, mid).concat(metaDailySplit_(conf, shiftDate_(mid, 1), to));
   }
 }
-// 「메타 일별」에서 from 이후(to가 있으면 from~to) 행만 새 값으로 바꿔 씀(나머지 행은 그대로)
-function metaMergeDaily_(ss, from, rows, to) {
+// 「메타 일별」에 (날짜, 캠페인 ID)로 합쳐 씀: 새로 받은 줄만 바꾸고, 이번에 못 받은 줄(일부 계정 실패·일시 오류로 건너뛴 구간·지출 0으로 빠진 날)은 그대로 둠
+// (2026-10-30 「메타 데이터 잃는 건 절대 금지」 — 예전엔 from~to 줄을 다 지우고 새로 받은 것만 써서, 계정 하나가 실패하면 그 계정 37일치가 사라졌음)
+function metaMergeDaily_(ss, rows) {
   const sh = ss.getSheetByName(META_DAILY_SHEET) || ss.insertSheet(META_DAILY_SHEET);
-  const old = sh.getLastRow() > 1 ? sh.getRange(2, 1, sh.getLastRow() - 1, META_DAILY_HEAD.length).getValues() : [];
-  const keep = old.map(r => [fmtDate_(r[0]), String(r[1]), String(r[2])].concat(r.slice(3))).filter(r => /^\d{4}-\d{2}-\d{2}$/.test(r[0]) && (r[0] < from || (to && r[0] > to)));
-  const all = keep.concat(rows).sort((a, b) => a[0] < b[0] ? -1 : a[0] > b[0] ? 1 : a[2] < b[2] ? -1 : 1);
-  sh.clearContents();
-  sh.getRange(1, 1, 1, META_DAILY_HEAD.length).setValues([META_DAILY_HEAD]).setFontWeight('bold');
-  if (all.length) {
-    sh.getRange(2, 1, all.length, 3).setNumberFormat('@'); // 날짜·ID가 숫자·날짜로 바뀌지 않게
-    sh.getRange(2, 1, all.length, META_DAILY_HEAD.length).setValues(all);
-  }
+  const W = META_DAILY_HEAD.length;
+  const all = (sh.getLastRow() > 1 ? sh.getRange(2, 1, sh.getLastRow() - 1, W).getValues() : [])
+    .map(r => [fmtDate_(r[0]), String(r[1]), String(r[2])].concat(r.slice(3))).filter(r => /^\d{4}-\d{2}-\d{2}$/.test(r[0]));
+  const at = {}, key = r => r[0] + '§' + r[1];
+  all.forEach((r, i) => { at[key(r)] = i; });
+  rows.forEach(r => { const k = key(r); if (k in at) all[at[k]] = r; else { at[k] = all.length; all.push(r); } });
+  all.sort((a, b) => a[0] < b[0] ? -1 : a[0] > b[0] ? 1 : a[2] < b[2] ? -1 : 1);
+  sh.getRange(1, 1, 1, W).setValues([META_DAILY_HEAD]).setFontWeight('bold');
+  if (all.length) sh.getRange(2, 1, all.length, 3).setNumberFormat('@'); // 날짜·ID가 숫자·날짜로 바뀌지 않게
+  putRows_(sh, all, W);
   sh.setFrozenRows(1);
   return all.length;
 }
@@ -2889,14 +3059,17 @@ function metaRefreshInfo_(ss, conf) {
     fields: 'name,campaign_id,campaign{name},creative{body,instagram_permalink_url}', effective_status: META_STATUS, limit: 200
   }).map(a => [String(a.campaign_id || ''), (a.campaign && a.campaign.name) || '', String(a.id), a.name || '',
     (a.creative && a.creative.body) || '', (a.creative && a.creative.instagram_permalink_url) || '']);
-  [[META_CAMP_SHEET, META_CAMP_HEAD, camp], [META_CR_SHEET, META_CR_HEAD, ads]].forEach(([name, head, rows]) => {
+  // 캠페인 ID·광고 ID로 합쳐 씀(2026-10-30): 이번에 못 받은 캠페인·소재(일부 계정 실패·지운 광고)는 옛 줄을 그대로 둠 — 예전엔 탭을 비우고 다시 써서
+  // 계정 하나가 실패하면 그 계정 캠페인 이름·도달과 광고 소재 연결(인스타 게시물 광고 표시)이 사라졌음
+  [[META_CAMP_SHEET, META_CAMP_HEAD, camp, 0], [META_CR_SHEET, META_CR_HEAD, ads, 2]].forEach(([name, head, rows, kc]) => {
     const sh = ss.getSheetByName(name) || ss.insertSheet(name);
-    sh.clearContents();
+    const all = sh.getLastRow() > 1 ? sh.getRange(2, 1, sh.getLastRow() - 1, head.length).getValues().map(r => r.map(String)) : [];
+    const at = {};
+    all.forEach((r, i) => { if (r[kc]) at[r[kc]] = i; });
+    rows.map(r => r.map(String)).forEach(r => { if (r[kc] in at) all[at[r[kc]]] = r; else { at[r[kc]] = all.length; all.push(r); } });
     sh.getRange(1, 1, 1, head.length).setValues([head]).setFontWeight('bold');
-    if (rows.length) {
-      sh.getRange(2, 1, rows.length, head.length).setNumberFormat('@');
-      sh.getRange(2, 1, rows.length, head.length).setValues(rows.map(r => r.map(String)));
-    }
+    if (all.length) sh.getRange(2, 1, all.length, head.length).setNumberFormat('@');
+    putRows_(sh, all, head.length);
     sh.setFrozenRows(1);
   });
   return { camps: camp.length, ads: ads.length };
@@ -2913,7 +3086,7 @@ function metaStep_(ss, today, logs) {
   if (!ds || ds.getLastRow() < 2) logs.push([new Date(), '메타 광고 API', 0, '경고: 「' + META_DAILY_SHEET + '」 탭이 비어 있음 — 편집기에서 backfillMeta를 한 번 실행하세요']);
   const to = shiftDate_(today, -1), from = shiftDate_(today, -META_DAYS);
   const rows = metaDailySplit_(conf, from, to);
-  const n = metaMergeDaily_(ss, from, rows);
+  const n = metaMergeDaily_(ss, rows);
   const r = metaRefreshInfo_(ss, conf);
   logs.push([new Date(), '메타 광고 API', rows.length, '정상 — ' + from + '~' + to + ' 일별 ' + rows.length + '행(탭 전체 ' + n + '행) · 캠페인 ' + r.camps + '개 · 소재 ' + r.ads + '개' + (conf.warn.length ? ' · 일부 계정 실패: ' + conf.warn.join(' / ').slice(0, 200) : '')]);
 }
@@ -2959,7 +3132,7 @@ function backfillMeta() {
         if (s.got || !/code 100\b/.test(e.message) || !/37|month|start date|time.?range|date range/i.test(e.message)) { p.setProperty('META_BF', JSON.stringify(s)); throw e; } // 다시 실행하면 이 달부터 이어서
         s.skipped.push(a.slice(0, 7)); s.start = next; s.a = next; continue;
       }
-      s.n = metaMergeDaily_(ss, a, rows, b);
+      s.n = metaMergeDaily_(ss, rows);
       s.got += rows.length; s.a = next;
       p.setProperty('META_BF', JSON.stringify(s));
     }
@@ -3023,6 +3196,7 @@ function ytOverlay_(out, today) {
     Object.keys(api.videos).forEach(id => {
       const v = api.videos[id], a = api.stats[id], k = 'yt:' + id, it = ch[k];
       if (it) {
+        if (v.ts) it.ts = v.ts; // 게시 시각(「게시 후 조회」 경과 시간용, 스냅샷 탭에는 안 씀)
         if (!it.lengthSec && v.lengthSec) { it.lengthSec = v.lengthSec; it.type = lengthBucket_(v.lengthSec); }
         if (a) { // 분석 API(채널 권한이 있을 때): 원본 시트와 같은 기간 값으로 바로 교체
           it.views = a.views; it.likes = a.likes; it.comments = a.comments;
@@ -3042,7 +3216,7 @@ function ytOverlay_(out, today) {
       } else if (v.date >= shiftDate_(today, -YT_NEW_DAYS) && v.date >= YT_PERIOD_START) {
         // 새 영상: 분석 값이 아직 없으면(게시 1~2일) 데이터 API의 공개 수치 — 이 기간 영상은 전체 조회 = 기간 조회
         const s = a || { views: v.views, likes: v.likes, comments: v.comments, engaged: '', avgSec: '' };
-        ch[k] = { date: v.date, title: cut_(v.title.replace(/\s+/g, ' ').trim(), 80), url: 'https://www.youtube.com/watch?v=' + id, full: v.title, desc: v.desc,
+        ch[k] = { date: v.date, ts: v.ts, title: cut_(v.title.replace(/\s+/g, ' ').trim(), 80), url: 'https://www.youtube.com/watch?v=' + id, full: v.title, desc: v.desc,
           views: s.views, likes: s.likes, comments: s.comments, shares: '', saves: '', reach: '', engaged: s.engaged, avgSec: s.avgSec,
           lengthSec: v.lengthSec, type: lengthBucket_(v.lengthSec) };
         add++;
@@ -3077,7 +3251,7 @@ function fetchYouTube_(seedIds, today) {
     (r.items || []).forEach(x => {
       const st = x.statistics || {};
       videos[x.id] = {
-        date: Utilities.formatDate(new Date(x.snippet.publishedAt), TZ, 'yyyy-MM-dd'),
+        date: Utilities.formatDate(new Date(x.snippet.publishedAt), TZ, 'yyyy-MM-dd'), ts: String(x.snippet.publishedAt || ''),
         title: String(x.snippet.title || ''), desc: String(x.snippet.description || ''),
         lengthSec: isoDur_(x.contentDetails && x.contentDetails.duration),
         views: Number(st.viewCount) || 0, likes: Number(st.likeCount) || 0, comments: Number(st.commentCount) || 0,
@@ -3214,12 +3388,13 @@ function igOverlay_(out, today, chName) {
       if (it) {
         ['views', 'likes', 'comments', 'shares', 'saves', 'reach'].forEach(f => { if (x[f] !== '') it[f] = x[f]; });
         if (x.url) it.url = x.url;
+        it.mid = x.id; it.ts = x.ts; // 메타 미디어 ID·게시 시각(「게시물 일별」 대응표·「게시 후 조회」 경과 시간용, 스냅샷 탭에는 안 씀)
         upd++;
       } else if (x.date >= newFrom && x.product !== 'STORY') {
         const key = capKey_(x.date, x.caption);
         if (!key || ch[key]) return;
         if (x.date < recent && nearLoose(x.date)) { held++; return; }
-        ch[key] = { date: x.date, title: cut_(x.caption.replace(/\s+/g, ' ').trim(), 80), url: x.url, full: x.caption, desc: '',
+        ch[key] = { date: x.date, mid: x.id, ts: x.ts, title: cut_(x.caption.replace(/\s+/g, ' ').trim(), 80), url: x.url, full: x.caption, desc: '',
           views: x.views, likes: x.likes, comments: x.comments, shares: x.shares, saves: x.saves, reach: x.reach, engaged: '', avgSec: '',
           lengthSec: '', type: typeLabel_(x.product, x.mediaType) };
         add++;
@@ -3300,7 +3475,7 @@ function fetchInstagram_(chName) {
     ((x.insights && x.insights.data) || []).forEach(d => { ins[d.name] = d.values && d.values[0] ? Number(d.values[0].value) || 0 : (d.total_value ? Number(d.total_value.value) || 0 : ''); });
     const has = n => Object.prototype.hasOwnProperty.call(ins, n) ? ins[n] : '';
     return {
-      id: String(x.id), date: Utilities.formatDate(new Date(x.timestamp), IG_DATE_TZ, 'yyyy-MM-dd'),
+      id: String(x.id), date: Utilities.formatDate(new Date(x.timestamp), IG_DATE_TZ, 'yyyy-MM-dd'), ts: String(x.timestamp || ''),
       caption: String(x.caption || ''), url: String(x.permalink || ''),
       product: String(x.media_product_type || ''), mediaType: String(x.media_type || ''),
       views: has('views'), likes: Number(x.like_count) || 0, comments: Number(x.comments_count) || 0,
@@ -3837,10 +4012,13 @@ function igxInsights_(conf, id, metrics, extra, miss) {
   }
 }
 // 행 머리글이 있는 탭을 키(열 번호들)로 덮어쓰거나 덧붙임
+// 2026-10-30 「메타 데이터 잃는 건 절대 금지」: ① 새 줄의 빈칸(이번에 못 받은 지표)은 옛 값을 남김 ② 머리글이 바뀌어도 탭을 비우지 않음(headMove_)
 function igxUpsert_(ss, name, head, keyCols, rows) {
-  const sh = ss.getSheetByName(name) || ss.insertSheet(name);
-  // 열 구성이 바뀌었으면(머리글이 다르면) 탭을 비우고 새로 씀 — 예전 줄이 엉뚱한 열에 남지 않게
-  if (sh.getLastRow() > 0 && sh.getRange(1, 1, 1, Math.max(sh.getLastColumn(), head.length)).getDisplayValues()[0].join('§').replace(/§+$/, '') !== head.join('§')) sh.clear();
+  let sh = ss.getSheetByName(name) || ss.insertSheet(name);
+  if (sh.getLastRow() > 0) {
+    const was = sh.getRange(1, 1, 1, Math.max(sh.getLastColumn(), head.length)).getDisplayValues()[0];
+    if (was.join('§').replace(/§+$/, '') !== head.join('§')) sh = headMove_(ss, sh, name, head, was);
+  }
   if (sh.getLastRow() === 0) { sh.getRange(1, 1, 1, head.length).setValues([head]).setFontWeight('bold'); sh.setFrozenRows(1); }
   const n = sh.getLastRow() - 1;
   const old = n > 0 ? sh.getRange(2, 1, n, head.length).getValues() : [];
@@ -3848,8 +4026,9 @@ function igxUpsert_(ss, name, head, keyCols, rows) {
   const at = {};
   old.forEach((r, i) => { at[key(r)] = i; });
   const add = [];
+  const fill = (r, b) => r.map((v, i) => (v === '' || v == null) && b[i] !== '' && b[i] != null ? b[i] : v);
   // 같은 키가 이번 묶음 안에 두 번 오면 덧붙인 줄을 바꿈(예전엔 빈 줄이 생겨 「열 수가 일치하지 않음」)
-  rows.forEach(r => { const k = key(r); if (!(k in at)) { at[k] = old.length + add.length; add.push(r); } else if (at[k] < old.length) old[at[k]] = r; else add[at[k] - old.length] = r; });
+  rows.forEach(r => { const k = key(r); if (!(k in at)) { at[k] = old.length + add.length; add.push(r); } else if (at[k] < old.length) old[at[k]] = fill(r, old[at[k]]); else add[at[k] - old.length] = fill(r, add[at[k] - old.length]); });
   const all = old.concat(add);
   if (all.length) {
     keyCols.forEach(i => sh.getRange(2, i + 1, all.length, 1).setNumberFormat('@')); // 채널·ID·날짜는 글자로(긴 ID가 숫자로 바뀌지 않게), 지표는 숫자 그대로
@@ -4045,8 +4224,8 @@ function ytaPrivacy_(ss, today) {
   }
   if (!out.length) return 0;
   const sh = ss.getSheetByName(YT_PRIV_SHEET) || ss.insertSheet(YT_PRIV_SHEET);
-  sh.clearContents();
-  sh.getRange(1, 1, out.length + 1, 3).setValues([['영상 ID', '공개 상태', '확인 시각']].concat(out));
+  sh.getRange(1, 1, 1, 3).setValues([['영상 ID', '공개 상태', '확인 시각']]);
+  putRows_(sh, out, 3); // 먼저 쓰고 남는 줄만 비움(2026-10-30)
   YT_PRIV_ = null;
   return out.filter(r => r[1] !== 'public').length;
 }
@@ -4150,11 +4329,12 @@ function ytaAudience_(ss, today, maxMonths) {
     const end = shiftDate_(Utilities.formatDate(new Date(Date.UTC(Number(m.slice(0, 4)), Number(m.slice(5, 7)), 1)), 'UTC', 'yyyy-MM-dd'), -1);
     rows = rows.concat(ytaAudienceRows_(m.slice(0, 7), m, end, now));
   });
-  // 「최근 28일」은 매일 통째로 바꿈 → 기존 최근 28일 줄을 지우고 씀
-  if (sh && sh.getLastRow() > 1) {
-    const v = sh.getRange(2, 1, sh.getLastRow() - 1, head.length).getValues().filter(r => String(r[0]) !== '최근 28일');
-    sh.getRange(2, 1, sh.getLastRow() - 1, head.length).clearContent();
-    if (v.length) sh.getRange(2, 1, v.length, head.length).setValues(v);
+  // 「최근 28일」은 매일 통째로 바꿈 → 새로 받은 구분(연령·국가 등)의 기존 최근 28일 줄만 지우고 씀(2026-10-30: 받기 실패한 구분은 어제 줄을 남김)
+  const kinds = {};
+  rows.forEach(r => { if (String(r[0]) === '최근 28일') kinds[String(r[1])] = 1; });
+  if (sh && sh.getLastRow() > 1 && Object.keys(kinds).length) {
+    const v = sh.getRange(2, 1, sh.getLastRow() - 1, head.length).getValues().filter(r => !(String(r[0]) === '최근 28일' && kinds[String(r[1])]));
+    putRows_(sh, v, head.length);
   }
   igxUpsert_(ss, '유튜브 시청자', head, [0, 1, 2], rows);
   return { n: rows.length, months: Math.min(months.length, maxMonths), left: Math.max(0, months.length - maxMonths) };
@@ -4227,19 +4407,20 @@ const YTA_TR_HEAD = ['영상 ID', '제목', '게시일', '유입 경로', '조�
 const YTA_KW_HEAD = ['영상 ID', '제목', '검색어', '조회', '기록일'];
 const YTA_RET_HEAD = ['영상 ID', '제목', '구간(%)', '시청 비율', '비슷한 영상 대비', '기록일'];
 const YTA_CM_HEAD = ['댓글 ID', '영상 ID', '작성 시각', '내용', '좋아요', '답글 수', '기록일'];
-// 첫 열(영상 ID)이 ids에 있는 줄만 새 값으로 바꾸고 나머지(과거 채우기로 받은 영상 등)는 그대로 둠
+// 첫 열(영상 ID)이 ids에 있고 이번에 새 줄을 받은 영상만 바꾸고 나머지(과거 채우기로 받은 영상, 호출이 실패해 줄이 없는 영상)는 그대로 둠
+// (2026-10-30: 예전엔 ids 전부를 지워서 영상 하나의 유입 경로·검색어 호출이 실패하면 그 영상 옛 줄이 사라졌고, 머리글이 바뀌면 탭을 비웠음)
 function ytaReplaceSome_(ss, name, head, ids, rows) {
-  const sh = ss.getSheetByName(name) || ss.insertSheet(name);
-  const hd = sh.getLastRow() > 0 ? sh.getRange(1, 1, 1, Math.max(sh.getLastColumn(), head.length)).getDisplayValues()[0].join('§').replace(/§+$/, '') : '';
-  let keep = [];
-  if (hd === head.join('§') && sh.getLastRow() > 1) {
-    const set = {}; ids.forEach(x => { set[x] = 1; });
-    keep = sh.getRange(2, 1, sh.getLastRow() - 1, head.length).getValues().filter(r => !set[String(r[0])]);
-  }
+  let sh = ss.getSheetByName(name) || ss.insertSheet(name);
+  const hd = sh.getLastRow() > 0 ? sh.getRange(1, 1, 1, Math.max(sh.getLastColumn(), head.length)).getDisplayValues()[0] : [];
+  if (hd.length && hd.join('§').replace(/§+$/, '') !== head.join('§')) sh = headMove_(ss, sh, name, head, hd);
+  const want = {}, set = {};
+  ids.forEach(x => { want[x] = 1; });
+  rows.forEach(r => { if (want[String(r[0])]) set[String(r[0])] = 1; });
+  const keep = sh.getLastRow() > 1 ? sh.getRange(2, 1, sh.getLastRow() - 1, head.length).getValues().filter(r => !set[String(r[0])]) : [];
   const all = keep.concat(rows);
-  sh.clearContents();
   sh.getRange(1, 1, 1, head.length).setValues([head]).setFontWeight('bold'); sh.setFrozenRows(1);
-  if (all.length) { sh.getRange(2, 1, all.length, 1).setNumberFormat('@'); sh.getRange(2, 1, all.length, head.length).setValues(all.map(r => r.map(v => v == null ? '' : v))); }
+  if (all.length) sh.getRange(2, 1, all.length, 1).setNumberFormat('@');
+  putRows_(sh, all.map(r => r.map(v => v == null ? '' : v)), head.length);
   return all.length;
 }
 // 최근 영상: 유입 경로·검색어·(주간) 시청 지속률·댓글. 최근 영상 줄만 새로 쓰고, 그 이전 영상 줄은 그대로 둠
@@ -5194,9 +5375,12 @@ function nightBrief(test) {
   const recent = posts.length ? [] : briefRecent_(D, today), ideas = posts.length ? [] : briefIdeas_(D, today);
   let chans = [];
   try { chans = briefChannels_(ss, today); } catch (e) { notes.push('채널 전체 계산 실패: ' + String(e.message).slice(0, 80)); }
+  let errs = null, cells = null;
+  try { errs = briefErrors_(ss, today); } catch (e) { notes.push('실행 로그 읽기 실패: ' + String(e.message).slice(0, 80)); }
+  if (isMonday_(today) || test) { try { cells = briefCells_(ss); } catch (e) { notes.push('시트 크기 계산 실패: ' + String(e.message).slice(0, 80)); } }
   const to = String(PropertiesService.getScriptProperties().getProperty('BRIEF_TO') || '').trim();
-  const subject = '[SNS 브리핑] ' + briefDay_(today) + ' 오늘 올린 콘텐츠 ' + posts.length + '개' + (test ? ' (테스트)' : '');
-  if (to) MailApp.sendEmail({ to: to, subject: subject, htmlBody: briefHtml_(posts, stories, recent, notes, today, stamp, ideas, chans), name: 'SNS 성과 보드' });
+  const subject = '[SNS 브리핑] ' + briefDay_(today) + ' 오늘 올린 콘텐츠 ' + posts.length + '개' + (errs && errs.stop ? ' · 수집 중단 경고' : '') + (test ? ' (테스트)' : '');
+  if (to) MailApp.sendEmail({ to: to, subject: subject, htmlBody: briefHtml_(posts, stories, recent, notes, today, stamp, ideas, chans, errs, cells), name: 'SNS 성과 보드' });
   let saved = '';
   if (posts.length) {
     const rows = posts.map(x => [today, x.ch, x.id, x.type, Utilities.formatDate(x.at, TZ, 'yyyy-MM-dd HH:mm'), Math.round(x.hours * 10) / 10,
@@ -5484,8 +5668,30 @@ function briefMetrics_(x) {
 }
 // 오늘 채널 전체(2026-10-28 담당자 「오늘 올린 콘텐츠 제외하고도 오늘 채널별로 얻은 성과 브리핑」): 어제까지 올린 게시물이 오늘 더 받은 조회·좋아요 + 팔로워·구독자
 //  · 조회·좋아요 = 「일별 합계」 오늘 줄(08·12·16·20시 기록이 같은 날 줄을 덮어씀 → 20시 기록) − 그 전 기록일 줄 − 오늘 올린 게시물 값(「게시물 시간별」 20시까지 마지막 기록)
-//  · 누적이 줄었으면(원본 게시물 묶음이 바뀜) 그 채널은 비교 못 함. 오늘 줄이 없으면(주말은 일별 합계를 쉼) 칸을 뺌
+//  · 누적이 줄었으면(원본 게시물 묶음이 바뀜) 그 채널은 비교 못 함. 오늘 줄이 없으면(원본이 안 바뀐 채널은 일별 합계를 쉼) 칸을 뺌
 //  · 팔로워 = 지금 − 「인스타 계정 일별」 오늘 아침 기록 · 유튜브 구독자 = 지금 − 어젯밤 메일 때 값(스크립트 속성 NIGHT_ACCT)
+// 오늘 수집 오류(2026-10-30): 「실행 로그」 오늘 줄 중 오류·경고·실패가 든 것을 단계별로 묶음(「건너뜀」은 뺌). stop = 데이터가 끊기기 시작하는 오류(ALERT_RE)
+function briefErrors_(ss, today) {
+  const log = ss.getSheetByName(LOG), out = { groups: [], n: 0, stop: [] };
+  if (!log || log.getLastRow() < 2) return out;
+  const n = Math.min(1500, log.getLastRow() - 1), by = {};
+  log.getRange(log.getLastRow() - n + 1, 1, n, 4).getValues().forEach(r => {
+    const d = r[0] instanceof Date ? Utilities.formatDate(r[0], TZ, 'yyyy-MM-dd') : String(r[0]).slice(0, 10), s = String(r[3] || '');
+    if (d !== today || /^건너뜀/.test(s) || !/오류|경고|실패|시간 초과/.test(s)) return;
+    ALERT_RE.forEach(a => { if (a[0].test(s) && out.stop.indexOf(a[1]) < 0) out.stop.push(a[1]); });
+    const step = String(r[1] || '');
+    if (!by[step]) { by[step] = { step: step, n: 0, msg: '' }; out.groups.push(by[step]); }
+    by[step].n++; by[step].msg = s.replace(/access_token=[^&\s"]+/g, 'access_token=…'); // 마지막 메시지
+    out.n++;
+  });
+  return out;
+}
+// 시트 크기(2026-10-30, 월요일 밤 메일): 스프레드시트 한도 1,000만 칸까지 여유. 칸 = 탭마다 행 수 × 열 수(빈칸 포함 — 한도가 이렇게 셈)
+const CELL_LIMIT = 10000000;
+function briefCells_(ss) {
+  const L = ss.getSheets().map(s => [s.getName(), s.getMaxRows() * s.getMaxColumns()]).sort((a, b) => b[1] - a[1]);
+  return { tot: L.reduce((a, x) => a + x[1], 0), top: L.slice(0, 5), n: L.length };
+}
 function briefChannels_(ss, today) {
   const own = ['인스타그램', 'hong._.video', '유튜브'], out = [];
   const rows = loadDailyTotals_(ss).filter(r => own.indexOf(r[1]) >= 0 && r[0] <= today);
@@ -5526,7 +5732,7 @@ function briefChannels_(ss, today) {
   try { PropertiesService.getScriptProperties().setProperty('NIGHT_ACCT', JSON.stringify(keep)); } catch (e) {}
   return out;
 }
-function briefHtml_(posts, stories, recent, notes, today, stamp, ideas, chans) {
+function briefHtml_(posts, stories, recent, notes, today, stamp, ideas, chans, errs, cells) {
   const wrap = s => '<div style="background:' + BR.soft + ';padding:20px 12px"><div style="font-family:\'Noto Sans KR\',\'Apple SD Gothic Neo\',sans-serif;max-width:560px;margin:0 auto;color:' + BR.fg + ';line-height:1.7">' + s + '</div></div>';
   const card = s => '<div style="background:#fff;border:1px solid ' + BR.line + ';border-radius:16px;padding:16px 18px;margin:0 0 12px">' + s + '</div>';
   const h2 = (t, sub) => '<div style="margin:18px 4px 8px"><div style="font-size:16px;font-weight:800">' + t + '</div>' + (sub ? '<div style="font-size:12px;color:' + BR.mu + '">' + sub + '</div>' : '') + '</div>';
@@ -5549,6 +5755,17 @@ function briefHtml_(posts, stories, recent, notes, today, stamp, ideas, chans) {
     + '<div style="font-size:22px;font-weight:800;line-height:1.4;word-break:keep-all">' + (posts.length ? '오늘 올린 콘텐츠 <span style="white-space:nowrap">' + posts.length + '개</span>' : '오늘은 올린 콘텐츠가 없어요') + '</div>'
     + (!posts.length && chans && chans.some(o => o.v != null) ? '<div style="font-size:14px;opacity:.95;line-height:1.6;margin-top:4px;word-break:keep-all">그래도 지난 게시물이 오늘 <b>조회 +' + briefNum_(chans.reduce((a, o) => a + (o.v || 0), 0)) + '</b>를 더 받았어요</div>' : '')
     + (top ? '<div style="font-size:14px;opacity:.95;line-height:1.6;margin-top:4px">반응 1등 「' + briefEsc_(briefTitle_(top.title, 18)) + '」' + (top.best && top.best.r >= 1.3 ? '<br>' + top.best.name + ' ' + briefVs_(top.best.r) : '') + '</div>' : '') + '</div>';
+  // 오늘 수집 오류(2026-10-30): 실행 로그의 오류·경고를 단계별 한 줄로. 데이터가 끊기는 오류는 빨간 글자로 맨 위(빨강 = 경보만)
+  if (errs && errs.groups.length) {
+    let g = errs.stop.map(s => '<div style="font-size:13px;font-weight:800;color:#c92a2a;line-height:1.6;margin-bottom:4px">' + briefEsc_(s) + '</div>').join('');
+    errs.groups.slice(0, 8).forEach((x, i) => {
+      g += '<div style="' + (i || errs.stop.length ? 'border-top:1px solid ' + BR.line + ';' : '') + 'padding:8px 0">'
+        + '<div style="font-size:13px;font-weight:700">' + briefEsc_(x.step) + (x.n > 1 ? ' <span style="font-weight:400;color:' + BR.mu + '">' + x.n + '번</span>' : '') + '</div>'
+        + '<div style="font-size:12px;color:' + BR.sub + ';line-height:1.5;word-break:break-all">' + briefEsc_(x.msg.slice(0, 140)) + '</div></div>';
+    });
+    if (errs.groups.length > 8) g += '<div style="font-size:12px;color:' + BR.mu + ';padding-top:6px">그 밖 ' + (errs.groups.length - 8) + '개 단계 · 실행 로그에서 확인</div>';
+    h += h2('오늘 수집 오류', '실행 로그 오류·경고 ' + errs.n + '줄 · 단계마다 마지막 메시지') + card(g);
+  } else if (errs) h += '<div style="font-size:12px;color:' + BR.mu + ';margin:10px 4px 0">오늘 수집 오류 없음</div>';
   // 오늘의 반응 순위(맨 위): 줄마다 한 가지만 — 1줄 순위·채널·판정 칩, 2줄 제목(두 줄까지), 3줄 반응률·강점
   if (withRc.length) {
     let g = '';
@@ -5639,6 +5856,17 @@ function briefHtml_(posts, stories, recent, notes, today, stamp, ideas, chans) {
     h += card(s);
   }
   if (stories.length) h += h2('스토리', '오늘 올린 스토리 · 평소 = 지난 30일 스토리 1개 중간값') + card(briefStoryHtml_(stories));
+  // 시트 크기(월요일): 1,000만 칸 한도 대비 · 큰 탭 5개. 데이터를 지우는 정리는 하지 않고 여유만 봄
+  if (cells) {
+    const pc = cells.tot / CELL_LIMIT, wan = v => (Math.round(v / 1000) / 10).toLocaleString('ko-KR') + '만';
+    let g = '<div style="font-size:20px;font-weight:800">' + wan(cells.tot) + ' <span style="font-size:12px;font-weight:400;color:' + BR.mu + '">칸 · 한도의 ' + Math.round(pc * 100) + '%</span></div>'
+      + '<div style="background:' + BR.soft + ';border-radius:999px;height:8px;margin:8px 0 6px;overflow:hidden"><div style="width:' + Math.min(100, Math.round(pc * 100)) + '%;height:8px;background:' + (pc >= 0.8 ? '#c92a2a' : BR.up) + '"></div></div>';
+    cells.top.forEach(t => {
+      g += '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse"><tr><td style="font-size:13px;padding:5px 0;border-top:1px solid ' + BR.line + '">' + briefEsc_(t[0]) + '</td>'
+        + '<td style="font-size:13px;font-weight:700;text-align:right;padding:5px 0;border-top:1px solid ' + BR.line + ';white-space:nowrap">' + wan(t[1]) + ' 칸</td></tr></table>';
+    });
+    h += h2('시트 크기', '월요일마다 · 탭 ' + cells.n + '개 · 한도 1,000만 칸') + card(g);
+  }
   if (posts.some(x => x.ch === '유튜브')) notes.push('유튜브 시청 시간·구독 증감·유입 경로는 분석 API가 1~2일 늦게 줘서 오늘 메일에는 없어요 · 보드 유튜브 탭에서 확인');
   if (notes.length) h += '<div style="font-size:12px;color:' + BR.mu + ';margin:4px 4px 12px">' + notes.map(briefEsc_).join('<br>') + '</div>';
   h += '<div style="text-align:center;margin:18px 0 6px"><a href="' + BOARD_URL + '" style="display:inline-block;background:' + BR.up + ';color:#fff;text-decoration:none;padding:12px 22px;border-radius:12px;font-weight:800;font-size:14px">성과 보드에서 자세히 보기</a></div>';
