@@ -3949,7 +3949,9 @@
       else if (r >= 1) out.push(['good', '요약', pos.length ? '잘 된 이유로 보이는 것은 ' + ieyo(names(pos)) + '.' : '주제·시기·제작만 보면 평범한 조합이에요. 장면·편집 같은 콘텐츠 자체의 힘으로 보여요.', [over, neg.length ? '약한 특징 ' + names(neg) : ''].filter(Boolean).join(' · ')]);
       else out.push(['bad', '요약', neg.length ? '아쉬운 이유로 보이는 것은 ' + ieyo(names(neg)) + '.' : pos.length ? names(pos) + '처럼 잘 되는 조합인데 낮았어요. 제목·첫 장면을 살펴볼 만해요.' : '주제·시기·제작은 평범한 조합이에요. 제목·첫 장면을 살펴볼 만해요.', '']);
     }
-    F.forEach(x => out.push([x.k === '소재' ? 'good' : lvl(x.m), x.k, x.h, x.s, x.bars || '']));
+    // 같은 색끼리는 차이가 큰 것부터(잘 되는 특징은 높은 배수, 약한 특징은 낮은 배수 먼저)
+    F.map(x => [x.k === '소재' ? 'good' : lvl(x.m), x]).sort((a, b) => a[0] !== b[0] ? (a[0] > b[0] ? 1 : -1) : a[0] === 'bad' ? a[1].m - b[1].m : b[1].m - a[1].m)
+      .forEach(([c, x]) => out.push([c, x.k, x.h, x.s, x.bars || '']));
     return out;
   }
   // 성과 진단 문장의 이름(주제·시리즈·제작): 「」 대신 진하게(2026-10-28 담당자 「칸을 치는 게 띄어쓰기도 어색하고 공간도 차지」)
@@ -3977,7 +3979,10 @@
       if (it.hid) out.push(['info', '참고', '비공개·중복 업로드로 보여요.', HID_TIP]);
     }
     if (it.c === '유튜브' && covFrom('유튜브') && it.d < covFrom('유튜브')) out.push(['info', '참고', dot(covFrom('유튜브')) + ' 이후 조회만 센 영상이에요.', '그 전 누적 조회는 원본 수집 범위 밖']);
-    return out;
+    // 결과·요약 다음은 잘 되는 특징(+)부터(2026-10-31 담당자 「+인 성과 분석을 먼저」) — 평소보다 낮게 끝난 게시물은 약한 특징부터
+    const low = r != null && !young(it) && r < 1, ord = low ? { bad: 0, info: 1, good: 2 } : { good: 0, info: 1, bad: 2 };
+    const head = out.filter(x => x[1] === '결과' || x[1] === '요약'), rest = out.filter(x => !head.includes(x));
+    return head.concat(rest.map((x, i) => [x, i]).sort((a, b) => (ord[a[0][0]] - ord[b[0][0]]) || (a[1] - b[1])).map(x => x[0]));
   }
   function whyText(it) {
     if (it.ad) {
