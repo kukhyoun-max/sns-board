@@ -203,6 +203,7 @@ function onOpen() {
     .addItem('주간 추가 수집 지금(시청 지속률·전체 게시물 등)', 'weeklyExtras')
     .addItem('과거 데이터 채우기(끝날 때까지 여러 번)', 'backfillExtras')
     .addItem('페이스북 페이지 지금 받기', 'facebookNow')
+    .addItem('API만으로 만든 목록과 비교 지금(Supermetrics 전환 점검)', 'shadowCompare')
     .addSeparator()
     .addItem('최초 설정(탭·트리거)', 'setup')
     .addToUi();
@@ -224,7 +225,7 @@ function setupDaily() {
 }
 // 하루 여러 번 기록: 같은 날 기록은 바꿔 써서(runSnapshot_ 3단계) 줄이 쌓이지 않음. 원본 읽기·API 단계가 다시 돌아 화면 값이 그만큼 새로워짐
 const SNAP_HOURS = [8, 12, 16, 20];
-const TRIG_VER = '2026-10-20 하루 4번·스토리 1시간';
+const TRIG_VER = '2026-11-01 하루 4번·스토리 1시간·API 단독 비교 14시';
 // 트리거 버전이 바뀌면 기록·스토리·밤 브리핑 트리거를 다시 맞춤(편집기에서 setup을 다시 돌리지 않아도 되게). 과거 채우기·스토리 실행이 부름
 function ensureTriggers_() {
   const p = PropertiesService.getScriptProperties();
@@ -234,6 +235,8 @@ function ensureTriggers_() {
   ts.filter(t => t.getHandlerFunction() === 'storySnapshot').forEach(t => ScriptApp.deleteTrigger(t));
   ScriptApp.newTrigger('storySnapshot').timeBased().everyHours(1).create();
   if (!ts.some(t => t.getHandlerFunction() === 'nightBrief')) ScriptApp.newTrigger('nightBrief').timeBased().everyDays(1).atHour(22).nearMinute(0).inTimezone(TZ).create();
+  // Supermetrics 없이 API만으로 만든 목록과 비교(2026-11-01~, 전환이 끝나면 지움). 12시 기록이 끝난 뒤
+  if (!ts.some(t => t.getHandlerFunction() === 'shadowCompare')) ScriptApp.newTrigger('shadowCompare').timeBased().everyDays(1).atHour(14).nearMinute(0).inTimezone(TZ).create();
   p.setProperty('TRIG_VER', TRIG_VER);
 }
 
@@ -6571,4 +6574,147 @@ function partHreel_(ss) {
   const E = {}, T = {}; // 쓰인 코드의 이름만: E 코드 → [주제, 큰 분류], T 코드 → [유형, 큰 유형]
   v.forEach(r => { if (r[8] && CODE_TABLE[r[8]]) E[r[8]] = CODE_TABLE[r[8]]; if (r[9] && TYPE_TABLE[r[9]]) T[r[9]] = TYPE_TABLE[r[9]]; });
   return { acc: HREEL.map(a => [a.u, a.n, a.own ? 1 : 0]), v: v, E: E, T: T, at: PropertiesService.getScriptProperties().getProperty('HREEL_AT') || '', ts: Date.now() };
+}
+
+// ───────── API만으로 만든 게시물 목록 ↔ 지금 기록 비교 (2026-11-01 「Supermetrics는 더는 갱신 안 함」) ─────────
+// 전환 전 1~2주, 하루 한 번(14시 트리거 shadowCompare): Supermetrics 원본 없이 API만으로 게시물·계정 지표를 만들어 오늘 스냅샷(원본 + API 덮어쓰기)과 비교만 한다.
+//  · 스냅샷·계정 지표는 바꾸지 않음. 결과는 「API 단독 비교」 탭 [기록일, 채널, 항목, 지금 기록, API만, 비고] + 실행 로그 한 줄
+//  · 「API 키 대응」 탭 [채널, API ID, 콘텐츠키, 기록일]: 지금 기록의 콘텐츠키와 API 게시물 ID 연결 — 전환 뒤에도 같은 키로 이어 쓰려고 지금부터 쌓음
+//  · 유튜브 조회는 공개 수치(전체 기간) 하나로 볼 계획이라, 2024년 전 영상(지금 기록은 2024-01-01부터 기간 값)은 따로 셈
+const SHADOW_SHEET = 'API 단독 비교', KEYMAP_SHEET = 'API 키 대응';
+const SHADOW_HEAD = ['기록일', '채널', '항목', '지금 기록', 'API만', '비고'];
+function shadowCompare() {
+  return withLock_('API 단독 비교', () => {
+    const ss = SpreadsheetApp.getActive() || SpreadsheetApp.openById(SS_ID);
+    const logs = [];
+    try { shadowCompare_(ss, Utilities.formatDate(new Date(), TZ, 'yyyy-MM-dd'), logs); }
+    catch (e) { logs.push([new Date(), 'API 단독 비교', 0, '오류: ' + String(e.message).slice(0, 200)]); }
+    logRows_(ss, logs);
+    try { logMirror_(true); } catch (e) {}
+  });
+}
+function shadowCompare_(ss, today, logs) {
+  const snap = ss.getSheetByName(SNAP), last = snap.getLastRow();
+  const col = last >= 2 ? snap.getRange(2, 1, last - 1, 1).getDisplayValues().map(r => r[0]) : [];
+  const t = scanTail_(col, today);
+  if (t.todayFrom >= col.length) { logs.push([new Date(), 'API 단독 비교', 0, '건너뜀: 오늘 스냅샷 기록이 아직 없음']); return; }
+  const cur = {};
+  snap.getRange(t.todayFrom + 2, 1, col.length - t.todayFrom, SNAP_HEADER.length).getValues().forEach(r => {
+    const ch = String(r[1]), k = String(r[2]);
+    if (!ch || !k) return;
+    (cur[ch] = cur[ch] || {})[k] = { date: fmtDate_(r[C.date]), title: String(r[C.title]), full: String(r[C.title]), views: r[C.views], likes: r[C.likes], comments: r[C.comments] };
+  });
+  const map = {}, km = ss.getSheetByName(KEYMAP_SHEET);
+  if (km && km.getLastRow() > 1) km.getRange(2, 1, km.getLastRow() - 1, 3).getValues().forEach(r => { (map[String(r[0])] = map[String(r[0])] || {})[String(r[1])] = String(r[2]); });
+  const newMap = [], rows = [], sum = [];
+  const numv = v => (v === '' || v == null || isNaN(Number(v))) ? null : Number(v);
+  const differs = (a, b) => { a = numv(a); b = numv(b); return a != null && b != null && Math.abs(a - b) > Math.max(2, Math.abs(a) * 0.02); };
+  const span = ks => { const d = ks.map(k => k.d).filter(Boolean).sort(); return d.length ? d[0] + '~' + d[d.length - 1] : ''; };
+  const NM = { views: '조회', likes: '좋아요', comments: '댓글' };
+  // media: [{id, date, caption, views, likes, comments}] → 지금 기록 키와 연결해 비교 줄을 씀
+  const compare = (ch, label, media, metrics, linkFn) => {
+    const c = cur[ch] || {};
+    const got = linkFn(c, media);
+    const usedK = {};
+    Object.keys(got).forEach(id => { usedK[got[id]] = 1; if (ch !== '유튜브' && (map[ch] || {})[id] !== got[id]) newMap.push([ch, id, got[id], today]); });
+    const onlyCur = Object.keys(c).filter(k => !usedK[k]).map(k => ({ k: k, d: c[k].date }));
+    const onlyApi = media.filter(a => !got[a.id]);
+    rows.push([today, label, '게시물 수', Object.keys(c).length, media.length, '']);
+    rows.push([today, label, '연결됨', Object.keys(got).length, Object.keys(got).length, '']);
+    rows.push([today, label, '지금 기록에만 있음', onlyCur.length, '', span(onlyCur) + (onlyCur.length ? ' · 예: ' + onlyCur.slice(0, 2).map(x => x.k.slice(0, 40)).join(' / ') : '')]);
+    rows.push([today, label, 'API에만 있음', '', onlyApi.length, span(onlyApi.map(a => ({ d: a.date }))) + (onlyApi.length ? ' · 예: ' + onlyApi.slice(0, 2).map(a => a.date + ' ' + String(a.caption).replace(/\s+/g, ' ').slice(0, 30)).join(' / ') : '')]);
+    const dif = {};
+    metrics.forEach(m => { dif[m] = { n: 0, ex: [] }; });
+    media.forEach(a => {
+      const it = got[a.id] ? c[got[a.id]] : null;
+      if (!it) return;
+      metrics.forEach(m => { if (differs(it[m], a[m])) { dif[m].n++; if (dif[m].ex.length < 2) dif[m].ex.push(a.date + ' ' + it[m] + '→' + a[m]); } });
+    });
+    metrics.forEach(m => rows.push([today, label, NM[m] + ' 다름(2% 넘게)', dif[m].n, '', dif[m].ex.join(' / ')]));
+    sum.push(label + ' 연결 ' + Object.keys(got).length + '/' + Object.keys(c).length + '·지금에만 ' + onlyCur.length + '·API에만 ' + onlyApi.length +
+      metrics.map(m => '·' + NM[m] + ' 다름 ' + dif[m].n).join(''));
+    return { c: c, got: got };
+  };
+  // 인스타·hong·타 대학: 저장된 연결 → 캡션·날짜(igMatch_) → 같은 캡션 키
+  const igLink = ch => (c, media) => {
+    const m = map[ch] || {}, got = {}, used = {};
+    media.forEach(a => { const k = m[a.id]; if (k && c[k] && !used[k]) { got[a.id] = k; used[k] = 1; } });
+    const rest = {};
+    Object.keys(c).forEach(k => { if (!used[k]) rest[k] = c[k]; });
+    const mt = igMatch_(rest, media.filter(a => !got[a.id]));
+    Object.keys(mt.byId).forEach(id => { got[id] = mt.byId[id]; used[mt.byId[id]] = 1; });
+    media.forEach(a => { if (got[a.id]) return; const k = capKey_(a.date, a.caption); if (c[k] && !used[k]) { got[a.id] = k; used[k] = 1; } });
+    return got;
+  };
+  const p = PropertiesService.getScriptProperties();
+  Object.keys(IG_CH).forEach(ch => {
+    if (p.getProperty(IG_CH[ch].on) !== 'on') return;
+    try {
+      const api = IG_API_[ch] || (IG_API_[ch] = fetchInstagram_(ch));
+      const media = api.media.filter(x => x.product !== 'STORY').map(x => ({ id: x.id, date: x.date, caption: x.caption, product: x.product, views: x.views, likes: x.likes, comments: x.comments }));
+      compare(ch, ch, media, ['views', 'likes', 'comments'], igLink(ch));
+    } catch (e) { sum.push(ch + ' 오류: ' + String(e.message).slice(0, 80)); }
+  });
+  try {
+    const all = cur['유튜브'] || {};
+    const ids = Object.keys(all).filter(k => k.indexOf('yt:') === 0).map(k => k.slice(3));
+    const api = YT_API_ || (YT_API_ = fetchYouTube_(ids, today));
+    const ytLink = (c, media) => { const got = {}; media.forEach(a => { if (c['yt:' + a.id]) got[a.id] = 'yt:' + a.id; }); return got; };
+    // 지금 기록도 같은 기간으로 나눠 비교(2024년 전 영상은 지금 기록이 기간 값이라 다를 수밖에 없음)
+    [false, true].forEach(old => {
+      const part = {};
+      Object.keys(all).forEach(k => { if ((all[k].date < YT_PERIOD_START) === old) part[k] = all[k]; });
+      cur['유튜브'] = part;
+      const media = Object.keys(api.videos).filter(id => (api.videos[id].date < YT_PERIOD_START) === old)
+        .map(id => ({ id: id, date: api.videos[id].date, caption: api.videos[id].title, views: api.videos[id].views, likes: api.videos[id].likes, comments: api.videos[id].comments }));
+      compare('유튜브', old ? '유튜브(2024년 전 영상)' : '유튜브', media, ['views', 'likes', 'comments'], ytLink);
+    });
+    cur['유튜브'] = all;
+  } catch (e) { sum.push('유튜브 오류: ' + String(e.message).slice(0, 80)); }
+  // 타 대학: API는 릴스 재생 수를 주지 않음 → 지금 기록에 조회가 있는 게시물 수를 따로 셈(전환하면 잃는 값)
+  IGM_BENCH.forEach(u => {
+    const ch = BENCH_PREFIX + u;
+    try {
+      const api = benchFetch_(u, shiftDate_(today, -BENCH_DAYS), 6);
+      const media = api.media.map(x => ({ id: String(x.m.id), date: x.date, caption: String(x.m.caption || ''), product: String(x.m.media_product_type || ''), likes: Number(x.m.like_count) || 0, comments: Number(x.m.comments_count) || 0 }));
+      const r = compare(ch, ch, media, ['likes', 'comments'], igLink(ch));
+      const withViews = Object.keys(r.c).filter(k => (numv(r.c[k].views) || 0) > 0).length;
+      rows.push([today, ch, '조회가 있는 게시물(API로는 못 받음)', withViews, 0, '']);
+    } catch (e) { sum.push(u + ' 오류: ' + String(e.message).slice(0, 80)); }
+  });
+  try { shadowAcct_(ss, today, rows); } catch (e) { sum.push('계정 지표 오류: ' + String(e.message).slice(0, 80)); }
+  if (newMap.length) igxUpsert_(ss, KEYMAP_SHEET, ['채널', 'API ID', '콘텐츠키', '기록일'], [0, 1], newMap);
+  igxUpsert_(ss, SHADOW_SHEET, SHADOW_HEAD, [0, 1, 2], rows); // 같은 날 다시 돌리면 그날 줄을 바꿈
+  logs.push([new Date(), 'API 단독 비교', rows.length, sum.join(' / ') + (newMap.length ? ' · 키 연결 ' + newMap.length + '개 저장' : '')]);
+}
+// 계정 지표: 오늘 「계정 지표」 줄(Supermetrics 탭) ↔ API 일별 탭 합(최근 7일·지난주 월~일). Supermetrics 쿼리 기간을 몰라 두 기간을 같이 적음
+function shadowAcct_(ss, today, rows) {
+  const acc = ss.getSheetByName(ACCOUNT);
+  if (!acc || acc.getLastRow() < 2) return;
+  const a = acc.getDataRange().getValues(), head = a[0].map(String);
+  const latest = ch => a.slice(1).filter(r => String(r[1]) === ch).sort((x, y) => fmtDate_(x[0]) < fmtDate_(y[0]) ? -1 : 1).pop();
+  const wd = weekday_(today), lastMon = shiftDate_(today, -(wd - 1) - 7), lastSun = shiftDate_(lastMon, 6);
+  const W = [['최근 7일', shiftDate_(today, -7), shiftDate_(today, -1)], ['지난주 월~일', lastMon, lastSun]];
+  const read = (name, dateCol) => { const sh = ss.getSheetByName(name); return sh && sh.getLastRow() > 1 ? sh.getDataRange().getValues().slice(1).map(r => { r[dateCol] = fmtDate_(r[dateCol]); return r; }) : []; };
+  const sumOf = (R, dateCol, vCol, from, to) => { let s = 0, n = 0; R.forEach(r => { if (r[dateCol] >= from && r[dateCol] <= to && r[vCol] !== '' && !isNaN(Number(r[vCol]))) { s += Number(r[vCol]); n++; } }); return n ? s : ''; };
+  const put = (ch, row, metric, calc, note) => {
+    const j = head.indexOf(metric), mine = row && j >= 0 ? row[j] : '';
+    W.forEach(w => rows.push([today, '계정·' + ch, metric + ' · ' + w[0], mine, calc(w[1], w[2]), (row ? '지금 기록 ' + fmtDate_(row[0]) + ' · ' : '') + w[1] + '~' + w[2] + (note ? ' · ' + note : '')]));
+  };
+  // 인스타: 「인스타 계정 일별」 [채널, 날짜, 팔로워, 팔로잉, 게시물 수, 새 팔로워, 도달, 조회, 프로필 방문, 링크 클릭, 참여 계정, 기록 시각]
+  const IG = read(IGX_DAY_SHEET, 1).filter(r => String(r[0]) === '인스타그램'), ir = latest('인스타그램');
+  const folAt = to => { const x = IG.filter(r => r[1] <= shiftDate_(to, 1) && r[2] !== '' && !isNaN(Number(r[2]))).sort((p, q) => p[1] < q[1] ? -1 : 1).pop(); return x ? Number(x[2]) : ''; };
+  put('인스타그램', ir, 'Profile followers', (f, to) => folAt(to), '기간 끝 무렵 팔로워');
+  put('인스타그램', ir, 'New followers', (f, to) => sumOf(IG, 1, 5, f, to));
+  put('인스타그램', ir, 'Profile views', (f, to) => sumOf(IG, 1, 8, f, to));
+  put('인스타그램', ir, 'Profile reach', (f, to) => sumOf(IG, 1, 6, f, to), 'API는 하루 도달의 합이라 겹친 사람을 여러 번 셈');
+  // 유튜브: 「유튜브 채널 일별」 [날짜, 조회, 시청 시간(분), 평균 시청(초), 구독 증가, 구독 감소, …]
+  const YT = read('유튜브 채널 일별', 0), yr = latest('유튜브');
+  put('유튜브', yr, 'Gained subscribers', (f, to) => sumOf(YT, 0, 4, f, to));
+  put('유튜브', yr, 'Lost subscribers', (f, to) => sumOf(YT, 0, 5, f, to));
+  put('유튜브', yr, 'Video views', (f, to) => sumOf(YT, 0, 1, f, to));
+  put('유튜브', yr, 'Estimated minutes watched', (f, to) => sumOf(YT, 0, 2, f, to));
+  let subs = '';
+  try { subs = Number(ytaGet_('https://www.googleapis.com/youtube/v3/channels?part=statistics&mine=true').items[0].statistics.subscriberCount); } catch (e) {}
+  put('유튜브', yr, 'Channel total subscribers', () => subs, 'API는 지금 값');
 }
