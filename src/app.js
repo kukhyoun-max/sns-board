@@ -3315,9 +3315,14 @@
       const lk = medOf(D.items.filter(it => it.c === ch && !it.ad && it.t !== '스토리' && it.d >= addDays(D.updated, -365) && it.d <= addDays(D.updated, -AGE_MIN)).map(it => { const v = last(it); return v ? v[1] : null; }));
       // 도달이 있으면(앱 인사이트 캡처) 우리 인스타 도달 평소와 견줌 — 우리 게시물 평가도 도달 기준
       const rk = medOf(D.items.filter(it => it.c === ch && !it.ad && it.t !== '스토리' && it.r && it.d >= addDays(D.updated, -365) && it.d <= addDays(D.updated, -AGE_MIN)).map(it => it.r));
-      h += secOpen('상대 계정이 올린 공동작업', '좋아요·댓글은 매시간 · 조회·도달·공유·저장은 앱 인사이트에서 본 값 · 우리 평소 계산에는 넣지 않아요');
-      h += '<ul class="cml co">' + co.slice(0, 10).map(r => '<li><a href="' + esc(r[0]) + '" target="_blank" rel="noopener"><span class="cml-t">' + esc(r[4] || r[0]) + '</span><small><span class="tag p-co">공동작업</span> @' + esc(r[1]) + (r[3] ? ' · ' + esc(dot(r[3])) : '') + (r[2] != null ? ' · 조회 ' + fmtK(r[2]) : '') + (r[5] != null ? ' · 좋아요 ' + fmtK(r[5]) : '') + (r[6] != null ? ' · 댓글 ' + fmt(r[6]) : '') + (r[7] != null ? ' · 도달 ' + fmtK(r[7]) : '') + (r[8] != null ? ' · 공유 ' + fmtK(r[8]) : '') + (r[9] != null ? ' · 저장 ' + fmtK(r[9]) : '') + '</small>' +
-        (r[7] != null && rk ? '<span class="co-x ' + xCls(r[7] / rk) + '">도달 우리 ' + vsTxt(r[7] / rk) + '</span>' : r[5] != null && lk ? '<span class="co-x ' + xCls(r[5] / lk) + '">좋아요 우리 ' + vsTxt(r[5] / lk) + '</span>' : '') + '</a></li>').join('') + '</ul>' + secClose;
+      // 2026-11-01 「가독성 있게」: 숫자 7개를 한 줄에 잇던 것 → 오른쪽 큰 값 = 우리 평소 대비(판단), 아랫줄 = 올린 계정 · 날짜, 오른쪽 보조 = 조회. 나머지 숫자는 마우스 올림
+      const coX = x => x >= 10 ? xf(x) : vsP(x);
+      h += secOpen('상대 계정이 올린 공동작업', '오른쪽 = 우리 평소 대비 · 좋아요·댓글은 매시간 · 조회·도달·공유·저장은 앱 인사이트에서 본 값 · 우리 평소 계산에는 넣지 않아요');
+      h += '<div class="hm-list">' + co.slice(0, 10).map(r => { const x = r[7] != null && rk ? ['도달', r[7] / rk] : r[5] != null && lk ? ['좋아요', r[5] / lk] : null;
+        return hmRow({ tag: 'a', attr: 'href="' + esc(r[0]) + '" target="_blank" rel="noopener"', t: esc(r[4] || r[0]),
+          v: x ? x[0] + ' ' + coX(x[1]) : '', vc: x ? (xCls(x[1]) === 'flat' ? 'mu' : xCls(x[1])) : '',
+          m: '<b class="hm-who">@' + esc(r[1]) + '</b>' + (r[3] ? ' · ' + esc(dot(r[3])) : ''), r: r[2] != null ? '조회 ' + fmtK(r[2]) : r[5] != null ? '좋아요 ' + fmtK(r[5]) : '',
+          tip: [['조회', r[2]], ['좋아요', r[5]], ['댓글', r[6]], ['도달', r[7]], ['공유', r[8]], ['저장', r[9]]].filter(y => y[1] != null).map(y => y[0] + ' ' + fmt(y[1])).join(' · ') }); }).join('') + '</div>' + secClose;
     }
     return h;
   }
