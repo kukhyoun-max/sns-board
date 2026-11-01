@@ -441,25 +441,28 @@ function freshStats_(prevRows, bySrc, prevDate, today) {
   (prevRows || []).forEach(r => { prev[String(r[1]) + '§' + String(r[2])] = r; });
   const out = {};
   (bySrc || []).forEach(byCh => Object.keys(byCh).forEach(ch => {
-    let changed = 0, total = 0, latest = '';
+    let changed = 0, total = 0, latest = '', liked = 0;
     Object.keys(byCh[ch]).forEach(k => {
       const it = byCh[ch][k];
       if (it.date && it.date > latest) latest = it.date;
       const p = prev[ch + '§' + k];
       if (!p) return;
       total++;
+      if (val(it.likes) > 0) liked++;
       if (METRICS.some((m, i) => val(it[m]) !== val(p[M0 + i]))) changed++;
     });
     const name = ch.indexOf(BENCH_PREFIX) === 0 ? ch.slice(BENCH_PREFIX.length) : ch;
     out[name] = { changed: changed, total: total, latest: latest, prev: prevDate || '', d: today };
+    // 타 대학이 좋아요를 숨기면(원광대) 조회는 주 1회 원본·좋아요는 늘 0이라 댓글만 바뀜 → 하루 사이 댓글이 그대로면 멈춘 게 아닌데 「미갱신」으로 보였음(2026-11-01 밤 메일). 미갱신 판정에서 뺌
+    if (name !== ch && total >= 5 && !liked) out[name].hidden = 1;
   }));
   return out;
 }
 
 function freshLog_(ch, f) {
   if (f.error) return [new Date(), '원본 갱신·' + ch, 0, '오류: ' + f.error];
-  const stale = f.total >= 5 && f.changed === 0;
-  const msg = (stale ? '경고: 원본 미갱신 — ' : '정상 — ') + '바뀐 게시물 ' + f.changed + '/' + f.total +
+  const stale = f.total >= 5 && f.changed === 0 && !f.hidden;
+  const msg = (stale ? '경고: 원본 미갱신 — ' : '정상 — ') + (f.hidden ? '좋아요 비공개라 댓글만 비교 · ' : '') + '바뀐 게시물 ' + f.changed + '/' + f.total +
     (f.prev ? ' (비교 ' + f.prev + ')' : ' (첫 기록)') + ' · 원본 최신 게시 ' + (f.latest || '없음');
   return [new Date(), '원본 갱신·' + ch, f.changed, msg];
 }
@@ -1156,7 +1159,7 @@ function saveAgeViews_(ss, bySrc, today, at) {
 // 원본이 안 바뀐 채널 {채널: 1} — 이번 기록의 원본 갱신 여부(FRESH)에서 두 기록에 모두 있는 게시물 5개 이상인데 값이 하나도 안 바뀐 채널(벤치는 「벤치·계정」 이름으로)
 function staleChs_() {
   const f = loadFresh_(), out = {};
-  Object.keys(f).forEach(c => { const x = f[c]; if (x && x.total >= 5 && x.changed === 0) { out[c] = 1; out[BENCH_PREFIX + c] = 1; } });
+  Object.keys(f).forEach(c => { const x = f[c]; if (x && x.total >= 5 && x.changed === 0 && !x.hidden) { out[c] = 1; out[BENCH_PREFIX + c] = 1; } });
   return out;
 }
 // 한 번만: 「스냅샷」 탭에 이미 있는 기록으로 채우기 (메뉴·편집기에서 실행)
@@ -5690,7 +5693,9 @@ function briefErrors_(ss, today) {
   const n = Math.min(1500, log.getLastRow() - 1), by = {};
   log.getRange(log.getLastRow() - n + 1, 1, n, 4).getValues().forEach(r => {
     const d = r[0] instanceof Date ? Utilities.formatDate(r[0], TZ, 'yyyy-MM-dd') : String(r[0]).slice(0, 10), s = String(r[3] || '');
-    if (d !== today || /^건너뜀/.test(s) || !/오류|경고|실패|시간 초과/.test(s)) return;
+    if (d !== today || /^건너뜀/.test(s)) return;
+    // 같은 단계가 뒤 기록에서 정상이면 앞의 경고는 풀린 것 → 뺌(2026-11-01 아침 8시 「원본 미갱신」이 12·16·20시 정상인데도 밤 메일에 남음)
+    if (!/오류|경고|실패|시간 초과/.test(s)) { const g = by[String(r[1] || '')]; if (g && /^정상/.test(s)) { out.n -= g.n; out.groups.splice(out.groups.indexOf(g), 1); delete by[g.step]; } return; }
     if (String(r[1]) === '시간 초과' && /1분 뒤 이어서 실행/.test(s)) return; // 나눠 돌기(2026-10-30 「오류 체크」): 자동으로 이어 돌아 끝까지 감
     ALERT_RE.forEach(a => { if (a[0].test(s) && out.stop.indexOf(a[1]) < 0) out.stop.push(a[1]); });
     const step = String(r[1] || '');

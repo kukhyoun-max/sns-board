@@ -4625,7 +4625,7 @@
     if (D.fresh && typeof D.fresh === 'object') Object.entries(D.fresh).forEach(([c, f]) => {
       if (!f || f.total == null) return;
       if (f.prev && D.dates.indexOf(f.prev) < 0) return; // 비교 상대가 지워진 임시 기록(화~일)이면 남아 있는 직전 기록과 직접 비교한 결과를 씀
-      if (f.total >= 5 && !f.changed) D.stale[c] = { n: f.total, d0: f.prev || D.dates[ni - 1], d1: f.d || D.dates[ni] };
+      if (f.total >= 5 && !f.changed && !f.hidden) D.stale[c] = { n: f.total, d0: f.prev || D.dates[ni - 1], d1: f.d || D.dates[ni] };
       else delete D.stale[c];
     });
     D.acctStale = {};
