@@ -1547,13 +1547,13 @@ function buildDashboardData_() {
       it = items[key] = {
         c: ch, t: s_(r[C.type]) || '미분류', d: s_(r[C.date]).slice(0, 10),
         n: cut_(s_(r[C.title]), 70),
-        // 유튜브 URL · 인스타는 퍼머링크 모양일 때만(지금 인스타 원본 「미디어 URL」은 만료되는 CDN 주소라 비움)
-        u: /youtube\.com|youtu\.be/.test(url) ? url : (ch === '인스타그램' ? (igPermalink_(url) || igPermalink_(s_(r[2]))) : ''),
+        // 유튜브 URL · 인스타·타 대학은 퍼머링크 모양일 때만(타 대학은 2026-11-01 「어제 올린 콘텐츠」 바로 가기, 지금 인스타 원본 「미디어 URL」은 만료되는 CDN 주소라 비움)
+        u: /youtube\.com|youtu\.be/.test(url) ? url : (ch === '인스타그램' || bench ? (igPermalink_(url) || igPermalink_(s_(r[2]))) : ''),
         h: dates.map(() => null),
       };
     }
     // 인스타: 예전 기록에는 CDN 주소뿐이라, 나중 기록(인스타 API)에 게시물 주소가 있으면 그것을 씀
-    if (!it.u && ch === '인스타그램') it.u = igPermalink_(s_(r[C.url]));
+    if (!it.u && (ch === '인스타그램' || bench)) it.u = igPermalink_(s_(r[C.url]));
     it.h[di[s_(r[0]).slice(0, 10)]] = [0, 1, 2, 3, 4].map(i => n_(r[M0 + i]));
     it.r = n_(r[C.reach]); it.e = n_(r[C.engaged]); it.a = n_(r[C.avgSec]); it.l = n_(r[C.lengthSec]);
     if (s_(r[C.type])) it.t = s_(r[C.type]);

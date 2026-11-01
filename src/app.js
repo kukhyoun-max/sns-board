@@ -1265,10 +1265,11 @@
       const L = D.items.filter(it => it.c === ch && it.t !== '스토리' && it.d >= f && it.d <= t).sort((a, b) => a.d < b.d ? 1 : -1);
       const V = Y && Y.v ? Y.v.filter(r => r[0] === ytName(ch) && r[2] >= f && r[2] <= t) : [];
       const hid = likeHidden(ch);
-      const ig = L.map(it => hmRow({ tag: 'li', cls: 'hm-rk', attr: 'tabindex="0" data-yd="' + (YD.push(it) - 1) + '"',
+      // 게시물 주소가 있으면 인스타로 바로(@130~), 없으면 보드 상세
+      const ig = L.map(it => hmRow(Object.assign(it.u ? { tag: 'a', attr: 'href="' + esc(it.u) + '" target="_blank" rel="noopener"' } : { tag: 'li', cls: 'hm-rk', attr: 'tabindex="0" data-yd="' + (YD.push(it) - 1) + '"' }, {
         thumb: '<span class="hm-th ov-th" style="--c:' + chColor(ch) + '" aria-hidden="true"><b>' + esc(typeShort(it.t)) + '</b></span>',
         t: esc(title(it.n)), m: ['인스타', when(it.d)].filter(Boolean).join(' · '),
-        r: /릴스/.test(it.t) && val(it, 0) ? '조회 <span class="num">' + fmtK(val(it, 0)) + '</span>' : hid ? '<span class="mu">좋아요 비공개</span>' : '좋아요 <span class="num">' + fmtK(val(it, 1)) + '</span>' }));
+        r: /릴스/.test(it.t) && val(it, 0) ? '조회 <span class="num">' + fmtK(val(it, 0)) + '</span>' : hid ? '<span class="mu">좋아요 비공개</span>' : '좋아요 <span class="num">' + fmtK(val(it, 1)) + '</span>' })));
       const yt = V.map(r => hmRow({ tag: 'a', attr: 'href="https://www.youtube.com/watch?v=' + esc(r[1]) + '" target="_blank" rel="noopener"',
         thumb: '<span class="hm-th ov-th" style="--c:' + chColor(ch) + '" aria-hidden="true"><img loading="lazy" alt="" src="https://i.ytimg.com/vi/' + esc(r[1]) + '/mqdefault.jpg" onerror="this.remove()"></span>',
         t: esc(r[3]), m: ['유튜브', r[4] != null && r[4] <= 60 ? '쇼츠' : '', when(r[2])].filter(Boolean).join(' · '), r: r[5] != null ? '조회 <span class="num">' + fmtK(r[5]) + '</span>' : '' }));
