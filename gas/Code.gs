@@ -3206,7 +3206,9 @@ function ytOverlay_(out, today) {
         if (v.ts) it.ts = v.ts; // 게시 시각(「게시 후 조회」 경과 시간용, 스냅샷 탭에는 안 씀)
         if (!it.lengthSec && v.lengthSec) { it.lengthSec = v.lengthSec; it.type = lengthBucket_(v.lengthSec); }
         if (a) { // 분석 API(채널 권한이 있을 때): 원본 시트와 같은 기간 값으로 바로 교체
-          it.views = a.views; it.likes = a.likes; it.comments = a.comments;
+          // 분석 값은 1~2일 늦어 새 영상은 0~1로 나옴(2026-11-01 대동제 영상 조회 1, 공개 269). 기간 시작 뒤 영상은 공개 수치 = 기간 값이라 큰 쪽을 씀
+          const nw = v.date >= YT_PERIOD_START, mx = (x, y) => nw && y > x ? y : x;
+          it.views = mx(a.views, v.views); it.likes = mx(a.likes, v.likes); it.comments = mx(a.comments, v.comments);
           if (a.engaged !== '') it.engaged = a.engaged;
           if (a.avgSec !== '') it.avgSec = a.avgSec;
           upd++;
@@ -3222,7 +3224,8 @@ function ytOverlay_(out, today) {
         upd++;
       } else if (v.date >= shiftDate_(today, -YT_NEW_DAYS) && v.date >= YT_PERIOD_START) {
         // 새 영상: 분석 값이 아직 없으면(게시 1~2일) 데이터 API의 공개 수치 — 이 기간 영상은 전체 조회 = 기간 조회
-        const s = a || { views: v.views, likes: v.likes, comments: v.comments, engaged: '', avgSec: '' };
+        const s = a ? Object.assign({}, a, { views: Math.max(a.views, v.views), likes: Math.max(a.likes, v.likes), comments: Math.max(a.comments, v.comments) })
+          : { views: v.views, likes: v.likes, comments: v.comments, engaged: '', avgSec: '' };
         ch[k] = { date: v.date, ts: v.ts, title: cut_(v.title.replace(/\s+/g, ' ').trim(), 80), url: 'https://www.youtube.com/watch?v=' + id, full: v.title, desc: v.desc,
           views: s.views, likes: s.likes, comments: s.comments, shares: '', saves: '', reach: '', engaged: s.engaged, avgSec: s.avgSec,
           lengthSec: v.lengthSec, type: lengthBucket_(v.lengthSec) };
