@@ -653,11 +653,13 @@
   }
   // ═════════ 홈 맨 위 — 핵심 숫자 한 줄 + 자동 요약 ═════════
   // 개편 1단계: KPI 카드 스파크라인(축·격자 없는 단색 선 + 옅은 면, Stripe·Apple 트렌드 방식)
-  function spark(vals, lbl) {
-    // 값이 없는 칸은 빼고 남은 점으로 카드 폭 전체에 펼친다
+  function spark(vals, lbl, minR) {
+    // 값이 없는 칸은 빼고 남은 점으로 카드 폭 전체에 펼친다. minR: 세로 폭 최소값(팔로워 1명 차이가 크게 떨어진 것처럼 보이지 않게)
     const v = vals.filter(x => x != null && !isNaN(x)), ok = v;
     if (ok.length < 3) return '';
-    const lo = Math.min(...ok), hi = Math.max(...ok), W = 100, H = 28, n = v.length - 1;
+    let lo = Math.min(...ok), hi = Math.max(...ok);
+    if (minR && hi - lo < minR) { const c = (hi + lo) / 2; lo = c - minR / 2; hi = c + minR / 2; }
+    const W = 100, H = 28, n = v.length - 1;
     const pts = v.map((x, i) => x == null ? null : [(i / n) * W, H - 3 - (hi === lo ? 0.5 : (x - lo) / (hi - lo)) * (H - 6)]).filter(Boolean);
     const d = pts.map((p, i) => (i ? 'L' : 'M') + p[0].toFixed(1) + ' ' + p[1].toFixed(1)).join(' ');
     return '<svg class="kspark" viewBox="0 0 100 28" preserveAspectRatio="none" role="img" aria-label="' + esc(lbl || '') + '"><path class="a" d="' + d + ' L' + pts[pts.length - 1][0].toFixed(1) + ' 28 L' + pts[0][0].toFixed(1) + ' 28 Z"/><path class="l" d="' + d + '"/></svg>';
@@ -3558,8 +3560,8 @@
     G.forEach(g => { if (g.lab == null) g.lab = !g.since ? '' : g.since <= addDays(today, -350) ? '1년 ' : md2(g.since) + '부터 '; });
     return G;
   }
-  const folSpark = g => { const t = D.updated; if (g.c === '유튜브') { const y = (D.acct || []).find(a => a.c === '유튜브'); const H = ((y && y.hist) || []).filter(x => x[0] >= addDays(t, -365)); return spark(H.map(x => x[1]).concat([g.now]), '최근 1년 구독자 수'); }
-    return spark((D.fol || []).filter(r => r[1] === g.c && r[0] >= addDays(t, -30)).map(r => r[2]).concat([g.now]), '최근 30일 팔로워 수'); };
+  const folSpark = g => { const t = D.updated; if (g.c === '유튜브') { const y = ((TD.d && TD.d.acct) || []).find(a => a.c === '유튜브'); const H = ((y && y.hist) || []).filter(x => x[0] >= addDays(t, -365)); return spark(H.map(x => x[1]).concat([g.now]), '최근 1년 구독자 수', g.now * 0.01); }
+    return spark((D.fol || []).filter(r => r[1] === g.c && r[0] >= addDays(t, -30)).map(r => r[2]).concat([g.now]), '최근 30일 팔로워 수', g.now * 0.01); };
   const folCard = (g, sp) => hmCard(chName(g.c), fmt(g.now), g.d == null ? '지난 기록 없음' : g.lab + sgnN(g.d), g.d ? (g.d > 0 ? 'up' : 'down') : '', (g.c === '유튜브' ? '구독자' : '팔로워') + (g.since ? ' · ' + md2(g.since) + ' 대비' : ''), sp ? folSpark(g) : '');
   // 채널 탭에서 카드가 하나뿐이면(2026-10-28 「구독자 칸 진짜 멋없다」): 넓은 칸 하나에 숫자 + 증감 두 개(최근 30일·1년) + 오른쪽 큰 추이선
   function folWide(g) {
@@ -3570,7 +3572,7 @@
     const m1 = at(addDays(t, -30)), d30 = m1 != null ? g.now - m1 : S0.length ? g.now - S0[0][1] : null, l30 = m1 != null ? '30일' : S0.length ? md2(S0[0][0]) + '부터' : '';
     const span = S0.length ? daysBetween(S0[0][0], t) : 0, cap = span >= 350 ? '1년' : span >= 28 ? Math.round(span / 30) + '달' : span + '일';
     const chip = (lab, v) => v == null ? '' : '<span class="fw-d ' + (v > 0 ? 'up' : v < 0 ? 'down' : 'mu') + '"><small>' + lab + '</small> ' + sgnN(v) + '</span>';
-    const sp = spark(S0.map(x => x[1]).concat([g.now]), (yt ? '구독자 수' : '팔로워 수') + ' · 최근 ' + cap);
+    const sp = spark(S0.map(x => x[1]).concat([g.now]), (yt ? '구독자 수' : '팔로워 수') + ' · 최근 ' + cap, g.now * 0.01);
     return '<div class="hm-card fw"><div class="fw-l"><span class="hm-cl">' + esc(chName(g.c)) + ' ' + (yt ? '구독자' : '팔로워') + '</span><b class="num">' + fmt(g.now) + '<small>명</small></b>' +
       '<span class="fw-ds">' + chip(l30, d30) + (g.lab && g.lab.trim() !== l30 ? chip(g.lab.trim(), g.d) : '') + '</span></div>' + (sp ? '<div class="fw-r">' + sp + '<span class="fw-cap">' + cap + '</span></div>' : '') + '</div>';
   }
