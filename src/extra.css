@@ -246,6 +246,10 @@ h3 small { font-size: var(--fs-xs); color: var(--muted); font-weight: 600; margi
 .tr-top > span { margin-right: 2px; font-weight: 600; }
 .tr-top button { border: 0; background: var(--plane); border-radius: 8px; padding: 4px 8px; font-size: var(--fs-tag); color: var(--sub); cursor: pointer; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .tr-top button b { color: var(--up-tx); }
+/* 2026-11-01 타 대학 카드: 학교 이름 + 긴 제목이 말줄임 없이 넘쳐 배수가 밀려나던 것 — 제목만 줄이고 배수는 늘 보이게 */
+.tr-top button > .tr-tt { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tr-top button > .tr-tt b.hm-who { color: var(--sub); }
+.tr-top button > b { flex: none; }
 .tr-top button:hover { background: var(--line); }
 /* ③ 타 대학 비교 */
 .bc-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
@@ -1108,6 +1112,11 @@ body { background: var(--bg); }
 .pl-b { height: 10px; border-radius: 2px; background: var(--soft); overflow: hidden; }
 .pl-b i { display: block; height: 100%; background: var(--jj); }
 .pl-r > b { text-align: right; font-size: 16px; font-weight: 700; }
+/* 2026-11-01 휴대폰: 막대가 폭을 차지해 아랫줄 설명이 2~3줄로 접히던 것 — 글 칸을 넓히고 막대를 줄임 */
+@media (max-width: 560px) {
+  .cd-r { grid-template-columns: minmax(0, 1.7fr) minmax(0, 0.8fr) 3.8em; }
+  .pl-r { grid-template-columns: minmax(0, 1.9fr) minmax(0, 0.7fr) 1.4em 3.2em; gap: 8px; }
+}
 .pl-r > em { font-style: normal; font-size: 14px; font-weight: 600; text-align: right; } .pl-r > em.up { color: var(--up-tx); } .pl-r > em.down { color: var(--down); } .pl-r > em.mu { color: var(--muted); font-weight: 400; }
 
 /* 스튜디오형 4단계(2026-10-25): 콘텐츠 탭 — 순위·전체 목록에 썸네일, 표 첫 칸 = 썸네일 + 제목 + 채널 · 형식 · 날짜 */
