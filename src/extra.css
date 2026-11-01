@@ -1220,3 +1220,11 @@ em.nm { font-style: normal; font-weight: 700; color: var(--fg); }
 #hrSec .bc-r { grid-template-columns: 92px minmax(0, 1fr) 104px; }
 #hrSec .hr-seg { margin-bottom: 12px; }
 #ytbSec .bc-n { white-space: nowrap; } /* 광주여대처럼 네 글자 학교 이름이 두 줄로 접히지 않게(2026-10-30) */
+/* 타 대학 어제 올린 콘텐츠(2026-11-01) — 학교마다 한 칸, 휴대폰은 세로로 */
+.yd-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+.yd-b { min-width: 0; }
+.yd-h { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 4px 0 6px; border-bottom: 1px solid var(--line); }
+.yd-h b { font-size: var(--fs-md); }
+.yd-h span { font-size: var(--fs-tag); color: var(--muted); }
+.yd-e { margin: 0; padding: 14px 0; font-size: var(--fs-tag); color: var(--muted); }
+@media (max-width: 760px) { .yd-grid { grid-template-columns: minmax(0, 1fr); gap: 16px; } }

@@ -438,9 +438,10 @@
   function viewBrief() {
     if (S.ch === '타 대학') {
       viewBench();
-      $('view').insertAdjacentHTML('afterbegin', benchCmpHtml() + '<div class="gap"></div><section class="sec" id="hrSec"></section><div class="gap"></div><section class="sec" id="ytbSec"></section><div class="gap"></div>');
+      const yd = ydayHtml();
+      $('view').insertAdjacentHTML('afterbegin', (yd ? yd + '<div class="gap"></div>' : '') + benchCmpHtml() + '<div class="gap"></div><section class="sec" id="hrSec"></section><div class="gap"></div><section class="sec" id="ytbSec"></section><div class="gap"></div>');
       $('view').insertAdjacentHTML('beforeend', advHtml());
-      wireBenchCmp(); wireAdv(); paintHreel(); paintYtb(); return;
+      wireYday(); wireBenchCmp(); wireAdv(); paintHreel(); paintYtb(); return;
     }
     const chs = viewChannels();
     const cur = pool({ channels: chs, since: addDays(D.updated, -30) });
@@ -1246,6 +1247,47 @@
       '<p class="note">타 대학은 릴스만 조회가 공개돼요' + (S.ch === '전체' ? ' · 자세한 비교는 위 「타 대학」 탭' : '') + '</p></section>';
   }
 
+  // ───────── 타 대학 어제 올린 콘텐츠(2026-11-01 담당자 「평일에는 전날 어떤 콘텐츠 올렸는지 리스트로, 대학별로 하나씩」) ─────────
+  // 평일 기록에만 보임(주말엔 숨김). 월요일은 주말까지 금~일. 인스타 = 보드 게시물(누르면 자세히), 유튜브 = ?part=ytb 공개 영상(불러오면 다시 그림)
+  function ydayRange() {
+    const wd = new Date(D.updated + 'T00:00:00').getDay();
+    if (wd === 0 || wd === 6) return null;
+    return wd === 1 ? [addDays(D.updated, -3), addDays(D.updated, -1), '지난 금~일'] : [addDays(D.updated, -1), addDays(D.updated, -1), '어제'];
+  }
+  const YD = [];
+  function ydayHtml() {
+    const R = ydayRange(); if (!R) return '';
+    const [f, t, lab] = R, Y = PART.ytb, wk = f !== t;
+    const ytName = ch => Object.keys(YTB_IG).find(k => YTB_IG[k] === ch);
+    const when = d => wk ? ['일', '월', '화', '수', '목', '금', '토'][new Date(d + 'T00:00:00').getDay()] + '요일' : '';
+    YD.length = 0;
+    const cards = benchNames().map(ch => {
+      const L = D.items.filter(it => it.c === ch && it.t !== '스토리' && it.d >= f && it.d <= t).sort((a, b) => a.d < b.d ? 1 : -1);
+      const V = Y && Y.v ? Y.v.filter(r => r[0] === ytName(ch) && r[2] >= f && r[2] <= t) : [];
+      const hid = likeHidden(ch);
+      const ig = L.map(it => hmRow({ tag: 'li', cls: 'hm-rk', attr: 'tabindex="0" data-yd="' + (YD.push(it) - 1) + '"',
+        thumb: '<span class="hm-th ov-th" style="--c:' + chColor(ch) + '" aria-hidden="true"><b>' + esc(typeShort(it.t)) + '</b></span>',
+        t: esc(title(it.n)), m: ['인스타', when(it.d)].filter(Boolean).join(' · '),
+        r: /릴스/.test(it.t) && val(it, 0) ? '조회 <span class="num">' + fmtK(val(it, 0)) + '</span>' : hid ? '<span class="mu">좋아요 비공개</span>' : '좋아요 <span class="num">' + fmtK(val(it, 1)) + '</span>' }));
+      const yt = V.map(r => hmRow({ tag: 'a', attr: 'href="https://www.youtube.com/watch?v=' + esc(r[1]) + '" target="_blank" rel="noopener"',
+        thumb: '<span class="hm-th ov-th" style="--c:' + chColor(ch) + '" aria-hidden="true"><img loading="lazy" alt="" src="https://i.ytimg.com/vi/' + esc(r[1]) + '/mqdefault.jpg" onerror="this.remove()"></span>',
+        t: esc(r[3]), m: ['유튜브', r[4] != null && r[4] <= 60 ? '쇼츠' : '', when(r[2])].filter(Boolean).join(' · '), r: r[5] != null ? '조회 <span class="num">' + fmtK(r[5]) + '</span>' : '' }));
+      const n = ig.length + yt.length;
+      return '<div class="yd-b"><div class="yd-h"><b><i class="hm-dot" style="background:' + chColor(ch) + '"></i>' + esc(chName(ch)) + '</b><span>' + (n ? n + '개' : '') + '</span></div>' +
+        (n ? '<ol class="hm-list">' + ig.join('') + yt.join('') + '</ol>' : '<p class="yd-e">' + lab + ' 올린 게시물이 없어요</p>') + '</div>';
+    });
+    return '<section class="sec" id="ydSec"><div class="sh"><div><h2>' + lab + ' 올린 콘텐츠</h2><p>' + (wk ? md2(f) + '~' + md2(t) : md2(f)) + '</p></div></div>' +
+      '<div class="yd-grid">' + cards.join('') + '</div><p class="note">스토리 빼고 · 숫자는 지금까지 받은 값' + (Y ? '' : ' · 유튜브는 불러오는 중') + '</p></section>';
+  }
+  function wireYday() {
+    const sec = $('ydSec'); if (!sec) return;
+    sec.querySelectorAll('[data-yd]').forEach(li => {
+      const go = () => openDetail(YD[+li.dataset.yd]);
+      li.addEventListener('click', go); li.addEventListener('keydown', e => { if (e.key === 'Enter') go(); });
+    });
+  }
+  function paintYday() { const sec = $('ydSec'); if (sec) { sec.outerHTML = ydayHtml(); wireYday(); } }
+
   // ───────── 타 대학 유튜브(공개 숫자, ?part=ytb · 2026-10-26~ 매일 기록) ─────────
   // 우리 채널도 같은 공개 숫자로 받아 같은 기준으로 비교. 조회 중간값은 올린 지 7일 지난 영상만(막 올린 영상이 낮게 끌지 않게)
   const AR_JB = { jjuniv: 1, jbnu1947: 1, wonkwang_univ: 1, woosukuni: 1, 전주대: 1, 전북대: 1, 원광대: 1, 우석대: 1 };
@@ -1288,7 +1330,7 @@
     const box = $('ytbSec'); if (!box) return;
     if (PART.ytb) { box.innerHTML = ytbHtml(PART.ytb); wireAr(box); return; }
     box.innerHTML = '<div class="sh"><div><h2>유튜브 비교</h2></div></div><div class="wait">불러오는 중이에요</div>';
-    loadPart('ytb').then(Y => { const b = $('ytbSec'); if (b) { b.innerHTML = ytbHtml(Y); wireAr(b); } });
+    loadPart('ytb').then(Y => { const b = $('ytbSec'); if (b) { b.innerHTML = ytbHtml(Y); wireAr(b); } paintYday(); });
   }
   // ───────── 호남권 대학 릴스(공개 재생수, ?part=hreel · Apify 주 1회 · 2026-10-29~) ─────────
   // 인스타 API가 타 계정 릴스 재생수를 안 줘서 따로 받음. 계정마다 최근 릴스만 쌓이므로 「주당 게시」는 내지 않음
