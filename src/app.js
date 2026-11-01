@@ -199,14 +199,15 @@
   // 인스타는 올린 지 7일 지나 조회가 같은 형식 평소의 절반 아래(평소 대비 −50% 이하)면 권고. 광고·공동작업·정보 안내(입시·모집, 학사·생활 안내)는 남겨야 해서 뺌
   // 2026-10-24 분류표: 입시 게시물(it.adm)과 유형 「안내」(T26)를 남김
   function archRec(it) {
-    if (it.c !== '인스타그램' || it.t === '스토리' || it.ad || it.co || it.hid || it.x || it.adm || it.tc === 'T26') return null;
+    if (it.c !== '인스타그램' || it.t === '스토리' || it.ad || it.co || it.hid || it.x || it.adm || it.arc || it.tc === 'T26') return null;
     // 2026-10-23 「이유 + 성과」로 좁힘(조회만으로 보관하면 링크·기록·평소 기준이 망가짐): 기간이 끝났을 이벤트·모집성 게시물(올린 지 14일 지남)만
     const age = daysBetween(it.d, D.updated); if (age < 14) return null;
     if (!(it.tc === 'T28' || /모집|신청|접수|마감|EVENT|이벤트|당첨|추첨|응모/i.test(String(it.n || '')))) return null;
     const p = paceOf(it); if (!p || (p.base && young(it))) return null; // 다 자란 평소와 견주는 어린 게시물은 늘 낮게 나와 뺌
     return p.r < 0.5 ? { r: p.r, age } : null;
   }
-  const archTag = it => { const a = archRec(it); return a ? '<span class="tag arch" title="' + esc('기간이 끝났을 이벤트·모집 게시물 · 올린 지 ' + a.age + '일 · 조회 평소 대비 ' + vsP(a.r) + '(같은 형식 평소의 절반 아래) · 당첨 발표까지 끝났으면 보관해도 돼요') + '">보관 후보</span>' : ''; };
+  // 보관함(2026-11-01): 서버 「보관 게시물」 탭 — API 목록에서 사라진 게시물(보관 또는 삭제). 값은 보관 전 마지막 값에서 멈추고 평소 계산에는 그대로 둠(살아남은 것만 남으면 평소가 부풀어서)
+  const archTag = it => { if (it.arc) return '<span class="tag arch" title="' + esc(md2(it.arc) + '부터 인스타 목록에 안 보여요 · 숫자는 보관 전 마지막 값' + (it.arw ? ' · 이유: ' + it.arw : '')) + '">보관함</span>'; const a = archRec(it); return a ? '<span class="tag arch" title="' + esc('기간이 끝났을 이벤트·모집 게시물 · 올린 지 ' + a.age + '일 · 조회 평소 대비 ' + vsP(a.r) + '(같은 형식 평소의 절반 아래) · 당첨 발표까지 끝났으면 보관해도 돼요') + '">보관 후보</span>' : ''; };
   const credTag = it => {
     if (!OWN.includes(it.c) || !it.w || !it.w.length || !['자체 제작', '근로장학생'].includes(it.p)) return '';
     const amb = it.w.filter(n => (D.roles || {})[n] === '홍보대사');
@@ -2033,6 +2034,8 @@
       // 빈 설정 안내는 종 알림으로 옮기고 화면에는 한 줄만(원칙 9)
       top += kpi7Html(chs);
       top += secOpen('이번 달 목표', gh ? '목표를 얼마나 채웠는지 · 세로선(오늘 기준) = 오늘까지 와 있어야 할 위치 · 주황 = 뒤처짐' : '') + (gh || '<p class="note">목표가 아직 없어요 · 오른쪽 위 알림에서 적는 법을 볼 수 있어요</p>') + secClose;
+      const AR = L.filter(it => it.arc).sort((a, b) => a.arc < b.arc ? 1 : -1);
+      if (AR.length) top += secOpen('보관한 게시물', '보관하면 여기 모여요') + '<ol class="hm-list" id="arcList">' + rankRows(AR, { right: it => it.arw ? esc(it.arw) : '보관 ' + md2(it.arc) }) + '</ol><p class="note">원인과 「기획 때 하지 말 것」은 분석 문서에 정리해요 · 숫자는 보관 전 마지막 값</p>' + secClose;
       top += secOpen('이번 주 처방', (ch ? '' : esc(scopeLabel()) + ' · ') + '잘 되는데 최근 2달 덜 올린 것 · 많이 올렸는데 약한 것') + rxHtml(RX) + secClose;
       fold += secOpen('시도한 전략 채점', '「전략 기록」 탭에 적은 시도가 평소보다 잘 됐는지 채점해요') + stratHtml() + secClose; FN.push('전략 채점');
       FN.push('잘 되는 조건'); fold += secOpen('잘 되는 조건', '해당 게시물과 나머지가 25% 넘게 차이 나는 조건만 골랐어요') + rulesHtml(chs) + secClose;
@@ -2068,6 +2071,7 @@
     if ($('mxBy')) $('mxBy').querySelectorAll('button').forEach(b => b.addEventListener('click', () => { S.mxBy = b.dataset.v; S.mx = null; viewStrategy(); }));
     if ($('mxFewBtn')) $('mxFewBtn').addEventListener('click', e => { S.mxFew = !S.mxFew; $('mxFew').hidden = !S.mxFew; e.currentTarget.setAttribute('aria-expanded', S.mxFew); e.currentTarget.textContent = S.mxFew ? '게시물 ' + MIN_N + '개 미만 분류 접기' : '게시물 ' + MIN_N + '개 미만 분류 ' + $('mxFew').rows.length + '개 더 보기 ›'; });
     $('view').querySelectorAll('.mx td[data-k]').forEach(td => { if (td.classList.contains('none')) return; td.addEventListener('click', () => { S.mx = S.mx === td.dataset.k ? null : td.dataset.k; viewStrategy(); if (S.mx) setTimeout(() => { const el = $('mxList'); if (el) el.scrollIntoView({ behavior: SM(), block: 'nearest' }); }, 30); }); });
+    wireRank($('arcList'), L.filter(it => it.arc).sort((a, b) => a.arc < b.arc ? 1 : -1));
     if (S.mx) { const [g, t] = S.mx.split('|'); wireRank($('mxList'), L.filter(it => it[MXB] === g && it.t === t).sort((a, b) => (ratio(b) || 0) - (ratio(a) || 0)).slice(0, 20)); }
     bars('byCat', cats.filter(r => r.n >= MIN_N).sort(byIdx), subN, k => { S.view = 'explore'; S.g = k; render(); window.scrollTo({ top: 0 }); });
     if (RXS) {

@@ -1598,6 +1598,7 @@ function buildDashboardData_() {
   let extra = { roles: {}, ads: null };
   try { extra = attachTags_(ss, list, keys.map(k => rawKey[k])); } catch (e) { extra.tagError = e.message; }
   try { coMark_(ss, list); } catch (e) {}
+  try { arcMark_(ss, list); } catch (e) {}
 
   return {
     updated: dates[dates.length - 1] || '',
@@ -3532,6 +3533,45 @@ function hongPostsStep_(ss, logs) {
     .map(x => [x.id, x.date, typeLabel_(x.product, x.mediaType), x.caption, x.url, x.views, x.likes, x.comments, x.shares, x.saves, x.reach, now]);
   const r = igxUpsert_(ss, HONG_POSTS, ['미디어 ID', '게시일', '형식', '캡션', '게시물 주소', '조회', '좋아요', '댓글', '공유', '저장', '도달', '기록 시각'], [0], rows);
   logs.push([new Date(), HONG_POSTS, rows.length, '정상 (갱신 ' + r.updated + ' · 새 게시물 ' + r.added + ')']);
+  archiveCheck_(ss, ch, HONG_POSTS, api, logs);
+}
+// ───────── 보관한 게시물(2026-11-01 담당자 「보관 처리된 건 따로 모아서 원인 분석하고 전략·기획 때 하면 안 되는 것으로 제안」) ─────────
+// 「jjuniv 게시물」·「hong 게시물」 탭(지우지 않고 쌓임)에 있는데 이번 API 목록에 없는 게시물 = 보관(또는 삭제). 「보관 게시물」 탭에 마지막 값과 함께 모음(지우지 않음)
+//  · API가 덜 받은 날 오판하지 않게: 이번 목록이 탭 줄 수의 90%보다 적으면 건너뜀
+//  · 다시 보이면(보관 해제) 상태만 「다시 보임」. P열 「이유」는 사람이 적음(분석 문서 01_전략·기획/01_전략/보관 게시물 분석.md와 함께)
+const ARCH_SHEET = '보관 게시물';
+const ARCH_HEAD = ['채널', '미디어 ID', '게시일', '형식', '캡션', '게시물 주소', '조회', '좋아요', '댓글', '공유', '저장', '도달', '마지막으로 보인 때', '처음 안 보인 날', '상태', '이유'];
+function archiveCheck_(ss, ch, tab, api, logs) {
+  try {
+    const sh = ss.getSheetByName(tab);
+    if (!sh || sh.getLastRow() < 2) return;
+    const rows = sh.getRange(2, 1, sh.getLastRow() - 1, 12).getValues().filter(r => String(r[0]) && !/스토리|STORY/.test(String(r[2])));
+    const ids = {};
+    api.media.forEach(x => { ids[String(x.id)] = 1; });
+    if (api.media.length < rows.length * 0.9) { logs.push([new Date(), ARCH_SHEET + '·' + ch, 0, '건너뜀: 이번 목록 ' + api.media.length + '개가 탭 ' + rows.length + '줄보다 너무 적음']); return; }
+    const as = ss.getSheetByName(ARCH_SHEET), old = {};
+    if (as && as.getLastRow() > 1) as.getRange(2, 1, as.getLastRow() - 1, ARCH_HEAD.length).getValues().forEach(r => { if (String(r[0]) === ch) old[String(r[1])] = r; });
+    const today = Utilities.formatDate(new Date(), TZ, 'yyyy-MM-dd'), out = [];
+    let added = 0, now = 0;
+    rows.forEach(r => {
+      const id = String(r[0]), o = old[id], d = r[1] instanceof Date ? fmtDate_(r[1]) : String(r[1]);
+      if (ids[id]) { if (o && o[14] !== '다시 보임') out.push(o.slice(0, 14).concat(['다시 보임', o[15]])); return; }
+      now++;
+      if (o && o[14] === '보관 중') return; // 이미 모아 둠(값은 보관 전 마지막 값 그대로)
+      if (!o) added++;
+      out.push([ch, id, d, r[2], cut_(String(r[3] || '').replace(/\s+/g, ' ').trim(), 80), r[4], r[5], r[6], r[7], r[8], r[9], r[10], r[11], o ? o[13] : today, '보관 중', o ? o[15] : '']);
+    });
+    if (out.length) igxUpsert_(ss, ARCH_SHEET, ARCH_HEAD, [0, 1], out);
+    logs.push([new Date(), ARCH_SHEET + '·' + ch, added, '정상 — 새로 안 보임 ' + added + ' · 지금 보관 ' + now]);
+  } catch (e) { logs.push([new Date(), ARCH_SHEET + '·' + ch, 0, '오류: ' + e.message]); }
+}
+// 보드: 보관 중인 게시물에 it.arc = 처음 안 보인 날, it.arw = 이유(사람이 적은 것)
+function arcMark_(ss, list) {
+  const sh = ss.getSheetByName(ARCH_SHEET);
+  if (!sh || sh.getLastRow() < 2) return;
+  const map = {};
+  sh.getRange(2, 1, sh.getLastRow() - 1, ARCH_HEAD.length).getValues().forEach(r => { if (r[14] === '보관 중' && String(r[5])) map[igShort_(r[5])] = [r[13] instanceof Date ? fmtDate_(r[13]) : String(r[13]), String(r[15] || '').trim()]; });
+  list.forEach(it => { if (it.c !== '유튜브' && it.u) { const a = map[igShort_(it.u)]; if (a) { it.arc = a[0]; if (a[1]) it.arw = a[1]; } } });
 }
 // ───────── 「jjuniv 게시물」·「유튜브 게시물」 탭: 공식 계정 게시물 캡션·설명란 전문 (JJ 스튜디오 자동매칭이 읽음, 2026-10-20) ─────────
 // JJ 스튜디오는 크레딧 줄(「🎬 시리즈 | 회차」)로 기획서에 「업로드 완료」를 붙인다. 예전엔 Supermetrics 원본(월요일만 갱신)을 읽어 화~일 업로드가 다음 주까지 안 붙었다.
@@ -3550,6 +3590,7 @@ function officialPostsStep_(ss, logs) {
         .map(x => [x.id, x.date, typeLabel_(x.product, x.mediaType), x.caption, x.url, x.views, x.likes, x.comments, x.shares, x.saves, x.reach, now]);
       const r = igxUpsert_(ss, OFF_IG_POSTS, ['미디어 ID', '게시일', '형식', '캡션', '게시물 주소', '조회', '좋아요', '댓글', '공유', '저장', '도달', '기록 시각'], [0], rows);
       logs.push([new Date(), OFF_IG_POSTS, rows.length, '정상 (갱신 ' + r.updated + ' · 새 게시물 ' + r.added + ')']);
+      archiveCheck_(ss, '인스타그램', OFF_IG_POSTS, api, logs);
     } catch (e) { logs.push([new Date(), OFF_IG_POSTS, 0, '오류: ' + e.message]); }
   }
   if (p.getProperty('YT_API') !== 'on') logs.push([new Date(), OFF_YT_POSTS, 0, '건너뜀: YT_API 꺼짐']);
