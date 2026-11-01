@@ -198,7 +198,13 @@
   // 보관 권고(2026-10-23 「홍비디오는 1주에 1만 못 넘으면 보관 — 우리 인스타도 보관 권고 라벨」): 홍비디오 1만은 평소(1년 중간값 약 1.8만)의 절반 남짓이라,
   // 인스타는 올린 지 7일 지나 조회가 같은 형식 평소의 절반 아래(평소 대비 −50% 이하)면 권고. 광고·공동작업·정보 안내(입시·모집, 학사·생활 안내)는 남겨야 해서 뺌
   // 2026-10-24 분류표: 입시 게시물(it.adm)과 유형 「안내」(T26)를 남김
+  // 2026-11-01 담당자 「1만이 못 넘는 콘텐츠는 무조건 보관」: 올린 지 14일 지나도 조회 1만 미만이면 이유와 상관없이 보관 후보(ARCH_CH 채널만, hong은 담당자 확인 뒤)
+  const ARCH_MIN = 10000, ARCH_CH = ['인스타그램'];
   function archRec(it) {
+    if (ARCH_CH.includes(it.c) && it.t !== '스토리' && !it.ad && !it.hid && !it.x && !frozen(it) && !it.arc) {
+      const age = daysBetween(it.d, D.updated), v = mainVal(it);
+      if (age >= AGE_MIN && v != null && v < ARCH_MIN) return { r: v / ARCH_MIN, age, v, k: 'min' };
+    }
     if (it.c !== '인스타그램' || it.t === '스토리' || it.ad || it.co || it.hid || it.x || it.adm || it.arc || it.tc === 'T26') return null;
     // 2026-10-23 「이유 + 성과」로 좁힘(조회만으로 보관하면 링크·기록·평소 기준이 망가짐): 기간이 끝났을 이벤트·모집성 게시물(올린 지 14일 지남)만
     const age = daysBetween(it.d, D.updated); if (age < 14) return null;
@@ -207,7 +213,7 @@
     return p.r < 0.5 ? { r: p.r, age } : null;
   }
   // 보관함(2026-11-01): 서버 「보관 게시물」 탭 — API 목록에서 사라진 게시물(보관 또는 삭제). 값은 보관 전 마지막 값에서 멈추고 평소 계산에는 그대로 둠(살아남은 것만 남으면 평소가 부풀어서)
-  const archTag = it => { if (it.arc) return '<span class="tag arch" title="' + esc(md2(it.arc) + '부터 인스타 목록에 안 보여요 · 숫자는 보관 전 마지막 값' + (it.arw ? ' · 이유: ' + it.arw : '')) + '">보관함</span>'; const a = archRec(it); return a ? '<span class="tag arch" title="' + esc('기간이 끝났을 이벤트·모집 게시물 · 올린 지 ' + a.age + '일 · 조회 평소 대비 ' + vsP(a.r) + '(같은 형식 평소의 절반 아래) · 당첨 발표까지 끝났으면 보관해도 돼요') + '">보관 후보</span>' : ''; };
+  const archTag = it => { if (it.arc) return '<span class="tag arch" title="' + esc(md2(it.arc) + '부터 인스타 목록에 안 보여요 · 숫자는 보관 전 마지막 값' + (it.arw ? ' · 이유: ' + it.arw : '')) + '">보관함</span>'; const a = archRec(it); return a ? '<span class="tag arch" title="' + esc(a.k === 'min' ? '올린 지 ' + a.age + '일 지나도 조회 ' + fmtK(a.v) + ' · 1만 못 넘으면 보관(2026-11-01 기준)' : '기간이 끝났을 이벤트·모집 게시물 · 올린 지 ' + a.age + '일 · 조회 평소 대비 ' + vsP(a.r) + '(같은 형식 평소의 절반 아래) · 당첨 발표까지 끝났으면 보관해도 돼요') + '">보관 후보</span>' : ''; };
   const credTag = it => {
     if (!OWN.includes(it.c) || !it.w || !it.w.length || !['자체 제작', '근로장학생'].includes(it.p)) return '';
     const amb = it.w.filter(n => (D.roles || {})[n] === '홍보대사');
@@ -837,7 +843,7 @@
     const lo = J.filter(x => x.p.r < 0.7).pop();
     // 보관 권고(최근 60일): 몇 개인지 + 가장 낮은 것
     const AR = D.items.filter(it => chs.includes(it.c) && it.d >= addDays(D.updated, -60) && archRec(it)).sort((a, b) => archRec(a).r - archRec(b).r);
-    if (AR.length) pRow('down', '보관 후보 · 끝난 이벤트 ' + AR.length + '개', AR[0], archRec(AR[0]).r);
+    if (AR.length) pRow('down', '보관 후보 ' + AR.length + '개', AR[0], archRec(AR[0]).k === 'min' ? ratio(AR[0]) : archRec(AR[0]).r);
     if (lo) pRow('down', '평소보다 낮은 게시물', lo.it, lo.p.r);
     // 예전 게시물이 이번 주 다시 크게 늘었나(이번 주 늘어난 조회의 20% 이상 또는 5천 이상)
     if (j >= 0 && j < n) {
