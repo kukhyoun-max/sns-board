@@ -4221,6 +4221,8 @@ function storySnapshot() {
   try { collabStep_(ss); } catch (e) { logRows_(ss, [[new Date(), COLLAB_SHEET, 0, '오류: ' + String(e.message).slice(0, 150)]]); }
   try { collabOwnStep_(ss, 60); } catch (e) { logRows_(ss, [[new Date(), COLLAB_OWN_SHEET, 0, '오류: ' + String(e.message).slice(0, 150)]]); }
   try { postHourly_(ss); } catch (e) { logRows_(ss, [[new Date(), HOURLY_SHEET, 0, '오류: ' + String(e.message).slice(0, 150)]]); }
+  // 학과 계정(2026-11-03): 하루 한 번, 오늘 아직 확인하지 않은 계정만 — 시간이 모자라면 다음 시간에 이어서
+  try { const r = deptStep_(ss); if (r) logRows_(ss, [[new Date(), DEPT_SHEET, r.posts, '정상 — 확인 ' + r.tried + '개 중 받아짐 ' + r.ok + '개' + (r.left ? ' · 남은 ' + r.left + '개는 다음 시간에' : '')]]); } catch (e) { logRows_(ss, [[new Date(), DEPT_SHEET, 0, '오류: ' + String(e.message).slice(0, 150)]]); }
 }
 function ensureStoryTrigger_() {
   if (ScriptApp.getProjectTriggers().some(t => t.getHandlerFunction() === 'storySnapshot')) return;
@@ -6451,6 +6453,196 @@ function partYtb_(ss) {
 function testYtbPublic() {
   const C = ytbGet_('channels', { part: 'snippet,statistics', id: YTB_CH.map(c => c.id).join(',') }).items || [];
   Logger.log(C.map(c => c.snippet.title + ' · 구독자 ' + c.statistics.subscriberCount + ' · 영상 ' + c.statistics.videoCount).join('\n'));
+}
+
+// ───────── 학과 계정(공개 데이터, 2026-11-03 담당자 「활동 중인 채널의 데이터 받는 법 → 1~3만」) ─────────
+// 학과 SNS 조사(01_전략·기획/02_레퍼런스/학과 SNS/reports)에서 활동 중으로 확인한 학과·단과대학 채널 70개의 공개 숫자를 하루 한 번 받음
+//  · 보드 화면·보드 응답(part)에는 아직 싣지 않음(담당자가 1~3단계만 승인). 학교 공식·타 대학 탭과 섞지 않음
+//  · 인스타 = business_discovery(benchFetch_, 비즈니스·크리에이터 계정만 — 개인 계정은 「안 됨」으로 남김, 조회·도달은 API가 안 줌)
+//  · 유튜브 = 공개 API 키(ytbGet_), 블로그 = 네이버 RSS(조회 없음)
+//  · 「학과 계정」: 받을 목록. 사람이 고침 — 사용을 X로 두면 건너뜀, 줄을 더하면 다음 실행부터 받음. 탭이 없을 때만 DEPT_SEED로 채움
+//  · 「학과 계정 기록」: 날짜마다 팔로워·구독자, 게시물 수 / 「학과 계정 게시물」: 최근 DEPT_DAYS일 게시물의 지금 값(키 = 플랫폼·계정·게시물 ID)
+//  · 매시 실행(storySnapshot)에서 DEPT_HOUR시 이후, 오늘 아직 확인하지 않은 계정만 DEPT_BUDGET_MS 안에서 받고 나머지는 다음 시간에
+const DEPT_SHEET = '학과 계정', DEPT_A_SHEET = '학과 계정 기록', DEPT_P_SHEET = '학과 계정 게시물';
+const DEPT_HEAD = ['단과대학', '학과', '플랫폼', '계정', '운영 주체', '사용', '받기 결과', '마지막 확인'];
+const DEPT_A_HEAD = ['날짜', '플랫폼', '계정', '팔로워·구독자', '게시물 수'];
+const DEPT_P_HEAD = ['플랫폼', '계정', '게시물 ID', '게시일', '형식', '주소', '제목·캡션 앞부분', '조회', '좋아요', '댓글', '받은 시각'];
+const DEPT_DAYS = 180, DEPT_HOUR = 5, DEPT_BUDGET_MS = 120 * 1000;
+const DEPT_SEED = [
+  ["인문콘텐츠대학","(단과대학)","인스타","jj_incorn","단과대학"],
+  ["인문콘텐츠대학","일본언어문화학과","인스타","jj_japanese_culture","학생회"],
+  ["인문콘텐츠대학","역사콘텐츠학과","인스타","jj_history_contents","학생회"],
+  ["인문콘텐츠대학","역사콘텐츠학과","유튜브","@jj_historycontents","학과 공식"],
+  ["인문콘텐츠대학","웹툰만화콘텐츠학과","인스타","jjuniv_webtoon","학과·동아리 겸용"],
+  ["인문콘텐츠대학","한국어문학과(창작학부)","인스타","jjun_korean","학생회"],
+  ["인문콘텐츠대학","(단과대학)","인스타","jj_us_2026","학생회"],
+  ["사회과학대학","경찰학과","인스타","campol.official","불명"],
+  ["사회과학대학","문헌정보학과","인스타","jj__lis","학생회"],
+  ["사회과학대학","법학과","인스타","jj_law_official","학생회"],
+  ["사회과학대학","상담심리학과","인스타","jj_sangsim","학생회"],
+  ["사회과학대학","행정학과","인스타","jjuniv_pub","학생회"],
+  ["사회과학대학","(단과대학)","인스타","jj.apple_chaeum_22","학생회"],
+  ["경영대학","(단과대학)","인스타","biz.jj.ac.kr","단과대학"],
+  ["경영대학","금융보험학과","인스타","jj_insurance_we","학생회"],
+  ["경영대학","부동산국토정보학과","인스타","jjuniv_realestate","학과"],
+  ["경영대학","회계세무학과","인스타","jj_accounting_tax","불명"],
+  ["경영대학","IT금융학과","인스타","jju_it_finance_","학과"],
+  ["경영대학","경영학과","인스타","jju__business","불명"],
+  ["경영대학","(단과대학)","인스타","jjuniv_biz","학생회"],
+  ["의과학대학","간호학과","인스타","jjuniv_nursing","불명"],
+  ["의과학대학","작업치료학과","인스타","jjot.designyourlife","학생회"],
+  ["의과학대학","작업치료학과","유튜브","UCHt_3GDdS6cz6pxfoxd97uQ","학과 공식"],
+  ["의과학대학","식품영양학과","인스타","jj__food_nutrition","학생회"],
+  ["의과학대학","재활학과","인스타","jj_rehab","학과 공식"],
+  ["의과학대학","방사선학과","인스타","jj_radiology_2026","불명"],
+  ["의과학대학","(단과대학)","인스타","jj_med_sci_2026","학생회"],
+  ["공과대학","건축학과","유튜브","UCwpf_U4FhOPAV4DqF227G-g","학과 공식"],
+  ["공과대학","소방안전공학과","인스타","jjuniv_fse_2026","불명"],
+  ["공과대학","소방안전공학과","인스타","fire_investigation_safety_team","팀·동아리"],
+  ["공과대학","(단과대학)","인스타","jj_eng22","학생회"],
+  ["소프트웨어융합대학","인공지능학과","인스타","jju_ai","학과"],
+  ["소프트웨어융합대학","(단과대학)","인스타","jju_software_convergen","학생회"],
+  ["문화융합대학","게임콘텐츠학과","인스타","jjg_contents","학과 공식"],
+  ["문화융합대학","체육학과(학과 홈 「생활체육학과」)","인스타","jju_physical_education","학과"],
+  ["문화융합대학","시각디자인학과","유튜브","UCvU-j1ZRoSFifW3G2T_YA1g","학과 공식"],
+  ["문화융합대학","예술심리치료학과","인스타","jjarttherapy","학과"],
+  ["문화융합대학","축구학과","인스타","jju_dept.football","학과"],
+  ["문화융합대학","축구학과","인스타","jj.football.official","팀"],
+  ["문화융합대학","축구학과","인스타","jupa__chups","팀·동아리"],
+  ["문화융합대학","태권도학과","인스타","jjutkd_studentcouncil_official","학생회"],
+  ["문화융합대학","태권도학과","유튜브","@SSAULABI_TKD","팀"],
+  ["문화융합대학","영화방송학과","인스타","jjfilm.zip","불명"],
+  ["문화융합대학","영화방송학과","인스타","jjfilm.official","팀·동아리"],
+  ["문화융합대학","공연예술학과","인스타","jju_music_","학과"],
+  ["문화융합대학","(단과대학)","인스타","jjcu.core","학생회"],
+  ["문화관광대학","외식산업조리학과","인스타","jj_foodservicemmt","학생회"],
+  ["문화관광대학","패션산업학과","인스타","jj_fashionbusiness","학생회"],
+  ["문화관광대학","한식조리학과","인스타","jj.hansikgram","학과 공식"],
+  ["문화관광대학","(단과대학)","인스타","jj_culture_moment","학생회"],
+  ["사범대학","(단과대학)","인스타","jju_edu_","단과대학"],
+  ["사범대학","(단과대학)","유튜브","UCHyG0aaegXSixD0aC7zWjTQ","단과대학"],
+  ["사범대학","국어교육과","인스타","jj_koedu_","학생회"],
+  ["사범대학","영어교육과","인스타","jju_engedu","학과 공식"],
+  ["사범대학","영어교육과","인스타","jju_engedu_stu_council","학생회"],
+  ["사범대학","영어교육과","유튜브","@jju_engedu","학과 공식"],
+  ["사범대학","중등특수교육과","인스타","jj_special_edu","학과 공식"],
+  ["사범대학","가정교육과","인스타","jj_he_edu","학과 공식"],
+  ["사범대학","과학교육과","인스타","science_edu_jj","학과 공식"],
+  ["사범대학","수학교육과","인스타","jj_matheducation","학과 공식"],
+  ["사범대학","(단과대학)","인스타","jjuniv_edu_onu_43","학생회"],
+  ["미래융합대학","(단과대학)","유튜브","UCjeRKQQ5V7E4ZLyXch0jO8g","단과대학"],
+  ["미래융합대학","AI융합비즈니스학과","블로그","2022startup","학과 공식"],
+  ["미래융합대학","미네르바학부","인스타","jj_minerva","학과 공식"],
+  ["미래융합대학","로컬벤처학부","인스타","localventure_jju_hub","학과 공식"],
+  ["미래융합대학","농식품경영학과","인스타","jju_agrifood","학과 공식"],
+  ["미래융합대학","친환경자동차학과","인스타","jj.greenmobility","학과"],
+  ["미래융합대학","(단과대학)","인스타","jjuniv_future","단과대학"],
+  ["수퍼스타칼리지","자유전공학부","인스타","jju_superstar","학생회"],
+  ["국제학부·반려동물산업학부","반려동물산업학부","인스타","jjuniv_pet_dept","학부"],
+];
+function deptStep_(ss) {
+  const t0 = Date.now(), d0 = new Date(), today = Utilities.formatDate(d0, TZ, 'yyyy-MM-dd'), now = Utilities.formatDate(d0, TZ, 'yyyy-MM-dd HH:mm');
+  if (Number(Utilities.formatDate(d0, TZ, 'H')) < DEPT_HOUR) return null;
+  let sh = ss.getSheetByName(DEPT_SHEET);
+  if (!sh) {
+    sh = ss.insertSheet(DEPT_SHEET);
+    sh.getRange(1, 1, 1, DEPT_HEAD.length).setValues([DEPT_HEAD]).setFontWeight('bold'); sh.setFrozenRows(1);
+    sh.getRange(2, 4, DEPT_SEED.length, 1).setNumberFormat('@');
+    sh.getRange(2, 1, DEPT_SEED.length, DEPT_HEAD.length).setValues(DEPT_SEED.map(r => r.concat(['O', '', ''])));
+  }
+  const n = sh.getLastRow() - 1;
+  if (n < 1) return null;
+  const list = sh.getRange(2, 1, n, DEPT_HEAD.length).getValues();
+  const since = shiftDate_(today, -DEPT_DAYS), aRows = [], pRows = [];
+  let tried = 0, ok = 0, left = 0;
+  const gh = list.map(r => [r[6], r[7]]);
+  list.forEach((r, i) => {
+    const pl = String(r[2]).trim();
+    let acc = String(r[3]).trim();
+    if (pl === '인스타') acc = acc.replace(/^@/, '');
+    if (!pl || !acc || String(r[5]).trim().toUpperCase() === 'X') return;
+    const last = r[7] instanceof Date ? Utilities.formatDate(r[7], TZ, 'yyyy-MM-dd') : String(r[7]).slice(0, 10);
+    if (last === today) return;
+    if (Date.now() - t0 > DEPT_BUDGET_MS) { left++; return; }
+    let msg;
+    try {
+      if (pl === '인스타') msg = deptIg_(acc, since, today, now, aRows, pRows);
+      else if (pl === '유튜브') msg = deptYt_(acc, since, today, now, aRows, pRows);
+      else if (pl === '블로그') msg = deptBlog_(acc, since, today, now, aRows, pRows);
+      else throw new Error('모르는 플랫폼(인스타·유튜브·블로그만)');
+      ok++;
+    } catch (e) { msg = '안 됨: ' + deptWhy_(e.message); }
+    gh[i] = [msg, now]; tried++;
+  });
+  if (aRows.length) igxUpsert_(ss, DEPT_A_SHEET, DEPT_A_HEAD, [0, 1, 2], aRows);
+  if (pRows.length) igxUpsert_(ss, DEPT_P_SHEET, DEPT_P_HEAD, [0, 1, 2], pRows);
+  if (tried) sh.getRange(2, 7, n, 2).setValues(gh);
+  return tried ? { tried: tried, ok: ok, left: left, posts: pRows.length } : null;
+}
+// 메타 오류를 쉬운 말로(개인 계정·바뀐 아이디는 business_discovery가 「찾을 수 없음」으로 답함)
+function deptWhy_(m) {
+  m = String(m || '');
+  if (/cannot be found|Invalid user id|code 110\b|2207013/i.test(m)) return '개인 계정이거나 아이디가 바뀜(비즈니스·크리에이터 계정만 받을 수 있음)';
+  return m.slice(0, 120);
+}
+function deptIg_(u, since, today, now, aRows, pRows) {
+  const b = benchFetch_(u, since, 4);
+  const num = x => x == null ? '' : x;
+  aRows.push([today, '인스타', u, num(b.followers), num(b.count)]);
+  b.media.forEach(x => {
+    const m = x.m;
+    pRows.push(['인스타', u, String(m.id), x.date, benchType_(m), m.permalink || '', ytbTxt_(cut_(String(m.caption || '').replace(/\s+/g, ' ').trim(), 80)), '', num(m.like_count), num(m.comments_count), now]);
+  });
+  return '받아짐(최근 ' + DEPT_DAYS + '일 게시물 ' + b.media.length + '개)';
+}
+function deptYt_(acc, since, today, now, aRows, pRows) {
+  const c = (ytbGet_('channels', Object.assign({ part: 'statistics,contentDetails' }, /^UC[\w-]{20,}$/.test(acc) ? { id: acc } : { forHandle: acc })).items || [])[0];
+  if (!c) throw new Error('채널을 찾지 못함');
+  const st = c.statistics || {};
+  aRows.push([today, '유튜브', acc, st.hiddenSubscriberCount ? '' : Number(st.subscriberCount), Number(st.videoCount)]);
+  const up = c.contentDetails && c.contentDetails.relatedPlaylists && c.contentDetails.relatedPlaylists.uploads;
+  const ids = [];
+  let tok = '';
+  try {
+    for (let p = 0; p < 4 && up; p++) {
+      const L = ytbGet_('playlistItems', Object.assign({ part: 'contentDetails', playlistId: up, maxResults: 50 }, tok ? { pageToken: tok } : {}));
+      let old = false;
+      (L.items || []).forEach(x => { const d = String(x.contentDetails.videoPublishedAt || '').slice(0, 10); if (d && d < since) old = true; else if (d) ids.push(x.contentDetails.videoId); });
+      tok = L.nextPageToken || ''; if (!tok || old) break;
+    }
+  } catch (e) { if (!/not be found|notFound|playlistNotFound/i.test(e.message)) throw e; } // 영상이 하나도 없으면 목록이 없음
+  const num = x => x == null ? '' : Number(x);
+  let k = 0;
+  for (let i = 0; i < ids.length; i += 50) {
+    (ytbGet_('videos', { part: 'snippet,statistics,contentDetails', id: ids.slice(i, i + 50).join(',') }).items || []).forEach(v => {
+      if (v.snippet.liveBroadcastContent && v.snippet.liveBroadcastContent !== 'none') return;
+      const d = Utilities.formatDate(new Date(v.snippet.publishedAt), TZ, 'yyyy-MM-dd'), q = v.statistics || {}, sec = ytbSec_(v.contentDetails.duration);
+      pRows.push(['유튜브', acc, v.id, d, sec !== '' && sec <= 180 ? '3분 이하' : '영상', 'https://www.youtube.com/watch?v=' + v.id, ytbTxt_(cut_(String(v.snippet.title || ''), 80)), num(q.viewCount), num(q.likeCount), num(q.commentCount), now]);
+      k++;
+    });
+  }
+  return '받아짐(최근 ' + DEPT_DAYS + '일 영상 ' + k + '개)';
+}
+function deptBlog_(id, since, today, now, aRows, pRows) {
+  const res = UrlFetchApp.fetch('https://rss.blog.naver.com/' + encodeURIComponent(id) + '.xml', { muteHttpExceptions: true });
+  if (res.getResponseCode() !== 200) throw new Error('RSS HTTP ' + res.getResponseCode());
+  const ch = XmlService.parse(res.getContentText()).getRootElement().getChild('channel');
+  const items = ch ? ch.getChildren('item') : [];
+  let k = 0;
+  items.forEach(it => {
+    const d = Utilities.formatDate(new Date(it.getChildText('pubDate')), TZ, 'yyyy-MM-dd');
+    if (d < since) return;
+    const link = String(it.getChildText('link') || '').replace(/\?.*$/, '');
+    pRows.push(['블로그', id, (link.match(/\/(\d+)$/) || [])[1] || link, d, '글', link, ytbTxt_(cut_(String(it.getChildText('title') || ''), 80)), '', '', '', now]);
+    k++;
+  });
+  aRows.push([today, '블로그', id, '', '']); // RSS는 최근 글 일부만 줘서 전체 글 수는 비움
+  return '받아짐(RSS, 최근 ' + DEPT_DAYS + '일 글 ' + k + '개)';
+}
+// 편집기에서 한 번: 시트에 쓰지 않고 목록 앞쪽 인스타 5개가 받아지는지만 확인
+function testDept() {
+  const since = shiftDate_(Utilities.formatDate(new Date(), TZ, 'yyyy-MM-dd'), -DEPT_DAYS);
+  Logger.log(DEPT_SEED.filter(r => r[2] === '인스타').slice(0, 5).map(r => { try { const b = benchFetch_(r[3], since, 1); return r[3] + ' · 팔로워 ' + b.followers + ' · 게시물 ' + b.count; } catch (e) { return r[3] + ' · 안 됨: ' + deptWhy_(e.message); } }).join('\n'));
 }
 
 // ───────── 타 대학 월별 게시 수(한 번 받는 표, 2026-10-26 「원광대 작년·올해 채널별 게시 건수」) ─────────
