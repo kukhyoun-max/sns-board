@@ -3724,7 +3724,7 @@
     const C = tdCurves(P);
     let mo = false; try { mo = localStorage.getItem('sb-td-ch') === '1'; } catch (e) {}
     const list = hmSec2(tp.length ? who + ' 올린 게시물' : '어제 올린 게시물', '퍼센트는 같은 시간 조회 평소 대비', '<ol class="hm-list">' + L + '</ol>' +
-      (C.length ? '<details class="hm-fold" id="tdChF"' + (mo ? ' open' : '') + '><summary class="hm-btn"><svg viewBox="0 0 20 20" width="18" height="18" aria-hidden="true"><path d="M3 16h14M5 13l4-4 3 3 4-6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>시간별 조회 그래프</summary>' + tdGroups(C).map((g, k, A) => '<div class="td-chh">' + badge(g.c) + '</div><div class="chart" style="height:' + (A.length > 1 ? 160 : 220) + 'px"><canvas id="tdC' + k + '"></canvas></div>').join('') + '<p class="note">1시간마다 받아 둔 값 · 점선 = 같은 형식 평소</p></details>' : ''));
+      (C.length ? '<details class="hm-fold" id="tdChF"' + (mo ? ' open' : '') + '><summary class="hm-btn"><svg viewBox="0 0 20 20" width="18" height="18" aria-hidden="true"><path d="M3 16h14M5 13l4-4 3 3 4-6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>시간별 조회 그래프</summary>' + tdGroups(C).map((g, k, A) => '<div class="td-chh">' + badge(g.c) + '</div><div class="chart" style="height:' + (A.length > 1 ? 160 : 220) + 'px"><canvas id="tdC' + k + '"></canvas></div>').join('') + '<p class="note">1시간마다 받아 둔 값 · 회색 점선 = 같은 형식 평소 조회 · 시간별 자료가 모이기 전엔 올린 지 하루 된 평소(없으면 다 자란 평소)</p></details>' : ''));
     // ⑤ 팔로워 카드(오늘 아침 대비) · 누르면 추이(팔로워 30일 · 유튜브 구독자 1년)
     const FT = [];
     ['인스타그램', 'hong._.video'].filter(c => chs.includes(c)).forEach(c => {
@@ -3833,15 +3833,21 @@
       // 같은 채널 안 게시물은 실선 · 두 번째부터 옅게(점선은 평소 표시에만)
       g.C.forEach((c, i) => ds.push({ label: title(c.p.n).slice(0, 7), data: c.a.map(x => ({ x: x[0], y: x[1] })), borderColor: i ? col + '80' : col, backgroundColor: col, borderWidth: i ? 2 : 2.5, pointRadius: 0, tension: 0.3 }));
       const c = g.C[0], mx = Math.ceil(c.a[c.a.length - 1][0]), bl = [];
-      for (let h = 0; h <= mx; h++) { const v = hb[c.p.c + '|' + c.p.t + '|' + h]; if (v != null) bl.push({ x: h, y: v }); }
-      if (bl.length >= 2) ds.push({ label: '평소', data: bl, borderColor: css('--muted'), borderWidth: 1.5, borderDash: [4, 4], pointRadius: 0, tension: 0.3 });
-      else if (mx >= 20) { const a = agAt(c.p.c, c.p.t, c.p.c === '유튜브' ? 3 : 1); if (a && a.m > 0) ds.push({ label: '첫날 평소', data: [{ x: 0, y: a.m }, { x: mx, y: a.m }], borderColor: css('--muted'), borderWidth: 1.5, borderDash: [4, 4], pointRadius: 0 }); }
+      for (let h = 0; h <= xMax; h++) { const v = hb[c.p.c + '|' + c.p.t + '|' + h]; if (v != null) bl.push({ x: h, y: v }); }
+      if (bl.length >= 2 && bl[0].x <= mx) ds.push({ label: '평소', data: bl, borderColor: css('--muted'), borderWidth: 1.5, borderDash: [4, 4], pointRadius: 0, tension: 0.3 });
+      // 시간별 평소가 아직 없으면(「게시물 시간별」 탭이 10/20부터라 형식별 3개가 안 됨) 하루 지난 평소 조회를 회색 가로선으로(2026-11-02 「평균도 그레이선으로 보여주면 어느 정도인지 알기 쉽게」)
+      // hong은 하루째 기록이 적어(나이별 기록이 10/2부터) 없으면 다 자란 평소(같은 형식 최근 1년 중간값)로
+      else {
+        const e0 = c.p.c === '유튜브' ? 3 : 1, a = agAt(c.p.c, c.p.t, e0), f = a ? null : baseFor({ c: c.p.c, t: c.p.t });
+        const v = a ? a.m : f && f.v, tip = a ? '올린 지 ' + (e0 === 3 ? '사흘' : '하루') + ' 됐을 때 평소' : '다 자란 평소(최근 1년 중간값)';
+        if (v > 0) ds.push({ label: '평소 ' + fmtK(v), tip, data: [{ x: 0, y: v }, { x: xMax, y: v }], borderColor: css('--muted'), borderWidth: 1.5, borderDash: [4, 4], pointRadius: 0 });
+      }
       tdChart('tdC' + k, ds, xMax, xSt);
     });
   }
   function tdChart(id, ds, xMax, xSt) {
     draw(id, { type: 'line', data: { datasets: ds }, plugins: [endLabels],
-      options: chartOpts({ layout: { padding: { top: 12, right: 104 } }, plugins: { endLabels: { max: 9 }, tooltip: { callbacks: { title: it => '올린 지 ' + it[0].raw.x + '시간', label: c => c.dataset.label + ' 조회 ' + fmt(c.raw.y) } } },
+      options: chartOpts({ layout: { padding: { top: 12, right: 104 } }, plugins: { endLabels: { max: 9 }, tooltip: { callbacks: { title: it => '올린 지 ' + it[0].raw.x + '시간', label: c => (c.dataset.tip || c.dataset.label) + ' 조회 ' + fmt(c.raw.y) } } },
         scales: { x: { type: 'linear', min: 0, max: xMax, ticks: { stepSize: xSt, maxRotation: 0, autoSkip: false, callback: v => v === xMax ? v + '시간' : v } }, y: { display: true, position: 'right', afterFit: sc => { sc.width = 52; }, grid: { color: css('--line') }, border: { display: false }, ticks: { maxTicksLimit: 4, font: { size: 14 }, color: css('--muted'), callback: v => fmtK(v) } } } }) });
   }
   function tdSaveSeen() {
