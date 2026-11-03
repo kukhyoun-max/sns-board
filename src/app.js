@@ -1990,6 +1990,23 @@
     }).filter(r => r.med.some(x => x != null));
   }
 
+  // 매일 분석(2026-11-03 담당자 「추천하는대로 진행」, src/ana.js — 아침 9시 메일과 같은 규칙): 최근 7일 게시물 모양 판정 · 인스타 90일 유형별 남길 것 · 캡션 특징 · 주간 Claude 해석(D.note)
+  function anaHtml() {
+    let A; try { A = Ana.build(D, { days: 7 }); } catch (e) { return ''; }
+    const K = A.kpi, G = A.g, cls = sh => /잘 퍼짐|공유형|저장형|고르게/.test(sh) ? 'up' : /약함|덜 퍼짐/.test(sh) ? 'down' : 'flat';
+    const okc = (v, t) => v == null ? '' : v >= t ? 'up' : 'down';
+    window.__ana = A.yest.slice().reverse();
+    let h = secOpen('매일 분석', '숫자 규칙으로 판정 · 같은 채널·형식 최근 1년 평소와 비교 · 원인·다음 기획은 아래 주간 해석');
+    h += '<div class="an-k"><span>공유 ÷ 도달 <b class="num ' + okc(K.share, K.target.share) + '">' + A.pc2(K.share) + '</b> <small>목표 1.0%</small></span><span>캐러셀 저장 ÷ 도달 <b class="num ' + okc(K.save, K.target.save) + '">' + A.pc2(K.save) + '</b> <small>목표 0.3%</small></span><span>공지·소식 <b class="num">' + A.pc(K.notice) + '</b></span><span>릴스 <b class="num">' + K.reels + '개</b> <small>작년 같은 90일 ' + K.reelsLy + '개</small></span></div>';
+    h += window.__ana.length ? '<ol class="an-list" id="anaList">' + window.__ana.map((x, i) => '<li data-ai="' + i + '" tabindex="0" role="button" aria-label="' + esc(x.title) + ' 상세 보기"><div class="an-h"><span class="an-c ' + cls(x.shape) + '">' + esc(x.shape) + '</span>' + chTxt(x.c) + ' · ' + md2(x.it.d) + ' · ' + esc(fmtType(x.t)) + '</div><b class="an-t">' + esc(x.title) + '</b><p class="an-l">' + esc(x.line) + '</p></li>').join('') + '</ol>' : '<p class="note">최근 7일 올린 게시물이 없어요</p>';
+    const gr = g => '<tr><th class="r">' + esc(g.k) + '</th><td>' + g.n + '</td><td>' + A.pc2(g.s) + '</td><td>' + A.pc2(g.sv) + '</td><td class="an-v">' + esc(g.vd || '') + '</td></tr>';
+    h += '<h3 class="sub">유형별 남길 것·고칠 것 <small>인스타 · 올린 지 14~104일</small></h3><div class="tw"><table class="mx an-tb"><thead><tr><th class="r">유형</th><th>개수</th><th>공유</th><th>저장</th><th>판정</th></tr></thead><tbody>' + gr({ k: '전체(이벤트 빼고)', n: G.all.n, s: G.all.s, sv: G.all.sv, vd: '' }) + G.ty.map(gr).join('') + '</tbody></table></div>';
+    h += '<h3 class="sub">캡션 특징</h3>' + G.feat.map(f => '<p class="an-f"><b>' + esc(f.name) + '</b> 있음 ' + f.yes.n + '개 공유 <b class="num">' + A.pc2(f.yes.s) + '</b> · 없음 ' + f.no.n + '개 ' + A.pc2(f.no.s) + (f.yes.n < Ana.MIN_N ? ' · 표본 적음' : '') + '<br><small>' + esc(f.why) + '</small></p>').join('');
+    if (G.ev.n) h += '<p class="an-f">이벤트는 댓글로 봐요: 최근 댓글 ÷ 도달 ' + G.ev.last.map(x => md2(x.d) + ' ' + A.pc2(x.c)).join(' → ') + '</p>';
+    const N = D.note;
+    h += N && N.title ? '<div class="an-n"><h3 class="sub">주간 해석 <small>Claude · ' + esc(N.at || '') + '</small></h3><b>' + esc(N.title) + '</b><ul>' + (N.points || []).slice(0, 6).map(p => '<li>' + esc(p) + '</li>').join('') + '</ul>' + (N.url ? '<a href="' + esc(N.url) + '" target="_blank" rel="noopener">전체 보고서 열기</a>' : '') + '</div>' : '<p class="note">주간 해석은 월요일 아침 Claude 보고가 끝나면 여기에 떠요</p>';
+    return h + secClose;
+  }
   function viewStrategy() {
     const chs = viewChannels(), ch = chs.length === 1 ? chs[0] : null, L = pool({ channels: chs });
     const types = Object.entries(L.reduce((o, it) => { o[it.t] = (o[it.t] || 0) + 1; return o; }, {})).sort((a, b) => b[1] - a[1]).map(x => x[0]);
@@ -2039,6 +2056,7 @@
       const gh = goalsHtml();
       // 빈 설정 안내는 종 알림으로 옮기고 화면에는 한 줄만(원칙 9)
       top += kpi7Html(chs);
+      top += anaHtml();
       top += secOpen('이번 달 목표', gh ? '목표를 얼마나 채웠는지 · 세로선(오늘 기준) = 오늘까지 와 있어야 할 위치 · 주황 = 뒤처짐' : '') + (gh || '<p class="note">목표가 아직 없어요 · 오른쪽 위 알림에서 적는 법을 볼 수 있어요</p>') + secClose;
       const AR = L.filter(it => it.arc).sort((a, b) => a.arc < b.arc ? 1 : -1);
       if (AR.length) top += secOpen('보관한 게시물', '보관하면 여기 모여요') + '<ol class="hm-list" id="arcList">' + rankRows(AR, { right: it => it.arw ? esc(it.arw) : '보관 ' + md2(it.arc) }) + '</ol><p class="note">원인과 「기획 때 하지 말 것」은 분석 문서에 정리해요 · 숫자는 보관 전 마지막 값</p>' + secClose;
@@ -2078,6 +2096,7 @@
     if ($('mxFewBtn')) $('mxFewBtn').addEventListener('click', e => { S.mxFew = !S.mxFew; $('mxFew').hidden = !S.mxFew; e.currentTarget.setAttribute('aria-expanded', S.mxFew); e.currentTarget.textContent = S.mxFew ? '게시물 ' + MIN_N + '개 미만 분류 접기' : '게시물 ' + MIN_N + '개 미만 분류 ' + $('mxFew').rows.length + '개 더 보기 ›'; });
     $('view').querySelectorAll('.mx td[data-k]').forEach(td => { if (td.classList.contains('none')) return; td.addEventListener('click', () => { S.mx = S.mx === td.dataset.k ? null : td.dataset.k; viewStrategy(); if (S.mx) setTimeout(() => { const el = $('mxList'); if (el) el.scrollIntoView({ behavior: SM(), block: 'nearest' }); }, 30); }); });
     wireRank($('arcList'), L.filter(it => it.arc).sort((a, b) => a.arc < b.arc ? 1 : -1));
+    document.querySelectorAll('#anaList [data-ai]').forEach(li => { const go = () => { const x = (window.__ana || [])[+li.dataset.ai]; if (x) openDetail(x.it); }; li.addEventListener('click', go); li.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); go(); } }); });
     if (S.mx) { const [g, t] = S.mx.split('|'); wireRank($('mxList'), L.filter(it => it[MXB] === g && it.t === t).sort((a, b) => (ratio(b) || 0) - (ratio(a) || 0)).slice(0, 20)); }
     bars('byCat', cats.filter(r => r.n >= MIN_N).sort(byIdx), subN, k => { S.view = 'explore'; S.g = k; render(); window.scrollTo({ top: 0 }); });
     if (RXS) {

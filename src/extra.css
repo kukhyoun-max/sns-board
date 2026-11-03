@@ -1228,3 +1228,21 @@ em.nm { font-style: normal; font-weight: 700; color: var(--fg); }
 .yd-h span { font-size: var(--fs-tag); color: var(--muted); }
 .yd-e { margin: 0; padding: 14px 0; font-size: var(--fs-tag); color: var(--muted); }
 @media (max-width: 760px) { .yd-grid { grid-template-columns: minmax(0, 1fr); gap: 16px; } }
+/* 매일 분석(2026-11-03) */
+.an-k{display:flex;flex-wrap:wrap;gap:6px 18px;font-size:14px;margin:4px 0 12px}
+.an-k small{color:var(--muted)}
+.an-list{list-style:none;margin:0 0 8px;padding:0;display:grid;gap:2px}
+.an-list li{padding:10px 4px;border-bottom:1px solid var(--line);cursor:pointer;min-width:0}
+.an-list li:focus-visible{outline:2px solid var(--brand,#0078ad);outline-offset:2px}
+.an-h{font-size:13px;color:var(--sub);display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.an-c{font-size:12px;font-weight:700;padding:1px 8px;border-radius:10px;background:var(--tile);color:var(--sub)}
+.an-c.up{background:color-mix(in srgb,var(--up,#1e7a4c) 14%,transparent);color:var(--up,#1e7a4c)}
+.an-c.down{background:color-mix(in srgb,var(--down,#c0392b) 14%,transparent);color:var(--down,#c0392b)}
+.an-t{display:block;margin:2px 0;font-size:15px;overflow-wrap:anywhere}
+.an-l{margin:0;font-size:14px;color:var(--sub);overflow-wrap:anywhere}
+.an-tb td,.an-tb th{white-space:nowrap}
+.an-v{text-align:left!important}
+.an-f{margin:4px 0 8px;font-size:14px}
+.an-f small{color:var(--muted)}
+.an-n{margin-top:14px;padding:12px 14px;border-radius:12px;background:var(--tile)}
+.an-n ul{margin:6px 0;padding-left:18px}

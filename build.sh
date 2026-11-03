@@ -16,7 +16,9 @@ use strict; use warnings;
 my ($mode, $api, $tag) = @ENV{qw(MODE API_URL CHART_TAG)};
 sub rd { my $f = shift; open my $F, '<:raw', $f or die "$f: $!\n"; local $/; my $s = <$F>; $s =~ s/\r\n/\n/g; $s }
 sub wr { my ($f, $s) = @_; open my $F, '>:raw', $f or die "$f: $!\n"; print $F $s; close $F }
-my $html = rd('src/head.html') . rd('src/extra.css') . rd('src/body.html') . rd('src/app.js') . "</script>\n";
+# 매일 분석 규칙(src/ana.js, 2026-11-03)은 보드와 Apps Script(gas/Ana.gs)가 같은 코드를 씀 — 여기서 복사
+wr('gas/Ana.gs', "// 자동 생성: build.sh가 src/ana.js를 그대로 복사함. 여기서 고치지 말고 src/ana.js를 고친 뒤 build.sh\n" . rd('src/ana.js'));
+my $html = rd('src/head.html') . rd('src/extra.css') . rd('src/body.html') . rd('src/ana.js') . rd('src/app.js') . "</script>\n";
 my $n = () = $html =~ /\Q$tag\E/g;
 die "chart.js 태그를 찾을 수 없음\n" unless $n == 1;
 # 경험 영역 자동 제안·이름·학과 목록(exp.json, 2026-10-23) — 공개 게시물 주소와 영역 코드뿐이라 화면에 그대로 넣음

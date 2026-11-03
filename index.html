@@ -1496,6 +1496,24 @@ em.nm { font-style: normal; font-weight: 700; color: var(--fg); }
 .yd-h span { font-size: var(--fs-tag); color: var(--muted); }
 .yd-e { margin: 0; padding: 14px 0; font-size: var(--fs-tag); color: var(--muted); }
 @media (max-width: 760px) { .yd-grid { grid-template-columns: minmax(0, 1fr); gap: 16px; } }
+/* 매일 분석(2026-11-03) */
+.an-k{display:flex;flex-wrap:wrap;gap:6px 18px;font-size:14px;margin:4px 0 12px}
+.an-k small{color:var(--muted)}
+.an-list{list-style:none;margin:0 0 8px;padding:0;display:grid;gap:2px}
+.an-list li{padding:10px 4px;border-bottom:1px solid var(--line);cursor:pointer;min-width:0}
+.an-list li:focus-visible{outline:2px solid var(--brand,#0078ad);outline-offset:2px}
+.an-h{font-size:13px;color:var(--sub);display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.an-c{font-size:12px;font-weight:700;padding:1px 8px;border-radius:10px;background:var(--tile);color:var(--sub)}
+.an-c.up{background:color-mix(in srgb,var(--up,#1e7a4c) 14%,transparent);color:var(--up,#1e7a4c)}
+.an-c.down{background:color-mix(in srgb,var(--down,#c0392b) 14%,transparent);color:var(--down,#c0392b)}
+.an-t{display:block;margin:2px 0;font-size:15px;overflow-wrap:anywhere}
+.an-l{margin:0;font-size:14px;color:var(--sub);overflow-wrap:anywhere}
+.an-tb td,.an-tb th{white-space:nowrap}
+.an-v{text-align:left!important}
+.an-f{margin:4px 0 8px;font-size:14px}
+.an-f small{color:var(--muted)}
+.an-n{margin-top:14px;padding:12px 14px;border-radius:12px;background:var(--tile)}
+.an-n ul{margin:6px 0;padding-left:18px}
 </style>
 
 <div class="app" id="app">
@@ -1517,9 +1535,155 @@ em.nm { font-style: normal; font-weight: 700; color: var(--fg); }
 <script>window.SNS_EXP = {"made":"2026-10-23","names":{"E01":"수업·강의·실습","E02":"학과·전공 소개","E03":"동아리·학생 활동","E04":"기숙사·생활관","E05":"학식·밥·카페","E06":"시험기간","E07":"수강신청·전과·학사","E08":"장학·등록","E09":"축제·공연","E10":"운동부·스포츠","E11":"해외·교환학생·유학생","E12":"취업·진로·현장실습","E13":"창업","E14":"봉사·국토대장정","E15":"전주·지역","E16":"연애·친구·관계","E17":"선배·동문 이야기","E18":"캠퍼스 공간·계절","E19":"입시·입학","E20":"학교 행사"},"s":{"yt:MJNjcYdqoFQ":"E03,E12","ig:DEjjD3-veid":"E18","ig:DEmaxfmPXkt":"E11,E14","yt:fpsHI-840ic":"E18","ig:DEwp3RTvkDv":"E18","yt:DC0J5x6Pw58":"E18","ig:DFG9bv_T98L":"E07","ig:DFJ8JDqPTpT":"E11","yt:GhCaLFO4F2k":"E18","yt:jMguLIlYbeI":"E07","ig:DFrztVnvW9S":"E15","":"E06","yt:S45XWgxL_mI":"E17","ig:DGANgR8P370":"E07,E08","ig:DGNfP0IP6dK":"E05,E07","ig:DGP9k-pPfwr":"E07","yt:02v5IuiRlxE":"E07","ig:DGcVRhXPX0L":"E17,E18","ig:DGfVncNvHbA":"E08,E12","yt:u-ORHDoLAcI":"E17","ig:DGkXy-_PWpf":"E09","ig:DGpetJ2vayI":"E10","yt:7X6pEFPYp6I":"E17","ig:DGzqaVFvZh4":"E05","ig:DG2azLOPgtj":"E01,E02","yt:X9-sH21_ib4":"E05","yt:TSYzAXKDiRQ":"E02","yt:sO_1i6NcvHU":"E09,E17","ig:DHS3DsnqPzK":"E10","yt:FUu8m96qxMA":"E10","yt:QG_b8-gOKxI":"E01,E02","yt:bE7CP2xlNY0":"E17","ig:DHvQ_Jqv7wZ":"E18","ig:DH-nDG9vpjf":"E15,E18","ig:DIBNcb9vo37":"E02","yt:QyKWzESapVw":"E02","ig:DIOAi_PqKa-":"E06,E17","yt:b4QYLlv6O7E":"E06,E18","yt:xQmopEzA8kg":"E18","ig:DIVpOQGP9mq":"E18","ig:DIa2qMLvwDb":"E06,E07","ig:DIgG97OKbWe":"E07,E17","ig:DIk2GBKP1xA":"E01","yt:64oEuqrBgkM":"E06","ig:DIyHFRSPeBG":"E06,E18","ig:DI0pfnCv0As":"E01,E02","ig:DJDfbH3PUqt":"E03","ig:DJD8rGLPcuN":"E01,E02","yt:UDobSHMVy-s":"E17","ig:DJL-edxv4pe":"E10","yt:nSKpIWigap4":"E10","yt:emx8DkcYPPs":"E02","ig:DJjBnrYvKX_":"E01,E02","ig:DJoSj7yP2MY":"E07,E12","yt:RXpzf1UX7WM":"E01","ig:DJqOetDP69y":"E01","ig:DJ3k9zCK14g":"E09,E17","yt:8vjaPEWq4_4":"E12","ig:DJ8Z9XjvYQx":"E09","yt:rsbQKfZNHHY":"E18","ig:DJ-9QJ1v6Ii":"E01","ig:DJ_W76AvUKk":"E09","yt:RDbdhmpreb8":"E17","ig:DKJea_TKPFw":"E09","yt:CYbAhGH9n-4":"E09","yt:KvwX3UgdFqM":"E09","yt:nqJq34b6Ogo":"E09","yt:VG_ouhkRnzE":"E09","ig:DKOl3qSPyov":"E09","yt:LSlOWVgZdrY":"E09","yt:SpjqLKT3KkQ":"E09","yt:VrVBKyCwMo8":"E09","yt:E1c5Ym_yKKY":"E09","yt:LeAXo6MMMyA":"E09","yt:MTj9CoBfRbk":"E09","yt:Rk3C4B3CAqI":"E09","yt:GCU7yqTc0Kc":"E09","yt:DNyOFnjZ870":"E09","yt:yulP4OH33qU":"E09,E17","yt:IkOmovwO6Lc":"E09","yt:skqnNr_7TLo":"E09","ig:DK1GxlTvedo":"E06,E18","yt:o_OpW3tkX04":"E06","ig:DK_obPsvYsR":"E06","ig:DLCLzOsvZAQ":"E07","ig:DLO5StvPd0J":"E01","yt:9eyJCQc05xw":"E02","ig:DLZFEW5vOGl":"E14","yt:fsA5opc2wS4":"E14","ig:DLyk4eAKlri":"E14","ig:DL4b8XvPo-H":"E02","yt:5mLsWMm29f8":"E02","ig:DMFQHHuvkyy":"E14","ig:DMKc5rEP6tS":"E14","yt:CxyQq7KEkk0":"E14","ig:DMcSNO-Po4y":"E01","ig:DMgwPNXz27f":"E09,E12","ig:DMrjUH4Pf55":"E11,E14","ig:DM7ILqBvWB8":"E07","yt:Nv2UZ5vZabs":"E01,E07","ig:DNAjUxkv7Z-":"E09,E15","ig:DNP8p7qvN8v":"E07","yt:sReS_dWrDp4":"E15","ig:DNSf_Stv1Hk":"E15","yt:-CUOzYNnf6g":"E15","ig:DNfZkNavl1x":"E07,E08","yt:_5InCbQecMM":"E01","ig:DN2jcidZksE":"E03","yt:199GpIfLcyQ":"E03,E09","yt:DY8mn8C6RSo":"E03,E09","yt:xtZhDj20z0A":"E03,E09","yt:Yz0FGdqwdv0":"E03,E09","ig:DODZMz1k-Gc":"E05","ig:DOF8v-OE5Oo":"E02,E07","ig:DOImk2PE8Ae":"E09,E10","ig:DOLGY7jEzr5":"E18","ig:DOOIx10Ezi8":"E02","yt:EITV0aduDvc":"E05","ig:DOYCkd3k5dl":"E03,E09","yt:R0yQ-UYHxpk":"E03","yt:ryZtUgoqxM0":"E03","ig:DOaiic_E99W":"E05","yt:J3KNEpkbX9k":"E05","ig:DOfmej8kzhl":"E09","ig:DOnemknE00B":"E05","yt:ZQ_-TwL0wHw":"E05","yt:RGzPvZNw1OY":"E09","yt:irVZxGItDQI":"E10","ig:DOvOijgE8XD":"E10","yt:Za5ECGKWoXY":"E10","yt:ahZcqSX-7RI":"E09,E12","yt:cRlDhfp87J0":"E02,E10","ig:DPQRpOSk0lb":"E08","yt:0tq7yrcG7Fk":"E17","yt:1YwgunkdRm8":"E02,E03","yt:wnjIHCJb6N4":"E02","ig:DP0t16zE5Vg":"E06","ig:DQJdO4Ck5WT":"E02,E10","yt:_bKjuxd4ujY":"E01","ig:DQlpcf5E7J3":"E02,E18","yt:tzg86wy_B0Y":"E18","yt:0xCzrnu1vSY":"E02","yt:fm8r7ytfdRw":"E12","ig:DQ_cxMCk9Bz":"E18","ig:DRMZEWbkwQx":"E11","ig:DReToDnk1mJ":"E09,E13","yt:HstqZ3ltnMk":"E05","ig:DRmBtbpk6rV":"E05","ig:DRwZUKek5up":"E02,E03","ig:DRy7dk_k0dm":"E18","yt:o-3tJFBeGlI":"E04","ig:DR_u861E9nu":"E15","ig:DSE5xHUkwBn":"E03","yt:YeMU_q7-KMw":"E03","yt:hemhUpG-Rrc":"E03","yt:43sNN8ST8eQ":"E03","yt:ktPD7OuthNY":"E06","yt:Wq_CjXZUSFA":"E03","ig:DSTq_jDE1KM":"E06","ig:DSW-wBqEzxZ":"E01","yt:BlWXgfGWl08":"E02","ig:DS1rODEE4Fr":"E04","yt:ANG_ya9mwKk":"E04","ig:DS6MzQfkxrB":"E01","yt:QfYIbe9ZOow":"E08","ig:DTfEy9sE9DN":"E12","yt:Bvln-mBNc8s":"E12","yt:8-In5fQdC4M":"E12","ig:DTkUKesEz0K":"E17,E18","ig:DTr7tmQk-qC":"E02,E18","yt:IvAZKA2y-Q4":"E15","yt:KuJ0Axiw3T8":"E15","yt:woN03we0iy4":"E15","ig:DTzmM_IE3uR":"E15","yt:z7OWzckgo7g":"E05","ig:DT2Pd3-kwXx":"E05,E15","yt:Qqm_gojy67Y":"E16,E18","yt:ZKwUaa64bpo":"E04","ig:DUDI3BJk5v6":"E01,E17","ig:DUFo0laE4m5":"E11,E17","yt:S7OjQip0Lmg":"E12","yt:08gyXnSVb4E":"E16","yt:_siSDaQQQ54":"E18","ig:DUXtiw5EyRz":"E11,E14","yt:1EXXvpy1gJY":"E15","yt:LIuFOb3vHaU":"E07,E17","ig:DUpuT7ikzNg":"E07,E18","ig:DVF1HEiE0Qf":"E07","yt:WCK7JK_Jp9Y":"E17","yt:ETFd8zVO1ug":"E07","yt:j2DVH_PQ1fE":"E17","ig:DVKuIPXk6lC":"E18","yt:YKZjZzAYN90":"E07","ig:DVNyD1LE43G":"E17","ig:DVQYSPRE80R":"E10","ig:DVdA1FYEzBF":"E17","ig:DVf0dH2E1Sx":"E05,E17","yt:uK_Np8wVjB8":"E05","yt:tZPsmRPgZiM":"E05","ig:DVx024sE0zW":"E05","ig:DV-swM1k4BM":"E01,E10","yt:LalWVaepGcM":"E05","yt:9t2loikdmt4":"E02,E17","ig:DWgK3bIkxG7":"E15","yt:v7WT0rv1CZ0":"E15","ig:DWnmKPSk3MU":"E15","yt:L1ygt9ctdxU":"E12","ig:DWqVqiIE7hM":"E18","ig:DWqseA5k_Zn":"E02,E11","yt:T4_aUpF1qsY":"E18","yt:g59LvN3MP3k":"E02","ig:DXYp4xcE2U3":"E02","yt:gLB5T_Y23I0":"E06","ig:DXbQ-cFk8j4":"E02,E06","ig:DXgjN9HE1hW":"E18","ig:DXv5DnIE-Xv":"E02,E17","yt:JwNGrrfvn5U":"E02","ig:DYBl-ZFk0Ww":"E10","yt:DYPEwaabu6c":"E02","ig:DYEjJr7zAGz":"E02","yt:h2i3xVJcjtE":"E02,E11","yt:CkGpo0zszls":"E10,E17","ig:DY6jksNzfOh":"E10","yt:CvqY5y9fjY0":"E10","ig:DZMuSzPkxcF":"E02","ig:DZUHFbAT3a_":"E06","ig:DZZiK3rTuCe":"E02,E10","ig:DZcLkB5z8Dk":"E06","yt:IxMXypz-Zfk":"E02,E07","ig:DZmLBask4jN":"E18","ig:DZwvHnLzB28":"E02","ig:DaUcPi_k9kw":"E18","ig:Daucapwk99F":"E18","yt:a5udxibGquU":"E07","yt:p8p43vRiD4w":"E02","ig:DbXun7tkwOT":"E01,E10","ig:DbsTHKUk35d":"E02","yt:Z3cePbXCCos":"E03","ig:Db2UUKoEyJ8":"E02","ig:Db5N4GSE8mb":"E02","ig:Db7vE42kzre":"E18","ig:Db-cn-yE7UL":"E09,E15","ig:DcGUT1ak2vu":"E09","ig:DcQP10kk-3G":"E07,E08","ig:DcdZQD1k_LL":"E02","ig:DcfuKTCk-08":"E18","yt:Ne8s86SQSaU":"E17","yt:GhPfW-RJORw":"E11","ig:Dcspac5E4rC":"E04","ig:Dc2_1-GKbIH":"E16","ig:Dc-sm9zE01-":"E06,E18","yt:P8Aswq_pcWE":"E16","yt:V6abjQpy-2I":"E18","ig:DdBWM2PE5Je":"E18","yt:2Jf7yD9sSM8":"E10","yt:spUqGt12lh0":"E10","ig:DdQTvb-k0od":"E05","ig:DdV6ChQKfb1":"E09,E18","ig:DdYof21k4bo":"E02","ig:DdlDfMnE5wr":"E09,E18","ig:Ddn7vwkk13M":"E09","ig:Dd0VG1FkyYM":"E15","yt:3b5THMJZrZo":"E03,E09","ig:Dd8eiwDk5HX":"E15","yt:HSCl8F3b4Fc":"E09","ig:Dd_HkROEx28":"E09","yt:dMMJ2J0TQA8":"E09","yt:nWWGkCbr6u4":"E09","yt:3dfJnFj2P5Y":"E15","ig:Ded_06iTVjV":"E13","ig:DeghX4_kyJP":"E13","yt:4xgaV6TM0mI":"E02,E10","ig:DejJVm0E8ZN":"E02","ig:DeqldZpkxWg":"E06,E18","yt:WtMCo8Usa1M":"E06,E17","ig:DeterXdE2rD":"E06","ig:Dev0naNqZxf":"E02,E06","yt:OUeQ02IaHdM":"E08,E17"},"depts":["신학과경배찬양학과","영어영문학과","일본언어문화학과","중국어중국학과","역사콘텐츠학과","웹툰만화콘텐츠학과","한국어문학창작학부","경찰학과","문헌정보학과","법학과","사회복지학과","상담심리학과","행정학과","경영학과","금융보험학과","물류무역학과","부동산국토정보학과","회계세무학과","금융학과","간호학과","물리치료학과","방사선학과","보건관리학과","작업치료학과","식품영양학과","재활학과","환경생명과학과","운동처방학과","건축공학과","건축학과","기계공학과","기계자동차공학과","산업공학과","소방안전공학과","신소재화학공학과","전기전자공학과","정보통신공학과","토목환경공학과","기초과학과","탄소융합공학과","데이터공학과","스마트미디어학과","인공지능학과","컴퓨터공학과","게임콘텐츠학과","공연방송연기학과","공연예술학과","산업디자인학과","생활체육학과","시각디자인학과","영화방송학과","예술심리치료학과","음악학과","축구학과","태권도학과","관광경영학과","외식산업조리학과","패션산업학과","한식조리학과","호텔경영학과","교육학과","농식품경영학과","창업경영금융학과","미네르바학부","반려동식물학과","친환경자동차학과","로컬벤처학부","융합학부","자유전공학부","반려동물산업학부","동물보건학과","펫산업학과","국제학부"]};</script>
 <script>window.SNS_FC = {"made":"2026-11-02","f":["lo","hi","rate","rev","fmt","ad","act","in"],"s":{"0mqdmQebEhM":[1000,2500,"완료율 30~50%","2026-10-27","유튜브 쇼츠","",null,""],"De_m5HoTw7A":[10000,20000,"참여율 2%","2026-10-27","인스타 릴스","",null,""],"Dev0naNqZxf":[18000,32000,"참여율 2%·공유율 0.6~0.9%","2026-10-21","인스타 릴스","",null,""],"DfPFeT2E8gW":[25000,55000,"참여율 3~4.5%, 공유율 1~1.5%","2026-11-02","인스타 캐러셀","",null,""],"Fg-1jmq5E-4":[500,1400,"완료율 25~35%","2026-10-28","유튜브 1~3분","",null,""],"sr65gs-KTV0":[450,950,"완료율 14~22%","2026-10-26","유튜브 롱폼(3~10분)","",null,""]}}
 ;</script>
-<script>window.SNS_API_URL = "https://script.google.com/macros/s/AKfycbyGL0h1nmGMIMiG0KsZksAyOUaxcdwKiXLysmB2ExGLEhVX3eUiwmRbv7uTPhsWf6Q6/exec"; window.SNS_BUILD = "0bb5316f30";</script>
+<script>window.SNS_API_URL = "https://script.google.com/macros/s/AKfycbyGL0h1nmGMIMiG0KsZksAyOUaxcdwKiXLysmB2ExGLEhVX3eUiwmRbv7uTPhsWf6Q6/exec"; window.SNS_BUILD = "141a87182a";</script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.js" integrity="sha384-dug+JxfBvklEQdJ4AYuBBAIScUz0bVN73xpy273gcAwHjb3qI0fXmuYNaNfdyYJG" crossorigin="anonymous"></script>
 <script>
+// ───────── 매일 분석 규칙(2026-11-03 담당자 「추천하는대로 진행」) ─────────
+// 토큰 없이 숫자로만 판정한다. 보드 전략 화면 「어제 게시물 판정」과 아침 9시 메일(gas/Ana.gs — build.sh가 이 파일을 그대로 복사)이 같은 코드를 쓴다
+// 원인·사진·말투 판단과 다음 기획 제안은 주 1회·월 1회 Claude 분석(viral-reverse-engineering·content-audit)이 하고,
+// 그 분석이 찾은 패턴 중 캡션·태그로 잴 수 있는 것을 FEAT에 규칙으로 더한다(처음 규칙 = 11/3 단풍 분석 「장소를 알려 주면 공유된다」)
+var Ana = (function () {
+  var OWN = ['인스타그램', 'hong._.video'];
+  var MIN_N = 5, RX_MIN = 300, KPI = { share: 0.01, save: 0.003 };
+  // 캡션 특징: 서버가 자르기 전 캡션 전체로 계산해 it.ft에 넣음(없으면 잘린 제목으로)
+  var FEAT = [
+    { k: 'p', name: '장소 정보', re: /📍|스팟|명소|가기 좋은|포토 ?존|장소|▪️[^\n]*(앞|뒤|관|구장|잔디)/, why: '11/3 단풍 분석: 장소를 알려 준 계절·공간 게시물 공유 1.4~3.0% 대 풍경만 0.1~0.4%' },
+    { k: 'q', name: '질문형 첫 줄', re: null, why: '11/3 90일 점검: 공유 상위가 질문형 첫 줄(「구독료 없이 쓴다고?」 등)' }
+  ];
+  function featOf(cap) {
+    var s = String(cap || ''), first = s.split(/\n|⠀/)[0];
+    return (FEAT[0].re.test(s) ? 'p' : '') + (/[?？]/.test(first) ? 'q' : '');
+  }
+  var day = function (s) { return Date.UTC(+s.slice(0, 4), +s.slice(5, 7) - 1, +s.slice(8, 10)); };
+  var age = function (d, u) { return Math.round((day(u) - day(d)) / 864e5); };
+  var addD = function (s, n) { return new Date(day(s) + n * 864e5).toISOString().slice(0, 10); };
+  function med(a) { a = a.filter(function (x) { return x != null && isFinite(x); }).sort(function (p, q) { return p - q; }); var n = a.length; return n ? (n % 2 ? a[n >> 1] : (a[n / 2 - 1] + a[n / 2]) / 2) : null; }
+  function last(it) { var h = (it.h || []).filter(Boolean); return h.length ? h[h.length - 1] : null; }
+  function rate(it, j) { var v = last(it); return v && it.r >= RX_MIN && v[j] != null ? v[j] / it.r : null; }
+  var live = function (it) { return it.t !== '스토리' && !it.ad && !it.hid && !it.x; };
+  var typ = function (it) { return it.c === 'hong._.video' ? '릴스' : it.t; }; // hong은 예전 「릴스/영상」과 지금 「릴스」를 한 형식으로
+  var ft = function (it) { return it.ft != null ? it.ft : featOf(it.n); };
+  var fx = function (x) { return x == null ? '–' : x >= 10 ? Math.round(x) + '배' : (Math.round(x * 10) / 10) + '배'; };
+  var pc = function (x) { return x == null ? '–' : (Math.round(x * 1000) / 10).toFixed(x < 0.01 ? 2 : 1) + '%'; };
+  var pc2 = function (x) { return x == null ? '–' : (x * 100).toFixed(2) + '%'; };
+  var nm = function (s) { return String(s || '').split(/\s{2,}|⠀|\n/)[0].slice(0, 40); };
+
+  // 평소: 같은 채널·형식, 최근 1년, 게시 14일 이상, 광고 빼고. 이벤트는 댓글 말고는 낮아서 비율 평소에서 뺌
+  function bases(D) {
+    var U = D.updated, B = {};
+    D.items.forEach(function (it) {
+      if (OWN.indexOf(it.c) < 0 || !live(it)) return;
+      var a = age(it.d, U); if (a < 14 || a > 365) return;
+      [it.c + '|' + typ(it), it.c + '|*'].forEach(function (k) {
+        var b = B[k] = B[k] || { v: [], s: [], sv: [], l: [], cm: [], ag: [], evc: [] };
+        var v = last(it); if (v && v[0] != null) b.v.push(v[0]);
+        if (it.ty === '이벤트') { b.evc.push(rate(it, 2)); return; }
+        b.s.push(rate(it, 3)); b.sv.push(rate(it, 4)); b.l.push(rate(it, 1)); b.cm.push(rate(it, 2));
+        (it.ag || []).forEach(function (x) { if (x && x[0] > 0) b.ag.push(x); });
+      });
+    });
+    Object.keys(B).forEach(function (k) { var b = B[k]; b.n = b.v.length; b.mv = med(b.v); b.ms = med(b.s); b.msv = med(b.sv); b.ml = med(b.l); b.mcm = med(b.cm); b.mevc = med(b.evc); });
+    return B;
+  }
+  // 올린 지 a일 평소 조회: 지난 게시물의 1·3·7일 기록 중 날수가 가까운 것(±1일, 7일 넘으면 ±2일) 5개 이상
+  function ageBase(b, a) {
+    if (!b) return null;
+    var w = a > 7 ? 2 : 1, xs = b.ag.filter(function (x) { return Math.abs(x[1] - a) <= w; }).map(function (x) { return x[0]; });
+    return xs.length >= MIN_N ? med(xs) : null;
+  }
+  function pick(B, it) { var k = B[it.c + '|' + typ(it)]; return k && k.n >= MIN_N ? k : B[it.c + '|*']; }
+
+  // 게시물 하나 판정 → { 모양, 한 줄 }
+  function judge(D, B, it) {
+    var U = D.updated, a = age(it.d, U), b = pick(B, it), v = last(it), out = { it: it, age: a, title: nm(it.n), c: it.c, t: it.t, u: it.u || '' };
+    if (!b || !v) { out.shape = '기준 없음'; out.line = '비교할 평소 자료가 아직 적어요'; return out; }
+    var ab = a < 14 ? ageBase(b, a) : null;
+    out.views = v[0];
+    out.vr = v[0] == null ? null : ab ? v[0] / ab : b.mv ? v[0] / b.mv : null;
+    out.vk = a >= 14 ? '최종' : ab ? a + '일째' : '다 자란 평소';
+    if (it.r != null && it.r < RX_MIN) { out.shape = '모으는 중'; out.line = '도달 ' + it.r + '명이라 비율은 아직 안 봐요'; return out; }
+    if (it.ty === '이벤트') {
+      var c = rate(it, 2), mc = b.mevc;
+      out.shape = '이벤트'; out.cr = c;
+      out.line = '이벤트라 댓글로 봐요: 댓글 ÷ 도달 ' + pc2(c) + (mc ? ' · 이벤트 평소 ' + pc2(mc) + (c != null && c < mc * 0.8 ? ' — 참여가 줄었어요' : '') : '');
+      return out;
+    }
+    var s = rate(it, 3), sv = rate(it, 4), l = rate(it, 1);
+    out.s = s; out.sv = sv; out.l = l;
+    var sr = s != null && b.ms ? s / b.ms : null, svr = sv != null && b.msv ? sv / b.msv : null, lr = l != null && b.ml ? l / b.ml : null, vr = out.vr;
+    out.sr = sr; out.svr = svr; out.lr = lr;
+    // 올린 지 14일 전인데 같은 날수 평소가 없으면(다 자란 평소와만 견줄 수 있으면) 조회로는 판정하지 않음 — 11/3 단풍 캐러셀(13시간째 같은 시간 평소의 2.3배)이 다 자란 평소 대비 0.6배라 「덜 퍼짐」으로 잘못 나와서
+    var vOk = a >= 14 || out.vk !== '다 자란 평소', vj = vOk ? vr : null;
+    var head = vOk ? '조회 같은 형식 ' + out.vk + ' 평소의 ' + fx(vr) : '조회는 다 자란 평소까지 ' + (vr == null ? '–' : Math.round(vr * 100) + '%') + '(아직 판정 안 함)';
+    var sh, why;
+    if (vj != null && vj >= 1.5 && sr != null && sr >= 1.3) { sh = '잘 퍼짐·공유형'; why = '많이 퍼졌고 공유도 평소의 ' + fx(sr) + ' — 친구에게 보낼 이유가 있던 게시물'; }
+    else if (vj != null && vj >= 1.5) { sh = '잘 퍼짐'; why = '많이 퍼졌어요 · 공유 ' + fx(sr) + ' · 저장 ' + fx(svr); }
+    // 공유가 크게 높으면 덜 퍼졌어도 공유형(11/3 「AI 모델 48개」 공유 6.6%가 조회 0.6배로 「덜 퍼짐」에 묻혀서)
+    else if (sr != null && sr >= 1.3 && (lr == null || lr < 1.15)) { sh = '공유형'; why = '좋아요보다 공유가 높아요(평소의 ' + fx(sr) + ')' + (vj != null && vj < 0.7 ? ' — 덜 퍼졌지만 본 사람은 많이 보냈어요' : ''); }
+    else if (sr != null && sr >= 1.1 && lr != null && lr >= 1.1) { sh = '고르게 좋음'; why = '공유(평소의 ' + fx(sr) + ')·좋아요(' + fx(lr) + ') 모두 평소 이상' + (vj != null && vj < 0.7 ? ' — 덜 퍼졌지만 본 사람 반응은 좋아요' : ''); }
+    else if (svr != null && svr >= 1.3 && !(vj != null && vj < 0.7)) { sh = '저장형'; why = '저장이 평소의 ' + fx(svr) + ' — 다시 볼 정보가 있던 게시물'; }
+    else if (vj != null && vj < 0.7 && ((lr != null && lr >= 0.9) || (sr != null && sr >= 0.9))) { sh = '덜 퍼짐'; why = '본 사람 반응은 평소인데 덜 퍼졌어요 — 첫 장·첫 3초나 올린 시간을 볼 차례'; }
+    else if (vj != null && vj < 0.7) { sh = '약함'; why = '조회와 반응이 둘 다 평소 아래예요'; }
+    else if (svr != null && svr >= 1.3) { sh = '저장형'; why = '저장이 평소의 ' + fx(svr) + ' — 다시 볼 정보가 있던 게시물'; }
+    else { sh = '평소'; why = '공유 ' + fx(sr) + ' · 저장 ' + fx(svr) + ' · 좋아요 ' + fx(lr); }
+    var f = ft(it), hint = [];
+    if (f.indexOf('p') >= 0) hint.push(sr != null && sr >= 1.1 ? '장소 정보 있음(공유 잘 되는 패턴과 맞음)' : '장소 정보 있음');
+    if (f.indexOf('q') >= 0) hint.push('질문형 첫 줄');
+    out.shape = sh; out.line = head + ' · ' + why + (hint.length ? ' · ' + hint.join(' · ') : '') + (a < 14 ? ' (아직 느는 중)' : '');
+    return out;
+  }
+
+  // 인스타 최근 90일(게시 14일 이상 = 다 자란 것) 묶음: 유형 · 캡션 특징 · 형식 · 제작
+  function groups(D) {
+    var U = D.updated, L = D.items.filter(function (it) { var a = age(it.d, U); return it.c === '인스타그램' && live(it) && a >= 14 && a <= 104; });
+    var K = L.filter(function (it) { return it.ty !== '이벤트'; });
+    var all = { n: K.length, s: med(K.map(function (it) { return rate(it, 3); })), sv: med(K.map(function (it) { return rate(it, 4); })), v: med(K.map(function (it) { var v = last(it); return v && v[0]; })) };
+    function grp(arr, label) {
+      var g = { k: label, n: arr.length, s: med(arr.map(function (it) { return rate(it, 3); })), sv: med(arr.map(function (it) { return rate(it, 4); })), v: med(arr.map(function (it) { var v = last(it); return v && v[0]; })) };
+      if (g.n < MIN_N) { g.vd = '표본 적음'; return g; }
+      var hs = g.s >= all.s * 1.1, hv = g.sv >= all.sv * 1.1, ls = g.s < all.s * 0.9, lv = g.sv < all.sv * 0.9;
+      g.vd = hs && hv ? '늘리기' : ls && lv ? '줄이기 검토' : (hs && lv) ? '고치기(저장 약함)' : (hv && ls) ? '고치기(공유 약함)' : hs || hv ? '늘리기' : ls || lv ? '고치기' : '유지';
+      // 공지·소식은 신호가 좋아도 늘리지 않음(전략: 피드가 공지판처럼 보이면 안 됨, 비율은 KPI 칸에서 따로)
+      if (label === '공지·소식' && g.vd === '늘리기') g.vd = '유지(비율은 따로)';
+      return g;
+    }
+    function by(f, arr) { var o = {}; arr.forEach(function (it) { var k = f(it) || '-'; (o[k] = o[k] || []).push(it); }); return Object.keys(o).map(function (k) { return grp(o[k], k); }).sort(function (a, b) { return b.n - a.n; }); }
+    var ev = L.filter(function (it) { return it.ty === '이벤트'; }).sort(function (a, b) { return a.d < b.d ? -1 : 1; });
+    return {
+      all: all,
+      ty: by(function (it) { return it.ty; }, K),
+      feat: FEAT.map(function (F) { var y = K.filter(function (it) { return ft(it).indexOf(F.k) >= 0; }), nn = K.filter(function (it) { return ft(it).indexOf(F.k) < 0; }); return { name: F.name, why: F.why, yes: grp(y, '있음'), no: grp(nn, '없음') }; }),
+      t: by(function (it) { return it.t; }, K),
+      p: by(function (it) { return it.p; }, K),
+      ev: { n: ev.length, last: ev.slice(-3).map(function (it) { return { d: it.d, c: rate(it, 2) }; }) }
+    };
+  }
+
+  // KPI: 공유 1.0% · 캐러셀 저장 0.3% · 공지·소식 비율 · 릴스 수와 도달(작년 같은 90일과)
+  function kpi(D) {
+    var U = D.updated, ig = function (a0, a1) { return D.items.filter(function (it) { var a = age(it.d, U); return it.c === '인스타그램' && live(it) && a >= a0 && a <= a1; }); };
+    var now = ig(0, 89), ripe = ig(14, 104).filter(function (it) { return it.ty !== '이벤트'; }), ly = ig(365, 454), lyR = ig(379, 469);
+    var reels = function (A) { return A.filter(function (it) { return it.t === '릴스'; }).length; };
+    return {
+      share: med(ripe.map(function (it) { return rate(it, 3); })), save: med(ripe.filter(function (it) { return it.t === '캐러셀'; }).map(function (it) { return rate(it, 4); })),
+      notice: now.length ? now.filter(function (it) { return it.ty === '공지·소식'; }).length / now.length : null,
+      n: now.length, reels: reels(now), reelsLy: reels(ly),
+      reach: med(ig(14, 104).map(function (it) { return it.r; })), reachLy: med(lyR.map(function (it) { return it.r; })),
+      target: KPI
+    };
+  }
+
+  // 전체: 어제(월요일이면 금~일) 올린 것 + 오늘로 14일째가 된 것(판정 확정)
+  // o.days: 보드는 최근 7일을 보여 줌(메일은 어제, 월요일은 금~일)
+  function build(D, o) {
+    var U = D.updated, B = bases(D), wd = new Date(day(U)).getUTCDay(), back = (o && o.days) || (wd === 1 ? 3 : 1);
+    var mine = D.items.filter(function (it) { return OWN.indexOf(it.c) >= 0 && live(it); });
+    var yest = mine.filter(function (it) { var a = age(it.d, U); return a >= 1 && a <= back; }).sort(function (a, b) { return a.d < b.d ? -1 : 1; }).map(function (it) { return judge(D, B, it); });
+    var done = mine.filter(function (it) { return age(it.d, U) === 14 || (back > 1 && age(it.d, U) >= 14 && age(it.d, U) <= 16); }).map(function (it) { return judge(D, B, it); });
+    return { at: U, from: addD(U, -back), yest: yest, done: done, g: groups(D), kpi: kpi(D), fx: fx, pc: pc, pc2: pc2 };
+  }
+  return { build: build, featOf: featOf, FEAT: FEAT, MIN_N: MIN_N };
+})();
 (function () {
   // ───────── 기본값 ─────────
   const OWN = ['인스타그램', '유튜브', 'hong._.video'];
@@ -3512,6 +3676,23 @@ em.nm { font-style: normal; font-weight: 700; color: var(--fg); }
     }).filter(r => r.med.some(x => x != null));
   }
 
+  // 매일 분석(2026-11-03 담당자 「추천하는대로 진행」, src/ana.js — 아침 9시 메일과 같은 규칙): 최근 7일 게시물 모양 판정 · 인스타 90일 유형별 남길 것 · 캡션 특징 · 주간 Claude 해석(D.note)
+  function anaHtml() {
+    let A; try { A = Ana.build(D, { days: 7 }); } catch (e) { return ''; }
+    const K = A.kpi, G = A.g, cls = sh => /잘 퍼짐|공유형|저장형|고르게/.test(sh) ? 'up' : /약함|덜 퍼짐/.test(sh) ? 'down' : 'flat';
+    const okc = (v, t) => v == null ? '' : v >= t ? 'up' : 'down';
+    window.__ana = A.yest.slice().reverse();
+    let h = secOpen('매일 분석', '숫자 규칙으로 판정 · 같은 채널·형식 최근 1년 평소와 비교 · 원인·다음 기획은 아래 주간 해석');
+    h += '<div class="an-k"><span>공유 ÷ 도달 <b class="num ' + okc(K.share, K.target.share) + '">' + A.pc2(K.share) + '</b> <small>목표 1.0%</small></span><span>캐러셀 저장 ÷ 도달 <b class="num ' + okc(K.save, K.target.save) + '">' + A.pc2(K.save) + '</b> <small>목표 0.3%</small></span><span>공지·소식 <b class="num">' + A.pc(K.notice) + '</b></span><span>릴스 <b class="num">' + K.reels + '개</b> <small>작년 같은 90일 ' + K.reelsLy + '개</small></span></div>';
+    h += window.__ana.length ? '<ol class="an-list" id="anaList">' + window.__ana.map((x, i) => '<li data-ai="' + i + '" tabindex="0" role="button" aria-label="' + esc(x.title) + ' 상세 보기"><div class="an-h"><span class="an-c ' + cls(x.shape) + '">' + esc(x.shape) + '</span>' + chTxt(x.c) + ' · ' + md2(x.it.d) + ' · ' + esc(fmtType(x.t)) + '</div><b class="an-t">' + esc(x.title) + '</b><p class="an-l">' + esc(x.line) + '</p></li>').join('') + '</ol>' : '<p class="note">최근 7일 올린 게시물이 없어요</p>';
+    const gr = g => '<tr><th class="r">' + esc(g.k) + '</th><td>' + g.n + '</td><td>' + A.pc2(g.s) + '</td><td>' + A.pc2(g.sv) + '</td><td class="an-v">' + esc(g.vd || '') + '</td></tr>';
+    h += '<h3 class="sub">유형별 남길 것·고칠 것 <small>인스타 · 올린 지 14~104일</small></h3><div class="tw"><table class="mx an-tb"><thead><tr><th class="r">유형</th><th>개수</th><th>공유</th><th>저장</th><th>판정</th></tr></thead><tbody>' + gr({ k: '전체(이벤트 빼고)', n: G.all.n, s: G.all.s, sv: G.all.sv, vd: '' }) + G.ty.map(gr).join('') + '</tbody></table></div>';
+    h += '<h3 class="sub">캡션 특징</h3>' + G.feat.map(f => '<p class="an-f"><b>' + esc(f.name) + '</b> 있음 ' + f.yes.n + '개 공유 <b class="num">' + A.pc2(f.yes.s) + '</b> · 없음 ' + f.no.n + '개 ' + A.pc2(f.no.s) + (f.yes.n < Ana.MIN_N ? ' · 표본 적음' : '') + '<br><small>' + esc(f.why) + '</small></p>').join('');
+    if (G.ev.n) h += '<p class="an-f">이벤트는 댓글로 봐요: 최근 댓글 ÷ 도달 ' + G.ev.last.map(x => md2(x.d) + ' ' + A.pc2(x.c)).join(' → ') + '</p>';
+    const N = D.note;
+    h += N && N.title ? '<div class="an-n"><h3 class="sub">주간 해석 <small>Claude · ' + esc(N.at || '') + '</small></h3><b>' + esc(N.title) + '</b><ul>' + (N.points || []).slice(0, 6).map(p => '<li>' + esc(p) + '</li>').join('') + '</ul>' + (N.url ? '<a href="' + esc(N.url) + '" target="_blank" rel="noopener">전체 보고서 열기</a>' : '') + '</div>' : '<p class="note">주간 해석은 월요일 아침 Claude 보고가 끝나면 여기에 떠요</p>';
+    return h + secClose;
+  }
   function viewStrategy() {
     const chs = viewChannels(), ch = chs.length === 1 ? chs[0] : null, L = pool({ channels: chs });
     const types = Object.entries(L.reduce((o, it) => { o[it.t] = (o[it.t] || 0) + 1; return o; }, {})).sort((a, b) => b[1] - a[1]).map(x => x[0]);
@@ -3561,6 +3742,7 @@ em.nm { font-style: normal; font-weight: 700; color: var(--fg); }
       const gh = goalsHtml();
       // 빈 설정 안내는 종 알림으로 옮기고 화면에는 한 줄만(원칙 9)
       top += kpi7Html(chs);
+      top += anaHtml();
       top += secOpen('이번 달 목표', gh ? '목표를 얼마나 채웠는지 · 세로선(오늘 기준) = 오늘까지 와 있어야 할 위치 · 주황 = 뒤처짐' : '') + (gh || '<p class="note">목표가 아직 없어요 · 오른쪽 위 알림에서 적는 법을 볼 수 있어요</p>') + secClose;
       const AR = L.filter(it => it.arc).sort((a, b) => a.arc < b.arc ? 1 : -1);
       if (AR.length) top += secOpen('보관한 게시물', '보관하면 여기 모여요') + '<ol class="hm-list" id="arcList">' + rankRows(AR, { right: it => it.arw ? esc(it.arw) : '보관 ' + md2(it.arc) }) + '</ol><p class="note">원인과 「기획 때 하지 말 것」은 분석 문서에 정리해요 · 숫자는 보관 전 마지막 값</p>' + secClose;
@@ -3600,6 +3782,7 @@ em.nm { font-style: normal; font-weight: 700; color: var(--fg); }
     if ($('mxFewBtn')) $('mxFewBtn').addEventListener('click', e => { S.mxFew = !S.mxFew; $('mxFew').hidden = !S.mxFew; e.currentTarget.setAttribute('aria-expanded', S.mxFew); e.currentTarget.textContent = S.mxFew ? '게시물 ' + MIN_N + '개 미만 분류 접기' : '게시물 ' + MIN_N + '개 미만 분류 ' + $('mxFew').rows.length + '개 더 보기 ›'; });
     $('view').querySelectorAll('.mx td[data-k]').forEach(td => { if (td.classList.contains('none')) return; td.addEventListener('click', () => { S.mx = S.mx === td.dataset.k ? null : td.dataset.k; viewStrategy(); if (S.mx) setTimeout(() => { const el = $('mxList'); if (el) el.scrollIntoView({ behavior: SM(), block: 'nearest' }); }, 30); }); });
     wireRank($('arcList'), L.filter(it => it.arc).sort((a, b) => a.arc < b.arc ? 1 : -1));
+    document.querySelectorAll('#anaList [data-ai]').forEach(li => { const go = () => { const x = (window.__ana || [])[+li.dataset.ai]; if (x) openDetail(x.it); }; li.addEventListener('click', go); li.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); go(); } }); });
     if (S.mx) { const [g, t] = S.mx.split('|'); wireRank($('mxList'), L.filter(it => it[MXB] === g && it.t === t).sort((a, b) => (ratio(b) || 0) - (ratio(a) || 0)).slice(0, 20)); }
     bars('byCat', cats.filter(r => r.n >= MIN_N).sort(byIdx), subN, k => { S.view = 'explore'; S.g = k; render(); window.scrollTo({ top: 0 }); });
     if (RXS) {
