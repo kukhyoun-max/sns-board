@@ -3744,10 +3744,10 @@
         m: tdAgo(p.at, now) + (r == null || few ? '' : ' · <span class="' + xCls(r) + '">반응 ' + vsP(r) + '</span>') + ((tdItem(p) || {}).co ? ' · 공동작업' : '') + (fc ? ' · 예상 ' + fcRange(fc) : ''),
         r: vr != null ? '<b class="' + xCls(vr) + '">' + vsTxt(vr) + '</b>' : '<span class="mu">' + (yt6 ? '6시간 뒤 비교' : '모으는 중') + '</span>' });
     }).join('');
-    const C = tdCurves(P);
+    const C = tdCurves(P.concat((d.wk || []).filter(p => chs.includes(p.c))).sort((a, b) => a.at < b.at ? 1 : -1));
     let mo = false; try { mo = localStorage.getItem('sb-td-ch') === '1'; } catch (e) {}
     const list = hmSec2(tp.length ? who + ' 올린 게시물' : '어제 올린 게시물', '퍼센트는 같은 시간 조회 평소 대비', '<ol class="hm-list">' + L + '</ol>' +
-      (C.length ? '<details class="hm-fold" id="tdChF"' + (mo ? ' open' : '') + '><summary class="hm-btn"><svg viewBox="0 0 20 20" width="18" height="18" aria-hidden="true"><path d="M3 16h14M5 13l4-4 3 3 4-6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>시간별 조회 그래프</summary>' + tdGroups(C).map((g, k, A) => '<div class="td-g"><div class="td-chh">' + badge(g.c) + '</div><div class="chart" style="height:' + (A.length > 1 ? 160 : 220) + 'px"><canvas id="tdC' + k + '"></canvas></div></div>').join('') + '<p class="note">1시간마다 받아 둔 값 · 회색 점선 = 같은 형식 평소 조회 · 시간별 자료가 모이기 전엔 올린 지 하루 된 평소(없으면 다 자란 평소)</p></details>' : ''));
+      (C.length ? '<details class="hm-fold" id="tdChF"' + (mo ? ' open' : '') + '><summary class="hm-btn"><svg viewBox="0 0 20 20" width="18" height="18" aria-hidden="true"><path d="M3 16h14M5 13l4-4 3 3 4-6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>시간별 조회 그래프</summary>' + tdGroups(C).map((g, k, A) => '<div class="td-g"><div class="td-chh">' + badge(g.c) + '</div><div class="chart" style="height:' + (A.length > 1 ? 160 : 220) + 'px"><canvas id="tdC' + k + '"></canvas></div></div>').join('') + '<p class="note">이번 주 올린 게시물 · 1시간마다 받아 둔 값(이틀 넘으면 지금 값까지 이음) · 회색 점선 = 같은 형식 평소 조회 · 시간별 자료가 모이기 전엔 올린 지 하루 된 평소(없으면 다 자란 평소)</p></details>' : ''));
     // ⑤ 팔로워 카드(오늘 아침 대비) · 누르면 추이(팔로워 30일 · 유튜브 구독자 1년)
     const FT = [];
     ['인스타그램', 'hong._.video'].filter(c => chs.includes(c)).forEach(c => {
@@ -3841,23 +3841,30 @@
   // 시간별 곡선: 게시물마다 [경과(시간), 조회] + 지금 값. 점이 2개 이상인 것만
   function tdCurves(P) {
     const H = (TD.d && TD.d.hist) || {}, now = new Date(TD.d.ts);
-    return P.slice(0, 5).map(p => { const a = (H[p.id] || []).slice(); if (p.v != null) a.push([Math.round((now - new Date(p.at + ':00+09:00')) / 360000) / 10, p.v]); return { p, a }; }).filter(x => x.a.length >= 2);
+    return P.map(p => { const a = (H[p.id] || []).slice(); if (p.v != null) a.push([Math.round((now - new Date(p.at + ':00+09:00')) / 360000) / 10, p.v]); return { p, a }; }).filter(x => x.a.length >= 2).filter((x, i, A) => A.slice(0, i).filter(y => y.p.c === x.p.c).length < 6); // 채널마다 최근 6개
   }
   // 채널별로 그래프를 나눔(2026-10-22 「유튜브 그래프도 잘 보이게」): 인스타 수천과 유튜브 수십을 한 세로축에 그리면 유튜브가 바닥에 붙음
   function tdGroups(C) { return ['인스타그램', 'hong._.video', '유튜브'].map(c => ({ c, C: C.filter(x => x.p.c === c) })).filter(g => g.C.length); }
   function tdDraw() {
     const fd = $('tdChF'); if (!$('tdC0') || !TD.d || (fd && !fd.open)) return;
-    const P = (TD.d.posts || []).filter(p => TD.chs.includes(p.c)).sort((a, b) => a.at < b.at ? 1 : -1), G = tdGroups(tdCurves(P)), hb = TD.d.hbase || {};
+    // 이번 주(월요일~그제) 게시물(wk)도 함께(2026-11-04 「이번주에 올린 콘텐츠는 그래프에 나오게」)
+    const P = (TD.d.posts || []).concat(TD.d.wk || []).filter(p => TD.chs.includes(p.c)).sort((a, b) => a.at < b.at ? 1 : -1), G = tdGroups(tdCurves(P)), hb = TD.d.hbase || {};
     // 가로축은 모든 그래프가 같게(위아래로 시간을 맞춰 보게). 끝은 눈금 간격의 배수로(「25시간」처럼 앞 눈금과 겹치지 않게)
     const XM = Math.max(...G.map(g => Math.max(...g.C.map(c => Math.ceil(c.a[c.a.length - 1][0])))));
-    const x1 = Math.max(6, XM), xSt = x1 <= 6 ? 2 : x1 <= 12 ? 3 : x1 <= 30 ? 6 : x1 <= 48 ? 12 : 24, xMax = Math.ceil(x1 / xSt) * xSt;
+    const x1 = Math.max(6, XM), xSt = x1 <= 6 ? 2 : x1 <= 12 ? 3 : x1 <= 30 ? 6 : x1 <= 48 ? 12 : 24, xMax = Math.ceil(x1 / xSt) * xSt, byDay = xMax > 48;
     G.forEach((g, k) => {
       const col = chColor(g.c), ds = [];
       // 같은 채널 안 게시물은 실선 · 두 번째부터 옅게(점선은 평소 표시에만)
       g.C.forEach((c, i) => ds.push({ label: title(c.p.n).slice(0, 7), data: c.a.map(x => ({ x: x[0], y: x[1] })), borderColor: i ? col + '80' : col, backgroundColor: col, borderWidth: i ? 2 : 2.5, pointRadius: 0, tension: 0.3 }));
       const c = g.C[0], mx = Math.ceil(c.a[c.a.length - 1][0]), bl = [];
-      for (let h = 0; h <= xMax; h++) { const v = hb[c.p.c + '|' + c.p.t + '|' + h]; if (v != null) bl.push({ x: h, y: v }); }
-      if (bl.length >= 2 && bl[0].x <= mx) ds.push({ label: '평소', data: bl, borderColor: css('--muted'), borderWidth: 1.5, borderDash: [4, 4], pointRadius: 0, tension: 0.3 });
+      for (let h = 0; h <= Math.min(xMax, 48); h++) { const v = hb[c.p.c + '|' + c.p.t + '|' + h]; if (v != null) bl.push({ x: h, y: v }); }
+      // 누적 조회라 평소도 줄면 안 됨: 시간마다 게시물이 달라 튀는 값(앞이 뒤보다 큼)은 뒤 값 이하로 깎음
+      for (let i = bl.length - 2; i >= 0; i--) bl[i].y = Math.min(bl[i].y, bl[i + 1].y);
+      // 이틀 넘게 보는 그래프(이번 주 게시물)는 평소도 날짜별(올린 지 1·2·3…일 평소)로
+      const dl = []; if (byDay) for (let e = 1; e * 24 <= xMax; e++) { const a = agAt(c.p.c, c.p.t, e); if (a) dl.push({ x: e * 24, y: a.m }); }
+      for (let i = dl.length - 2; i >= 0; i--) dl[i].y = Math.min(dl[i].y, dl[i + 1].y);
+      if (dl.length >= 2) ds.push({ label: '평소', tip: '같은 형식 올린 지 N일 평소', data: [{ x: 0, y: 0 }].concat(dl), borderColor: css('--muted'), borderWidth: 1.5, borderDash: [4, 4], pointRadius: 0, tension: 0.3 });
+      else if (bl.length >= 2 && bl[0].x <= mx) ds.push({ label: '평소', data: bl, borderColor: css('--muted'), borderWidth: 1.5, borderDash: [4, 4], pointRadius: 0, tension: 0.3 });
       // 시간별 평소가 아직 없으면(「게시물 시간별」 탭이 10/20부터라 형식별 3개가 안 됨) 하루 지난 평소 조회를 회색 가로선으로(2026-11-02 「평균도 그레이선으로 보여주면 어느 정도인지 알기 쉽게」)
       // hong은 하루째 기록이 적어(나이별 기록이 10/2부터) 없으면 다 자란 평소(같은 형식 최근 1년 중간값)로
       else {
@@ -3870,8 +3877,8 @@
   }
   function tdChart(id, ds, xMax, xSt) {
     draw(id, { type: 'line', data: { datasets: ds }, plugins: [endLabels],
-      options: chartOpts({ layout: { padding: { top: 12, right: 104 } }, plugins: { endLabels: { max: 9 }, tooltip: { callbacks: { title: it => '올린 지 ' + it[0].raw.x + '시간', label: c => (c.dataset.tip || c.dataset.label) + ' 조회 ' + fmt(c.raw.y) } } },
-        scales: { x: { type: 'linear', min: 0, max: xMax, ticks: { stepSize: xSt, maxRotation: 0, autoSkip: false, callback: v => v === xMax ? v + '시간' : v } }, y: { display: true, position: 'right', afterFit: sc => { sc.width = 52; }, grid: { color: css('--line') }, border: { display: false }, ticks: { maxTicksLimit: 4, font: { size: 14 }, color: css('--muted'), callback: v => fmtK(v) } } } }) });
+      options: chartOpts({ layout: { padding: { top: 12, right: 104 } }, plugins: { endLabels: { max: 9 }, tooltip: { callbacks: { title: it => { const h = it[0].raw.x; return '올린 지 ' + (h >= 48 ? Math.floor(h / 24) + '일 ' + Math.round(h % 24) + '시간' : h + '시간'); }, label: c => (c.dataset.tip || c.dataset.label) + ' 조회 ' + fmt(c.raw.y) } } },
+        scales: { x: { type: 'linear', min: 0, max: xMax, ticks: { stepSize: xSt, maxRotation: 0, autoSkip: false, callback: v => xSt === 24 ? (v ? v / 24 + (v === xMax ? '일' : '') : 0) : v === xMax ? v + '시간' : v } }, y: { display: true, position: 'right', afterFit: sc => { sc.width = 52; }, grid: { color: css('--line') }, border: { display: false }, ticks: { maxTicksLimit: 4, font: { size: 14 }, color: css('--muted'), callback: v => fmtK(v) } } } }) });
   }
   function tdSaveSeen() {
     const d = TD.d; if (!d) return;
