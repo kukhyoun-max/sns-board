@@ -4193,6 +4193,7 @@ function igxStep_(ss, today, logs) {
 
 // 2시간마다(트리거): 스토리만. 새 스토리가 있거나 오류일 때만 로그를 남김(로그 탭이 넘치지 않게)
 function storySnapshot() {
+  const runT0 = Date.now();
   const ss = SpreadsheetApp.getActive() || SpreadsheetApp.openById(SS_ID);
   try { ensureTriggers_(); } catch (e) {}
   try { logMirror_(); } catch (e) {}
@@ -4222,7 +4223,7 @@ function storySnapshot() {
   try { collabOwnStep_(ss, 60); } catch (e) { logRows_(ss, [[new Date(), COLLAB_OWN_SHEET, 0, '오류: ' + String(e.message).slice(0, 150)]]); }
   try { postHourly_(ss); } catch (e) { logRows_(ss, [[new Date(), HOURLY_SHEET, 0, '오류: ' + String(e.message).slice(0, 150)]]); }
   // 학과 계정(2026-11-03): 하루 한 번, 오늘 아직 확인하지 않은 계정만 — 시간이 모자라면 다음 시간에 이어서
-  try { const r = deptStep_(ss); if (r) logRows_(ss, [[new Date(), DEPT_SHEET, r.posts, '정상 — 확인 ' + r.tried + '개 중 받아짐 ' + r.ok + '개' + (r.left ? ' · 남은 ' + r.left + '개는 다음 시간에' : '')]]); } catch (e) { logRows_(ss, [[new Date(), DEPT_SHEET, 0, '오류: ' + String(e.message).slice(0, 150)]]); }
+  try { const r = deptStep_(ss, runT0); if (r && r.skip) logRows_(ss, [[new Date(), DEPT_SHEET, 0, '건너뜀: ' + r.skip]]); else if (r) logRows_(ss, [[new Date(), DEPT_SHEET, r.posts, '정상 — 확인 ' + r.tried + '개 중 받아짐 ' + r.ok + '개' + (r.left ? ' · 남은 ' + r.left + '개는 다음 시간에' : '')]]); } catch (e) { logRows_(ss, [[new Date(), DEPT_SHEET, 0, '오류: ' + String(e.message).slice(0, 150)]]); }
 }
 function ensureStoryTrigger_() {
   if (ScriptApp.getProjectTriggers().some(t => t.getHandlerFunction() === 'storySnapshot')) return;
@@ -6540,15 +6541,19 @@ const DEPT_SEED = [
   ["수퍼스타칼리지","자유전공학부","인스타","jju_superstar","학생회"],
   ["국제학부·반려동물산업학부","반려동물산업학부","인스타","jjuniv_pet_dept","학부"],
 ];
-function deptStep_(ss) {
+// runT0 = 매시 실행이 시작한 시각. 앞 단계가 오래 걸린 시간에는 120초를 다 쓰지 않고 실행 전체가 5분 안에 끝나게 줄임(2026-11-03 첫날 실행이 끊겨 탭이 빈 채로 남음)
+function deptStep_(ss, runT0) {
   const t0 = Date.now(), d0 = new Date(), today = Utilities.formatDate(d0, TZ, 'yyyy-MM-dd'), now = Utilities.formatDate(d0, TZ, 'yyyy-MM-dd HH:mm');
   if (Number(Utilities.formatDate(d0, TZ, 'H')) < DEPT_HOUR) return null;
-  let sh = ss.getSheetByName(DEPT_SHEET);
-  if (!sh) {
-    sh = ss.insertSheet(DEPT_SHEET);
+  const budget = Math.min(DEPT_BUDGET_MS, 300 * 1000 - (t0 - (runT0 || t0)));
+  if (budget < 30 * 1000) return { skip: '이번 시간은 앞 단계가 길어 다음 시간에' };
+  let sh = ss.getSheetByName(DEPT_SHEET) || ss.insertSheet(DEPT_SHEET);
+  if (sh.getLastRow() < 2) { // 새 탭이거나, 만든 뒤 목록을 쓰기 전에 실행이 끊겨 빈 탭이면 목록을 채움
+    sh.clear();
     sh.getRange(1, 1, 1, DEPT_HEAD.length).setValues([DEPT_HEAD]).setFontWeight('bold'); sh.setFrozenRows(1);
     sh.getRange(2, 4, DEPT_SEED.length, 1).setNumberFormat('@');
     sh.getRange(2, 1, DEPT_SEED.length, DEPT_HEAD.length).setValues(DEPT_SEED.map(r => r.concat(['O', '', ''])));
+    SpreadsheetApp.flush();
   }
   const n = sh.getLastRow() - 1;
   if (n < 1) return null;
@@ -6563,7 +6568,7 @@ function deptStep_(ss) {
     if (!pl || !acc || String(r[5]).trim().toUpperCase() === 'X') return;
     const last = r[7] instanceof Date ? Utilities.formatDate(r[7], TZ, 'yyyy-MM-dd') : String(r[7]).slice(0, 10);
     if (last === today) return;
-    if (Date.now() - t0 > DEPT_BUDGET_MS) { left++; return; }
+    if (Date.now() - t0 > budget) { left++; return; }
     let msg;
     try {
       if (pl === '인스타') msg = deptIg_(acc, since, today, now, aRows, pRows);
@@ -6576,7 +6581,7 @@ function deptStep_(ss) {
   });
   if (aRows.length) igxUpsert_(ss, DEPT_A_SHEET, DEPT_A_HEAD, [0, 1, 2], aRows);
   if (pRows.length) igxUpsert_(ss, DEPT_P_SHEET, DEPT_P_HEAD, [0, 1, 2], pRows);
-  if (tried) sh.getRange(2, 7, n, 2).setValues(gh);
+  if (tried) { sh.getRange(2, 7, n, 2).setValues(gh); SpreadsheetApp.flush(); }
   return tried ? { tried: tried, ok: ok, left: left, posts: pRows.length } : null;
 }
 // 메타 오류를 쉬운 말로(개인 계정·바뀐 아이디는 business_discovery가 「찾을 수 없음」으로 답함)
