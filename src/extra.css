@@ -1246,3 +1246,8 @@ em.nm { font-style: normal; font-weight: 700; color: var(--fg); }
 .an-f small{color:var(--muted)}
 .an-n{margin-top:14px;padding:12px 14px;border-radius:12px;background:var(--tile)}
 .an-n ul{margin:6px 0;padding-left:18px}
+
+/* 시간별 조회: 채널 그래프마다 회색 칸으로 나눔(2026-11-03 「그래프끼리 구분이 안 됨」) */
+.td-g { background: var(--hm-card); border-radius: 14px; padding: 10px 4px 6px 12px; }
+.td-g + .td-g { margin-top: 10px; }
+.td-g .td-chh { margin: 0 0 2px; }

@@ -3743,7 +3743,7 @@
     const C = tdCurves(P);
     let mo = false; try { mo = localStorage.getItem('sb-td-ch') === '1'; } catch (e) {}
     const list = hmSec2(tp.length ? who + ' 올린 게시물' : '어제 올린 게시물', '퍼센트는 같은 시간 조회 평소 대비', '<ol class="hm-list">' + L + '</ol>' +
-      (C.length ? '<details class="hm-fold" id="tdChF"' + (mo ? ' open' : '') + '><summary class="hm-btn"><svg viewBox="0 0 20 20" width="18" height="18" aria-hidden="true"><path d="M3 16h14M5 13l4-4 3 3 4-6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>시간별 조회 그래프</summary>' + tdGroups(C).map((g, k, A) => '<div class="td-chh">' + badge(g.c) + '</div><div class="chart" style="height:' + (A.length > 1 ? 160 : 220) + 'px"><canvas id="tdC' + k + '"></canvas></div>').join('') + '<p class="note">1시간마다 받아 둔 값 · 회색 점선 = 같은 형식 평소 조회 · 시간별 자료가 모이기 전엔 올린 지 하루 된 평소(없으면 다 자란 평소)</p></details>' : ''));
+      (C.length ? '<details class="hm-fold" id="tdChF"' + (mo ? ' open' : '') + '><summary class="hm-btn"><svg viewBox="0 0 20 20" width="18" height="18" aria-hidden="true"><path d="M3 16h14M5 13l4-4 3 3 4-6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>시간별 조회 그래프</summary>' + tdGroups(C).map((g, k, A) => '<div class="td-g"><div class="td-chh">' + badge(g.c) + '</div><div class="chart" style="height:' + (A.length > 1 ? 160 : 220) + 'px"><canvas id="tdC' + k + '"></canvas></div></div>').join('') + '<p class="note">1시간마다 받아 둔 값 · 회색 점선 = 같은 형식 평소 조회 · 시간별 자료가 모이기 전엔 올린 지 하루 된 평소(없으면 다 자란 평소)</p></details>' : ''));
     // ⑤ 팔로워 카드(오늘 아침 대비) · 누르면 추이(팔로워 30일 · 유튜브 구독자 1년)
     const FT = [];
     ['인스타그램', 'hong._.video'].filter(c => chs.includes(c)).forEach(c => {
