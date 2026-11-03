@@ -225,7 +225,7 @@ function setupDaily() {
 }
 // 하루 여러 번 기록: 같은 날 기록은 바꿔 써서(runSnapshot_ 3단계) 줄이 쌓이지 않음. 원본 읽기·API 단계가 다시 돌아 화면 값이 그만큼 새로워짐
 const SNAP_HOURS = [8, 12, 16, 20];
-const TRIG_VER = '2026-11-01 하루 4번·스토리 1시간·API 단독 비교 14시';
+const TRIG_VER = '2026-11-03 하루 4번·스토리 1시간·API 단독 비교 14시·아침 분석 9시';
 // 트리거 버전이 바뀌면 기록·스토리·밤 브리핑 트리거를 다시 맞춤(편집기에서 setup을 다시 돌리지 않아도 되게). 과거 채우기·스토리 실행이 부름
 function ensureTriggers_() {
   const p = PropertiesService.getScriptProperties();
@@ -236,6 +236,7 @@ function ensureTriggers_() {
   ScriptApp.newTrigger('storySnapshot').timeBased().everyHours(1).create();
   if (!ts.some(t => t.getHandlerFunction() === 'nightBrief')) ScriptApp.newTrigger('nightBrief').timeBased().everyDays(1).atHour(22).nearMinute(0).inTimezone(TZ).create();
   // Supermetrics 없이 API만으로 만든 목록과 비교(2026-11-01~, 전환이 끝나면 지움). 12시 기록이 끝난 뒤
+  if (!ts.some(t => t.getHandlerFunction() === 'morningBrief')) ScriptApp.newTrigger('morningBrief').timeBased().everyDays(1).atHour(9).nearMinute(0).inTimezone(TZ).create();
   if (!ts.some(t => t.getHandlerFunction() === 'shadowCompare')) ScriptApp.newTrigger('shadowCompare').timeBased().everyDays(1).atHour(14).nearMinute(0).inTimezone(TZ).create();
   p.setProperty('TRIG_VER', TRIG_VER);
 }
@@ -1554,6 +1555,8 @@ function buildDashboardData_() {
         u: /youtube\.com|youtu\.be/.test(url) ? url : (ch === '인스타그램' || bench ? (igPermalink_(url) || igPermalink_(s_(r[2]))) : ''),
         h: dates.map(() => null),
       };
+      // 캡션 특징(2026-11-03 매일 분석): 자르기 전 캡션 전체로 — 장소 정보(p)·질문형 첫 줄(q), 규칙은 Ana.gs(= src/ana.js)
+      if (!bench) { const f = Ana.featOf(s_(r[C.title])); if (f) it.ft = f; }
     }
     // 인스타: 예전 기록에는 CDN 주소뿐이라, 나중 기록(인스타 API)에 게시물 주소가 있으면 그것을 씀
     if (!it.u && (ch === '인스타그램' || bench)) it.u = igPermalink_(s_(r[C.url]));
@@ -1614,6 +1617,7 @@ function buildDashboardData_() {
     coverage: COVERAGE,
     hist: hist,
     strat: loadStrat_(ss),
+    note: loadNote_(),
     goals: loadGoals_(ss),
     daily: (function () { try { return loadDailyTotals_(ss); } catch (e) { return []; } })(),
     // 팔로워 일별 [날짜, 계정, 팔로워] — 타 대학 비교의 팔로워당 반응·증가용
@@ -5470,6 +5474,18 @@ function livePosts_(maxAge) {
   try { cache.put(key, JSON.stringify({ ts: ts, p: posts.map(x => Object.assign({}, x, { at: x.at.getTime() })), n: notes, e: err }), 600); } catch (e) {}
   return { posts: posts, notes: notes, err: err, ts: ts, today: today };
 }
+// 이번 주 월요일~그제 올린 게시물(어제·오늘은 livePosts_가 받음). 월·화요일이면 없음
+function weekPosts_(today) {
+  const dow = Number(Utilities.formatDate(new Date(today + 'T12:00:00+09:00'), TZ, 'u')), mon = shiftDate_(today, 1 - dow), to = shiftDate_(today, -2);
+  if (mon > to) return [];
+  const key = 'wk1|' + today, cache = CacheService.getScriptCache();
+  try { const j = JSON.parse(cache.get(key) || 'null'); if (j) return j.map(x => Object.assign(x, { at: new Date(x.at) })); } catch (e) {}
+  let out = [];
+  try { out = out.concat(briefInstagram_(to, [], mon)); } catch (e) {}
+  try { out = out.concat(briefYouTube_(to, mon)); } catch (e) {}
+  try { cache.put(key, JSON.stringify(out.map(x => Object.assign({}, x, { at: x.at.getTime() }))), 600); } catch (e) {}
+  return out;
+}
 function briefInstagram_(today, notes, from) {
   from = from || today;
   const out = [];
@@ -5493,7 +5509,7 @@ function briefInstagram_(today, notes, from) {
 // 유튜브: 업로드 목록에서 오늘 올린 영상 + 통계(브랜드 계정 토큰). 공유·저장·도달은 없음
 function briefYouTube_(today, from) {
   from = from || today;
-  const ids = ytaRecent_(from === today ? 1 : 2, today).filter(v => v.date >= from && v.date <= today).map(v => v.id);
+  const ids = ytaRecent_(Math.max(1, Math.round((new Date(today + 'T12:00:00+09:00') - new Date(from + 'T12:00:00+09:00')) / 864e5) + 1), today).filter(v => v.date >= from && v.date <= today).map(v => v.id);
   if (!ids.length) return [];
   const r = ytaGet_('https://www.googleapis.com/youtube/v3/videos?part=snippet,statistics,contentDetails,status&id=' + ids.join(','));
   return (r.items || []).filter(x => x.status && x.status.privacyStatus === 'public').map(x => {
@@ -5616,6 +5632,50 @@ function briefMed_(a) { const s = a.slice().sort((x, y) => x - y), m = Math.floo
 function briefDay_(d) { const t = new Date(d + 'T12:00:00+09:00'); return Number(d.slice(5, 7)) + '/' + Number(d.slice(8, 10)) + '(' + '일월화수목금토'[Number(Utilities.formatDate(t, TZ, 'u')) % 7] + ')'; }
 function briefNum_(v) { if (v === '' || v == null) return '–'; v = Number(v); return v >= 10000 ? (Math.round(v / 1000) / 10) + '만' : Math.round(v).toLocaleString('ko-KR'); }
 function briefPct_(v) { return v == null ? '–' : (Math.round(v * 1000) / 10) + '%'; }
+// ───────── 아침 분석 메일(2026-11-03 담당자 「추천하는대로 진행」) ─────────
+// 매일 09:00 어제(월요일은 금~일) 올린 게시물과 오늘 14일째가 된 게시물을 숫자 규칙(Ana.gs = src/ana.js)으로 판정해 BRIEF_TO로 보냄. 토큰·PC 필요 없음
+// 원인·다음 기획은 주간(월)·월간(1일) Claude 보고가 맡고, 그 요약은 드라이브 「성과 해석.json」 → 보드 전략 화면·이 메일 아래 칸
+function testMorningBrief() { morningBrief(true); }
+function morningBrief(test) {
+  test = test === true;
+  let D = null;
+  try { const j = cacheGet_(); D = j ? JSON.parse(j) : null; } catch (e) { D = null; }
+  if (!D) D = buildDashboardData_();
+  const A = Ana.build(D);
+  if (!test && !A.yest.length && !A.done.length) { Logger.log('아침 분석: 판정할 게시물 없음'); return; }
+  const to = String(PropertiesService.getScriptProperties().getProperty('BRIEF_TO') || '').trim();
+  const wd = '일월화수목금토'[new Date(A.at + 'T00:00:00+09:00').getDay()];
+  const top = A.yest.filter(x => x.vr != null).sort((a, b) => b.vr - a.vr)[0];
+  const one = A.from === addDays_(A.at, -1);
+  const subject = (test ? '(테스트) ' : '') + '[아침 분석] ' + A.at.slice(5).replace('-', '/') + '(' + wd + ') ' + (A.yest.length ? (one ? '어제' : '주말') + ' 게시물 ' + A.yest.length + '개' + (top ? ' · ' + top.shape : '') : '판정 확정 ' + A.done.length + '개');
+  const html = morningHtml_(A, D.note);
+  if (to) MailApp.sendEmail({ to: to, subject: subject, htmlBody: html, name: 'SNS 성과 보드' });
+  else Logger.log('BRIEF_TO 없음 — 보내지 않음');
+}
+function addDays_(s, n) { return Utilities.formatDate(new Date(new Date(s + 'T12:00:00+09:00').getTime() + n * 864e5), TZ, 'yyyy-MM-dd'); }
+function morningHtml_(A, note) {
+  const e = briefEsc_, CH = { '인스타그램': ['인스타', '#c2185b'], 'hong._.video': ['hong', '#2e7d5b'] };
+  const chip = sh => { const good = /잘 퍼짐|공유형|저장형|고르게/.test(sh), bad = /약함|덜 퍼짐/.test(sh); return '<span style="display:inline-block;padding:1px 8px;border-radius:10px;font-size:12px;font-weight:700;background:' + (good ? '#e3f2ea;color:#1e7a4c' : bad ? '#fdecea;color:#c0392b' : '#eef1f4;color:#4e5968') + '">' + e(sh) + '</span>'; };
+  const row = x => { const c = CH[x.c] || [x.c, '#555']; return '<tr><td style="padding:10px 0;border-bottom:1px solid #eee"><div><b style="color:' + c[1] + '">' + c[0] + '</b> · ' + e(x.it.d.slice(5)) + ' · ' + e(x.t) + ' ' + chip(x.shape) + '</div><div style="font-weight:700;margin:2px 0">' + (x.u ? '<a href="' + e(x.u) + '" style="color:#191f28">' + e(x.title) + '</a>' : e(x.title)) + '</div><div style="color:#4e5968;font-size:13px">' + e(x.line) + '</div></td></tr>'; };
+  const sec = (h, inner) => '<h3 style="font-size:15px;margin:22px 0 6px">' + h + '</h3>' + inner;
+  const K = A.kpi, ok = (v, t) => v == null ? '' : v >= t ? ' <b style="color:#1e7a4c">목표 넘음</b>' : ' <b style="color:#c0392b">목표 아래</b>';
+  let h = '<div style="font-family:Apple SD Gothic Neo,Malgun Gothic,sans-serif;color:#191f28;max-width:640px;font-size:14px;line-height:1.6">';
+  h += '<p style="color:#4e5968;font-size:13px;margin:0">숫자 규칙으로만 판정했어요(사진·말투는 안 봄). 기준 = 같은 채널·형식 최근 1년 평소, 올린 지 14일 전이면 「아직 느는 중」</p>';
+  if (A.yest.length) h += sec(A.from === addDays_(A.at, -1) ? '어제 올린 게시물' : A.from.slice(5).replace('-', '/') + '부터 올린 게시물', '<table style="width:100%;border-collapse:collapse">' + A.yest.map(row).join('') + '</table>');
+  if (A.done.length) h += sec('오늘 판정 확정(올린 지 14일)', '<table style="width:100%;border-collapse:collapse">' + A.done.map(row).join('') + '</table>');
+  h += sec('인스타 최근 90일 신호', '<div>공유 ÷ 도달 <b>' + A.pc2(K.share) + '</b>(목표 1.0%)' + ok(K.share, K.target.share) + ' · 캐러셀 저장 ÷ 도달 <b>' + A.pc2(K.save) + '</b>(목표 0.3%)' + ok(K.save, K.target.save) + '</div><div>공지·소식 비율 ' + A.pc(K.notice) + ' · 릴스 ' + K.reels + '개(작년 같은 90일 ' + K.reelsLy + '개) · 도달 중앙값 ' + (K.reach || 0).toLocaleString() + '명(작년 ' + (K.reachLy || 0).toLocaleString() + '명)</div>');
+  const G = A.g, gr = g => '<tr><td style="padding:4px 8px 4px 0">' + e(g.k) + '</td><td style="text-align:right;padding:4px 8px">' + g.n + '</td><td style="text-align:right;padding:4px 8px">' + A.pc2(g.s) + '</td><td style="text-align:right;padding:4px 8px">' + A.pc2(g.sv) + '</td><td style="padding:4px 0 4px 8px">' + e(g.vd) + '</td></tr>';
+  const th = '<tr style="color:#8b95a1;font-size:12px"><td>묶음</td><td style="text-align:right;padding:0 8px">개수</td><td style="text-align:right;padding:0 8px">공유</td><td style="text-align:right;padding:0 8px">저장</td><td style="padding-left:8px">판정</td></tr>';
+  h += sec('유형별 남길 것·고칠 것', '<table style="border-collapse:collapse;font-size:13px">' + th + gr({ k: '전체(이벤트 빼고)', n: G.all.n, s: G.all.s, sv: G.all.sv, vd: '' }) + G.ty.map(gr).join('') + '</table><div style="color:#8b95a1;font-size:12px">게시 14~104일 된 인스타 게시물 · 5개 미만은 「표본 적음」</div>');
+  h += sec('캡션 특징', G.feat.map(f => '<div><b>' + e(f.name) + '</b> 있음 ' + f.yes.n + '개 공유 ' + A.pc2(f.yes.s) + ' · 없음 ' + f.no.n + '개 ' + A.pc2(f.no.s) + (f.yes.n < 5 ? ' (표본 적음)' : '') + '<br><span style="color:#8b95a1;font-size:12px">' + e(f.why) + '</span></div>').join(''));
+  if (note && note.title) h += sec('이번 주 해석(Claude, ' + e(note.at || '') + ')', '<div style="font-weight:700">' + e(note.title) + '</div>' + (note.points || []).slice(0, 5).map(p => '<div>· ' + e(p) + '</div>').join('') + (note.url ? '<div><a href="' + e(note.url) + '">전체 보고서</a></div>' : ''));
+  h += '<p style="color:#8b95a1;font-size:12px;margin-top:22px">보드 전략 화면에도 같은 판정이 있어요 · <a href="https://kukhyoun-max.github.io/sns-board/">SNS 성과 보드</a></p></div>';
+  return h;
+}
+// 주간·월간 Claude 보고의 요약(드라이브 「성과 해석.json」, PC의 G:\내 드라이브\05_데이터\성과 분석\에 씀) — 없거나 깨졌으면 null
+function loadNote_() {
+  try { const it = DriveApp.getFilesByName('성과 해석.json'); let best = null; while (it.hasNext()) { const f = it.next(); if (!best || f.getLastUpdated() > best.getLastUpdated()) best = f; } return best ? JSON.parse(best.getBlob().getDataAsString('UTF-8')) : null; } catch (e) { return null; }
+}
 function briefEsc_(s) { return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); }
 // 캡션 첫 줄(원문 그대로, 길면 말줄임)
 function briefTitle_(s, n) { n = n || 60; const t = String(s || '').split('\n').map(x => x.trim()).filter(Boolean)[0] || '(캡션 없음)'; return t.length > n ? t.slice(0, n) + '…' : t; }
@@ -6107,7 +6167,8 @@ function postHourly_(ss) {
 }
 // 오늘 게시물의 시간별 [경과(시간), 조회] · 지난 게시물로 만든 평소 {채널|형식|경과 시간(반올림): 조회 중간값}(게시물 3개 이상)
 // 같은 게시물이 한 시간 칸에 두 번 기록되면(이어서 실행 등) 마지막 값 하나만 셈(2026-10-27, 줄 수가 아니라 게시물 수로 3개)
-function hourlyFor_(ss, ids) {
+function hourlyFor_(ss, ids, keep) { // keep = 그래프에도 그리고 평소 계산에도 넣는 게시물(이번 주 월요일~그제, 2026-11-04)
+  keep = keep || {};
   const hist = {}, pool = {}, base = {};
   const sh = ss.getSheetByName(HOURLY_SHEET);
   if (!sh || sh.getLastRow() < 2) return { hist: hist, base: base };
@@ -6116,7 +6177,7 @@ function hourlyFor_(ss, ids) {
     const id = String(r[2]), h = num(r[5]), v = num(r[6]);
     if (h == null || v == null || h < 0) return;
     if (ids[id]) (hist[id] = hist[id] || []).push([h, v]);
-    else if (h <= 48) { const k = r[1] + '|' + r[3] + '|' + Math.round(h); (pool[k] = pool[k] || {})[id] = v; }
+    if ((!ids[id] || keep[id]) && h <= 48) { const k = r[1] + '|' + r[3] + '|' + Math.round(h); (pool[k] = pool[k] || {})[id] = v; }
   });
   Object.keys(pool).forEach(k => { const vs = Object.keys(pool[k]).map(id => pool[k][id]); if (vs.length >= 3) base[k] = briefMed_(vs); });
   Object.keys(hist).forEach(id => hist[id].sort((a, b) => a[0] - b[0]));
@@ -6164,8 +6225,11 @@ function partToday_(ss) {
       if (h.length) ya.hist = h.reverse();
     }
   } catch (e) {}
+  // 이번 주(월요일~그제) 올린 게시물도 시간별 그래프에(2026-11-04 「이번주에 올린 콘텐츠는 그래프에 나오게」): 어제·오늘 것(posts) 말고 따로 받아 wk로. 캐시 10분
+  let wk = [];
+  try { wk = weekPosts_(today).map(x => ({ c: x.ch, id: x.id, at: Utilities.formatDate(x.at, TZ, "yyyy-MM-dd'T'HH:mm"), t: x.type, n: briefTitle_(x.title, 80), u: x.url, v: n(x.views) })); } catch (e) { notes.push('이번 주 게시물 확인 실패'); }
   let hr = { hist: {}, base: {} };
-  try { const ids = {}; p.forEach(x => { ids[String(x.id)] = 1; }); hr = hourlyFor_(ss, ids); } catch (e) {}
+  try { const ids = {}, keep = {}; p.concat(wk).forEach(x => { ids[String(x.id)] = 1; }); wk.forEach(x => { keep[String(x.id)] = 1; }); hr = hourlyFor_(ss, ids, keep); } catch (e) {}
   // 게시 예정(2026-10-22): 「공식 SNS 발행 일정」 캘린더의 오늘~7일 뒤 [날짜, 제목, 업로드 폴더 주소]. 설명에서는 드라이브 폴더 주소만 꺼냄(제작자 이름 등 나머지는 보내지 않음)
   // 주소가 없고 「드라이브: ★ SNS 업로드용/<폴더 이름>」만 적혀 있으면 그 이름의 폴더를 찾음
   let plan = [];
@@ -6178,7 +6242,7 @@ function partToday_(ss) {
   // 브라우저에서 instagram.com 사진 주소는 막혀서 메타 CDN 주소를 씀(며칠 뒤 만료되지만 10분마다 새로 받음). hong은 보드에 주소가 없어 게시일·캡션으로 맞춤
   const thumbs = [];
   try { igxChannels_().forEach(c => { (igxGet_(c.conf, c.user + '/media', { fields: 'permalink,timestamp,caption,media_url,thumbnail_url', limit: 30 }).data || []).forEach(x => { const m = String(x.permalink || '').match(/\/(?:p|reel|reels|tv)\/([^/?#]+)/), img = x.thumbnail_url || x.media_url || ''; if (m && img) thumbs.push([m[1], Utilities.formatDate(new Date(x.timestamp), TZ, 'yyyy-MM-dd'), String(x.caption || '').replace(/\s+/g, ' ').trim().slice(0, 30), img, c.ch]); }); }); } catch (e) { notes.push('썸네일 확인 실패'); }
-  return { ts: now.getTime(), at: Utilities.formatDate(now, TZ, 'yyyy-MM-dd HH:mm'), today: today, posts: p, acct: acct, story: briefStories_(ss, today), hist: hr.hist, hbase: hr.base, plan: plan, thumbs: thumbs, notes: notes };
+  return { ts: now.getTime(), at: Utilities.formatDate(now, TZ, 'yyyy-MM-dd HH:mm'), today: today, posts: p, acct: acct, story: briefStories_(ss, today), hist: hr.hist, hbase: hr.base, wk: wk, plan: plan, thumbs: thumbs, notes: notes };
 }
 
 // ───────── 상대 계정이 올린 공동작업 게시물(2026-10-21) ─────────
