@@ -759,7 +759,7 @@
   function topHtml(chs) {
     const w = calWeek(chs), dn = daysBetween(w.mon, w.end) + 1;
     return '<section class="sec top-sec"><div class="sh"><div><h2>' + (S.ch === '전체' ? '이번 주 한눈에' : chName(S.ch) + ' 이번 주') + '</h2><p>' + md2(w.mon) + '~' + md2(addDays(w.mon, 6)) + ', 지난주 같은 요일까지와 비교</p></div>' +
-      '<div class="top-act"><button type="button" class="btn sm" id="repCopy">주간 보고 복사</button><button type="button" class="btn sm" id="repPrint">인쇄·PDF</button></div></div>' +
+      '<div class="top-act"><button type="button" class="btn sm" id="repCopy"><svg viewBox="0 0 20 20" width="16" height="16" aria-hidden="true"><path d="M7 7h9v9H7zM4 13V4h9" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>주간 보고 복사</button><button type="button" class="btn sm" id="repPrint"><svg viewBox="0 0 20 20" width="16" height="16" aria-hidden="true"><path d="M6 8V3h8v5M6 14H4V8h12v6h-2M6 11h8v6H6z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>인쇄·PDF</button></div></div>' +
       calKpiHtml(chs, w) + raceHtml(chs, w) + '</section>';
   }
   // ───── 달력 주 ─────
@@ -1551,7 +1551,7 @@
       '<div class="cs-big num">' + mfmt(M.def, M.big) + '</div>' +
       '<div class="cs-chg num ' + cls + '">' + (d == null ? '<span style="color:var(--muted);font-weight:600">' + (M.growth ? mdLabel(M.from) + ' 이후 합계' : '비교할 이전 기간 없음') + '</span>' : '<span class="' + dCls(d) + '">' + dTxt(d, 1, 1) + '</span> <span style="color:var(--muted);font-weight:600">이전 같은 기간 대비</span>') + '</div>' +
       '<div class="cs-sub">' + esc(sub) + (M.growth ? '' : ' · 점선은 아직 끝나지 않은 기간') + (M.growth ? '' : (n => n ? '<br><span class="warn">' + ICO.warn + ' ' + esc(n) + '</span>' : '')(covNote(M.chs, M.from))) + '</div></div>' +
-      '<button type="button" class="btn sm" id="csXls">엑셀로 받기</button></div>' +
+      '<button type="button" class="btn sm" id="csXls"><svg viewBox="0 0 20 20" width="16" height="16" aria-hidden="true"><path d="M10 3v10M6 9l4 4 4-4M4 17h12" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>엑셀로 받기</button></div>' +
       '<div class="chips cs-m">' + M.defs.map(df => '<button class="chip" type="button" data-m="' + df[0] + '" aria-pressed="' + (CS.metric === df[0]) + '">' + df[1] + '</button>').join('') + '</div>' +
       (SD ? '<div class="cs-ser" role="group" aria-label="그래프에 표시할 계열">' + serDefs().map(x => '<button type="button" class="tg2 ser" data-ser="' + esc(x.id) + '" aria-pressed="' + CS.series.includes(x.id) + '" style="--c:' + x.color + '"><i></i>' + esc(x.label) + '</button>').join('') + '<span class="hint">눌러서 켜고 끄기</span></div>' : '') +
       '<div class="cs-chart"><canvas id="csCanvas"></canvas></div>' +
@@ -1601,7 +1601,7 @@
     const b = M.bk[i];
     const arr = uniq(M.series.flatMap(s => s.arrs[i])).sort((x, y) => (mainVal(y) || 0) - (mainVal(x) || 0));
     const rng = b.from === b.to ? dot(b.from) : dot(b.from) + ' ~ ' + dot(b.to > M.to ? M.to : b.to);
-    return '<div class="cpick"><div><b>' + rng + '</b> · 게시 ' + arr.length + '개 · ' + M.def[1] + ' ' + mfmt(M.def, mval(M.def, arr)) + '</div><button type="button" class="btn" id="csPickX">이 기간 엑셀로</button></div>' +
+    return '<div class="cpick"><div><b>' + rng + '</b> · 게시 ' + arr.length + '개 · ' + M.def[1] + ' ' + mfmt(M.def, mval(M.def, arr)) + '</div><button type="button" class="btn" id="csPickX"><svg viewBox="0 0 20 20" width="16" height="16" aria-hidden="true"><path d="M10 3v10M6 9l4 4 4-4M4 17h12" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>이 기간 엑셀로</button></div>' +
       '<ol class="rank" id="csList">' + rankRows(arr.slice(0, 5)) + '</ol>' + (arr.length > 5 ? '<p class="note">상위 5개만 보여요 · 전체는 「이 기간 엑셀로」</p>' : '');
   }
   function rerenderChart() { const el = $('chartSec'); if (!el) return; el.outerHTML = chartHtml(); wireChart(); }
@@ -1866,7 +1866,7 @@
         return '<div class="pl-r" title="' + esc(r.why) + '"><span class="pl-t">' + esc(fmtType(r.t)) + '<small>지금 월 ' + r.per.toFixed(1) + '개 · ' + esc(r.bs) + '</small></span><span class="pl-b" aria-hidden="true"><i style="width:' + (r.rec / mx * 100).toFixed(1) + '%"></i></span><b class="num">' + r.rec + '</b><em class="' + vc + '">' + r.vd + '</em></div>'; }).join('') + '</div>' +
       (p.topics.length ? '<p class="hm-note">지난 ' + m + '월에 잘 된 주제(' + yrSpan(p.yrs) + ', 조회 평소 대비): ' + p.topics.map(t => '<b>' + esc(t.k) + '</b> <span class="' + xCls(t.idx) + '">' + vsP(t.idx) + '</span>').join(' · ') + '</p>' : '<p class="hm-note">' + (p.yrs.length ? yrSpan(p.yrs) + ' ' + m + '월엔 뚜렷하게 잘 된 주제가 없었어요.' : '지난 ' + m + '월 데이터가 없어요.') + '</p>') +
       (p.best.length ? '<p class="hm-note"><b>지난 ' + m + '월 가장 잘 된 게시물</b></p><ol class="rank" id="plBest' + pi + '">' + rankRows(p.best) + '</ol>' : ''))).join('') + '</div>' +
-      '<div style="margin-top:16px"><button type="button" class="btn" id="planCopy" title="형식별 권장 개수 · 이유 · 잘 된 주제를 글로 복사">회의용으로 복사</button></div>';
+      '<div style="margin-top:16px"><button type="button" class="btn" id="planCopy" title="형식별 권장 개수 · 이유 · 잘 된 주제를 글로 복사"><svg viewBox="0 0 20 20" width="16" height="16" aria-hidden="true"><path d="M7 7h9v9H7zM4 13V4h9" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>회의용으로 복사</button></div>';
   }
   const yrSpan = y => y.length > 1 ? y[0] + '~' + y[y.length - 1] + '년' : y[0] + '년';
   function planText(P) {
@@ -2311,7 +2311,7 @@
     const roleChips = ['전체', '홍보대사', '근로장학생', '서포터즈'].map(r => '<button class="chip" type="button" data-r="' + r + '" aria-pressed="' + (S.roleF === r) + '">' + r + '</button>').join('');
     const th = (k, l) => '<th class="n"' + ariaSort(S.psort === k && 'desc') + '><button type="button" data-s="' + k + '"' + (S.psort === k ? ' data-dir="desc"' : '') + '>' + l + '</button></th>';
     html += secOpen('사람별 성과', '캡션 크레딧에 적힌 이름 기준 · 팀 콘텐츠는 참여자 모두에게 똑같이 세요<span class="tiers"><b>등급 점수 · 게시물 조회별</b><span>100만↑ +10점</span><span>50만↑ +5점</span><span>10만↑ +1점</span><span>1만↑ +0.1점</span><span>1만 미만 −0.1점</span></span>',
-      '<button class="btn" type="button" id="pXls">엑셀로 받기</button>') +
+      '<button class="btn" type="button" id="pXls"><svg viewBox="0 0 20 20" width="16" height="16" aria-hidden="true"><path d="M10 3v10M6 9l4 4 4-4M4 17h12" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>엑셀로 받기</button>') +
       '<div class="chips">' + roleChips + '</div>' +
       // 휴대폰은 표 대신 홈 시안 2 목록(hmRow): 윗줄 이름 + 조회 평소 대비, 아랫줄 역할 · 참여 · 히트 + 조회 합. 15명씩, 정렬은 칩
       (pMob ? '<div class="chips" id="pSort">' + [['n', '참여'], ['views', '조회 합'], ['idx', '평소 대비'], ['hits', '히트'], ['score', '등급 점수']].map(x => '<button class="chip" type="button" data-s="' + x[0] + '" aria-pressed="' + (S.psort === x[0] || (!S.psort && x[0] === 'n')) + '">' + x[1] + '</button>').join('') + '</div>' +
@@ -3063,7 +3063,7 @@
     const views = sum(R.L.map(it => xv(it, 0))), likes = sum(R.L.map(it => xv(it, 1)));
     html += '<div class="gap"></div><section class="sec"><div class="xsum">' + esc(E.from) + ' ~ ' + esc(E.to) + ' · ' + E.chs.map(chName).join(', ') + ' · 게시물 <b>' + R.L.length + '개</b> · 조회 ' + (E.mode === 'inc' ? '증가 ' : '') + '<b>' + fmtK(views) + '</b> · 좋아요 <b>' + fmtK(likes) + '</b>' +
       '<small>' + xcondText().join(' · ') + '</small></div>' +
-      '<div class="xbar"><button type="button" class="btn pri" id="xDown">엑셀 다운로드</button><button type="button" class="btn" id="xCopy">표 복사</button><button type="button" class="btn" id="xSave">이 조건 저장</button><span class="sp"></span><button type="button" class="btn" id="xReset">초기화</button></div>' +
+      '<div class="xbar"><button type="button" class="btn pri" id="xDown">엑셀 다운로드</button><button type="button" class="btn" id="xCopy"><svg viewBox="0 0 20 20" width="16" height="16" aria-hidden="true"><path d="M7 7h9v9H7zM4 13V4h9" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>표 복사</button><button type="button" class="btn" id="xSave"><svg viewBox="0 0 20 20" width="16" height="16" aria-hidden="true"><path d="M5 3h8l3 3v11H5zM8 3v4h5M8 17v-5h5v5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>이 조건 저장</button><span class="sp"></span><button type="button" class="btn" id="xReset"><svg viewBox="0 0 20 20" width="16" height="16" aria-hidden="true"><path d="M4 10a6 6 0 1 0 2-4.5M4 3v3h3" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>초기화</button></div>' +
       '<div class="tw"><table class="tbl"><thead><tr>' + R.cols.map(c => '<th class="' + (c[3] !== 's' ? 'n' : '') + '">' + esc(c[1]) + '</th>').join('') + '</tr></thead><tbody>' +
       R.rows.slice(0, 200).map((r, i) => '<tr' + (isC ? ' class="click" data-i="' + i + '"' : '') + '>' + r.cells.map((v, j) => '<td class="' + (R.cols[j][3] !== 's' ? 'n' : (R.cols[j][0] === 'title' || R.cols[j][0] === 'top' ? 'w' : '')) + '">' + cellFmt(v, R.cols[j][3]) + '</td>').join('') + '</tr>').join('') +
       (R.total ? '<tr style="font-weight:700">' + R.total.map((v, j) => '<td class="' + (R.cols[j][3] !== 's' ? 'n' : '') + '">' + cellFmt(v, R.cols[j][3]) + '</td>').join('') + '</tr>' : '') +
