@@ -1680,6 +1680,10 @@
     return { n: hit.length, all: codes.length, sug: hit.some(c => sug[c]), empty: codes.filter(c => !(cnt[c] >= 2)).map(c => EXP.names[c]), tagged: P.filter(it => expOf(it)).length, total: P.length, cnt, codes, P };
   }
   const KPI_D20 = { save: 0.003, share: 0.01, ytLong: 1, view310: 0.25, cover: 16, student: 0.6 }; // 결정 대기 D20(2026-10-23 승인) 목표값
+  // 3~10분 시청 비율은 길이가 길수록 낮아짐(3~4분 24% → 7~10분 15%) → 길이대 평소로 21% 잣대에 맞춘 값을 씀(2026-11-03 「3~10분은 구간이 너무 넓은 거 아냐?」)
+  // 평소 = KPI 정할 때와 같은 기간(2025-10-23~2026-10-22) 3~10분 중간값: 3~5분 26%(19개) · 5~10분 18%(27개) · 전체 21%(46개). 목표 25%는 그대로(3~5분 31% · 5~10분 21%에 해당)
+  const V310B = { s: 0.26, l: 0.18, all: 0.21 };
+  const cpAdj = it => { const c = completion(it); return c == null ? null : c * V310B.all / (it.l <= 300 ? V310B.s : V310B.l); };
   const k7Rate = (it, j) => { const v = last(it); return v && it.r >= 300 && v[j] != null ? v[j] / it.r : null; }; // 인스타 공유(3)·저장(4) ÷ 도달, 도달 300 이상
   function k7Ctx() {
     const today = D.updated, q0 = today.slice(0, 5) + String(Math.floor((+today.slice(5, 7) - 1) / 3) * 3 + 1).padStart(2, '0') + '-01';
@@ -1693,7 +1697,7 @@
     const car = ig.filter(it => it.t === '캐러셀'), carC = car.filter(it => it.cn && it.cn !== '없음');
     const yt = own.filter(it => it.c === '유튜브' && it.t !== '1분 이하'), ytB = median(yt.filter(it => it.d >= y1 && !young(it)).map(mainVal));
     const ytQ = yt.filter(it => it.d >= d90 && !young(it)), ytR = ytB ? median(ytQ.map(it => mainVal(it) / ytB)) : null;
-    const v310 = median(own.filter(it => it.c === '유튜브' && it.t === '3~10분' && it.d >= d90).map(completion));
+    const v310 = median(own.filter(it => it.c === '유튜브' && it.t === '3~10분' && it.d >= d90).map(cpAdj));
     const cv = expCover(q0, today);
     const yr = own.filter(it => it.d >= y1), dep = new Set(); yr.forEach(it => (EXP.depts || []).forEach(n => { if (String(it.n || '').indexOf(n) >= 0) dep.add(n); }));
     const yi = yr.filter(it => it.c === '인스타그램'), stu = yi.length ? yi.filter(it => it.p === '홍보대사').length / yi.length : null; // 인스타만·홍보대사만(sns-ea 정의, 2026-10-23)
@@ -1713,7 +1717,7 @@
     // 줄마다 채널(2026-10-30 「유튜브 탭에 인스타 kpi?」): 채널 탭에서는 그 채널 줄 + 공통 줄(경험 지도·학과)만
     const R7 = [
       ['인스타그램', row('k7share', '인스타 공유율', '도달 대비 · 최근 90일 중간값', sh == null ? null : pctA(sh), pctA(KPI_D20.share), sh >= KPI_D20.share, '최근 90일', sh, KPI_D20.share, 0, sh == null ? '' : ppA(KPI_D20.share, sh))],
-      ['유튜브', row('k7v310', '3~10분 평균 시청 비율', '평균 시청 ÷ 영상 길이(완료율 아님) · 최근 90일', v310 == null ? null : pct0(v310), pct0(KPI_D20.view310), v310 >= KPI_D20.view310, '최근 90일', v310, KPI_D20.view310, 0, v310 == null ? '' : pp(KPI_D20.view310, v310))],
+      ['유튜브', row('k7v310', '3~10분 평균 시청 비율', '길이 맞춤 · 3~5분 평소 26%, 5~10분 평소 18%를 같은 잣대(21%)로 · 최근 90일', v310 == null ? null : pct0(v310), pct0(KPI_D20.view310), v310 >= KPI_D20.view310, '최근 90일', v310, KPI_D20.view310, 0, v310 == null ? '' : pp(KPI_D20.view310, v310))],
       ['유튜브', row('k7yt', '유튜브 롱폼 평소 대비', '채널 롱폼 1년 중간값 대비 · 최근 90일', ytR == null ? null : vsP(ytR), '평소 이상', ytR >= KPI_D20.ytLong, '최근 90일', ytR, KPI_D20.ytLong, 0, ytR == null ? '' : '평소까지 ' + Math.round((1 - ytR) * 100) + '%')],
       ['인스타그램', row('k7stu', '학생 제작 비율', '인스타 최근 1년 · 제작 주체 홍보대사', stu == null ? null : pct0(stu), pct0(KPI_D20.student) + ' 이상', stu >= KPI_D20.student, '인스타 최근 1년', stu, KPI_D20.student, 0, stu == null ? '' : pp(KPI_D20.student, stu))],
       ['인스타그램', row('k7save', '인스타 저장률', '코너 캐러셀 · 도달 대비 · 최근 90일 중간값', sv == null ? null : pctA(sv), pctA(KPI_D20.save), sv >= KPI_D20.save, (carC.length >= 3 ? '' : '캐러셀 전체 · ') + '최근 90일', sv, KPI_D20.save, 0, sv == null ? '' : '목표의 ' + Math.round(sv / KPI_D20.save * 100) + '%')],
@@ -4339,23 +4343,23 @@
           list: { t: '최근 90일 롱폼', L: Q.slice().sort((a, b) => r(b) - r(a)), o: { right: it => '롱폼 평소 대비 <span class="num">' + vsP(r(it)) + '</span>' } },
           table: kTbl(['월', '영상', '평소 대비'], M.slice().reverse().map(x => [x.k.replace('-', '.'), x.n + '개', vsP(x.v)])) };
       }
-      const V = yt.filter(it => it.t === '3~10분' && it.d >= C.y1 && completion(it) != null), f = a => median(a.map(completion)), tgt = KPI_D20.view310;
-      const V90 = V.filter(it => it.d >= C.d90), cur = f(V90), okN = V90.filter(it => completion(it) >= tgt).length;
+      const V = yt.filter(it => it.t === '3~10분' && it.d >= C.y1 && completion(it) != null), f = a => median(a.map(cpAdj)), raw = a => median(a.map(completion)), tgt = KPI_D20.view310;
+      const V90 = V.filter(it => it.d >= C.d90), cur = f(V90), okN = V90.filter(it => cpAdj(it) >= tgt).length;
       const s5 = V.filter(it => it.l <= 300), l5 = V.filter(it => it.l > 300);
-      if (s5.length && l5.length) A.push(kRow('info', '길이', '5분 이하 ' + pct0(f(s5)) + ' · ' + s5.length + '개 · 5분 넘음 ' + pct0(f(l5)) + ' · ' + l5.length + '개', '최근 1년 3~10분 영상'));
-      if (V90.length) A.push(kRow(okN * 2 >= V90.length ? 'good' : 'bad', '목표', V90.length + '개 중 ' + okN + '개가 ' + pct0(tgt) + ' 넘음', '최근 90일'));
+      if (s5.length && l5.length) A.push(kRow('info', '길이', '3~5분 ' + pct0(raw(s5)) + '(' + s5.length + '개) · 5~10분 ' + pct0(raw(l5)) + '(' + l5.length + '개)', '최근 1년 · 맞추기 전 값 · 목표 3~5분 31%, 5~10분 21%'));
+      if (V90.length) A.push(kRow(okN * 2 >= V90.length ? 'good' : 'bad', '목표', V90.length + '개 중 ' + okN + '개가 목표 넘음', '최근 90일 · 길이 맞춘 값 ' + pct0(tgt) + ' 이상'));
       const { G, auto: gAuto } = grpEc(V, f); best(G, pct0, '주제', gAuto);
       const P = k7Grp(V, 'p', f); if (P.length >= 2) A.push(kRow('info', '제작', P.map(x => x.k + ' ' + pct0(x.v)).join(' · '), '최근 1년'));
-      if (s5.length >= MIN_N && l5.length >= MIN_N && f(s5) > f(l5)) tip('길이', '5분 안쪽으로 다듬기', '5분 이하 ' + pct0(f(s5)) + ' · 5분 넘음 ' + pct0(f(l5)));
+      if (s5.length >= MIN_N && l5.length >= MIN_N && f(s5) > f(l5)) tip('길이', '5분 안쪽으로 다듬기', '길이 맞춰도 5분 이하가 높아요 · ' + pct0(f(s5)) + ' 대 ' + pct0(f(l5)));
       if (G[0]) tip('주제', '「' + G[0].k + '」처럼 끝까지 보는 주제', '평균 시청 ' + pct0(G[0].v) + ' · ' + G[0].n + '개');
       tip('도입', '첫 15초에 끝까지 볼 이유', '무엇을 보여 줄지 먼저 말하기 · 긴 인트로·로고 줄이기');
       tip('편집', '겹치는 컷 덜어 내기', '같은 장면 반복이 평균 시청을 깎아요 · 영상 상세 「시청 지속」 곡선으로 빠지는 곳 확인');
       const M = k7Mon(V, f);
-      return { scope: '유튜브', title: '3~10분 평균 시청 비율', big: pct0(cur), sub: '목표 ' + pct0(tgt) + ' · ' + k7Gap(cur, tgt, v => Math.round(v * 100) + '%p'), A, T,
-        note: '월별 평균 시청 ÷ 영상 길이 중간값 · 끝까지 본 비율과 달라요 · 점선 = 목표',
+      return { scope: '유튜브', title: '3~10분 평균 시청 비율(길이 맞춤)', big: pct0(cur), sub: '목표 ' + pct0(tgt) + ' · ' + k7Gap(cur, tgt, v => Math.round(v * 100) + '%p'), A, T,
+        note: '월별 길이 맞춘 시청 비율 중간값: 평균 시청 ÷ 길이에 3~5분은 21/26, 5~10분은 21/18을 곱함 · 끝까지 본 비율과 달라요 · 점선 = 목표',
         chart: k7Bar(M, pct0, tgt, '목표 ' + pct0(tgt)),
-        list: { t: '최근 1년 끝까지 많이 본 3~10분 영상', L: V.slice().sort((a, b) => completion(b) - completion(a)).slice(0, 8), o: { right: it => '평균 시청 <span class="num">' + pct0(completion(it)) + '</span>' } },
-        table: kTbl(['월', '영상', '평균 시청 비율'], M.slice().reverse().map(x => [x.k.replace('-', '.'), x.n + '개', pct0(x.v)])) };
+        list: { t: '최근 1년 길이 대비 끝까지 많이 본 3~10분 영상', L: V.slice().sort((a, b) => cpAdj(b) - cpAdj(a)).slice(0, 8), o: { right: it => '평균 시청 <span class="num">' + pct0(completion(it)) + '</span> · 맞춤 <span class="num">' + pct0(cpAdj(it)) + '</span>' } },
+        table: kTbl(['월', '영상', '길이 맞춘 비율'], M.slice().reverse().map(x => [x.k.replace('-', '.'), x.n + '개', pct0(x.v)])) };
     }
     if (key === 'k7cov') {
       const cv = expCover(C.q0, C.today), p = new Date(C.q0 + 'T00:00:00Z'); p.setUTCMonth(p.getUTCMonth() - 3);
