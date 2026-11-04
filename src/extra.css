@@ -757,8 +757,8 @@ details.fold[open] > summary { padding-bottom: 10px; }
 .td-bt s { position: absolute; top: -3px; bottom: -3px; width: 2px; margin-left: -1px; background: var(--muted); border-radius: 1px; }
 .td-bar b { font-size: var(--fs-tag); white-space: nowrap; }
 .td-ch { margin-top: 18px; }
-/* 이번 주(달력 주) 칸 막대: 회색 = 지난주 같은 요일, 진한 = 오늘 · 요일 글자 */
-.kbars.wk rect { fill: var(--jj); opacity: .45; }
+/* 이번 주(달력 주) 칸 막대: 회색 = 지난주 같은 요일, 이번 주는 지난 요일·오늘 모두 진하게(2026-11-04 담당자 「다 차 있는 게 맞다」), 오늘은 요일 글자 굵게 */
+.kbars.wk rect { fill: var(--jj); opacity: 1; }
 .kbars.wk rect.pv { fill: var(--muted); opacity: .22; }
 .kbars.wk rect.on { opacity: 1; }
 .kbars.pm rect.up { fill: var(--up); opacity: .8; }
