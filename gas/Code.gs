@@ -1984,7 +1984,12 @@ var NAME_STOP = /(학과|학부|대학|대학교|교수|센터|사업단|위원�
 function creditBlock(caption) {
   var c = String(caption || '');
   var i = c.search(/(^|\n)[^\p{L}\p{N}\n]*(제작|촬영|편집|기획|Created by)\s*($|\n|[:|▪]|&| 및|·|by)/u);
-  if (i < 0) return '';
+  if (i < 0) {
+    // JJ 스튜디오 「크레딧 복사」 형식: 「🎬 제목(또는 시리즈 | 회차)」 다음 줄이 「▪️ 이름 | 학과」(2026-11-04). 제목 줄은 이름·홍보대사 판정에서 뺌
+    var jj = /(?:^|\n)[ \t]*🎬[^\n]*\n(?=[ \t]*[▪🔸])/u.exec(c);
+    if (!jj) return '';
+    i = jj.index + jj[0].length;
+  }
   var b = c.slice(i, i + 420);
   var j = b.search(/\n\s*-\s*\n|\n\s*#|\n\s*\n\s*[^▪🔸\s]/u);
   if (j > 0) b = b.slice(0, j);
