@@ -429,7 +429,8 @@
     const top = M.top.length ? '<div class="ov-sec"><div class="hm-h"><h2>이 기간 인기 콘텐츠</h2><span>지난 7일 늘어난 조회 순</span></div><ol class="hm-list ov-top" id="ovTop">' +
       M.top.map((x, i) => hmRow({ tag: 'li', cls: 'hm-rk', attr: 'tabindex="0" data-i="' + i + '"', thumb: ovImg(x.it, 'hm-th ov-th'), c: x.it.c, t: esc(title(x.it.n)), v: '+' + fmtK(x.g), vc: '',
         m: [esc(typeShort(x.it.t) || ''), whenTxt(x.it.d)].filter(Boolean).join(' · '), r: mName(x.it) + ' ' + fmtK(mainVal(x.it)) })).join('') + '</ol></div>' : '';
-    const igs = chs.includes('인스타그램') ? M.P.filter(it => it.c === '인스타그램' && it.u).sort((a, b) => a.d < b.d ? 1 : -1).slice(0, 6) : [];
+    // 프로필에 보이는 대로: 보관한 것은 빼고, hong이 올리고 우리와 공동작업한 것은 넣음(우리 /media 목록엔 없음, 합계엔 안 더함, 2026-11-05)
+    const igs = chs.includes('인스타그램') ? M.P.filter(it => it.c === '인스타그램' && it.u && !it.arc).concat(D.items.filter(it => it.c === 'hong._.video' && it.u && !it.arc && String(it.co || '').split(', ').includes('jjuniv'))).sort((a, b) => a.d < b.d ? 1 : -1).slice(0, 6) : [];
     window.__ovIg = igs;
     const grid = igs.length >= 3 ? '<div class="ov-sec"><div class="hm-h"><h2>인스타그램 콘텐츠</h2><span>최근 게시물 · 숫자 = 조회</span></div><div class="ov-grid" id="ovGrid">' +
       igs.map((it, i) => '<button type="button" class="hm-rk" data-i="' + i + '" aria-label="' + esc(title(it.n)) + ' 조회 ' + fmtK(mainVal(it)) + '">' + ovImg(it, 'ov-gi') + '<em class="num">' + fmtK(mainVal(it)) + '</em></button>').join('') + '</div></div>' : '';
@@ -4557,14 +4558,15 @@
     const out = [], s = Object.keys(D.stale || {}), a = Object.keys(D.acctStale || {}).filter(c => !s.includes(c));
     if (s.length || a.length) {
       const d = (D.stale || {})[s[0]] || (D.acctStale || {})[a[0]];
-      out.push({ id: 'stale:' + s.concat(a).join(',') + ':' + d.d1, t: s.concat(a).map(chName).join(' · ') + ' 데이터가 새로 안 들어왔어요',
-        b: (s.length ? s.map(chName).join(' · ') + ' 게시물 값' : '') + (s.length && a.length ? ', ' : '') + (a.length ? a.map(chName).join(' · ') + ' 계정 지표' : '') + '가 ' + mdLabel(d.d0) + '과 ' + mdLabel(d.d1) + ' 기록에서 똑같아요. 그래서 이 기간에 늘어난 조회는 0으로 치지 않고 합계에서 뺐어요. ' + (s.concat(a).every(isBench) ? '타 대학은 좋아요·댓글을 인스타 API로 매일, 릴스 조회를 Supermetrics 공개 원본으로 월요일에 받아요. 계정이 비공개로 바뀌었거나 API가 막혔는지 확인할게요.' : '스냅샷 시트의 Supermetrics 예약 갱신이 돌았는지 확인해 주세요.') });
+      out.push({ id: 'stale:' + s.concat(a).join(',') + ':' + d.d1, t: s.concat(a).map(chName).join(' · ') + (s.length ? ' 데이터가 새로 안 들어왔어요' : ' 계정 지표가 멈춰 있어요'),
+        b: !s.length ? a.map(chName).join(' · ') + ' 계정 지표가 ' + mdLabel(d.d0) + '부터 ' + mdLabel(d.d1) + '까지 그대로예요. 월요일마다 갱신되는 Supermetrics 탭이 안 돌았을 수 있어요. 게시물 조회는 따로 받아서 영향이 없어요.' : (s.length ? s.map(chName).join(' · ') + ' 게시물 값' : '') + (s.length && a.length ? ', ' : '') + (a.length ? a.map(chName).join(' · ') + ' 계정 지표' : '') + '가 ' + mdLabel(d.d0) + '과 ' + mdLabel(d.d1) + ' 기록에서 똑같아요. 그래서 이 기간에 늘어난 조회는 0으로 치지 않고 합계에서 뺐어요. ' + (s.concat(a).every(isBench) ? '타 대학은 좋아요·댓글을 인스타 API로 매일, 릴스 조회를 Supermetrics 공개 원본으로 월요일에 받아요. 계정이 비공개로 바뀌었거나 API가 막혔는지 확인할게요.' : '스냅샷 시트의 Supermetrics 예약 갱신이 돌았는지 확인해 주세요.') });
     }
     const A = D.ads || {};
-    if (A.end && daysBetween(A.end, D.updated) > 14) {
+    // 스크립트가 잘 돌면 끊긴 날짜는 집행이 없었던 것(노출 있는 날만 받음): 알리지 않음. 예전 응답(ran 없음)은 그대로
+    if (A.end && daysBetween(A.end, D.updated) > 14 && !(A.ran && A.ran.ok && daysBetween(A.ran.d, D.updated) <= 2)) {
       const daily = (A.camps || []).filter(c => !c.manual).map(c => c.to).sort().pop() || '';
-      out.push({ id: 'gads:' + A.end, t: '구글애즈 광고 데이터가 ' + dot(A.end) + '에서 멈춰 있어요',
-        b: '그 뒤에 집행한 광고는 아직 보드에 없어요. 스냅샷 시트 「구글애즈 리포트」 탭에 일별 캠페인 보고서(' + (daily ? dot(addDays(daily, 1)) : '마지막 날 다음 날') + ' ~ 어제)를 붙여 넣거나, 「광고 추가 입력」 탭에 캠페인 합계를 적으면 다음 갱신 때 들어와요.' });
+      out.push({ id: 'gads:' + A.end, t: '구글애즈 스크립트가 ' + (A.ran ? (A.ran.ok ? dot(A.ran.d) + ' 뒤로 안 돌았어요' : dot(A.ran.d) + '에 오류가 났어요') : '돌았는지 확인이 안 돼요'),
+        b: '광고 데이터는 ' + dot(daily || A.end) + '까지 있어요. 구글애즈 → 도구 → 스크립트 기록에서 인증 오류를 확인해 주세요.' });
     }
     // 직전 기간 원본 미갱신: 「직전 N일 대비」 비교에서 그 채널을 뺌
     const n = D.dates.length;
@@ -4677,7 +4679,7 @@
     D.acctStale = {};
     const byCh = {};
     (D.acct || []).forEach(x => (byCh[x.ch] = byCh[x.ch] || []).push(x));
-    Object.entries(byCh).forEach(([c, a]) => { a.sort((x, y) => x.d < y.d ? -1 : 1); const p = a[a.length - 2], q = a[a.length - 1]; if (p && q && p.d !== q.d && JSON.stringify(p.m) === JSON.stringify(q.m)) D.acctStale[c] = { d0: p.d, d1: q.d }; });
+    Object.entries(byCh).forEach(([c, a]) => { a.sort((x, y) => x.d < y.d ? -1 : 1); const q = a[a.length - 1]; let i = a.length - 1; while (i > 0 && JSON.stringify(a[i - 1].m) === JSON.stringify(q.m)) i--; if (daysBetween(a[i].d, q.d) >= 8) D.acctStale[c] = { d0: a[i].d, d1: q.d }; }); // 원본 탭은 월요일에 갱신돼 주중엔 같은 게 정상: 8일 넘게 같을 때만 멈춤
     const M = (D.ads && D.ads.meta) || [];
     // 메타 광고비는 원화로 통일: 달러 계정(수동 탭·광고 추가 입력·달러 광고 계정)은 고정 환율로 환산하고 원래 달러는 c.usd에 남김
     const FX = (D.ads && D.ads.fx) || KRW_PER_USD;
