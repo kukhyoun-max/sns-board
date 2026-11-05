@@ -800,7 +800,7 @@
     const t = [];
     // ① 이번 주 늘어난 조회 + 요일별 막대(회색 = 지난주 같은 요일)
     t.push(kpiTile('이번 주 늘어난 조회', w.cur == null ? '–' : '+' + fmtK(w.cur), wkCmp(w.cur, w.prev, '') || (w.cur == null ? '일별 기록이 아직 없어요' : '지난주 기록이 없어 비교 전'), '',
-      weekBars(w.days.map(x => x.v === undefined ? undefined : x.v == null ? 0 : x.v), w.days.map(x => x.pv), '요일별 늘어난 조회 · 회색 = 지난주 같은 요일')));
+      weekBars(w.days.map(x => x.v === undefined ? undefined : x.v == null ? 0 : x.v), w.days.map(x => x.pv), '요일별 늘어난 조회 · 회색 = 지난주 같은 요일'), w.cur == null ? '' : 'cw'));
     // ② 이번 주 올린 게시물 + 요일별 게시 수
     const cnt = (L, d0) => WK_D.map((n, k) => L.filter(it => it.d === addDays(d0, k)).length);
     const pc = cnt(w.posts, w.mon), ppc = cnt(w.pposts, w.pm);
@@ -4200,6 +4200,22 @@
           options: chartOpts({ layout: { padding: { top: 8 } }, plugins: { legend: { display: true, position: 'bottom' }, tooltip: { callbacks: { title: c => { const x = S12[c[0].dataIndex]; return dot(x.d0) + ' → ' + dot(x.d1) + ' · ' + x.days + '일'; }, label: c => c.dataset.label + ' 하루 +' + fmtK(c.raw) } } }, scales: { x: { stacked: true, ticks: { maxRotation: 0, autoSkip: true, maxTicksLimit: 6 } }, y: Object.assign(yAx(v => fmtK(v)), { stacked: true }) } }) },
         list: { t: '이 기간 많이 늘어난 게시물', L: top, o: { right: it => '조회 <em class="up">+' + fmtK(p.inc0(it)) + '</em>' } },
         table: kTbl(['기간', '일수', '늘어난 조회', '하루 평균', '새 게시물'], S12.slice().reverse().map(x => [md2(x.d0) + ' → ' + md2(x.d1), x.days + '일', '+' + fmt(x.v), '+' + fmt(Math.round(x.v / x.days)), x.nw.length + '개 · +' + fmtK(x.vn)])) };
+    }
+    // 이번 주 늘어난 조회(홈 칸과 같은 숫자 = calWeek, 2026-11-05 「상세창이 없어?」). 게시물 목록·구성만 기록 사이 값
+    if (key === 'cw') {
+      const w = calWeek(chs); if (w.cur == null) return null;
+      const dn = w.days.filter(x => x.v !== undefined), best = dn.filter(x => x.v != null).sort((a, b) => b.v - a.v)[0];
+      if (w.prev) A.push(kRow(upDn(w.cur / w.prev - 1), '비교', '지난주 같은 때 <span class="num">+' + fmtK(w.prev) + '</span> · 이번 주 <span class="num">' + dTxt(w.cur / w.prev - 1, 1) + '</span>', md2(w.pm) + '~' + md2(w.pe)));
+      if (best && best.v) A.push(kRow('info', '요일', best.n + '요일에 가장 많이 늘었어요 · <span class="num">+' + fmtK(best.v) + '</span>', w.cur ? '이번 주 증가의 ' + pct0(best.v / w.cur) : ''));
+      if (!one) { const by = w.okc.map(c => [c, calWeek([c]).cur]).filter(x => x[1] != null).sort((a, b) => b[1] - a[1]); if (by.length) A.push(kRow('info', '채널', by.map(x => chName(x[0]) + ' +' + fmtK(x[1])).join(' · '), w.cur ? chName(by[0][0]) + ' 비율 ' + pct0(by[0][1] / w.cur) : '')); }
+      const m = weekModel(chs, 0), p = m && m.cur, top = p ? p.nw.concat(p.old).filter(it => p.inc0(it) > 0).sort((a, b) => p.inc0(b) - p.inc0(a)).slice(0, 8) : [];
+      if (p && p.v) A.push(kRow('info', '구성', '새 게시물 ' + p.nw.length + '개가 ' + pct0(p.vn / p.v) + ' · 예전 게시물이 ' + pct0(p.vo / p.v), md2(p.d0) + ' → ' + md2(p.d1) + ' 기록 기준'));
+      return { scope, title: '이번 주 늘어난 조회', big: '+' + fmt(w.cur), sub: md2(w.mon) + '~' + md2(w.end) + ' · 광고 제외', A,
+        note: '요일별 늘어난 조회 · 회색 = 지난주 같은 요일',
+        chart: { type: 'bar', data: { labels: WK_D, datasets: [{ label: '지난주', data: w.days.map(x => x.pv), backgroundColor: css('--line'), borderRadius: 3, maxBarThickness: 30 }, { label: '이번 주', data: w.days.map(x => x.v === undefined ? null : x.v), backgroundColor: col, borderRadius: 3, maxBarThickness: 30 }] },
+          options: chartOpts({ layout: { padding: { top: 8 } }, plugins: { legend: { display: true, position: 'bottom' }, tooltip: { callbacks: { label: c => c.dataset.label + ' +' + fmtK(c.raw) } } }, scales: { x: { ticks: { maxRotation: 0, autoSkip: false } }, y: yAx(v => fmtK(v)) } }) },
+        list: top.length ? { t: '이번 주 많이 늘어난 게시물', L: top, o: { right: it => '조회 <em class="up">+' + fmtK(p.inc0(it)) + '</em>' } } : null,
+        table: kTbl(['요일', '이번 주', '지난주'], w.days.map(x => [x.n + ' ' + md2(x.d), x.v === undefined || x.v == null ? '–' : '+' + fmt(x.v), x.pv == null ? '–' : '+' + fmt(x.pv)]).concat([['합계', '+' + fmt(w.cur), w.prev == null ? '–' : '+' + fmt(w.prev)]])) };
     }
     if (key === 'hit') {
       const M = lastMonths(12).map(k => { const j = D.items.filter(it => chs.includes(it.c) && it.t !== '스토리' && !it.ad && it.d.slice(0, 7) === k).filter(judged), h = j.filter(isHit).length; return { k, n: j.length, h, r: j.length ? h / j.length : null }; });
