@@ -1286,3 +1286,6 @@ em.nm { font-style: normal; font-weight: 700; color: var(--fg); }
 .bl i.hit { background: var(--jj); }
 .ov-th, .ov-gi { background: var(--hm-thumb); }
 .ov-th b, .ov-gi b, .hm-th.ov-th b { font-weight: 400; color: var(--muted); }
+/* 요일 글자가 있는 카드와 나란할 때 선 그래프 바닥선을 맞춤(2026-11-06 「세개 그래프 모두 같은 하단 라인」): 같은 높이의 빈 줄을 아래에 둠 */
+.hm-cards:has(.kb-l) .hm-card:not(:has(.kb-l))::after { content: "월"; display: block; visibility: hidden; margin-top: 4px; font-size: var(--fs-tag); }
+@media (max-width: 560px) { .hm-cards:has(.kb-l):not(.n1):not(.n2) .hm-card:not(:has(.kb-l))::after { font-size: 12px; letter-spacing: 0; } }
