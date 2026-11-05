@@ -458,7 +458,7 @@
     let html = tdFirst(chs) ? tdB + ovB : ovB + tdB;
     const topH = topHtml(chs); let chk = '';
     // 용어 뜻은 맨 아래 접은 칸으로, 조건 설명 줄은 제목에 마우스를 올리면
-    chk += '<section class="sec"><div class="sh"><div><h2>점검할 것</h2><p>최근 3달 분류별 · 평소보다 낮은 콘텐츠</p></div></div>' +
+    chk += '<section class="sec"><div class="sh"><div><h2>점검할 것</h2><p>최근 3달 분류별 · 가운데 선 = 평소</p></div></div>' +
       briefText(chs) +
       '<h3 class="sub" title="최근 30일 · 올린 지 ' + AGE_MIN + '일 지남 · 조회 평소 대비 −50% 아래 · 다음 기획 때 제목·첫 장·썸네일 점검">평소보다 낮은 콘텐츠</h3><ol class="rank" id="bLow">' + (low.length ? rankRows(low) : '<li class="empty">' + ICO.check + ' 평소보다 낮은 콘텐츠가 없어요</li>') + '</ol>' +
       '<details class="fold"><summary>용어 뜻</summary>' + defsHtml() + '</details>' + secClose;
@@ -536,19 +536,21 @@
     own.forEach(ch => {
       const L = pool({ channels: [ch], since: addDays(D.updated, -90) }).filter(it => ratio(it) != null);
       if (!L.length) return;
-      const g = groupBy(L, 'g').filter(r => r.n >= MIN_N && r.idx != null).sort(byIdx);
-      if (!g.length) { R.push(hmRow({ c: ch, t: '분류 비교 전', m: '한 분류에 ' + MIN_N + '개 이상 모인 게 없어요' })); return; }
-      // 홈 시안 2 모양: 분류마다 hmRow(윗줄 분류 + 조회 평소 대비, 아랫줄 채널 · 추천/비추천 · 개수 + 히트율)
+      // 「주제 없음」은 태그가 안 붙은 묶음이라 높고 낮음을 말할 수 없음(2026-11-05 「왜케 안예쁘고 눈에 안들어올까」): 채널로 묶고, 판단 값·막대를 앞으로, 추천/비추천 대신 사실(가장 높음·낮음)
+      const g = groupBy(L, 'g').filter(r => r.n >= MIN_N && r.idx != null && r.k !== '주제 없음').sort(byIdx), H = [];
       const t = g[0], w = g.length > 1 ? g[g.length - 1] : null;
-      // 누르면 그 분류 게시물 5개가 펼쳐짐(2026-10-27 「5개만 보여주면 이해도가 높을 거 같아」): 추천·보통 = 평소 대비 높은 순, 비추천 = 낮은 순
-      const cell = (lab, r) => { const L5 = r.arr.slice().sort((a, b) => lab === '비추천' ? (ratio(a) || 0) - (ratio(b) || 0) : (ratio(b) || 0) - (ratio(a) || 0)).slice(0, 5), k = INS_L.push(L5) - 1;
-        return '<details class="hm-fold hm-ins">' + hmRow({ tag: 'summary', c: ch, t: esc(r.k), v: vsP(r.idx), vc: xCls(r.idx) === 'flat' ? 'mu' : xCls(r.idx), m: lab + ' · ' + r.n + '개', r: '히트율 ' + pct0(r.hit) + ' <span class="chev" aria-hidden="true">›</span>', tip: lab + ' · 조회 ' + vsTxt(r.idx) + ' · 최근 3달 · 누르면 게시물 ' + L5.length + '개' }) +
+      // 누르면 그 분류 게시물 5개가 펼쳐짐(2026-10-27 「5개만 보여주면 이해도가 높을 거 같아」): 가장 높음 = 평소 대비 높은 순, 가장 낮음 = 낮은 순
+      const cell = (lab, r) => { const low = lab === '가장 낮음', L5 = r.arr.slice().sort((a, b) => low ? (ratio(a) || 0) - (ratio(b) || 0) : (ratio(b) || 0) - (ratio(a) || 0)).slice(0, 5), k = INS_L.push(L5) - 1, vc = xCls(r.idx) === 'flat' ? 'mu' : xCls(r.idx), bw = Math.max(1, Math.min(Math.abs(r.idx - 1), 1) * 50);
+        return '<details class="hm-fold hm-ins">' + hmRow({ tag: 'summary', t: esc(r.k), v: vsP(r.idx), vc, bar: '<span class="ins-bar" aria-hidden="true"><i class="' + vc + '" style="width:' + bw.toFixed(1) + '%;' + (r.idx >= 1 ? 'left:50%' : 'right:50%') + '"></i></span>', m: lab + ' · ' + r.n + '개', r: '히트율 ' + pct0(r.hit) + ' <span class="chev" aria-hidden="true">›</span>', tip: lab + ' · 조회 ' + vsTxt(r.idx) + ' · 최근 3달 · 누르면 게시물 ' + L5.length + '개' }) +
           '<ol class="hm-list hm-ins-l" data-ins="' + k + '">' + rankRows(L5) + '</ol></details>'; };
-      R.push(cell(t && t.idx != null && t.idx < 1 ? '보통' : '추천', t) + (w ? cell('비추천', w) : ''));
+      if (!g.length) H.push(hmRow({ t: '분류 비교 전', m: '한 분류에 ' + MIN_N + '개 이상 모인 게 없어요' }));
+      else H.push(cell('가장 높음', t) + (w ? cell('가장 낮음', w) : ''));
+      if (ch === '인스타그램') {
+        const ft = groupBy(L.filter(it => it.r > 0), 't').map(r => ({ k: r.k, n: r.n, rv: median(r.arr.map(it => it.r)) })).filter(r => r.n >= 5 && r.rv > 0).sort((a, b) => b.rv - a.rv);
+        if (ft.length >= 2) H.push(hmRow({ t: '형식별 도달 중간값', m: ft.map(r => esc(fmtType(r.k)) + ' ' + fmtK(r.rv) + '명').join(' · '), tip: '캐러셀은 슬라이드를 넘길 때마다 조회가 다시 세져서 조회 대신 도달(게시물 하나가 닿은 사람 수)로 견줘요' }));
+      }
+      R.push('<div class="ins-g"><div class="ins-ch">' + chTxt(ch) + '</div>' + H.join('') + '</div>');
     });
-    const ig = pool({ channels: ['인스타그램'], since: addDays(D.updated, -90) }).filter(it => ratio(it) != null);
-    const ft = own.includes('인스타그램') ? groupBy(ig.filter(it => it.r > 0), 't').map(r => ({ k: r.k, n: r.n, rv: median(r.arr.map(it => it.r)) })).filter(r => r.n >= 5 && r.rv > 0).sort((a, b) => b.rv - a.rv) : [];
-    if (ft.length >= 2) R.push(hmRow({ c: '인스타그램', t: '형식별 도달 중간값', m: ft.map(r => esc(fmtType(r.k)) + ' ' + fmtK(r.rv) + '명').join(' · '), tip: '캐러셀은 슬라이드를 넘길 때마다 조회가 다시 세져서 조회 대신 도달(게시물 하나가 닿은 사람 수)로 견줘요' }));
     return R.length ? R.join('') : '<p class="mu">최근 3달 게시물이 없어요.</p>';
   }
   function insights(chs) {
@@ -1247,12 +1249,12 @@
         '<span class="bc-t">' + (r[key] == null ? '' : '<i style="width:' + Math.max(2, r[key] / mx * 100) + '%;background:' + chColor(r.ch) + '"></i>') + '</span>' +
         '<span class="bc-v num">' + (r[key] == null ? '<span class="mu">' + why(r) + '</span>' : f(r)) + '</span></div>').join('') + '</div>';
     };
-    return '<section class="sec" id="bcSec"><div class="sh"><div><h2>타 대학 비교</h2><p>인스타그램 · 최근 ' + ({ 91: 3, 182: 6, 365: 12 })[BC.p] + '개월 게시물 · 게시물당 값은 중간값' + (firstB ? ' · 타 대학 데이터는 ' + dot(firstB) + '부터' : '') + '</p></div>' +
-      '<div class="seg">' + [[91, '3개월'], [182, '6개월'], [365, '12개월']].map(p => '<button type="button" data-bcp="' + p[0] + '" aria-pressed="' + (BC.p === p[0]) + '">' + p[1] + '</button>').join('') + '</div></div>' +
+    return '<section class="sec" id="bcSec"><div class="sh"><div><h2>타 대학 비교</h2><p>인스타그램 · 최근 ' + ({ 30: 1, 91: 3, 182: 6, 365: 12 })[BC.p] + '개월 게시물 · 게시물당 값은 중간값' + (firstB ? ' · 타 대학 데이터는 ' + dot(firstB) + '부터' : '') + '</p></div>' +
+      '<div class="seg">' + [[30, '1개월'], [91, '3개월'], [182, '6개월'], [365, '12개월']].map(p => '<button type="button" data-bcp="' + p[0] + '" aria-pressed="' + (BC.p === p[0]) + '">' + p[1] + '</button>').join('') + '</div></div>' +
       '<div class="bc-grid">' + blk('게시물당 좋아요', 'like', r => fmtK(r.like), r => r.hidden ? '비공개' : '데이터 없음') +
       blk('릴스 조회', 'reel', r => fmtK(r.reel), () => '데이터 없음') +
       blk('주당 게시', 'wk', r => r.wk.toFixed(1) + '개/주', () => '–') + '</div>' +
-      '<p class="note">타 대학은 릴스만 조회가 공개돼요' + (S.ch === '전체' ? ' · 자세한 비교는 위 「타 대학」 탭' : '') + '</p></section>';
+      '<p class="note">타 대학은 릴스만 조회가 공개돼요' + (BC.p === 30 ? ' · 1개월은 게시물이 적어 한두 개에 크게 흔들려요' : '') + (S.ch === '전체' ? ' · 자세한 비교는 위 「타 대학」 탭' : '') + '</p></section>';
   }
 
   // ───────── 타 대학 어제 올린 콘텐츠(2026-11-01 담당자 「평일에는 전날 어떤 콘텐츠 올렸는지 리스트로, 대학별로 하나씩」) ─────────
@@ -1305,7 +1307,7 @@
   function wireAr(b) { b.querySelectorAll('[data-bca]').forEach(x => x.addEventListener('click', () => { if (BC.ar === x.dataset.bca) return; BC.ar = x.dataset.bca; paintHreel(); paintYtb(); })); }
   const YTB_IG = { 전주대: '유튜브', 전북대: 'jbnu1947', 원광대: 'wonkwang_univ', 우석대: 'woosukuni' }; // 색·이름표는 인스타 비교와 같게
   function ytbHtml(Y) {
-    const head = '<div class="sh"><div><h2>유튜브 비교</h2><p>유튜브 API 공개 숫자 기준 · 최근 ' + ({ 91: 3, 182: 6, 365: 12 })[BC.p] + '개월 영상 · 조회는 올린 지 7일 지난 영상의 중간값 · 구독자는 유튜브가 앞 세 자리까지만 알려 줘요</p></div>' + arSeg() + '</div>';
+    const head = '<div class="sh"><div><h2>유튜브 비교</h2><p>유튜브 API 공개 숫자 기준 · 최근 ' + ({ 30: 1, 91: 3, 182: 6, 365: 12 })[BC.p] + '개월 영상 · 조회는 올린 지 7일 지난 영상의 중간값 · 구독자는 유튜브가 앞 세 자리까지만 알려 줘요</p></div>' + arSeg() + '</div>';
     if (Y && Y.ch) Y = Object.assign({}, Y, { ch: Y.ch.filter(c => arOk(c[0])), v: (Y.v || []).filter(r => arOk(r[0])), a: (Y.a || []).filter(r => arOk(r[1])) });
     if (!Y || !Y.v || !Y.v.length) return head + '<div class="wait">' + (Y ? '아직 기록이 없어요. 다음 아침 기록부터 보여요.' : '유튜브 비교를 불러오지 못했어요.') + '</div>';
     const today = D.updated, from = addDays(today, -BC.p), ripe = addDays(today, -7);
@@ -1384,7 +1386,7 @@
     return '<div class="hm-sec"><div class="hm-h"><h3>하지 말아야 할 주제·유형</h3><span>평소의 ' + HR_BAD + '배 이하</span></div>' +
       (list ? '<div class="hm-list">' + list + '</div>' : '<div class="wait">평소의 ' + HR_BAD + '배 아래로 떨어지는 주제·유형이 아직 없어요.</div>') +
       (low.length ? '<p class="note">조금 낮음 · 평소의 ' + HR_BAD + '~' + HR_LOW + '배: ' + low.map(o => esc(o.name) + (o.our ? ' 우리 ' + o.our + '개' : '')).join(', ') + '</p>' : '') +
-      '<p class="note">주제·유형은 캡션 낱말로 자동 판정 · 우리 게시물과 같은 규칙 · 학교 범위와 상관없이 호남권 전체 릴스 기준 · 릴스 ' + MIN_N + '개·3개 학교 이상만 · 「우리도」 = 최근 ' + ({ 91: 3, 182: 6, 365: 12 })[BC.p] + '개월 우리 릴스 수</p></div>';
+      '<p class="note">주제·유형은 캡션 낱말로 자동 판정 · 우리 게시물과 같은 규칙 · 학교 범위와 상관없이 호남권 전체 릴스 기준 · 릴스 ' + MIN_N + '개·3개 학교 이상만 · 「우리도」 = 최근 ' + ({ 30: 1, 91: 3, 182: 6, 365: 12 })[BC.p] + '개월 우리 릴스 수</p></div>';
   }
   function hrAdList(H, flag, name, from, ok) {
     const L = H.v.filter(r => flag[r[0]] && ok(r[1]) && r[2] >= from).sort((a, b) => flag[b[0]].x - flag[a[0]].x);
@@ -1397,7 +1399,7 @@
   }
   function hrHtml(H) {
     const at = H && H.at ? ' · ' + dot(H.at) + ' 받음' : '';
-    const head = '<div class="sh"><div><h2>' + (BC.ar === 'hn' ? '호남권' : '전북') + ' 대학 릴스</h2><p>공개 재생수 · 최근 ' + ({ 91: 3, 182: 6, 365: 12 })[BC.p] + '개월 릴스 · 재생은 중간값</p></div>' + arSeg() + '</div>';
+    const head = '<div class="sh"><div><h2>' + (BC.ar === 'hn' ? '호남권' : '전북') + ' 대학 릴스</h2><p>공개 재생수 · 최근 ' + ({ 30: 1, 91: 3, 182: 6, 365: 12 })[BC.p] + '개월 릴스 · 재생은 중간값</p></div>' + arSeg() + '</div>';
     if (!H || !H.v || !H.v.length) return head + '<div class="wait">' + (H ? '아직 기록이 없어요. 첫 수집이 끝나면 보여요.' : '호남권 릴스를 불러오지 못했어요.') + '</div>';
     const from = addDays(D.updated, -BC.p), name = {}, own = {};
     H.acc.forEach(a => { name[a[0]] = a[1]; own[a[0]] = a[2]; });
@@ -3614,7 +3616,7 @@
   function hmRow(o) {
     const tag = o.tag || 'div';
     return '<' + tag + ' class="hm-row' + (o.cls ? ' ' + o.cls : '') + '"' + (o.attr ? ' ' + o.attr : '') + (o.tip ? ' title="' + esc(o.tip) + '"' : '') + '>' + (o.thumb || '') +
-      '<span class="hm-rb"><span class="hm-r1"><span class="hm-t">' + o.t + '</span>' + (o.v ? '<b class="num ' + (o.vc || '') + '">' + o.v + '</b>' : '') + '</span>' +
+      '<span class="hm-rb"><span class="hm-r1"><span class="hm-t">' + o.t + '</span>' + (o.v ? '<b class="num ' + (o.vc || '') + '">' + o.v + '</b>' : '') + '</span>' + (o.bar || '') +
       '<span class="hm-r2"><span class="hm-m">' + (o.c ? chTxt(o.c) + (o.m ? ' · ' : '') : '') + (o.m || '') + '</span>' + (o.r ? '<span class="hm-x">' + o.r + '</span>' : '') + '</span></span></' + tag + '>';
   }
   // lv = 제목 단계(홈 구역은 2, 전략 화면 안 묶음은 3 — 2026-10-24 점검 6번). 오른쪽 부제는 잘릴 수 있어 title로 전문

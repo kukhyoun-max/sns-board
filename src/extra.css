@@ -1258,3 +1258,12 @@ em.nm { font-style: normal; font-weight: 700; color: var(--fg); }
 .btn svg { flex: none; color: var(--up-tx); }
 @media (hover: hover) { .btn:not(.pri):not(:disabled):hover { background: var(--hm-card); } }
 .btn:focus-visible { outline: 2px solid var(--up); outline-offset: 2px; }
+/* 홈 분류별 칸(2026-11-05): 채널로 묶고 값·막대가 먼저 */
+.ins-g + .ins-g { margin-top: 24px; }
+.ins-ch { font-size: 16px; font-weight: 700; padding-bottom: 8px; border-bottom: 2px solid var(--line); }
+.ins-g .hm-ins:first-of-type .hm-row { border-top: 0; }
+.hm-ins .hm-r1 > b, .hm-ins .hm-r1 > b.mu { font-size: 20px; font-weight: 700; }
+.ins-bar { position: relative; display: block; height: 6px; margin: 6px 0 8px; border-radius: 3px; background: var(--hm-card); }
+.ins-bar::after { content: ""; position: absolute; left: 50%; top: -3px; width: 2px; height: 12px; margin-left: -1px; background: var(--muted); }
+.ins-bar i { position: absolute; top: 0; height: 100%; border-radius: 3px; background: var(--muted); }
+.ins-bar i.up { background: var(--up); } .ins-bar i.down { background: var(--down); }
