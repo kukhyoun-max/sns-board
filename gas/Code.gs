@@ -3422,6 +3422,7 @@ function igOverlay_(out, today, chName) {
       if (it) {
         ['views', 'likes', 'comments', 'shares', 'saves', 'reach'].forEach(f => { if (x[f] !== '') it[f] = x[f]; });
         if (x.url) it.url = x.url;
+        if (x.caption) it.full = x.caption; // 게시 뒤 고친 캡션(크레딧 추가 등)도 판정에 쓰게: 원본 시트는 받아 둔 옛 캡션(2026-11-05 정림 강연이 계속 자체 제작). 키·제목은 안 바꿈
         it.mid = x.id; it.ts = x.ts; // 메타 미디어 ID·게시 시각(「게시물 일별」 대응표·「게시 후 조회」 경과 시간용, 스냅샷 탭에는 안 씀)
         upd++;
       } else if (x.date >= newFrom && x.product !== 'STORY') {
