@@ -6202,10 +6202,10 @@ function hourlyFor_(ss, ids, keep) { // keep = 그래프에도 그리고 평소 
 const TODAY_TTL = 600;
 const PLAN_CAL = '공식 SNS 발행 일정';
 function planFolder_(desc) {
-  const t = String(desc || '').replace(/<[^>]+>/g, ' ');
+  const t = String(desc || '').replace(/<br\s*\/?>|<\/p>|<\/div>/gi, '\n').replace(/<[^>]+>/g, ' ');
   const u = t.match(/https:\/\/drive\.google\.com\/drive\/(?:u\/\d+\/)?folders\/[\w-]+/);
   if (u) return u[0];
-  const n = t.match(/SNS 업로드용\/([^\n(]+)/);
+  const n = t.match(/SNS 업로드용[\/\\]([^\n(]+)/); // 경로를 역슬래시로 적은 일정도(2026-11-05 「폴더 연결 안되는 애들」)
   if (!n) return '';
   try { const it = DriveApp.getFoldersByName(n[1].trim()); return it.hasNext() ? it.next().getUrl() : ''; } catch (e) { return ''; }
 }
