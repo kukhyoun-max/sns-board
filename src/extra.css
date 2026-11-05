@@ -1280,3 +1280,9 @@ em.nm { font-style: normal; font-weight: 700; color: var(--fg); }
 .wk-card .wk-bar { margin: 6px 0 2px; }
 .wk-card .wk-l { line-height: 1.7; }
 .wk-card .wk-f { margin-top: 4px; padding-top: 14px; }
+/* unslop 점검(2026-11-06): 휴대폰 3칸 카드의 요일 글자가 붙어 「월화수목금토일」로 보임 → 그 칸만 12px(10-22 점검 기준) · 점·막대는 한 색 · 썸네일 없는 칸은 채널 색 대신 바탕 회색 */
+@media (max-width: 560px) { .hm-cards:not(.n1):not(.n2) .kb-l { font-size: 12px; letter-spacing: 0; } }
+.sumry li::before { background: var(--jj); }
+.bl i.hit { background: var(--jj); }
+.ov-th, .ov-gi { background: var(--hm-thumb); }
+.ov-th b, .ov-gi b, .hm-th.ov-th b { font-weight: 400; color: var(--muted); }
