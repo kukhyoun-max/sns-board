@@ -6206,8 +6206,12 @@ function planFolder_(desc) {
   const u = t.match(/https:\/\/drive\.google\.com\/drive\/(?:u\/\d+\/)?folders\/[\w-]+/);
   if (u) return u[0];
   const n = t.match(/SNS 업로드용[\/\\]([^\n(]+)/); // 경로를 역슬래시로 적은 일정도(2026-11-05 「폴더 연결 안되는 애들」)
-  if (!n) return '';
-  try { const it = DriveApp.getFoldersByName(n[1].trim()); return it.hasNext() ? it.next().getUrl() : ''; } catch (e) { return ''; }
+  if (n) { try { const it = DriveApp.getFoldersByName(n[1].trim()); return it.hasNext() ? it.next().getUrl() : ''; } catch (e) { return ''; } }
+  // 유튜브는 D 드라이브 폴더라 웹에서 못 엶 → PC가 드라이브 「★ SNS 업로드용/유튜브」에 같은 이름으로 복사해 둔 것을 찾음(_도구/scripts/유튜브폴더복사, 2026-11-06)
+  const y = t.match(/유튜브[\/\\]([^\n(]+)/);
+  if (!y) return '';
+  try { const it = DriveApp.getFoldersByName(y[1].trim()); while (it.hasNext()) { const f = it.next(), p = f.getParents(); if (p.hasNext() && p.next().getName() === '유튜브') return f.getUrl(); } } catch (e) {}
+  return '';
 }
 function partToday_(ss) {
   const LV = livePosts_(120), now = new Date(), today = LV.today, notes = LV.notes.slice(), posts = LV.posts; // 2분 안에 받은 값이면 다시 받지 않음(보드는 2분 넘은 값만 새로 요청)
