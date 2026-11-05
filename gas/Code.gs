@@ -1552,14 +1552,14 @@ function buildDashboardData_() {
         c: ch, t: s_(r[C.type]) || '미분류', d: s_(r[C.date]).slice(0, 10),
         n: cut_(s_(r[C.title]), 70),
         // 유튜브 URL · 인스타·타 대학은 퍼머링크 모양일 때만(타 대학은 2026-11-01 「어제 올린 콘텐츠」 바로 가기, 지금 인스타 원본 「미디어 URL」은 만료되는 CDN 주소라 비움)
-        u: /youtube\.com|youtu\.be/.test(url) ? url : (ch === '인스타그램' || bench ? (igPermalink_(url) || igPermalink_(s_(r[2]))) : ''),
+        u: /youtube\.com|youtu\.be/.test(url) ? url : (ch === '인스타그램' || ch === 'hong._.video' || bench ? (igPermalink_(url) || igPermalink_(s_(r[2]))) : ''),
         h: dates.map(() => null),
       };
       // 캡션 특징(2026-11-03 매일 분석): 자르기 전 캡션 전체로 — 장소 정보(p)·질문형 첫 줄(q), 규칙은 Ana.gs(= src/ana.js)
       if (!bench) { const f = Ana.featOf(s_(r[C.title])); if (f) it.ft = f; }
     }
     // 인스타: 예전 기록에는 CDN 주소뿐이라, 나중 기록(인스타 API)에 게시물 주소가 있으면 그것을 씀
-    if (!it.u && (ch === '인스타그램' || bench)) it.u = igPermalink_(s_(r[C.url]));
+    if (!it.u && (ch === '인스타그램' || ch === 'hong._.video' || bench)) it.u = igPermalink_(s_(r[C.url])); // hong도 주소를 실음(2026-11-05 공동작업·보관 표시가 주소로 맞춤)
     it.h[di[s_(r[0]).slice(0, 10)]] = [0, 1, 2, 3, 4].map(i => n_(r[M0 + i]));
     it.r = n_(r[C.reach]); it.e = n_(r[C.engaged]); it.a = n_(r[C.avgSec]); it.l = n_(r[C.lengthSec]);
     if (s_(r[C.type])) it.t = s_(r[C.type]);
@@ -1630,6 +1630,14 @@ function buildDashboardData_() {
 }
 
 // 인스타 퍼머링크(https://www.instagram.com/p|reel|tv/…)만 남김, 아니면 ''
+// 구글애즈 스크립트 마지막 실행(실행 로그): 집행이 없어 데이터가 끊긴 것과 스크립트가 멈춘 것을 가름(2026-11-05)
+function gadsRun_(ss) {
+  const lg = ss.getSheetByName(LOG), n = lg ? Math.min(400, lg.getLastRow() - 1) : 0;
+  if (n <= 0) return null;
+  const v = lg.getRange(lg.getLastRow() - n + 1, 1, n, 4).getValues();
+  for (let i = v.length - 1; i >= 0; i--) if (String(v[i][1]) === '구글애즈 스크립트') return { d: fmtDate_(v[i][0]), ok: /^정상/.test(String(v[i][3])) };
+  return null;
+}
 function igPermalink_(s) {
   const t = String(s || '').trim();
   return /^https?:\/\/(www\.)?instagram\.com\/(p|reel|reels|tv)\/[\w-]+/.test(t) ? t.split('?')[0] : '';
@@ -2615,7 +2623,7 @@ function attachTags_(ss, items, keys) {
     it.g = ci.g; it.ec = ci.ec; if (ci.s) it.s = ci.s; else delete it.s;
     if (!f.g && !f.ex) it.ega = 1; // 주제가 자동(사람이 안 정함) — 유형의 tya와 같은 뜻
     if (f.src) it.src = f.src;     // 「태그 수정」 H열 출처: r 검토 · c Claude(확인 전)
-    if (!it.u) it.k = keys[i].split('§')[1]; // 주소 없는 게시물(인스타 과거 기록·hong)은 콘텐츠키를 실어 「태그 수정」 A열에 쓸 수 있게(2026-10-24)
+    if (!it.u || it.c === 'hong._.video') it.k = keys[i].split('§')[1]; // 주소 없는 게시물(인스타 과거 기록·hong)은 콘텐츠키를 실어 「태그 수정」 A열에 쓸 수 있게(2026-10-24)
     // 유형: 「태그 수정」 G열(사람) > 「태그」 탭 I열 자동 코드 > 옛 분류 이름으로 짐작(「태그 다시 계산」 전 값·과거 기록 탭)
     const tcH = resolveType_(f.ty), old = oldCat_(f.g, it.n) || oldCat_(t.g, it.n) || oldCat_(it.g, it.n);
     // 자동 유형은 지금 규칙으로 다시 판정(「태그」 탭 I열은 예전 규칙으로 저장된 값이 남아 있음, 2026-10-24 「키캡 드롭」이 행사 스케치로 보인 문제). 옛 분류를 모를 때만 I열 값
@@ -2705,7 +2713,7 @@ function attachTags_(ss, items, keys) {
     const v = it.L || it.h.filter(Boolean).pop() || [];
     if (isAdPattern({ views: v[0], likes: v[1] })) it.ad = { s: '패턴', k: [] };
   });
-  return { roles: T.roles, ads: { end: A.end, daily: A.daily, camps: A.camps, rows: A.rows, plans: A.plans, meta: loadMeta_(ss), fx: Number(PropertiesService.getScriptProperties().getProperty('META_KRW_PER_USD')) || 0, error: A.error || '', src: A.src || [], manualEnd: A.manualEnd || '' } };
+  return { roles: T.roles, ads: { end: A.end, daily: A.daily, camps: A.camps, rows: A.rows, plans: A.plans, meta: loadMeta_(ss), fx: Number(PropertiesService.getScriptProperties().getProperty('META_KRW_PER_USD')) || 0, error: A.error || '', src: A.src || [], manualEnd: A.manualEnd || '', ran: gadsRun_(ss) } };
 }
 
 // ───────── 인스타그램 과거 기록 (엑셀로 기록하던 시기) ─────────
