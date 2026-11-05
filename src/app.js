@@ -536,20 +536,18 @@
     own.forEach(ch => {
       const L = pool({ channels: [ch], since: addDays(D.updated, -90) }).filter(it => ratio(it) != null);
       if (!L.length) return;
-      // 「주제 없음」은 태그가 안 붙은 묶음이라 높고 낮음을 말할 수 없음(2026-11-05 「왜케 안예쁘고 눈에 안들어올까」): 채널로 묶고, 판단 값·막대를 앞으로, 추천/비추천 대신 사실(가장 높음·낮음)
-      const g = groupBy(L, 'g').filter(r => r.n >= MIN_N && r.idx != null && r.k !== '주제 없음').sort(byIdx), H = [];
-      const t = g[0], w = g.length > 1 ? g[g.length - 1] : null;
-      // 누르면 그 분류 게시물 5개가 펼쳐짐(2026-10-27 「5개만 보여주면 이해도가 높을 거 같아」): 가장 높음 = 평소 대비 높은 순, 가장 낮음 = 낮은 순
-      const cell = (lab, r) => { const low = lab === '가장 낮음', L5 = r.arr.slice().sort((a, b) => low ? (ratio(a) || 0) - (ratio(b) || 0) : (ratio(b) || 0) - (ratio(a) || 0)).slice(0, 5), k = INS_L.push(L5) - 1, vc = xCls(r.idx) === 'flat' ? 'mu' : xCls(r.idx), bw = Math.max(1, Math.min(Math.abs(r.idx - 1), 1) * 50);
-        return '<details class="hm-fold hm-ins">' + hmRow({ tag: 'summary', t: esc(r.k), v: vsP(r.idx), vc, bar: '<span class="ins-bar" aria-hidden="true"><i class="' + vc + '" style="width:' + bw.toFixed(1) + '%;' + (r.idx >= 1 ? 'left:50%' : 'right:50%') + '"></i></span>', m: lab + ' · ' + r.n + '개', r: '히트율 ' + pct0(r.hit) + ' <span class="chev" aria-hidden="true">›</span>', tip: lab + ' · 조회 ' + vsTxt(r.idx) + ' · 최근 3달 · 누르면 게시물 ' + L5.length + '개' }) +
+      // 채널마다 카드 하나, 분류마다 한 줄(이름·막대·값), 높은 순(2026-11-05 「왜케 안예쁘고 눈에 안들어올까」 → 세 층 줄은 「더 안들어와」 → 타 대학 비교 카드 모양). 「주제 없음」은 태그가 안 붙은 묶음이라 뺌
+      const g = groupBy(L, 'g').filter(r => r.n >= MIN_N && r.idx != null && r.k !== '주제 없음').sort(byIdx).slice(0, 5);
+      // 누르면 그 분류 게시물 5개가 펼쳐짐(2026-10-27): 평소보다 높은 분류 = 높은 순, 낮은 분류 = 낮은 순
+      const cell = r => { const up = r.idx >= 1, L5 = r.arr.slice().sort((a, b) => up ? (ratio(b) || 0) - (ratio(a) || 0) : (ratio(a) || 0) - (ratio(b) || 0)).slice(0, 5), k = INS_L.push(L5) - 1, vc = xCls(r.idx) === 'flat' ? 'mu' : xCls(r.idx), bw = Math.max(1, Math.min(Math.abs(r.idx - 1), 1) * 50);
+        return '<details class="ins-d"><summary class="ins-r" title="조회 ' + esc(vsTxt(r.idx)) + ' · 히트율 ' + pct0(r.hit) + ' · 최근 3달 · 누르면 게시물 ' + L5.length + '개"><span class="ins-n"><b>' + esc(r.k) + '</b> <small class="num">' + r.n + '개</small></span><span class="ins-bar" aria-hidden="true"><i class="' + vc + '" style="width:' + bw.toFixed(1) + '%;' + (up ? 'left:50%' : 'right:50%') + '"></i></span><b class="num ins-v ' + vc + '">' + vsP(r.idx) + '</b></summary>' +
           '<ol class="hm-list hm-ins-l" data-ins="' + k + '">' + rankRows(L5) + '</ol></details>'; };
-      if (!g.length) H.push(hmRow({ t: '분류 비교 전', m: '한 분류에 ' + MIN_N + '개 이상 모인 게 없어요' }));
-      else H.push(cell('가장 높음', t) + (w ? cell('가장 낮음', w) : ''));
+      let foot = '';
       if (ch === '인스타그램') {
         const ft = groupBy(L.filter(it => it.r > 0), 't').map(r => ({ k: r.k, n: r.n, rv: median(r.arr.map(it => it.r)) })).filter(r => r.n >= 5 && r.rv > 0).sort((a, b) => b.rv - a.rv);
-        if (ft.length >= 2) H.push(hmRow({ t: '형식별 도달 중간값', m: ft.map(r => esc(fmtType(r.k)) + ' ' + fmtK(r.rv) + '명').join(' · '), tip: '캐러셀은 슬라이드를 넘길 때마다 조회가 다시 세져서 조회 대신 도달(게시물 하나가 닿은 사람 수)로 견줘요' }));
+        if (ft.length >= 2) foot = '<div class="wk-f" title="캐러셀은 슬라이드를 넘길 때마다 조회가 다시 세져서 조회 대신 도달로 견줘요">도달 중간값 ' + ft.map(r => esc(fmtType(r.k)) + ' <b class="num">' + fmtK(r.rv) + '명</b>').join(' · ') + '</div>';
       }
-      R.push('<div class="ins-g"><div class="ins-ch">' + chTxt(ch) + '</div>' + H.join('') + '</div>');
+      R.push('<div class="bc-b ins-c"><div class="ins-h">' + badge(ch) + '</div>' + (g.length ? g.map(cell).join('') : '<p class="mu">한 분류에 ' + MIN_N + '개 이상 모인 게 없어요</p>') + foot + '</div>');
     });
     return R.length ? R.join('') : '<p class="mu">최근 3달 게시물이 없어요.</p>';
   }
@@ -3616,7 +3614,7 @@
   function hmRow(o) {
     const tag = o.tag || 'div';
     return '<' + tag + ' class="hm-row' + (o.cls ? ' ' + o.cls : '') + '"' + (o.attr ? ' ' + o.attr : '') + (o.tip ? ' title="' + esc(o.tip) + '"' : '') + '>' + (o.thumb || '') +
-      '<span class="hm-rb"><span class="hm-r1"><span class="hm-t">' + o.t + '</span>' + (o.v ? '<b class="num ' + (o.vc || '') + '">' + o.v + '</b>' : '') + '</span>' + (o.bar || '') +
+      '<span class="hm-rb"><span class="hm-r1"><span class="hm-t">' + o.t + '</span>' + (o.v ? '<b class="num ' + (o.vc || '') + '">' + o.v + '</b>' : '') + '</span>' +
       '<span class="hm-r2"><span class="hm-m">' + (o.c ? chTxt(o.c) + (o.m ? ' · ' : '') : '') + (o.m || '') + '</span>' + (o.r ? '<span class="hm-x">' + o.r + '</span>' : '') + '</span></span></' + tag + '>';
   }
   // lv = 제목 단계(홈 구역은 2, 전략 화면 안 묶음은 3 — 2026-10-24 점검 6번). 오른쪽 부제는 잘릴 수 있어 title로 전문
@@ -3707,12 +3705,13 @@
     }
     // ① 큰 숫자: 어제·오늘 게시물 조회 합 · 평소 같은 시간(없으면 첫날 평소)과 비교
     const vs = sum(P.map(p => p.v)), was = sn ? sum(P.map(p => sn.p && sn.p[p.id] ? p.v - sn.p[p.id][0] : 0)) : null;
-    const bs = P.map(p => [p, tdBase(p, now)]).filter(x => x[1] && x[0].v != null), bv = sum(bs.map(x => x[0].v)), bb = sum(bs.map(x => x[1].v));
-    const kind = bs.length && bs.every(x => x[1].k === 'h') ? '같은 시간' : '첫날', hr = bb > 0 ? bv / bb : null;
+    // 하루치 평소는 올린 지 20시간 뒤부터만 견줌(5시간 된 영상을 3일째 평소와 견주던 것, 목록 줄과 같은 기준, 2026-11-05 「첫 날 평균 기준이 뭐야?」)
+    const bs = P.map(p => [p, tdBase(p, now)]).filter(x => x[1] && x[0].v != null && (x[1].k === 'h' || x[1].h >= 20)), bv = sum(bs.map(x => x[0].v)), bb = sum(bs.map(x => x[1].v));
+    const nH = bs.filter(x => x[1].k === 'h').length, kind = !bs.length ? '' : nH === bs.length ? '같은 시간' : nH ? '섞임' : '첫날', hr = bb > 0 ? bv / bb : null;
     const who = tp.length === P.length ? '오늘' : tp.length ? '어제·오늘' : '어제';
-    const nt = [bs.length && bs.length < P.length ? P.length + '개 중 ' + bs.length + '개 비교' : '', kind === '첫날' && hr != null ? '하루치 평소 기준' : '', was > 0 ? '지난번 본 뒤 <span class="up">+' + fmtK(was) + '</span>' : ''].filter(Boolean).join(' · ');
+    const nt = [bs.length && bs.length < P.length ? P.length + '개 중 ' + bs.length + '개 비교' : '', kind === '섞임' && hr != null ? '같은 시간 ' + nH + '개 · 첫날 ' + (bs.length - nH) + '개 기준' : kind === '첫날' && hr != null ? '첫날 평소 기준' : '', was > 0 ? '지난번 본 뒤 <span class="up">+' + fmtK(was) + '</span>' : ''].filter(Boolean).join(' · ');
     const hero = '<div class="hm-hero"><span class="hm-lab">' + who + ' 올린 게시물 ' + P.length + '개 조회</span><b class="hm-big num">' + fmtK(vs) + '</b>' +
-      (hr != null ? '<span class="hm-vs ' + xCls(hr) + '">' + (kind === '같은 시간' ? '같은 시간 평소' : '첫날 평소') + ' 대비 ' + vsP(hr) + '</span>' : '<span class="hm-vs flat">평소 자료 모으는 중</span>') +
+      (hr != null ? '<span class="hm-vs ' + xCls(hr) + '">' + (kind === '같은 시간' ? '같은 시간 평소' : kind === '첫날' ? '첫날 평소' : '평소') + ' 대비 ' + vsP(hr) + '</span>' : '<span class="hm-vs flat">평소 자료 모으는 중</span>') +
       (nt ? '<span class="hm-note">' + nt + '</span>' : '') + '</div>';
     // ② 카드 3칸: 공유율(목표 1.0%) · 반응률(평소 대비) · 이번 주 게시 수. 인스타·hong 게시물 합 ÷ 도달 합, 평소 = 게시물마다 같은 형식 평소를 도달로 가중
     const M = [], RP = P.filter(p => p.c !== '유튜브' && p.r >= TD_MIN[0]);

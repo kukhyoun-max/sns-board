@@ -1258,12 +1258,25 @@ em.nm { font-style: normal; font-weight: 700; color: var(--fg); }
 .btn svg { flex: none; color: var(--up-tx); }
 @media (hover: hover) { .btn:not(.pri):not(:disabled):hover { background: var(--hm-card); } }
 .btn:focus-visible { outline: 2px solid var(--up); outline-offset: 2px; }
-/* 홈 분류별 칸(2026-11-05): 채널로 묶고 값·막대가 먼저 */
-.ins-g + .ins-g { margin-top: 24px; }
-.ins-ch { font-size: 16px; font-weight: 700; padding-bottom: 8px; border-bottom: 2px solid var(--line); }
-.ins-g .hm-ins:first-of-type .hm-row { border-top: 0; }
-.hm-ins .hm-r1 > b, .hm-ins .hm-r1 > b.mu { font-size: 20px; font-weight: 700; }
-.ins-bar { position: relative; display: block; height: 6px; margin: 6px 0 8px; border-radius: 3px; background: var(--hm-card); }
-.ins-bar::after { content: ""; position: absolute; left: 50%; top: -3px; width: 2px; height: 12px; margin-left: -1px; background: var(--muted); }
-.ins-bar i { position: absolute; top: 0; height: 100%; border-radius: 3px; background: var(--muted); }
+/* 홈 분류별 칸(2026-11-05): 채널 카드 + 이름·막대·값 한 줄 */
+.ins-c { padding: 16px; }
+.ins-h { margin-bottom: 10px; }
+.ins-d > summary { list-style: none; } .ins-d > summary::-webkit-details-marker { display: none; }
+.ins-r { display: grid; grid-template-columns: 124px minmax(0, 1fr) 60px; align-items: center; gap: 10px; min-height: 44px; cursor: pointer; }
+.ins-n { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 15px; }
+.ins-n b { font-weight: 700; color: var(--fg); } .ins-n small { font-size: 13px; color: var(--muted); }
+.ins-v { font-size: 16px; font-weight: 700; text-align: right; }
+.ins-v.up { color: var(--up-tx); } .ins-v.down { color: var(--down); } .ins-v.mu { color: var(--muted); }
+.ins-bar { position: relative; display: block; height: 10px; border-radius: 5px; background: var(--hm-card); }
+.ins-bar::after { content: ""; position: absolute; left: 50%; top: -3px; width: 2px; height: 16px; margin-left: -1px; background: var(--muted); }
+.ins-bar i { position: absolute; top: 0; height: 100%; border-radius: 5px; background: var(--muted); }
 .ins-bar i.up { background: var(--up); } .ins-bar i.down { background: var(--down); }
+.ins-d[open] > .hm-ins-l { margin-top: 4px; }
+.ins-c .wk-f { margin-top: 8px; }
+/* 채널별 증가 카드 줄 간격(2026-11-05 「줄간격이 너무 좁아」) */
+.wk-card { row-gap: 10px; }
+.wk-card .wk-v { line-height: 1.3; }
+.wk-card .wk-s { line-height: 1.6; }
+.wk-card .wk-bar { margin: 6px 0 2px; }
+.wk-card .wk-l { line-height: 1.7; }
+.wk-card .wk-f { margin-top: 4px; padding-top: 14px; }
