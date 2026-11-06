@@ -3597,7 +3597,7 @@
     if (TD.p) return TD.p;
     if (!force && TD.d && Date.now() - TD.at < 9 * 60 * 1000) return Promise.resolve(TD.d);
     TD.p = new Promise(res => {
-      const done = d => { TD.p = null; if (d && !d.error && d.posts) { TD.d = d; TD.at = Date.now(); tdLive(d); } res(TD.d); };
+      const done = d => { TD.p = null; if (d && !d.error && d.posts) { TD.d = d; TD.at = Date.now(); tdLive(d); if (window.SNS_API_URL) cacheTodayPut(d); } res(TD.d); };
       if (!window.SNS_API_URL) { fetch('part_today.json').then(r => r.ok ? r.json() : null).then(done, () => done(null)); return; }
       const cb = '__sbP' + (++partSeq), sc = document.createElement('script');
       const t = setTimeout(() => { window[cb] = () => {}; done(null); }, 45000);
@@ -3963,7 +3963,8 @@
   const TD_FRESH = 2 * 60 * 1000;
   const tdGap = () => { const d = TD.d, now = Date.now(); return d && (d.posts || []).some(p => now - new Date(p.at + ':00+09:00') < 6 * 3600000) ? 5 * 60 * 1000 : 10 * 60 * 1000; };
   function tdRefresh() {
-    return loadToday(false).then(d => { paintToday(); if (d && Date.now() - (d.ts || 0) > TD_FRESH) return loadToday(true).then(paintToday); });
+    const pr = loadToday(false); if (TD.d && TD.p) paintToday(); // 저장해 둔 값을 받은 시각과 함께 먼저 보임
+    return pr.then(d => { paintToday(); if (d && Date.now() - (d.ts || 0) > TD_FRESH) return loadToday(true).then(paintToday); });
   }
   function wireToday(chs) {
     TD.chs = chs;
@@ -4800,6 +4801,7 @@
   function boot(data) {
     D = data;
     prep();
+    if (TD.d) tdLive(TD.d);
     const sv = load(); if (sv) Object.assign(S, sv);
     if (!VIEWS.some(v => v[0] === S.view)) S.view = 'brief';
     buildChrome(); render();
@@ -4845,6 +4847,9 @@
   const cacheGet = () => IDB('readonly', st => st.get('main')).catch(() => null);
   const cachePut = txt => IDB('readwrite', st => st.put({ k: KEY, at: Date.now(), d: txt }, 'main')).catch(() => {});
   const cacheDel = () => IDB('readwrite', st => st.delete('main')).catch(() => {});
+  // 오늘 칸도 저장(2026-11-07 「새로고침하면 로딩 시간이 너무 길어」): 서버 캐시가 10분 지나면 part=today가 22초쯤 걸림 → 오늘 받은 값을 먼저 그리고 새 값으로 바꿈. 시각 버튼에 받은 시각이 보임
+  const cacheTodayPut = d => IDB('readwrite', st => st.put({ k: KEY, d }, 'today')).catch(() => {});
+  const cacheTodayGet = () => IDB('readonly', st => st.get('today')).catch(() => null);
   let fromCache = false;
   const startNet = d => {
     if (d && d.error === 'auth') { cacheDel(); if (fromCache) { try { localStorage.removeItem(KEY_STORE); } catch (e) {} location.reload(); return; } }
@@ -4854,7 +4859,8 @@
   };
   msgView('데이터를 불러오는 중이에요', '처음 한 번은 몇 초 걸려요. 다음부터는 이 기기에 저장해 둔 기록을 먼저 보여 주고 새 기록으로 바꿔요.');
   slowT = setTimeout(() => fail('slow'), 30000);
-  if (window.SNS_API_URL) cacheGet().then(v => {
+  const kstToday = new Date(Date.now() + 9 * 3600000).toISOString().slice(0, 10);
+  if (window.SNS_API_URL) cacheTodayGet().then(t => { if (!TD.d && t && t.k === KEY && t.d && t.d.today === kstToday) TD.d = t.d; if (booted && TD.d) { tdLive(TD.d); paintToday(); } return cacheGet(); }).then(v => {
     if (booted || !v || v.k !== KEY || !v.d || Date.now() - v.at > 7 * 864e5) return;
     let d = null; try { d = JSON.parse(v.d); } catch (e) { return; }
     fromCache = true; start(d); if (!booted) fromCache = false;
