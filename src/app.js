@@ -3958,9 +3958,9 @@
     const kst = new Date(Date.now() + 9 * 3600000), day = kst.toISOString().slice(0, 10);
     return day === d.today && kst.getUTCHours() >= 19 && !(d.posts || []).some(p => String(p.at).slice(0, 10) === d.today);
   }
-  // 받는 간격(2026-10-27 「볼 때마다 정확한 수치」): 서버 캐시(최대 10분) 값을 먼저 그리고, 2분 넘은 값이면 바로 지금 값을 새로 받아 다시 그림(서버 새로 받기 약 18초).
-  // 화면을 연 동안: 올린 지 6시간 안 된 게시물이 있으면 5분마다(첫 3시간 릴스는 시간당 수천 회씩 늘어남), 아니면 10분마다. 인스타 API 한 번에 약 8번 호출이라 더 짧게는 안 함
-  const TD_FRESH = 2 * 60 * 1000;
+  // 받는 간격(2026-11-07 「새로고침하면 로딩 시간이 너무 길어」): 8~24시엔 서버가 10분마다 미리 만들어 둠(todayWarm). 그 값을 그리고, 11분 넘었으면(미리 만들기 전·실패) 새로 만들어 달라고 요청. 시각 버튼은 언제나 새로 받음
+  // 화면을 연 동안: 올린 지 6시간 안 된 게시물이 있으면 5분마다 새로(첫 3시간 릴스는 시간당 수천 회씩 늘어남), 아니면 10분마다 미리 만든 값을 받음
+  const TD_FRESH = 11 * 60 * 1000;
   const tdGap = () => { const d = TD.d, now = Date.now(); return d && (d.posts || []).some(p => now - new Date(p.at + ':00+09:00') < 6 * 3600000) ? 5 * 60 * 1000 : 10 * 60 * 1000; };
   function tdRefresh() {
     const pr = loadToday(false); if (TD.d && TD.p) paintToday(); // 저장해 둔 값을 받은 시각과 함께 먼저 보임
@@ -3969,7 +3969,7 @@
   function wireToday(chs) {
     TD.chs = chs;
     tdRefresh();
-    if (!TD.timer) TD.timer = setInterval(() => { if (document.visibilityState !== 'visible') return; if (!tdQuiet() && !TD.p && Date.now() - ((TD.d && TD.d.ts) || 0) >= tdGap()) loadToday(true).then(paintToday); refreshMain(); }, 60 * 1000);
+    if (!TD.timer) TD.timer = setInterval(() => { if (document.visibilityState !== 'visible') return; if (!tdQuiet() && !TD.p && Date.now() - ((TD.d && TD.d.ts) || 0) >= tdGap()) loadToday(tdGap() < 10 * 60 * 1000).then(paintToday); refreshMain(); }, 60 * 1000);
   }
   // 다른 탭으로 나갈 때 지금 값을 「지난번」으로 저장, 돌아오면 새로 받음(기본 기록도 30분 넘었으면 새로)
   document.addEventListener('visibilitychange', () => {

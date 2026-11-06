@@ -225,7 +225,7 @@ function setupDaily() {
 }
 // 하루 여러 번 기록: 같은 날 기록은 바꿔 써서(runSnapshot_ 3단계) 줄이 쌓이지 않음. 원본 읽기·API 단계가 다시 돌아 화면 값이 그만큼 새로워짐
 const SNAP_HOURS = [8, 12, 16, 20];
-const TRIG_VER = '2026-11-03 하루 4번·스토리 1시간·API 단독 비교 14시·아침 분석 9시';
+const TRIG_VER = '2026-11-07 하루 4번·스토리 1시간·API 단독 비교 14시·아침 분석 9시·오늘 칸 10분';
 // 트리거 버전이 바뀌면 기록·스토리·밤 브리핑 트리거를 다시 맞춤(편집기에서 setup을 다시 돌리지 않아도 되게). 과거 채우기·스토리 실행이 부름
 function ensureTriggers_() {
   const p = PropertiesService.getScriptProperties();
@@ -234,6 +234,8 @@ function ensureTriggers_() {
   setupDaily();
   ts.filter(t => t.getHandlerFunction() === 'storySnapshot').forEach(t => ScriptApp.deleteTrigger(t));
   ScriptApp.newTrigger('storySnapshot').timeBased().everyHours(1).create();
+  ts.filter(t => t.getHandlerFunction() === 'todayWarm').forEach(t => ScriptApp.deleteTrigger(t));
+  ScriptApp.newTrigger('todayWarm').timeBased().everyMinutes(10).create();
   if (!ts.some(t => t.getHandlerFunction() === 'nightBrief')) ScriptApp.newTrigger('nightBrief').timeBased().everyDays(1).atHour(22).nearMinute(0).inTimezone(TZ).create();
   // Supermetrics 없이 API만으로 만든 목록과 비교(2026-11-01~, 전환이 끝나면 지움). 12시 기록이 끝난 뒤
   if (!ts.some(t => t.getHandlerFunction() === 'morningBrief')) ScriptApp.newTrigger('morningBrief').timeBased().everyDays(1).atHour(9).nearMinute(0).inTimezone(TZ).create();
@@ -4058,9 +4060,12 @@ function igUserId_(chName, conf) {
   return pick.id;
 }
 // GET 한 번(쪽 넘김 없음). 오류는 메타 메시지만
+let igxCalls_ = 0, igxUse_ = 0; // 한 실행의 메타 요청 수 · 응답 머리글이 알려 준 사용량 중 가장 큰 %(오늘 칸 tm에 실음)
 function igxGet_(conf, path, params) {
   const q = Object.keys(params).map(k => k + '=' + encodeURIComponent(params[k])).join('&');
   const res = UrlFetchApp.fetch(META_API + path + '?' + q + '&access_token=' + encodeURIComponent(conf.token), { muteHttpExceptions: true });
+  igxCalls_++;
+  try { const hd = res.getHeaders(); Object.keys(hd).forEach(k => { if (/usage/i.test(k)) String(hd[k]).replace(/"(?:call_count|total_cputime|total_time)":(\d+)/g, (m, v) => { igxUse_ = Math.max(igxUse_, Number(v)); return m; }); }); } catch (e) {}
   let j;
   try { j = JSON.parse(res.getContentText()); } catch (e) { throw new Error('메타 응답을 읽지 못함(HTTP ' + res.getResponseCode() + ')'); }
   if (j.error) throw new Error('code ' + j.error.code + ': ' + String(j.error.message || '').replace(/access_token=[^&\s]+/g, 'access_token=…').slice(0, 160));
@@ -5508,7 +5513,11 @@ function briefInstagram_(today, notes, from) {
     list.filter(x => { const d = Utilities.formatDate(new Date(x.timestamp), TZ, 'yyyy-MM-dd'); return d >= from && d <= today; }).forEach(x => {
       const miss = [];
       const reel = x.media_product_type === 'REELS';
-      const v = igxInsights_(c.conf, x.id, ['views', 'reach', 'saved', 'shares'].concat(reel ? ['ig_reels_avg_watch_time', 'profile_activity'] : ['follows', 'profile_activity']), null, miss);
+      // profile_activity가 안 나오면 묶음 요청이 실패해 지표마다 다시 받느라 게시물 하나에 7번 요청함(2026-11-07 측정: 오늘 칸 34초 중 28초가 여기) → 한 번 실패하면 6시간 빼고 받음
+      const paBad = CacheService.getScriptCache().get('igPaBad') === '1';
+      if (paBad) miss.push('profile_activity');
+      const v = igxInsights_(c.conf, x.id, ['views', 'reach', 'saved', 'shares'].concat(reel ? ['ig_reels_avg_watch_time'] : ['follows']).concat(paBad ? [] : ['profile_activity']), null, miss);
+      if (!paBad && miss.indexOf('profile_activity') >= 0) { try { CacheService.getScriptCache().put('igPaBad', '1', 21600); } catch (e) {} }
       const msg = '일부 지표 없음: ' + miss.join(',');
       if (miss.length && notes.indexOf(msg) < 0) notes.push(msg);
       const g = k => v[k] === undefined ? '' : v[k];
@@ -6198,8 +6207,15 @@ function hourlyFor_(ss, ids, keep) { // keep = 그래프에도 그리고 평소 
   return { hist: hist, base: base };
 }
 // ───────── 오늘 지금(2026-10-20): ?part=today ─────────
-// 어제·오늘 올린 게시물(인스타·hong·유튜브)의 지금 값과 계정 숫자를 API로 바로 받음. 캐시 10분(TODAY_TTL), 보드가 화면을 연 동안 10분마다 다시 받음
-const TODAY_TTL = 600;
+// 어제·오늘 올린 게시물(인스타·hong·유튜브)의 지금 값과 계정 숫자를 API로 바로 받음. 8~24시엔 10분마다 todayWarm이 미리 만들어 둠(캐시 20분, TODAY_TTL)
+const TODAY_TTL = 1200;
+// 오늘 칸 미리 만들기(2026-11-07 「새로고침하면 로딩 시간이 너무 길어」): 사람이 열 때 만들면 그 사람이 기다림. 8~24시 10분마다, 실패할 때만 로그
+function todayWarm() {
+  if (Number(Utilities.formatDate(new Date(), TZ, 'H')) < 8) return;
+  const ss = SpreadsheetApp.openById(SS_ID);
+  try { cachePut_(JSON.stringify(partToday_(ss)), 'part:today', TODAY_TTL); }
+  catch (e) { logRows_(ss, [[new Date(), '오늘 칸 미리 만들기', 0, '오류: ' + String(e.message).slice(0, 120)]]); }
+}
 const PLAN_CAL = '공식 SNS 발행 일정';
 function planFolder_(desc) {
   const t = String(desc || '').replace(/<br\s*\/?>|<\/p>|<\/div>/gi, '\n').replace(/<[^>]+>/g, ' ');
@@ -6207,14 +6223,12 @@ function planFolder_(desc) {
   if (u) return u[0];
   const n = t.match(/SNS 업로드용[\/\\]([^\n(]+)/); // 경로를 역슬래시로 적은 일정도(2026-11-05 「폴더 연결 안되는 애들」)
   if (n) { try { const it = DriveApp.getFoldersByName(n[1].trim()); return it.hasNext() ? it.next().getUrl() : ''; } catch (e) { return ''; } }
-  // 유튜브는 D 드라이브 폴더라 웹에서 못 엶 → PC가 드라이브 「★ SNS 업로드용/유튜브」에 같은 이름으로 복사해 둔 것을 찾음(_도구/scripts/유튜브폴더복사, 2026-11-06)
-  const y = t.match(/유튜브[\/\\]([^\n(]+)/);
-  if (!y) return '';
-  try { const it = DriveApp.getFoldersByName(y[1].trim()); while (it.hasNext()) { const f = it.next(), p = f.getParents(); if (p.hasNext() && p.next().getName() === '유튜브') return f.getUrl(); } } catch (e) {}
   return '';
 }
 function partToday_(ss) {
+  const tm = {}, t0 = Date.now(); let tt = t0; const tick = k => { const x = Date.now(); tm[k] = x - tt; tt = x; }; igxCalls_ = 0; igxUse_ = 0; // 단계별 시간(ms) — 어디가 느린지 보려고(2026-11-07)
   const LV = livePosts_(120), now = new Date(), today = LV.today, notes = LV.notes.slice(), posts = LV.posts; // 2분 안에 받은 값이면 다시 받지 않음(보드는 2분 넘은 값만 새로 요청)
+  tick('live');
   if (LV.err.ig) notes.push('인스타 확인 실패');
   if (LV.err.yt) notes.push('유튜브 확인 실패');
   const n = v => v === '' || v == null || isNaN(Number(v)) ? null : Number(v);
@@ -6222,13 +6236,16 @@ function partToday_(ss) {
     v: n(x.views), l: n(x.likes), cm: n(x.comments), sh: n(x.shares), sv: n(x.saves), r: n(x.reach), f: n(x.follows), pa: n(x.pact), aw: n(x.avgw), img: x.img || '' }));
   // 계정: 인스타 팔로워 지금 vs 「인스타 계정 일별」 오늘 아침(없으면 그 전) 기록, 유튜브 구독자·전체 조회 지금
   const acct = [];
+  tick('map');
   try { igxChannels_().forEach(c => { const u = igxGet_(c.conf, c.user, { fields: 'followers_count' }); acct.push({ c: c.ch, fol: n(u.followers_count) }); }); } catch (e) { notes.push('인스타 팔로워 확인 실패'); }
+  tick('fol');
   try {
     const base = {};
     partRows_(ss, IGX_DAY_SHEET, 12).forEach(r => { const c = String(r[0]).trim(), d = partD_(r[1]), v = n(r[2]); if (v == null || d > today) return; if (!base[c] || d >= base[c].d) base[c] = { d: d, v: v, at: r[11] instanceof Date ? Utilities.formatDate(r[11], TZ, 'yyyy-MM-dd HH:mm') : String(r[11]) }; });
     acct.forEach(a => { const b = base[a.c]; if (b) { a.base = b.v; a.baseAt = b.at || b.d; } });
   } catch (e) {}
   try { const y = ytaGet_('https://www.googleapis.com/youtube/v3/channels?part=statistics&mine=true').items[0].statistics; acct.push({ c: '유튜브', subs: n(y.subscriberCount), views: n(y.viewCount) }); } catch (e) { notes.push('유튜브 구독자 확인 실패'); }
+  tick('sub');
   // 페이스북 팔로워(2026-10-27 총장 보고 채널 현황용): 「페이스북 일별」 마지막 값
   try { let fb = null; partRows_(ss, FB_DAY_SHEET, 2).forEach(r => { const d = partD_(r[0]), v = n(r[1]); if (d && v != null && (!fb || d >= fb.d)) fb = { d: d, v: v }; }); if (fb) acct.push({ c: '페이스북', fol: fb.v, at: fb.d }); } catch (e) {}
   // 유튜브 구독자 추이(2026-10-21): 「구독자 수」 기록이 수집 오류로 비어 있어서, 지금 구독자 수에서 「유튜브 채널 일별」 하루 증감(구독 증가 − 감소)을 거슬러 빼 날마다 값을 만듦(최근 400일)
@@ -6244,10 +6261,13 @@ function partToday_(ss) {
     }
   } catch (e) {}
   // 이번 주(월요일~그제) 올린 게시물도 시간별 그래프에(2026-11-04 「이번주에 올린 콘텐츠는 그래프에 나오게」): 어제·오늘 것(posts) 말고 따로 받아 wk로. 캐시 10분
+  tick('hist');
   let wk = [];
   try { wk = weekPosts_(today).map(x => ({ c: x.ch, id: x.id, at: Utilities.formatDate(x.at, TZ, "yyyy-MM-dd'T'HH:mm"), t: x.type, n: briefTitle_(x.title, 80), u: x.url, v: n(x.views) })); } catch (e) { notes.push('이번 주 게시물 확인 실패'); }
+  tick('wk');
   let hr = { hist: {}, base: {} };
   try { const ids = {}, keep = {}; p.concat(wk).forEach(x => { ids[String(x.id)] = 1; }); wk.forEach(x => { keep[String(x.id)] = 1; }); hr = hourlyFor_(ss, ids, keep); } catch (e) {}
+  tick('hour');
   // 게시 예정(2026-10-22): 「공식 SNS 발행 일정」 캘린더의 오늘~7일 뒤 [날짜, 제목, 업로드 폴더 주소]. 설명에서는 드라이브 폴더 주소만 꺼냄(제작자 이름 등 나머지는 보내지 않음)
   // 주소가 없고 「드라이브: ★ SNS 업로드용/<폴더 이름>」만 적혀 있으면 그 이름의 폴더를 찾음
   let plan = [];
@@ -6256,11 +6276,16 @@ function partToday_(ss) {
     if (cal) plan = cal.getEvents(new Date(today + 'T00:00:00+09:00'), new Date(shiftDate_(today, 8) + 'T00:00:00+09:00'))
       .slice(0, 12).map(e => [Utilities.formatDate(e.getStartTime(), TZ, 'yyyy-MM-dd'), String(e.getTitle()).slice(0, 80), planFolder_(e.getDescription())]);
   } catch (e) { notes.push('게시 예정 확인 실패'); }
+  tick('plan');
   // 최근 게시물 썸네일(2026-10-25 홈 「개요」 인기 콘텐츠·인스타 격자): 계정마다 최신 30개 [게시물 코드, 게시일, 캡션 앞 30자, 사진 주소, 채널].
   // 브라우저에서 instagram.com 사진 주소는 막혀서 메타 CDN 주소를 씀(며칠 뒤 만료되지만 10분마다 새로 받음). hong은 보드에 주소가 없어 게시일·캡션으로 맞춤
   const thumbs = [];
   try { igxChannels_().forEach(c => { (igxGet_(c.conf, c.user + '/media', { fields: 'permalink,timestamp,caption,media_url,thumbnail_url', limit: 30 }).data || []).forEach(x => { const m = String(x.permalink || '').match(/\/(?:p|reel|reels|tv)\/([^/?#]+)/), img = x.thumbnail_url || x.media_url || ''; if (m && img) thumbs.push([m[1], Utilities.formatDate(new Date(x.timestamp), TZ, 'yyyy-MM-dd'), String(x.caption || '').replace(/\s+/g, ' ').trim().slice(0, 30), img, c.ch]); }); }); } catch (e) { notes.push('썸네일 확인 실패'); }
-  return { ts: now.getTime(), at: Utilities.formatDate(now, TZ, 'yyyy-MM-dd HH:mm'), today: today, posts: p, acct: acct, story: briefStories_(ss, today), hist: hr.hist, hbase: hr.base, wk: wk, plan: plan, thumbs: thumbs, notes: notes };
+  tick('thumb');
+  const story = briefStories_(ss, today);
+  tick('story');
+  tm.all = Date.now() - t0; tm.ig = igxCalls_; tm.use = igxUse_;
+  return { ts: now.getTime(), at: Utilities.formatDate(now, TZ, 'yyyy-MM-dd HH:mm'), today: today, tm: tm, posts: p, acct: acct, story: story, hist: hr.hist, hbase: hr.base, wk: wk, plan: plan, thumbs: thumbs, notes: notes };
 }
 
 // ───────── 상대 계정이 올린 공동작업 게시물(2026-10-21) ─────────
