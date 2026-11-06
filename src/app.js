@@ -2,7 +2,6 @@
   // ───────── 기본값 ─────────
   const OWN = ['인스타그램', '유튜브', 'hong._.video'];
   const CH_VAR = { '인스타그램': '--ch-ig', '유튜브': '--ch-yt', 'hong._.video': '--ch-hong' };
-  const HIDE_BENCH = ['wonkwang_univ', '원광대']; // 화면에서 뺄 타 대학(2026-11-06 담당자)
   const CH_BADGE = { '인스타그램': '인스타', '유튜브': '유튜브', 'hong._.video': 'hong', 'jbnu1947': '전북대', 'wonkwang_univ': '원광대', 'woosukuni': '우석대' };
   const PROD_CLASS = { '홍보대사': 'p-amb', '광고': 'p-ad', '자체 제작': 'p-own', '학생 크리에이터': 'p-ugc', '학과·기관 협업': 'p-col', '근로장학생': 'p-ws' };
   const PRODS = ['자체 제작', '홍보대사', '근로장학생', '학생 크리에이터', '학과·기관 협업'];
@@ -3211,18 +3210,12 @@
   // 기본 데이터와 따로 받음(?part=yt | ig | yv&v=영상 ID) — 첫 화면이 느려지지 않게. 미리보기는 part_*.json
   const PART = {}, PART_P = {};
   let partSeq = 0;
-  // 타 대학 부분 응답(유튜브 비교·호남권 릴스)에서도 HIDE_BENCH 학교를 뺌(2026-11-06)
-  function hideBench(name, d) {
-    const h = r => HIDE_BENCH.includes(r);
-    if (name === 'ytb') { if (d.ch) d.ch = d.ch.filter(r => !h(r[0])); if (d.a) d.a = d.a.filter(r => !h(r[1])); if (d.v) d.v = d.v.filter(r => !h(r[0])); }
-    if (name === 'hreel') { if (d.acc) d.acc = d.acc.filter(r => !h(r[0]) && !h(r[1])); if (d.v) d.v = d.v.filter(r => !h(r[1])); }
-  }
   function loadPart(name, v) {
     const k = name + (v ? ':' + v : '');
     if (PART[k]) return Promise.resolve(PART[k]);
     if (PART_P[k]) return PART_P[k];
     PART_P[k] = new Promise(res => {
-      const done = d => { delete PART_P[k]; const ok = d && !d.error; if (ok) { hideBench(name, d); PART[k] = d; } res(ok ? d : null); };
+      const done = d => { delete PART_P[k]; const ok = d && !d.error; if (ok) PART[k] = d; res(ok ? d : null); };
       if (!window.SNS_API_URL) { fetch('part_' + name + '.json').then(r => r.ok ? r.json() : null).then(done, () => done(null)); return; }
       const cb = '__sbP' + (++partSeq), sc = document.createElement('script');
       const t = setTimeout(() => { window[cb] = () => {}; done(null); }, 45000);
@@ -4669,10 +4662,6 @@
   const EXP = window.SNS_EXP || { names: {}, s: {}, depts: [] };
   const expOf = it => it.ex || it.ec || it.exs || ''; // 「E04,E05」 확정 > 분류표 자동 코드(서버 it.ec, 2026-10-24) > 낱말 제안
   function prep() {
-    // 원광대는 참고하지 않음(2026-11-06 담당자 「원광대 참고는 신경쓰지마」 → 「적용」): 수집은 그대로 두고 화면에서만 뺌. 되돌리려면 HIDE_BENCH를 비움
-    D.items = D.items.filter(it => !HIDE_BENCH.includes(it.c));
-    if (D.acct) D.acct = D.acct.filter(x => !HIDE_BENCH.includes(x.ch));
-    if (D.channels) D.channels = D.channels.filter(c => !HIDE_BENCH.includes(c.name));
     D.items.forEach(it => { if (it.ex || !(EXP.s)) return; const k = it.c === '유튜브' ? 'yt:' + ytId(it.u) : 'ig:' + igCode(it.u); if (EXP.s[k]) it.exs = EXP.s[k]; });
     if (D.items.some(it => it.L)) { D.coverage = D.coverage || {}; D.coverage['유튜브'] = '2012-01-01'; }
     const igMin = D.items.filter(it => it.c === '인스타그램').map(it => it.d).sort()[0];
