@@ -1297,3 +1297,8 @@ em.nm { font-style: normal; font-weight: 700; color: var(--fg); }
 /* 개요 게시 수 칸: 채널 색, 공동작업은 반반 */
 .ov-cols i.cells { display: flex; flex-direction: column-reverse; gap: 2px; background: none; border-radius: 0; }
 .ov-cols i.cells u { flex: 1; min-height: 0; border-radius: 2px; text-decoration: none; }
+/* 전략 화면 공동작업 성과 */
+.co-st { margin-top: 12px; }
+.co-h { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; font-size: 14px; color: var(--muted); }
+.co-h b { margin-left: auto; font-size: 18px; font-weight: 700; } .co-h b.up { color: var(--up-tx); } .co-h b.down { color: var(--down); } .co-h b.mu { color: var(--muted); font-size: 14px; }
+.ins-r.co-r { cursor: default; }

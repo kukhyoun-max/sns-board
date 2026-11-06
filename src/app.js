@@ -2024,6 +2024,31 @@
     h += N && N.title ? '<div class="an-n"><h3 class="sub">주간 해석 <small>Claude · ' + esc(N.at || '') + '</small></h3><b>' + esc(N.title) + '</b><ul>' + (N.points || []).slice(0, 6).map(p => '<li>' + esc(p) + '</li>').join('') + '</ul>' + (N.url ? '<a href="' + esc(N.url) + '" target="_blank" rel="noopener">전체 보고서 열기</a>' : '') + '</div>' : '<p class="note">주간 해석은 월요일 아침 Claude 보고가 끝나면 여기에 떠요</p>';
     return h + secClose;
   }
+  // 공동작업 성과(2026-11-07 「공동작업이 성과에 어떤 영향을」 → 「지켜보자」): 공식 계정·hong이 함께한 게시물 vs 같은 계정 단독, 최근 1년·올린 지 14일 지남
+  const CO_M = [['v', '조회'], ['r', '도달'], ['sh', '공유율'], ['sv', '저장률']], COS = { m: 'v', L: [] };
+  const coHas = (it, u) => String(it.co || '').split(', ').includes(u);
+  const coVal = (it, m) => m === 'v' ? val(it, 0) : m === 'r' ? (it.r || null) : it.r >= 300 ? val(it, m === 'sh' ? 3 : 4) / it.r : null;
+  function coData(ch) {
+    const isCo = it => coHas(it, ch === 'hong._.video' ? 'jjuniv' : 'hong._.video'), cut = addDays(D.updated, -365), ripe = addDays(D.updated, -AGE_MIN);
+    const all = D.items.filter(it => it.c === ch && it.t !== '스토리' && !it.ad && !it.hid && !it.x && (ch === 'hong._.video' || it.t === '릴스') && val(it, 0) > 0);
+    const old = all.filter(it => it.d <= ripe), solo = old.filter(it => !it.co), A = old.filter(it => it.d >= cut && isCo(it)), B = solo.filter(it => it.d >= cut);
+    // 조회는 시기가 달라서 앞뒤 90일 단독 게시물과 견준 배수의 중간값
+    const rel = median(A.map(it => { const p = solo.filter(x => Math.abs(daysBetween(x.d, it.d)) <= 90).map(x => val(x, 0)); return p.length >= MIN_N ? val(it, 0) / median(p) : null; }).filter(v => v != null));
+    return { ch, A, B, rel, young: all.filter(it => it.d > ripe && isCo(it)) };
+  }
+  function coInner(chs) {
+    const m = COS.m, Dt = ['hong._.video', '인스타그램'].filter(c => chs.includes(c)).map(coData), F = m === 'v' || m === 'r' ? fmtK : pctA;
+    COS.L = Dt.reduce((a, x) => a.concat(x.A, x.young), []).sort((a, b) => a.d < b.d ? 1 : -1);
+    const cards = Dt.map(x => { const med = X => median(X.map(it => coVal(it, m)).filter(v => v != null)), a = med(x.A), b = med(x.B), mx = Math.max(a || 0, b || 0) || 1, few = x.A.length < MIN_N, r = m === 'v' ? x.rel : a != null && b ? a / b : null;
+      const row = (lab, n, v, col) => '<div class="ins-r co-r"><span class="ins-n"><b>' + lab + '</b> <small class="num">' + n + '개</small></span><span class="bc-t"><i style="width:' + (v == null ? 0 : Math.max(2, v / mx * 100)).toFixed(1) + '%;background:' + col + '"></i></span><b class="num ins-v">' + (v == null ? '–' : F(v)) + '</b></div>';
+      return '<div class="bc-b ins-c"><div class="co-h">' + badge(x.ch) + '<span>' + (x.ch === 'hong._.video' ? '홍비디오가 올림' : '공식 계정이 올림') + '</span>' + (few ? '<b class="mu">게시물 적음</b>' : r == null ? '' : '<b class="num ' + (r >= 1.15 ? 'up' : r <= 0.85 ? 'down' : 'mu') + '">단독의 ' + r.toFixed(1) + '배</b>') + '</div>' +
+        row('공동작업', x.A.length, a, chColor(x.ch)) + row('단독', x.B.length, b, css('--muted')) + (x.young.length ? '<div class="wk-f">조회 모으는 중 ' + x.young.length + '개는 비교에서 뺐어요</div>' : '') + '</div>'; }).join('');
+    return '<div class="seg" id="coBy" role="group" aria-label="볼 지표">' + CO_M.map(x => '<button type="button" data-m="' + x[0] + '" aria-pressed="' + (m === x[0]) + '">' + x[1] + '</button>').join('') + '</div><div class="hm-rx hm-stack co-st">' + cards + '</div>' +
+      '<p class="note">조회의 배수는 앞뒤 90일 단독 게시물과 견준 값 · 잘 될 만한 영상을 골랐을 수 있고 조회는 두 계정 합산이라 공동작업만의 효과로 단정하지 않아요</p>' +
+      (COS.L.length ? '<details class="fold"><summary>공동작업 게시물 ' + COS.L.length + '개</summary><ol class="rank" id="coList">' + rankRows(COS.L) + '</ol></details>' : '');
+  }
+  function coHtml(chs) { return chs.includes('hong._.video') || chs.includes('인스타그램') ? secOpen('공동작업 성과', '공식 계정과 hong이 함께한 게시물 · 최근 1년') + '<div id="coBox">' + coInner(chs) + '</div>' + secClose : ''; }
+  function wireCo(chs) { const box = $('coBox'); if (!box) return; box.querySelectorAll('#coBy button').forEach(b => b.addEventListener('click', () => { COS.m = b.dataset.m; box.innerHTML = coInner(chs); wireCo(chs); })); if ($('coList')) wireRank($('coList'), COS.L); }
   function viewStrategy() {
     const chs = viewChannels(), ch = chs.length === 1 ? chs[0] : null, L = pool({ channels: chs });
     const types = Object.entries(L.reduce((o, it) => { o[it.t] = (o[it.t] || 0) + 1; return o; }, {})).sort((a, b) => b[1] - a[1]).map(x => x[0]);
@@ -2078,6 +2103,7 @@
       const AR = L.filter(it => it.arc).sort((a, b) => a.arc < b.arc ? 1 : -1);
       if (AR.length) top += secOpen('보관한 게시물', '보관하면 여기 모여요') + '<ol class="hm-list" id="arcList">' + rankRows(AR, { right: it => it.arw ? esc(it.arw) : '보관 ' + md2(it.arc) }) + '</ol><p class="note">원인과 「기획 때 하지 말 것」은 분석 문서에 정리해요 · 숫자는 보관 전 마지막 값</p>' + secClose;
       top += secOpen('이번 주 처방', (ch ? '' : esc(scopeLabel()) + ' · ') + '잘 되는데 최근 2달 덜 올린 것 · 많이 올렸는데 약한 것') + rxHtml(RX) + secClose;
+      top += coHtml(chs);
       fold += secOpen('시도한 전략 채점', '「전략 기록」 탭에 적은 시도가 평소보다 잘 됐는지 채점해요') + stratHtml() + secClose; FN.push('전략 채점');
       FN.push('잘 되는 조건'); fold += secOpen('잘 되는 조건', '해당 게시물과 나머지가 25% 넘게 차이 나는 조건만 골랐어요') + rulesHtml(chs) + secClose;
       top += secOpen((+monthStart(D.updated, 1).slice(5, 7)) + '월 편성 제안', '최근 6달 올린 양에서 잘 되는 형식은 늘리고 약한 건 줄였어요 · 작년 같은 달 인기 주제도 함께') + planHtml(PLAN) + secClose;
@@ -2113,6 +2139,7 @@
     if ($('mxFewBtn')) $('mxFewBtn').addEventListener('click', e => { S.mxFew = !S.mxFew; $('mxFew').hidden = !S.mxFew; e.currentTarget.setAttribute('aria-expanded', S.mxFew); e.currentTarget.textContent = S.mxFew ? '게시물 ' + MIN_N + '개 미만 분류 접기' : '게시물 ' + MIN_N + '개 미만 분류 ' + $('mxFew').rows.length + '개 더 보기 ›'; });
     $('view').querySelectorAll('.mx td[data-k]').forEach(td => { if (td.classList.contains('none')) return; td.addEventListener('click', () => { S.mx = S.mx === td.dataset.k ? null : td.dataset.k; viewStrategy(); if (S.mx) setTimeout(() => { const el = $('mxList'); if (el) el.scrollIntoView({ behavior: SM(), block: 'nearest' }); }, 30); }); });
     wireRank($('arcList'), L.filter(it => it.arc).sort((a, b) => a.arc < b.arc ? 1 : -1));
+    wireCo(chs);
     document.querySelectorAll('#anaList [data-ai]').forEach(li => { const go = () => { const x = (window.__ana || [])[+li.dataset.ai]; if (x) openDetail(x.it); }; li.addEventListener('click', go); li.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); go(); } }); });
     if (S.mx) { const [g, t] = S.mx.split('|'); wireRank($('mxList'), L.filter(it => it[MXB] === g && it.t === t).sort((a, b) => (ratio(b) || 0) - (ratio(a) || 0)).slice(0, 20)); }
     bars('byCat', cats.filter(r => r.n >= MIN_N).sort(byIdx), subN, k => { S.view = 'explore'; S.g = k; render(); window.scrollTo({ top: 0 }); });
