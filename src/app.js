@@ -219,6 +219,7 @@
     const amb = it.w.filter(n => (D.roles || {})[n] === '홍보대사');
     return amb.length ? '<span class="tag chk" title="' + esc('크레딧에 홍보대사 ' + amb.join(', ') + '이(가) 있는데 제작 주체가 「' + it.p + '」예요 · 맞으면 스냅샷 시트 「태그 수정」에 제작=홍보대사로 적어 주세요') + '">제작 확인</span>' : '';
   };
+  const aiTag = it => it.ai ? '<span class="tag p-ai" title="' + (it.ai === '제작' ? '클로드가 결과물을 만든 게시물' : '클로드가 커버 등 일부를 만든 게시물') + '">' + (it.ai === '제작' ? '클로드' : '클로드 커버') + '</span>' : '';
   const coTag = it => it.co ? '<span class="tag p-co" title="' + esc('함께 올린 계정: ' + it.co) + '">공동작업</span>' : '';
   const adtag = it => it.ad ? '<span class="tag ' + (it.ad.s === '확인' ? 'p-ad' : 'p-ad p-guess') + '" title="' + esc(it.ad.s === '패턴' ? '광고 보고서 기간 뒤 영상 · 조회 흐름으로 짐작' : it.ad.x && !it.ad.k.length && !it.ad.mk ? it.ad.x + ' (캠페인 정보 없음)' : it.ad.mk && !it.ad.k.length ? '메타 광고(게시물 홍보): ' + it.ad.mk.map(metaLabel).join(', ') : '구글애즈 캠페인 연결(' + it.ad.s + '): ' + it.ad.k.join(', ')) + '">광고' + (it.ad.s === '확인' ? '' : ' 추정') + '</span>' : '';
 
@@ -257,7 +258,7 @@
       const v = it.ad ? '광고' : it.hid ? '비공개로 보임' : r == null ? '' : yg ? (pr != null ? vsP(pr) : '모으는 중') : vsP(r);
       const vc = it.ad || it.hid || (yg && pr == null) ? 'mu' : xCls(yg ? pr : r);
       const warn = [archTag(it), susTag(it), hidTag(it)].map(tagTxt).filter(x => x && x !== v);
-      const tip = [glab(it), it.p, ...[tyTag(it), adtag(it), coTag(it), credTag(it), histTag(it), archTag(it), susTag(it)].map(tagTxt)].filter(Boolean).join(' · ') + (yg ? ' · 올린 지 ' + AGE_MIN + '일이 안 돼 조회가 아직 쌓이는 중' + (pr != null ? ' · 오른쪽 값 = ' + agName(pc.e) + ' 조회 ' + vsTxt(pr) + ', ' + paceTip(pc) : '') : '');
+      const tip = [glab(it), it.p, ...[tyTag(it), adtag(it), coTag(it), aiTag(it), credTag(it), histTag(it), archTag(it), susTag(it)].map(tagTxt)].filter(Boolean).join(' · ') + (yg ? ' · 올린 지 ' + AGE_MIN + '일이 안 돼 조회가 아직 쌓이는 중' + (pr != null ? ' · 오른쪽 값 = ' + agName(pc.e) + ' 조회 ' + vsTxt(pr) + ', ' + paceTip(pc) : '') : '');
       const ty = typeShort(it.t);
       // 순위 탭(2026-10-24): opt.top이 있으면 오른쪽 위 = 그 탭이 줄 세운 값, 평소 대비는 오른쪽 아래(색만 유지)
       const vsLow = v ? '<b class="' + vc + '">' + (r != null && !yg && !it.ad && !it.hid ? vsTxt(r) : yg && pr != null ? agName(pc.e) + ' ' + vsP(pr) : v) + '</b>' : '';
@@ -2052,6 +2053,22 @@
   }
   function coHtml(chs) { return chs.includes('hong._.video') || chs.includes('인스타그램') ? secOpen('공동작업 성과', '공식 계정과 hong이 함께한 게시물 · 최근 1년') + '<div id="coBox">' + coInner(chs) + '</div>' + secClose : ''; }
   function wireCo(chs) { const box = $('coBox'); if (!box) return; box.querySelectorAll('#coBy button').forEach(b => b.addEventListener('click', () => { COS.m = b.dataset.m; box.innerHTML = coInner(chs); wireCo(chs); })); if ($('coList')) wireRank($('coList'), COS.L); }
+  // 클로드 작업 성과(2026-11-07 「나중에 비율이나 분석 데이터로」): 기록이 시작된 날부터, 채널마다 비율과 평소 대비(같은 채널·같은 형식 기준이라 형식 차이는 빠짐). 14일 지난 게시물만 비교
+  const AIS = { L: [] };
+  function aiHtml(chs) {
+    const A = D.items.filter(it => it.ai && chs.includes(it.c) && it.t !== '스토리'); if (!A.length) return '';
+    const from = A.map(it => it.d).sort()[0], ripe = addDays(D.updated, -AGE_MIN); AIS.L = A.slice().sort((a, b) => (mainVal(b) || 0) - (mainVal(a) || 0));
+    const cards = chs.filter(c => OWN.includes(c) && A.some(it => it.c === c)).map(c => {
+      const all = D.items.filter(it => it.c === c && it.t !== '스토리' && !it.ad && !it.hid && it.d >= from), ai = all.filter(it => it.ai), R = all.filter(it => it.d <= ripe && ratio(it) != null), from0 = addDays(from, -90), O = D.items.filter(it => it.c === c && it.t !== '스토리' && !it.ad && !it.hid && !it.ai && it.d >= from0 && it.d <= ripe && ratio(it) != null);
+      const grp = [['클로드 제작', R.filter(it => it.ai === '제작'), chColor(c)], ['클로드 커버', R.filter(it => it.ai === '커버'), chColor(c) + '99'], ['그 밖', O, css('--muted')]].filter(x => x[1].length).map(x => x.concat(median(x[1].map(ratio))));
+      const mx = Math.max(1, ...grp.map(x => x[3])), young = ai.filter(it => it.d > ripe).length, amb = ai.filter(it => it.p === '홍보대사').length;
+      return '<div class="bc-b ins-c"><div class="co-h">' + badge(c) + '<span>' + all.length + '개 중 ' + ai.length + '개</span><b class="num mu">' + pct0(all.length ? ai.length / all.length : null) + '</b></div>' +
+        grp.map(x => '<div class="ins-r co-r"><span class="ins-n"><b>' + x[0] + '</b> <small class="num">' + x[1].length + '개</small></span><span class="bc-t"><i style="width:' + Math.max(2, x[3] / mx * 100).toFixed(1) + '%;background:' + x[2] + '"></i></span><b class="num ins-v' + (x[1].length < MIN_N ? ' mu' : '') + '">' + vsP(x[3]) + '</b></div>').join('') +
+        '<div class="wk-f">' + [amb ? '제작 주체가 홍보대사인 게시물 ' + amb + '개' : '', young ? '조회 모으는 중 ' + young + '개는 비교에서 뺐어요' : '', grp.some(x => x[1].length < MIN_N) ? MIN_N + '개 미만은 참고용이에요' : ''].filter(Boolean).join(' · ') + '</div></div>';
+    }).join('');
+    return secOpen('클로드 작업', md2(from) + '부터 · 조회 평소 대비', '') + '<div class="hm-rx hm-stack co-st">' + cards + '</div><p class="note">같은 채널·같은 형식의 평소와 견준 값이에요. 그 밖은 기록 시작 전 3달을 포함해요. 소재와 시기가 달라 클로드 작업의 효과로 단정할 수는 없어요</p>' +
+      '<details class="fold"><summary>클로드 작업 게시물 ' + A.length + '개</summary><ol class="rank" id="aiList">' + rankRows(AIS.L) + '</ol></details>' + secClose;
+  }
   function viewStrategy() {
     const chs = viewChannels(), ch = chs.length === 1 ? chs[0] : null, L = pool({ channels: chs });
     const types = Object.entries(L.reduce((o, it) => { o[it.t] = (o[it.t] || 0) + 1; return o; }, {})).sort((a, b) => b[1] - a[1]).map(x => x[0]);
@@ -2106,7 +2123,7 @@
       const AR = L.filter(it => it.arc).sort((a, b) => (mainVal(b) || 0) - (mainVal(a) || 0));
       if (AR.length) top += secOpen('보관한 게시물', '보관하면 여기 모여요') + '<ol class="hm-list" id="arcList">' + rankRows(AR, { right: it => it.arw ? esc(it.arw) : '보관 ' + md2(it.arc) }) + '</ol><p class="note">원인과 「기획 때 하지 말 것」은 분석 문서에 정리해요 · 숫자는 보관 전 마지막 값</p>' + secClose;
       top += secOpen('이번 주 처방', (ch ? '' : esc(scopeLabel()) + ' · ') + '잘 되는데 최근 2달 덜 올린 것 · 많이 올렸는데 약한 것') + rxHtml(RX) + secClose;
-      top += coHtml(chs);
+      top += coHtml(chs) + aiHtml(chs);
       fold += secOpen('시도한 전략 채점', '「전략 기록」 탭에 적은 시도가 평소보다 잘 됐는지 채점해요') + stratHtml() + secClose; FN.push('전략 채점');
       FN.push('잘 되는 조건'); fold += secOpen('잘 되는 조건', '해당 게시물과 나머지가 25% 넘게 차이 나는 조건만 골랐어요') + rulesHtml(chs) + secClose;
       top += secOpen((+monthStart(D.updated, 1).slice(5, 7)) + '월 편성 제안', '최근 6달 올린 양에서 잘 되는 형식은 늘리고 약한 건 줄였어요 · 작년 같은 달 인기 주제도 함께') + planHtml(PLAN) + secClose;
@@ -2143,6 +2160,7 @@
     $('view').querySelectorAll('.mx td[data-k]').forEach(td => { if (td.classList.contains('none')) return; td.addEventListener('click', () => { S.mx = S.mx === td.dataset.k ? null : td.dataset.k; viewStrategy(); if (S.mx) setTimeout(() => { const el = $('mxList'); if (el) el.scrollIntoView({ behavior: SM(), block: 'nearest' }); }, 30); }); });
     wireRank($('arcList'), L.filter(it => it.arc).sort((a, b) => a.arc < b.arc ? 1 : -1));
     wireCo(chs);
+    if ($('aiList')) wireRank($('aiList'), AIS.L);
     document.querySelectorAll('#anaList [data-ai]').forEach(li => { const go = () => { const x = (window.__ana || [])[+li.dataset.ai]; if (x) openDetail(x.it); }; li.addEventListener('click', go); li.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); go(); } }); });
     if (S.mx) { const [g, t] = S.mx.split('|'); wireRank($('mxList'), L.filter(it => it[MXB] === g && it.t === t).sort((a, b) => (ratio(b) || 0) - (ratio(a) || 0)).slice(0, 20)); }
     bars('byCat', cats.filter(r => r.n >= MIN_N).sort(byIdx), subN, k => { S.view = 'explore'; S.g = k; render(); window.scrollTo({ top: 0 }); });
@@ -2922,7 +2940,7 @@
     const L = pool({ channels: viewChannels(), ads: true, g: S.g || undefined }).sort((a, b) => { const x = col.v(a), y = col.v(b); if (x == null && y == null) return 0; if (x == null) return 1; if (y == null) return -1; return (x > y ? 1 : x < y ? -1 : 0) * dir; });
     $('tbody').innerHTML = L.slice(0, S.tblShown).map((it, i) => '<tr data-i="' + i + '">' + C.map(c => {
       const v = c.v(it);
-      if (c.k === 'p') return '<td>' + ptag(v) + adtag(it) + coTag(it) + archTag(it) + credTag(it) + susTag(it) + hidTag(it) + '</td>';
+      if (c.k === 'p') return '<td>' + ptag(v) + adtag(it) + coTag(it) + aiTag(it) + archTag(it) + credTag(it) + susTag(it) + hidTag(it) + '</td>';
       if (c.k === 'n') { const ty = typeShort(it.t); return '<td class="tt2"><span class="ct">' + ovImg(it, 'hm-th ov-th') + '<span class="ct-b"><b>' + esc(title(it.n)) + '</b><small>' + chTxt(it.c) + (ty ? ' · ' + esc(ty) : '') + ' · ' + whenTxt(it.d) + '</small></span></span></td>'; }
       if (c.n) return '<td class="n">' + (c.f ? c.f(v, it) : fmt(v)) + '</td>';
       if (c.f) return '<td title="' + esc(dot(v)) + '">' + c.f(v, it) + '</td>';
@@ -2957,7 +2975,7 @@
   // 콘텐츠별 열
   const CCOLS = [
     ['title', '제목', it => title(it.n), 's'], ['d', '게시일', it => it.d, 's'], ['c', '채널', it => chName(it.c), 's'], ['t', '형식', it => fmtType(it.t), 's'], ['g', '분류', it => it.g, 's'], ['gs', '세부 분류', it => it.s || '', 's'], ['ec', '주제 코드', it => it.ec || '', 's'], ['tg', '유형', it => it.tg || '', 's'], ['ty', '세부 유형', it => it.ty ? it.ty + (it.tya ? ' (자동)' : '') : '', 's'], ['p', '제작', it => it.p, 's'],
-    ['w', '참여자', it => (it.w || []).join(', '), 's'],
+    ['w', '참여자', it => (it.w || []).join(', '), 's'], ['ai', '클로드 작업', it => it.ai || '', 's'],
     ['views', '조회', it => xv(it, 0), 'n'], ['likes', '좋아요', it => xv(it, 1), 'n'], ['comments', '댓글', it => xv(it, 2), 'n'], ['shares', '공유', it => xv(it, 3), 'n'], ['saves', '저장', it => xv(it, 4), 'n'],
     ['reach', '도달', it => it.r, 'n'], ['eng', '반응률', engagement, 'p'], ['comp', '끝까지 본 비율', completion, 'p'], ['ratio', '조회 평소 대비(배)', it => !!it.ad ? null : ratio(it), 'x'],
     ['hit', '잘 된 게시물', it => isHit(it) && !it.ad ? 'O' : '', 's'], ['ad', '광고', it => it.ad ? (it.ad.s === '패턴' ? '짐작(조회 흐름)' : it.ad.s) : '', 's'], ['camp', '광고 캠페인', it => it.ad ? it.ad.k.concat((it.ad.mk || []).map(n => '메타: ' + metaLabel(n))).join(' / ') : '', 's'], ['url', '링크', it => it.u || '', 's'],
@@ -4195,7 +4213,7 @@
         '<div class="dbig num">' + fmt(mainVal(it)) + '<small class="' + cls + '">' + (it.ad ? '광고 영상이라 평소 대비는 계산하지 않아요' : it.hid ? '비공개로 보임 · 평소 계산에서 뺌' : d == null ? '' : (young(it) ? (youngTxt(it) ? youngTxt(it) + ' · 조회 모이는 중' : '조회 모이는 중 · ' + youngWait(it)) : MN[m] + ' ' + vsTxt(d + 1))) + '</small></div>' +
         (wk != null ? '<div class="num ' + (wk >= 0 ? 'up' : 'down') + '" style="font-weight:700;margin-top:2px">이번 주 ' + MN[m] + ' ' + sgn(wk) + fmt(wk) + '</div>' : '') +
         (fc ? '<p class="fc-line" title="' + esc(fc.rev + ' 업로드 전 검토 · ' + fc.fmt + ' · 같은 시리즈·같은 형식 과거 게시물 분포로 낸 범위' + (fc.rate ? ' · 예상 반응률 ' + fc.rate : '')) + '">업로드 전 예상 <b class="num">조회 ' + fcRange(fc) + '</b>' + (fs[0] ? ' · <span class="' + fs[1] + '">' + fs[0] + '</span>' : '') + (fc.inR ? '' : ' · 판정은 게시 14일 뒤(' + md2(addDays(it.d, 14)) + ')') + '</p>' : '') +
-        '<div class="dtags">' + gTag(it) + tyTag(it) + ptag(it.p) + adtag(it) + coTag(it) + archTag(it) + credTag(it) + susTag(it) + hidTag(it) + histTag(it) + '<span class="tag">' + esc(fmtType(it.t)) + '</span>' + (it.w || []).map(n => '<span class="tag">' + esc(n) + '</span>').join('') + '</div>' +
+        '<div class="dtags">' + gTag(it) + tyTag(it) + ptag(it.p) + adtag(it) + coTag(it) + aiTag(it) + archTag(it) + credTag(it) + susTag(it) + hidTag(it) + histTag(it) + '<span class="tag">' + esc(fmtType(it.t)) + '</span>' + (it.w || []).map(n => '<span class="tag">' + esc(n) + '</span>').join('') + '</div>' +
         '<div class="cmp"><canvas id="dCanvas"></canvas></div>' +
         // 누를 수 없는 토글 대신 실제로 그린 차트 이름 한 줄
         '<p class="note" style="text-align:center">' + (detailLine(it) ? '기록 날짜별 쌓인 값 ' + MN[m] : '이 콘텐츠 · 같은 분류 · 같은 형식 중간값' + (young(it) ? ' · 중간값은 다 자란 게시물의 최종 조회' : '')) + '</p></section>' +

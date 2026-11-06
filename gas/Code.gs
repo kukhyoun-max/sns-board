@@ -1604,6 +1604,7 @@ function buildDashboardData_() {
   try { extra = attachTags_(ss, list, keys.map(k => rawKey[k])); } catch (e) { extra.tagError = e.message; }
   try { coMark_(ss, list); } catch (e) {}
   try { arcMark_(ss, list); } catch (e) {}
+  try { aiMark_(list); } catch (e) {}
 
   return {
     updated: dates[dates.length - 1] || '',
@@ -6429,6 +6430,15 @@ function collabOwnStep_(ss, max) {
   return calls;
 }
 // 보드 게시물에 공동작업 표시: 우리가 올린 것(함께한 계정) · 상대가 올린 것은 따로 보여 주므로 여기선 우리 게시물만
+// 클로드 작업 표시(2026-11-07 「홍보대사도 잡고, 클로드도 따로 잡아서」): 제작 주체(it.p)는 그대로 두고 it.ai = 제작 | 커버. 원본은 02_콘텐츠 제작/클로드 작업 기록.tsv, 편성 맞추기가 드라이브로 복사
+function aiMark_(list) {
+  const it = DriveApp.getFilesByName('클로드 작업 기록.tsv'); let best = null;
+  while (it.hasNext()) { const f = it.next(); if (!best || f.getLastUpdated() > best.getLastUpdated()) best = f; }
+  if (!best) return;
+  const key = u => { u = String(u || ''); return (u.match(/[?&]v=([\w-]+)/) || [])[1] || igShort_(u); }, map = {};
+  Utilities.parseCsv(best.getBlob().getDataAsString('UTF-8').replace(/^\uFEFF/, ''), '\t').slice(1).forEach(r => { const k = key(r[3]), v = String(r[1] || '').trim(); if (k && v) map[k] = v; });
+  list.forEach(x => { const k = key(x.u); if (k && map[k]) x.ai = map[k]; });
+}
 function coMark_(ss, list) {
   const sh = ss.getSheetByName(COLLAB_OWN_SHEET);
   if (!sh || sh.getLastRow() < 2) return;
