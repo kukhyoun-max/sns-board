@@ -787,7 +787,7 @@
     return { mon, end, pm, pe, days, cur, prev, posts, pposts, okc };
   }
   // 막대 7칸(월~일). 오늘 = 진하게, 지난 날 = 연하게, 남은 날 = 빈 칸. 같은 요일 지난주 값은 가는 회색 막대
-  function weekBars(vals, prevs, lbl, unit) {
+  function weekBars(vals, prevs, lbl, unit, noDays) {
     // 개수 그래프는 월~금만. 토·일은 올린 날이거나 오늘일 때만 칸을 둠(2026-11-06 「토일은 정말 특이한 날 아니곤 안올리니까 빼도」)
     const lastD = vals.reduce((a, v, i) => v !== undefined ? i : a, -1), keep = WK_D.map((n, i) => !unit || i < 5 || vals[i] > 0 || prevs[i] > 0 || i === lastD), NM = WK_D.filter((n, i) => keep[i]);
     vals = vals.filter((v, i) => keep[i]); prevs = prevs.filter((v, i) => keep[i]);
@@ -798,7 +798,7 @@
     const last = vals.reduce((a, v, i) => v !== undefined ? i : a, -1);
     return '<svg class="kbars wk" viewBox="0 0 100 28" preserveAspectRatio="none" role="img" aria-label="' + esc(lbl) + '"><title>' + esc(lbl) + '</title>' +
       prevs.map((x, i) => r(x, i, 'pv', 0.72)).join('') + vals.map((x, i) => x === undefined ? '' : r(x, i, i === last ? 'on' : '', 0.46)).join('') + '</svg>' +
-      '<div class="kb-l" style="grid-template-columns:repeat(' + vals.length + ',minmax(0,1fr))">' + NM.map((n, i) => '<span' + (i === last ? ' class="on"' : '') + '>' + n + '</span>').join('') + '</div>';
+      (noDays ? '' : '<div class="kb-l" style="grid-template-columns:repeat(' + vals.length + ',minmax(0,1fr))">' + NM.map((n, i) => '<span' + (i === last ? ' class="on"' : '') + '>' + n + '</span>').join('') + '</div>');
   }
   const wkCmp = (cur, prev, unit) => prev == null || cur == null ? '' : prev === 0 ? (cur ? '지난주 같은 때 0' + unit : '') : '지난주 같은 때보다 <b class="num ' + dCls(cur / prev - 1) + '">' + dTxt(cur / prev - 1, 1) + '</b>';
   function calKpiHtml(chs, w) {
@@ -3730,7 +3730,7 @@
         M.push(hmCard(nm, pctA(v), sub[0], sub[1], '도달 ' + fmt(R) + ' · ' + (f === 'rx' ? '반응' : '공유') + ' ' + fmt(n) + (u ? ' · 같은 형식 평소 ' + pctA(u) : '') + ' · 선 = 최근 인스타 게시물 12개', spark(RS, '최근 인스타 게시물 12개 ' + nm)));
       });
     }
-    M.push(hmCard('이번 주', wk + '개', (Math.round(avg * 10) / 10) + '개/일', '', '월요일부터 오늘까지 올린 게시물(스토리 빼고) · 지난주 같은 때 ' + lastW + '개 · 최근 2주 하루 평균', weekBars(WK_D.map((n, k) => k <= dow ? cnt[13 - dow + k] : undefined), WK_D.map((n, k) => cnt[6 - dow + k]), '요일별 게시 수 · 회색 = 지난주', 1)));
+    M.push(hmCard('이번 주', wk + '개', (Math.round(avg * 10) / 10) + '개/일', '', '월요일부터 오늘까지 올린 게시물(스토리 빼고) · 지난주 같은 때 ' + lastW + '개 · 최근 2주 하루 평균', weekBars(WK_D.map((n, k) => k <= dow ? cnt[13 - dow + k] : undefined), WK_D.map((n, k) => cnt[6 - dow + k]), '요일별 게시 수 · 회색 = 지난주', 1, S.ch === '전체')));
     const st = (d.story || []).filter(x => chs.includes(x.ch));
     if (M.length < 3 && st.length) M.push(hmCard('오늘 스토리', fmtK(sum(st.map(x => x.views))), st.length + '개', '', '1시간마다 받아요'));
     // ③ 게시물 목록: 오른쪽 위 = 조회, 오른쪽 아래 = 조회 평소 대비(하루치 평소와 견줄 땐 20시간 뒤부터, 유튜브는 6시간 뒤부터), 아랫줄 = 채널·시간·반응 + 오른쪽 조회
