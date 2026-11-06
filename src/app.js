@@ -419,7 +419,7 @@
     const mx = Math.max(1, ...B.map(x => Math.abs(x.v || 0)));
     const sign = v => m === 'f' && v > 0 ? '+' : v < 0 ? '−' : '';
     const bars = B.length ? '<div class="ov-ch" role="img" aria-label="' + esc(OV_M.find(x => x[0] === m)[1] + ' 날짜별: ' + B.map(x => x.lab + ' ' + (x.v == null ? '기록 없음' : sign(x.v) + fmtK(Math.abs(x.v)))).join(', ')) + '"><div class="ov-cols" style="--n:' + B.length + '">' +
-      B.map(x => '<span><b class="num">' + (x.v == null ? '' : sign(x.v) + fmtK(Math.abs(x.v))) + '</b><i class="' + (x.wide ? 'wide' : x.v < 0 ? 'dn' : '') + '" style="height:' + (x.v == null ? 0 : Math.max(2, Math.abs(x.v) / mx * 100)).toFixed(1) + '%' + (m === 'n' && x.v > 0 ? (chs.length > 1 && x.cs ? ';' + unitBgCh(x.cs) : ';--c-u:var(--jj);' + unitBg(x.v, 'top')) : '') + '"></i><small>' + x.lab + '</small></span>').join('') + '</div></div>' +
+      B.map(x => '<span><b class="num">' + (x.v == null ? '' : sign(x.v) + fmtK(Math.abs(x.v))) + '</b><i class="' + (x.wide ? 'wide' : x.v < 0 ? 'dn' : '') + (m === 'n' && x.v > 0 && chs.length > 1 && x.cs ? ' cells' : '') + '" style="height:' + (x.v == null ? 0 : Math.max(2, Math.abs(x.v) / mx * 100)).toFixed(1) + '%' + (m === 'n' && x.v > 0 && !(chs.length > 1 && x.cs) ? ';--c-u:var(--jj);' + unitBg(x.v, 'top') : '') + '">' + (m === 'n' && x.v > 0 && chs.length > 1 && x.cs ? x.cs.map(c => '<u style="background:' + (Array.isArray(c) ? 'linear-gradient(to right,' + chColor(c[0]) + ' 50%,' + chColor(c[1]) + ' 50%)' : chColor(c)) + '"></u>').join('') : '') + '</i><small>' + x.lab + '</small></span>').join('') + '</div></div>' +
       '<p class="note">' + (m === 'v' ? '하루에 늘어난 조회' + (B.some(x => x.wide) ? ' · 연한 막대는 그 사이 기록이 없어 며칠을 합친 값' : '') : m === 'f' ? '하루 팔로워 증감 · ' + esc(M.fc.map(chName).join('·')) : '날짜별 올린 게시물 수') + '</p>' : '<p class="note">이 기간 기록이 아직 없어요</p>';
     const tot = sum(M.share.map(x => x.v));
     const share = M.share.length > 1 && tot ? '<div class="ov-sec"><div class="hm-h"><h2>어디서 봤나</h2><span>지난 7일 조회 증가 중 채널별 비중</span></div>' +
@@ -787,7 +787,8 @@
     return { mon, end, pm, pe, days, cur, prev, posts, pposts, okc };
   }
   // 막대 7칸(월~일). 오늘 = 진하게, 지난 날 = 연하게, 남은 날 = 빈 칸. 같은 요일 지난주 값은 가는 회색 막대
-  const chOrder = L => L.map(it => it.c).sort((a, b) => OWN.indexOf(a) - OWN.indexOf(b)), dow0 = d => (new Date(d + 'T00:00:00Z').getUTCDay() + 6) % 7;
+  // 칸 색 목록. 공식 계정과 hong이 함께한 공동작업은 [인스타, hong] 한 칸(반반, 2026-11-07 「공동작업이 성과에 어떤 영향을」). 오늘 칸 게시물(at)은 보드 항목에서 함께한 계정을 찾음
+  const chOrder = L => L.map(it => { const x = it.at ? (tdItem(it) || it) : it, co = String(x.co || '').split(', '); return (x.c === 'hong._.video' && co.includes('jjuniv')) || (x.c === '인스타그램' && co.includes('hong._.video')) ? ['인스타그램', 'hong._.video'] : x.c; }).sort((a, b) => { const k = c => Array.isArray(c) ? 0.5 : OWN.indexOf(c); return k(a) - k(b); }), dow0 = d => (new Date(d + 'T00:00:00Z').getUTCDay() + 6) % 7;
   function weekBars(vals, prevs, lbl, unit, noDays, chsBy) {
     // 개수 그래프는 월~금만. 토·일은 올린 날이거나 오늘일 때만 칸을 둠(2026-11-06 「토일은 정말 특이한 날 아니곤 안올리니까 빼도」)
     const lastD = vals.reduce((a, v, i) => v !== undefined ? i : a, -1), keep = WK_D.map((n, i) => !unit || i < 5 || vals[i] > 0 || prevs[i] > 0 || i === lastD), NM = WK_D.filter((n, i) => keep[i]);
@@ -795,7 +796,7 @@
     const all = vals.concat(prevs).filter(v => v != null && v !== undefined), mx = Math.max(1, ...all), w = 100 / vals.length;
     // unit = 개수 그래프: 한 개에 한 칸씩 쌓음(2026-11-06 「한개에 한칸으로 해서 한칸씩 쌓이는 형태」). 칸 높이는 많은 날 기준, 최소 4칸 높이로 나눠 1개가 꽉 차 보이지 않게
     const N = Math.max(4, mx), cg = 0.9, ch = (28 - (N - 1) * cg) / N;
-    const r = (x, i, cls, wd) => { if (x == null) return ''; if (unit && x > 0) { let o = ''; for (let k = 0; k < x; k++) o += '<rect class="' + cls + '"' + (CB && cls !== 'pv' && CB[i] && CB[i][k] ? ' style="fill:' + chColor(CB[i][k]) + '"' : '') + ' x="' + (i * w + w * (1 - wd) / 2).toFixed(2) + '" y="' + (28 - ch - k * (ch + cg)).toFixed(2) + '" width="' + (w * wd).toFixed(2) + '" height="' + ch.toFixed(2) + '" rx="0.6"/>'; return o; } const hh = x ? Math.max(2, x / mx * 26) : 1; return '<rect class="' + cls + '" x="' + (i * w + w * (1 - wd) / 2).toFixed(2) + '" y="' + (28 - hh).toFixed(2) + '" width="' + (w * wd).toFixed(2) + '" height="' + hh.toFixed(2) + '" rx="0.8"/>'; };
+    const r = (x, i, cls, wd) => { if (x == null) return ''; if (unit && x > 0) { let o = ''; for (let k = 0; k < x; k++) { const c = CB && cls !== 'pv' && CB[i] ? CB[i][k] : null, cs = Array.isArray(c) ? c : [c], cw = w * wd / cs.length; cs.forEach((cc, m) => { o += '<rect class="' + cls + '"' + (cc ? ' style="fill:' + chColor(cc) + '"' : '') + ' x="' + (i * w + w * (1 - wd) / 2 + m * cw).toFixed(2) + '" y="' + (28 - ch - k * (ch + cg)).toFixed(2) + '" width="' + cw.toFixed(2) + '" height="' + ch.toFixed(2) + '" rx="' + (cs.length > 1 ? 0 : 0.6) + '"/>'; }); } return o; } const hh = x ? Math.max(2, x / mx * 26) : 1; return '<rect class="' + cls + '" x="' + (i * w + w * (1 - wd) / 2).toFixed(2) + '" y="' + (28 - hh).toFixed(2) + '" width="' + (w * wd).toFixed(2) + '" height="' + hh.toFixed(2) + '" rx="0.8"/>'; };
     const last = vals.reduce((a, v, i) => v !== undefined ? i : a, -1);
     return '<svg class="kbars wk" viewBox="0 0 100 28" preserveAspectRatio="none" role="img" aria-label="' + esc(lbl) + '"><title>' + esc(lbl) + '</title>' +
       prevs.map((x, i) => r(x, i, 'pv', 0.72)).join('') + vals.map((x, i) => x === undefined ? '' : r(x, i, i === last ? 'on' : '', 0.46)).join('') + '</svg>' +
@@ -811,7 +812,7 @@
     const cnt = (L, d0) => WK_D.map((n, k) => L.filter(it => it.d === addDays(d0, k)).length);
     const pc = cnt(w.posts, w.mon), ppc = cnt(w.pposts, w.pm);
     t.push(kpiTile('이번 주 올린 게시물', w.posts.length + '<small>개</small>', w.pposts.length || w.posts.length ? '지난주 같은 때 ' + w.pposts.length + '개' : '아직 없어요', '',
-      weekBars(pc.map((x, i) => addDays(w.mon, i) <= w.end ? x : undefined), ppc, '요일별 게시 수 · 회색 = 지난주', 1, false, chs.length > 1 ? WK_D.map((n, k) => chOrder(w.posts.filter(it => it.d === addDays(w.mon, k)))) : null), 'posts'));
+      weekBars(pc.map((x, i) => addDays(w.mon, i) <= w.end ? x : undefined), ppc, '요일별 게시 수 · 회색 = 지난주 · 반반 칸 = 공식 계정과 hong 공동작업', 1, false, chs.length > 1 ? WK_D.map((n, k) => chOrder(w.posts.filter(it => it.d === addDays(w.mon, k)))) : null), 'posts'));
     // ③ 팔로워 이번 주 변화(인스타·hong 매일 기록, 월요일 아침 → 지금)
     chs.filter(c => c === '인스타그램' || c === 'hong._.video').forEach(c => {
       if (t.length >= 3 && chs.length > 1 && c !== '인스타그램') return;
@@ -3709,7 +3710,7 @@
       let last = '';
       if (lp) { const p = paceOf(lp), dd = daysBetween(lp.d, today); window.__tdLast = lp;
         last = hmRow({ tag: 'button', attr: 'type="button" id="tdLast"', c: lp.c, t: esc(title(lp.n)), m: '마지막 게시 · ' + (dd <= 0 ? '오늘' : dd + '일 전'), v: p && !p.base ? vsP(p.r) : '', vc: p ? xCls(p.r) : '' }); }
-      const bars = weekBars(WK_D.map((n, k) => k <= dow ? cnt[13 - dow + k] : undefined), WK_D.map((n, k) => cnt[6 - dow + k]), '요일별 게시 수 · 회색 = 지난주', 1, false, chW);
+      const bars = weekBars(WK_D.map((n, k) => k <= dow ? cnt[13 - dow + k] : undefined), WK_D.map((n, k) => cnt[6 - dow + k]), '요일별 게시 수 · 회색 = 지난주 · 반반 칸 = 공식 계정과 hong 공동작업', 1, false, chW);
       // 개요에 게시 수가 있으면 「이번 주」 칸은 마지막 게시 한 줄만
       const wkS = S.view === 'brief' ? (last ? hmSec2('마지막 게시', '', '<div class="hm-list">' + last + '</div>') : '') : hmSec2('이번 주', '', '<div class="hm-list"><div class="hm-card hm-wk"><div class="hm-wh"><b class="num">' + wk + '개 올림</b><span>지난주 같은 때 ' + lastW + '개</span></div>' + bars + '</div>' + last + '</div>');
       return '<section class="sec hm">' + tdGrow(chs, d, today) + attn + tdIdeas(chs) + wkS + tdPlan(d) + secClose;
@@ -3736,7 +3737,7 @@
         M.push(hmCard(nm, pctA(v), sub[0], sub[1], '도달 ' + fmt(R) + ' · ' + (f === 'rx' ? '반응' : '공유') + ' ' + fmt(n) + (u ? ' · 같은 형식 평소 ' + pctA(u) : '') + ' · 선 = 최근 인스타 게시물 12개', spark(RS, '최근 인스타 게시물 12개 ' + nm)));
       });
     }
-    M.push(hmCard('이번 주', wk + '개', (Math.round(avg * 10) / 10) + '개/일', '', '월요일부터 오늘까지 올린 게시물(스토리 빼고) · 지난주 같은 때 ' + lastW + '개 · 최근 2주 하루 평균', weekBars(WK_D.map((n, k) => k <= dow ? cnt[13 - dow + k] : undefined), WK_D.map((n, k) => cnt[6 - dow + k]), '요일별 게시 수 · 회색 = 지난주', 1, S.ch === '전체', chW)));
+    M.push(hmCard('이번 주', wk + '개', (Math.round(avg * 10) / 10) + '개/일', '', '월요일부터 오늘까지 올린 게시물(스토리 빼고) · 지난주 같은 때 ' + lastW + '개 · 최근 2주 하루 평균', weekBars(WK_D.map((n, k) => k <= dow ? cnt[13 - dow + k] : undefined), WK_D.map((n, k) => cnt[6 - dow + k]), '요일별 게시 수 · 회색 = 지난주 · 반반 칸 = 공식 계정과 hong 공동작업', 1, S.ch === '전체', chW)));
     const st = (d.story || []).filter(x => chs.includes(x.ch));
     if (M.length < 3 && st.length) M.push(hmCard('오늘 스토리', fmtK(sum(st.map(x => x.views))), st.length + '개', '', '1시간마다 받아요'));
     // ③ 게시물 목록: 오른쪽 위 = 조회, 오른쪽 아래 = 조회 평소 대비(하루치 평소와 견줄 땐 20시간 뒤부터, 유튜브는 6시간 뒤부터), 아랫줄 = 채널·시간·반응 + 오른쪽 조회
@@ -4552,8 +4553,6 @@
     P.unitCells = { size };
     if (size > 1) P.subtitle = { display: true, text: '한 칸 = ' + size + '개', align: 'start', color: css('--muted'), font: { size: 13 }, padding: { bottom: 6 } };
   }
-  // 세로 칸마다 채널 색(여러 채널, 2026-11-07 「채널색에 맞게」)
-  const unitBgCh = cs => { const n = cs.length; return 'background:linear-gradient(to top,' + cs.map((c, k) => { const a = (k / n * 100).toFixed(2) + '%', b = ((k + 1) / n * 100).toFixed(2) + '%'; return chColor(c) + ' ' + a + ',' + chColor(c) + ' calc(' + b + ' - 2px),transparent calc(' + b + ' - 2px),transparent ' + b; }).join(',') + ')'; };
   const unitBg = (n, dir) => 'background:repeating-linear-gradient(to ' + dir + ',var(--c-u) 0,var(--c-u) calc(100% / ' + n + ' - 2px),transparent calc(100% / ' + n + ' - 2px),transparent calc(100% / ' + n + '))';
   function draw(id, cfg) { if ((cfg.plugins || []).includes(unitCells)) unitCfg(cfg); if (charts[id]) charts[id].destroy(); const el = $(id); if (!el) return; el.setAttribute('role', 'img'); el.setAttribute('aria-label', chartLabel(cfg)); charts[id] = new Chart(el, cfg); }
 
