@@ -962,7 +962,8 @@
     // 어제·오늘 올린 건 위 「오늘」 목록에 있어 뺌(점검 7번: 홈에 같은 게시물이 세 번 나옴)
     const kst = new Date(Date.now() + 9 * 3600000).toISOString().slice(0, 10), y1 = addDays(kst, -1), cut = it => it.d < y1;
     const wk = w ? all.filter(it => it.d >= w.mon && cut(it)) : [];
-    const L = wk.length ? wk.slice(0, 8) : all.filter(it => cut(it) && daysBetween(it.d, D.updated) <= 14).slice(0, 4);
+    const rk = it => { const n = raceVal(it, m).n; return n == null ? -1 : n; }, byV = X => X.slice().sort((a, b) => rk(b) - rk(a));
+    const L = wk.length ? byV(wk).slice(0, 8) : byV(all.filter(it => cut(it) && daysBetween(it.d, D.updated) <= 14)).slice(0, 4);
     window.__race = L;
     if (!L.length) return '';
     // 홈 시안 2 모양: hmRow 한 줄(윗줄 제목 + 평소 대비, 아랫줄 채널 · 올린 날 + 고른 값). 판정 단계(낮음·잘 됨…)와 비교 기준은 마우스를 올리면
@@ -1294,8 +1295,10 @@
         thumb: '<span class="hm-th ov-th" style="--c:' + chColor(ch) + '" aria-hidden="true"><img loading="lazy" alt="" src="https://i.ytimg.com/vi/' + esc(r[1]) + '/mqdefault.jpg" onerror="this.remove()"></span>',
         t: esc(r[3]), m: ['유튜브', r[4] != null && r[4] <= 60 ? '쇼츠' : '', when(r[2])].filter(Boolean).join(' · '), r: r[5] != null ? '조회 <span class="num">' + fmtK(r[5]) + '</span>' : '' }));
       const n = ig.length + yt.length;
+      const igS = L.map(it => /릴스/.test(it.t) && val(it, 0) ? val(it, 0) : hid ? -1 : val(it, 1) || 0);
+      const rows = ig.map((h, i) => [igS[i], h]).concat(yt.map((h, i) => [V[i][5] == null ? -1 : V[i][5], h])).sort((a, b) => b[0] - a[0]).map(x => x[1]).join('');
       return '<div class="yd-b"><div class="yd-h"><b><i class="hm-dot" style="background:' + chColor(ch) + '"></i>' + esc(chName(ch)) + '</b><span>' + (n ? n + '개' : '') + '</span></div>' +
-        (n ? '<ol class="hm-list">' + ig.join('') + yt.join('') + '</ol>' : '<p class="yd-e">' + lab + ' 올린 게시물이 없어요</p>') + '</div>';
+        (n ? '<ol class="hm-list">' + rows + '</ol>' : '<p class="yd-e">' + lab + ' 올린 게시물이 없어요</p>') + '</div>';
     });
     return '<section class="sec" id="ydSec"><div class="sh"><div><h2>' + lab + ' 올린 콘텐츠</h2><p>' + (wk ? md2(f) + '~' + md2(t) : md2(f)) + '</p></div></div>' +
       '<div class="yd-grid">' + cards.join('') + '</div><p class="note">스토리 빼고 · 숫자는 지금까지 받은 값' + (Y ? '' : ' · 유튜브는 불러오는 중') + '</p></section>';
@@ -2038,7 +2041,7 @@
   }
   function coInner(chs) {
     const m = COS.m, Dt = ['hong._.video', '인스타그램'].filter(c => chs.includes(c)).map(coData), F = m === 'v' || m === 'r' ? fmtK : pctA;
-    COS.L = Dt.reduce((a, x) => a.concat(x.A, x.young), []).sort((a, b) => a.d < b.d ? 1 : -1);
+    COS.L = Dt.reduce((a, x) => a.concat(x.A, x.young), []).sort((a, b) => (mainVal(b) || 0) - (mainVal(a) || 0));
     const cards = Dt.map(x => { const med = X => median(X.map(it => coVal(it, m)).filter(v => v != null)), a = med(x.A), b = med(x.B), mx = Math.max(a || 0, b || 0) || 1, few = x.A.length < MIN_N, r = m === 'v' ? x.rel : a != null && b ? a / b : null;
       const row = (lab, n, v, col) => '<div class="ins-r co-r"><span class="ins-n"><b>' + lab + '</b> <small class="num">' + n + '개</small></span><span class="bc-t"><i style="width:' + (v == null ? 0 : Math.max(2, v / mx * 100)).toFixed(1) + '%;background:' + col + '"></i></span><b class="num ins-v">' + (v == null ? '–' : F(v)) + '</b></div>';
       return '<div class="bc-b ins-c"><div class="co-h">' + badge(x.ch) + '<span>' + (x.ch === 'hong._.video' ? '홍비디오가 올림' : '공식 계정이 올림') + '</span>' + (few ? '<b class="mu">게시물 적음</b>' : r == null ? '' : '<b class="num ' + (r >= 1.15 ? 'up' : r <= 0.85 ? 'down' : 'mu') + '">단독의 ' + r.toFixed(1) + '배</b>') + '</div>' +
@@ -2100,7 +2103,7 @@
       top += kpi7Html(chs);
       top += anaHtml();
       top += secOpen('이번 달 목표', gh ? '목표를 얼마나 채웠는지 · 세로선(오늘 기준) = 오늘까지 와 있어야 할 위치 · 주황 = 뒤처짐' : '') + (gh || '<p class="note">목표가 아직 없어요 · 오른쪽 위 알림에서 적는 법을 볼 수 있어요</p>') + secClose;
-      const AR = L.filter(it => it.arc).sort((a, b) => a.arc < b.arc ? 1 : -1);
+      const AR = L.filter(it => it.arc).sort((a, b) => (mainVal(b) || 0) - (mainVal(a) || 0));
       if (AR.length) top += secOpen('보관한 게시물', '보관하면 여기 모여요') + '<ol class="hm-list" id="arcList">' + rankRows(AR, { right: it => it.arw ? esc(it.arw) : '보관 ' + md2(it.arc) }) + '</ol><p class="note">원인과 「기획 때 하지 말 것」은 분석 문서에 정리해요 · 숫자는 보관 전 마지막 값</p>' + secClose;
       top += secOpen('이번 주 처방', (ch ? '' : esc(scopeLabel()) + ' · ') + '잘 되는데 최근 2달 덜 올린 것 · 많이 올렸는데 약한 것') + rxHtml(RX) + secClose;
       top += coHtml(chs);
@@ -2356,11 +2359,11 @@
       // 휴대폰은 표 대신 홈 시안 2 목록(hmRow): 윗줄 이름 + 조회 평소 대비, 아랫줄 역할 · 참여 · 히트 + 조회 합. 15명씩, 정렬은 칩
       (pMob ? '<div class="chips" id="pSort">' + [['n', '참여'], ['views', '조회 합'], ['idx', '평소 대비'], ['hits', '히트'], ['score', '등급 점수']].map(x => '<button class="chip" type="button" data-s="' + x[0] + '" aria-pressed="' + (S.psort === x[0] || (!S.psort && x[0] === 'n')) + '">' + x[1] + '</button>').join('') + '</div>' +
         '<ol class="hm-list" id="pTbl">' + (ps.length ? ps.slice(0, S.pAll ? ps.length : 15).map(p => hmRow({ tag: 'li', attr: 'data-n="' + esc(p.n) + '" tabindex="0" role="button"', cls: S.person === p.n ? 'on' : '', tip: '등급 점수 ' + fmt(p.score) + (p.best ? ' · 최고 ' + title(p.best.n) : ''), t: esc(p.n), v: vsP(p.idx), vc: p.idx == null || p.k < MIN_N ? 'mu' : xCls(p.idx), m: esc(p.role) + (p.left ? ' <span class="mu">활동 끝</span>' : '') + ' · 참여 ' + p.k + ' · 히트 ' + p.hits, r: '조회 ' + fmtK(p.views) }) +
-          (S.person === p.n ? '<li class="hm-open"><ol class="rank" id="pList">' + rankRows(p.arr.slice().sort((a, b) => b.d < a.d ? -1 : 1).slice(0, 10)) + '</ol></li>' : '')).join('') : '<li class="empty">' + periodPhrase() + ' 동안 크레딧에 이름이 있는 콘텐츠가 없어요.</li>') + '</ol>' +
+          (S.person === p.n ? '<li class="hm-open"><ol class="rank" id="pList">' + rankRows(p.arr.slice().sort((a, b) => (mainVal(b) || 0) - (mainVal(a) || 0)).slice(0, 10)) + '</ol></li>' : '')).join('') : '<li class="empty">' + periodPhrase() + ' 동안 크레딧에 이름이 있는 콘텐츠가 없어요.</li>') + '</ol>' +
         (!S.pAll && ps.length > 15 ? '<button type="button" class="more" id="pAll">' + (ps.length - 15) + '명 더 보기 ›</button>' : '') :
       '<div class="tw"><table class="tbl" id="pTbl"><thead><tr><th>이름</th><th>역할</th>' + th('n', '참여') + th('views', '조회 합') + th('idx', '조회 평소 대비') + th('hits', '히트') + th('score', '등급 점수') + '<th>최고 콘텐츠</th></tr></thead><tbody>' +
       ps.map(p => '<tr class="click' + (S.person === p.n ? ' on' : '') + '" data-n="' + esc(p.n) + '"><td><b>' + esc(p.n) + '</b></td><td>' + ptag(p.role) + (p.left ? ' <small class="mu">활동 끝</small>' : '') + '</td><td class="n">' + p.k + '</td><td class="n">' + fmtK(p.views) + '</td><td class="n ' + (p.idx == null || p.k < MIN_N ? 'mu' : xCls(p.idx)) + '">' + vsP(p.idx) + '</td><td class="n">' + p.hits + '</td><td class="n ' + (p.score >= 0 ? 'up' : 'down') + '">' + (p.score > 0 ? '+' : '') + p.score + '</td><td><div class="ellip">' + line(p.best) + '</div></td></tr>' +
-        (S.person === p.n ? '<tr><td colspan="8" style="padding:0 0 10px;white-space:normal"><ol class="rank" id="pList">' + rankRows(p.arr.slice().sort((a, b) => b.d < a.d ? -1 : 1).slice(0, 10)) + '</ol>' + (p.arr.length > 10 ? '<p class="note">최근 10개만 보여요. 전체 목록은 「엑셀로 받기」나 「데이터 추출 → 사람」에서 받을 수 있어요.</p>' : '') + '</td></tr>' : '')).join('') +
+        (S.person === p.n ? '<tr><td colspan="8" style="padding:0 0 10px;white-space:normal"><ol class="rank" id="pList">' + rankRows(p.arr.slice().sort((a, b) => (mainVal(b) || 0) - (mainVal(a) || 0)).slice(0, 10)) + '</ol>' + (p.arr.length > 10 ? '<p class="note">조회 높은 10개만 보여요. 전체 목록은 「엑셀로 받기」나 「데이터 추출 → 사람」에서 받을 수 있어요.</p>' : '') + '</td></tr>' : '')).join('') +
       (ps.length ? '' : '<tr><td colspan="8" class="empty">' + periodPhrase() + ' 동안 크레딧에 이름이 있는 콘텐츠가 없어요.</td></tr>') +
       '</tbody></table></div>') +
       '<p class="note">이름을 누르면 그 사람이 참여한 콘텐츠가 펼쳐져요. 역할이 틀렸다면 스냅샷 시트 「명단」 탭에서 고칠 수 있어요.</p>' + secClose;
@@ -2370,7 +2373,7 @@
     $('view').querySelectorAll('#pTbl th button, #pSort [data-s]').forEach(b => b.addEventListener('click', () => { S.psort = b.dataset.s; viewMaker(); }));
     if ($('pAll')) $('pAll').addEventListener('click', () => { S.pAll = true; viewMaker(); });
     $('view').querySelectorAll('#pTbl tr[data-n], #pTbl li[data-n]').forEach(tr => tr.addEventListener('click', () => { S.person = S.person === tr.dataset.n ? null : tr.dataset.n; viewMaker(); }));
-    if (S.person) { const p = ps.find(x => x.n === S.person); if (p) wireRank($('pList'), p.arr.slice().sort((a, b) => b.d < a.d ? -1 : 1).slice(0, 10)); }
+    if (S.person) { const p = ps.find(x => x.n === S.person); if (p) wireRank($('pList'), p.arr.slice().sort((a, b) => (mainVal(b) || 0) - (mainVal(a) || 0)).slice(0, 10)); }
     $('pXls').addEventListener('click', () => {
       const head = ['이름', '역할', '참여 콘텐츠', '조회 합', '조회 평소 대비(중간값, 배)', '히트 수', '등급 점수', '최고 콘텐츠', '최고 콘텐츠 조회'];
       const rows = ps.map(p => [p.n, p.role + (p.left ? '(활동 끝)' : ''), p.k, p.views, p.idx == null ? null : +p.idx.toFixed(2), p.hits, p.score, title(p.best.n), val(p.best, 0)]);
@@ -2483,7 +2486,7 @@
   }
   function adVideosOf(c) {
     // 캠페인에 연결된 영상(대시보드 콘텐츠)
-    return D.items.filter(it => it.ad && it.ad.k && it.ad.k.includes(c.n));
+    return D.items.filter(it => it.ad && it.ad.k && it.ad.k.includes(c.n)).sort((a, b) => (val(b, 0) || 0) - (val(a, 0) || 0));
   }
   function adStats(camps, from, to) {
     const A = D.ads || {}, rows = adRows();
@@ -3388,7 +3391,7 @@
       kinds.forEach(k => { h += stackRow(k, dm.filter(r => r[1] === k).map(r => [r[2], r[3]]), chColor(ch)); });
       h += secClose;
     }
-    const st = (d.story || []).filter(r => r[0] === ch).slice(0, 10);
+    const st = (d.story || []).filter(r => r[0] === ch).slice(0, 10).sort((a, b) => (b[3] || 0) - (a[3] || 0));
     if (st.length) {
       // 표 대신 막대 + 판정 칩(2026-10-20 「표로 보여줄 거면 대시보드가 왜 필요하냐」). 평소 = 받아 둔 스토리 전체 조회 중간값
       const all = (d.story || []).filter(r => r[0] === ch && r[3] > 0), base = medOf(all.map(r => r[3])), mx = Math.max(...st.map(r => r[3] || 0)) || 1;
@@ -3439,7 +3442,8 @@
       // 2026-11-01 「가독성 있게」: 숫자 7개를 한 줄에 잇던 것 → 오른쪽 큰 값 = 우리 평소 대비(판단), 아랫줄 = 올린 계정 · 날짜, 오른쪽 보조 = 조회. 나머지 숫자는 마우스 올림
       const coX = x => x >= 10 ? xf(x) : vsP(x);
       h += secOpen('상대 계정이 올린 공동작업', '오른쪽 = 우리 평소 대비 · 좋아요·댓글은 매시간 · 조회·도달·공유·저장은 앱 인사이트에서 본 값 · 우리 평소 계산에는 넣지 않아요');
-      h += '<div class="hm-list">' + co.slice(0, 10).map(r => { const x = r[7] != null && rk ? ['도달', r[7] / rk] : r[5] != null && lk ? ['좋아요', r[5] / lk] : null;
+      const coS = r => r[7] != null && rk ? r[7] / rk : r[5] != null && lk ? r[5] / lk : -1;
+      h += '<div class="hm-list">' + co.slice().sort((a, b) => coS(b) - coS(a)).slice(0, 10).map(r => { const x = r[7] != null && rk ? ['도달', r[7] / rk] : r[5] != null && lk ? ['좋아요', r[5] / lk] : null;
         return hmRow({ tag: 'a', attr: 'href="' + esc(r[0]) + '" target="_blank" rel="noopener"', t: esc(r[4] || r[0]),
           v: x ? x[0] + ' ' + coX(x[1]) : '', vc: x ? (xCls(x[1]) === 'flat' ? 'mu' : xCls(x[1])) : '',
           m: '<b class="hm-who">@' + esc(r[1]) + '</b>' + (r[3] ? ' · ' + esc(dot(r[3])) : ''), r: r[2] != null ? '조회 ' + fmtK(r[2]) : r[5] != null ? '좋아요 ' + fmtK(r[5]) : '',
@@ -3768,8 +3772,9 @@
     const st = (d.story || []).filter(x => chs.includes(x.ch));
     if (M.length < 3 && st.length) M.push(hmCard('오늘 스토리', fmtK(sum(st.map(x => x.views))), st.length + '개', '', '1시간마다 받아요'));
     // ③ 게시물 목록: 오른쪽 위 = 조회, 오른쪽 아래 = 조회 평소 대비(하루치 평소와 견줄 땐 20시간 뒤부터, 유튜브는 6시간 뒤부터), 아랫줄 = 채널·시간·반응 + 오른쪽 조회
-    window.__td = P;
-    const L = P.slice(0, 6).map((p, i) => {
+    const PV = P.slice().sort((a, b) => (b.v == null ? -1 : b.v) - (a.v == null ? -1 : a.v));
+    window.__td = PV;
+    const L = PV.slice(0, 6).map((p, i) => {
       const den = p.c === '인스타그램' ? p.r : p.v, few = den != null && den < TD_MIN[p.c === '인스타그램' ? 0 : 1];
       const rx = tdReact(p.c, p.l, p.cm, p.sh, p.sv, p.r, p.v), u = tdUsual(p.c, p.t), r = rx != null && u && !few ? rx / u : null;
       const vb = p.v == null ? null : tdBase(p, now), yt6 = p.c === '유튜브' && vb && vb.h < 6;
@@ -4291,7 +4296,7 @@
         note: '월별 올린 게시물 · 스토리 제외 · 이번 달은 ' + (+D.updated.slice(8, 10)) + '일까지',
         chart: { type: 'bar', data: { labels: ms.map(monLab), datasets: chs.map(c => ({ label: chName(c), data: ms.map(k => cnt(c, k)), backgroundColor: chColor(c), stack: 's', borderRadius: 3, maxBarThickness: 30 })) },
           options: chartOpts({ plugins: { legend: { display: !one, position: 'bottom' }, tooltip: { callbacks: { label: c => c.dataset.label + ' ' + c.raw + '개' } } }, scales: { x: { stacked: true, ticks: { maxRotation: 0, autoSkip: true, maxTicksLimit: 6 } }, y: Object.assign(yAx(v => v + '개'), { stacked: true }) } }), plugins: [unitCells] },
-        list: { t: '최근 30일 올린 게시물', L: c30.slice().sort((a, b) => a.d < b.d ? 1 : -1).slice(0, 15) },
+        list: { t: '최근 30일 올린 게시물', L: c30.slice().sort((a, b) => (mainVal(b) || 0) - (mainVal(a) || 0)).slice(0, 15) },
         table: kTbl(['월'].concat(one ? [] : chs.map(chName)).concat(['합계']), ms.slice().reverse().map(k => [k.replace('-', '.')].concat(one ? [] : chs.map(c => cnt(c, k) + '개')).concat([sum(chs.map(c => cnt(c, k))) + '개']))) };
     }
     if (key === 'fol') {
@@ -4780,6 +4785,7 @@
     });
     // 서버가 「광고 매핑」 탭으로 붙인 메타 캠페인(트래픽 광고 등)도 캠페인별 게시물에 넣음
     D.items.forEach(it => { if (it.ad && it.ad.mk) it.ad.mk.forEach(n => M.filter(c => c.n === n).forEach(c => { if (!c.posts.includes(it)) c.posts.push(it); })); });
+    M.forEach(c => c.posts.sort((a, b) => (val(b, 0) || 0) - (val(a, 0) || 0)));
     // 비공개·중복 업로드로 보이는 유튜브 영상: 올린 지 14일이 넘었는데 조회 20 이하 → 평소 계산·판정에서 빼고 「비공개로 보임」 표시
     // 전체 기간 값(L)이 없는 예전 영상은 수집 시작 뒤 조회만 있어 원래 작으므로 제외
     D.items.forEach(it => { if (it.c === '유튜브' && (it.L || it.d >= D.dates[0]) && daysBetween(it.d, D.updated) > AGE_MIN) { const v = val(it, 0); if (v != null && v <= 20) it.hid = 1; } });
