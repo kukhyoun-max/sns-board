@@ -611,7 +611,77 @@ function resumeSnapshot() {
 // 반환: { 채널명: { 콘텐츠키: item } }
 // 같은 원본 시트(퍼블릭 원본: hong·벤치마크)는 한 실행에서 한 번만 읽음
 const SRC_VALUES_ = {};
+// ───────── Supermetrics 전환(2026-11-07, 구독 12-01 만료): 스크립트 속성 SM_OFF = on 이면 원본 시트 대신 「직전 기록 + API」로 기록 ─────────
+//  · 직전 기록을 기준으로 삼아 키·2024년 전 영상의 기간 값·API에 없는 게시물(보관·비공개)의 마지막 값이 그대로 이어짐
+//  · 꺼져 있으면 지금과 똑같음. 켜기 전에는 shadowBase_가 같은 경로를 돌려 실제 기록과 비교만 함(SM_FORCE_)
+let SM_FORCE_ = null;
+const SM_BASE_ = {}, SM_NEWMAP_ = [];
+let SM_KEYMAP_ = null;
+const smOff_ = () => SM_FORCE_ ? true : PropertiesService.getScriptProperties().getProperty('SM_OFF') === 'on';
+function smBaseAll_(today, strict) {
+  const ck = strict ? 'b' : 'e';
+  if (SM_BASE_[ck]) return SM_BASE_[ck];
+  const snap = (SpreadsheetApp.getActive() || SpreadsheetApp.openById(SS_ID)).getSheetByName(SNAP), last = snap.getLastRow();
+  if (last < 2) throw new Error('기준 기록 없음');
+  const col = snap.getRange(2, 1, last - 1, 1).getDisplayValues().map(r => r[0]);
+  // 오늘(strict면 뺌)·임시·월요일 확정이 함께 있으므로 최근 기록일 3개를 읽고, 채널마다 그중 가장 최근 날짜를 씀
+  const dates = Array.from(new Set(col)).filter(d => /^\d{4}-\d{2}-\d{2}$/.test(d) && (strict ? d < today : d <= today)).sort().slice(-3);
+  if (!dates.length) throw new Error('기준 기록 없음');
+  const from = col.findIndex(d => dates.indexOf(d) >= 0);
+  const rows = snap.getRange(from + 2, 1, col.length - from, SNAP_HEADER.length).getValues();
+  const latest = {}, all = {};
+  rows.forEach(r => { const d = fmtDate_(r[0]), ch = String(r[1]); if (ch && dates.indexOf(d) >= 0 && (!latest[ch] || d > latest[ch])) latest[ch] = d; });
+  rows.forEach(r => {
+    const ch = String(r[1]), k = String(r[2]);
+    if (!ch || !k || fmtDate_(r[0]) !== latest[ch]) return;
+    const title = String(r[C.title]);
+    const it = { date: fmtDate_(r[C.date]), title: title, url: String(r[C.url] || ''), full: title, desc: '', baseOnly: true,
+      type: String(r[C.type] || ''), reach: r[C.reach], engaged: r[C.engaged], avgSec: r[C.avgSec], lengthSec: r[C.lengthSec] };
+    METRICS.forEach((m, i) => { it[m] = r[M0 + i]; });
+    (all[ch] = all[ch] || {})[k] = it;
+  });
+  return SM_BASE_[ck] = all;
+}
+function smBase_(src, today, strict) {
+  const all = smBaseAll_(today, strict), out = {};
+  const cutoff = src.maxDays ? shiftDate_(today, -src.maxDays) : '';
+  Object.keys(all).forEach(ch => {
+    if (src.bench ? ch.indexOf(BENCH_PREFIX) !== 0 : ch !== src.channel) return;
+    Object.keys(all[ch]).forEach(k => {
+      if (cutoff && all[ch][k].date && all[ch][k].date < cutoff) return;
+      (out[ch] = out[ch] || {})[k] = Object.assign({}, all[ch][k]); // 덮어쓰기가 기준을 건드리지 않게 복사
+    });
+  });
+  return out;
+}
+// API 게시물 ↔ 기록 키: 저장된 연결(「API 키 대응」) → 캡션·날짜 → 같은 캡션 키. 게시 뒤 캡션을 고쳐도 같은 줄로 이어지게
+function igMatchKeyed_(ch, media, chName, today) {
+  if (!SM_KEYMAP_) {
+    SM_KEYMAP_ = {};
+    const km = (SpreadsheetApp.getActive() || SpreadsheetApp.openById(SS_ID)).getSheetByName(KEYMAP_SHEET);
+    if (km && km.getLastRow() > 1) km.getRange(2, 1, km.getLastRow() - 1, 3).getValues().forEach(r => { (SM_KEYMAP_[String(r[0])] = SM_KEYMAP_[String(r[0])] || {})[String(r[1])] = String(r[2]); });
+  }
+  const map = SM_KEYMAP_[chName] || {}, byId = {}, used = {}, rest = {};
+  media.forEach(a => { const k = map[a.id]; if (k && ch[k] && !used[k]) { byId[a.id] = k; used[k] = 1; } });
+  Object.keys(ch).forEach(k => { if (!used[k]) rest[k] = ch[k]; });
+  const mt = igMatch_(rest, media.filter(a => !byId[a.id]));
+  Object.keys(mt.byId).forEach(id => { byId[id] = mt.byId[id]; used[mt.byId[id]] = 1; });
+  media.forEach(a => { if (byId[a.id]) return; const k = capKey_(a.date, a.caption); if (ch[k] && !used[k]) { byId[a.id] = k; used[k] = 1; } });
+  Object.keys(byId).forEach(id => { if (map[id] !== byId[id]) { SM_NEWMAP_.push([chName, id, byId[id], today]); map[id] = byId[id]; SM_KEYMAP_[chName] = map; } });
+  return { byId: byId, amb: mt.amb, sameDay: mt.sameDay, offDay: mt.offDay, dateOnly: mt.dateOnly };
+}
+function smOverlay_(src, out, today, cutoff) {
+  if (src.channel === '유튜브') ytOverlay_(out, today);
+  if (IG_CH[src.channel]) igOverlay_(out, today, src.channel);
+  if (src.bench) benchOverlay_(out, today, cutoff);
+}
 function readSource_(src, today) {
+  if (smOff_() && !src.sheet) {
+    const out = smBase_(src, today, !!SM_FORCE_);
+    smOverlay_(src, out, today, src.maxDays ? shiftDate_(today, -src.maxDays) : '');
+    if (SM_NEWMAP_.length) igxUpsert_(SpreadsheetApp.getActive() || SpreadsheetApp.openById(SS_ID), KEYMAP_SHEET, ['채널', 'API ID', '콘텐츠키', '기록일'], [0, 1], SM_NEWMAP_.splice(0));
+    return out;
+  }
   const ck = src.id + '|' + (src.sheet || '') + '|' + (src.needDisplay ? 1 : 0);
   let got = SRC_VALUES_[ck];
   if (!got) {
@@ -691,9 +761,7 @@ function readSource_(src, today) {
       if (!prev.type && item.type) prev.type = item.type;
     }
   });
-  if (src.channel === '유튜브' && !src.sheet) ytOverlay_(out, today);
-  if (IG_CH[src.channel] && !src.sheet) igOverlay_(out, today, src.channel);
-  if (src.bench && !src.sheet) benchOverlay_(out, today, cutoff);
+  if (!src.sheet) smOverlay_(src, out, today, cutoff);
   return out;
 }
 
@@ -703,9 +771,11 @@ function accountSnapshot_(ss, today, logs, provDel) {
   const acc = ss.getSheetByName(ACCOUNT);
   ACCOUNT_SOURCES.forEach(a => {
     const name = '계정·' + a.channel;
-    const src = ss.getSheetByName(a.tab);
-    if (!src) { logs.push([new Date(), name, 0, '대기: 「' + a.tab + '」 탭 없음']); return; }
-    const v = src.getDataRange().getValues();
+    const api = smOff_();
+    const src = api ? null : ss.getSheetByName(a.tab);
+    if (!api && !src) { logs.push([new Date(), name, 0, '대기: 「' + a.tab + '」 탭 없음']); return; }
+    const v = api ? acctFromApi_(ss, a.channel, today) : src.getDataRange().getValues();
+    if (!v) { logs.push([new Date(), name, 0, '오류: API 일별 탭에 값이 없어 오늘 줄을 쓰지 않음']); return; } // 빈 값으로 덮지 않음
     if (v.length < 2 || /^error/i.test(String(v[0][0]))) {
       logs.push([new Date(), name, 0, '오류: ' + String(v[0][0]).slice(0, 100)]);
       return;
@@ -755,6 +825,34 @@ function accountSnapshot_(ss, today, logs, provDel) {
     }
     logs.push([new Date(), name, 1, errCols.length ? '정상 · 경고: 수집 오류 지표 — ' + errCols.join(', ') : '정상']);
   });
+}
+
+// SM_OFF일 때 계정 지표: API 일별 탭 → [머리글, 값]. 기간은 Supermetrics 쿼리와 같은 지난주 월~일(유튜브 비교로 확인)
+// 보드가 읽는 지표만 만든다. Profile views·Profile reach·평균 시청률은 읽는 곳이 없고 API와 뜻이 달라 이어 쓰지 않음(값은 일별 탭에 있음)
+function acctFromApi_(ss, channel, today) {
+  const wd = weekday_(today), from = shiftDate_(today, -(wd - 1) - 7), to = shiftDate_(from, 6);
+  const read = (name, dc) => { const sh = ss.getSheetByName(name); return sh && sh.getLastRow() > 1 ? sh.getDataRange().getValues().slice(1).map(r => { r[dc] = fmtDate_(r[dc]); return r; }) : []; };
+  const isNum = x => x !== '' && x != null && !isNaN(Number(x));
+  const sum = (R, dc, vc) => { let s = 0, n = 0; R.forEach(r => { if (r[dc] >= from && r[dc] <= to && isNum(r[vc])) { s += Number(r[vc]); n++; } }); return n ? s : null; };
+  const H = [], V = [];
+  const add = (h, x) => { if (x != null && x !== '') { H.push(h); V.push(x); } };
+  if (channel === '인스타그램') {
+    const IG = read(IGX_DAY_SHEET, 1).filter(r => String(r[0]) === channel);
+    const f = IG.filter(r => r[1] <= today && isNum(r[2])).sort((p, q) => p[1] < q[1] ? -1 : 1).pop();
+    if (!f) return null;
+    add('Profile followers', Number(f[2]));
+    add('New followers', sum(IG, 1, 5));
+  } else {
+    const YT = read('유튜브 채널 일별', 0);
+    const g = sum(YT, 0, 4);
+    if (g == null) return null;
+    add('Gained subscribers', g);
+    add('Lost subscribers', sum(YT, 0, 5));
+    add('Video views', sum(YT, 0, 1));
+    add('Estimated minutes watched', sum(YT, 0, 2));
+    try { add('Channel total subscribers', Number(ytaGet_('https://www.googleapis.com/youtube/v3/channels?part=statistics&mine=true').items[0].statistics.subscriberCount)); } catch (e) {}
+  }
+  return [H, V];
 }
 
 // ───────── 분석 탭 ─────────
@@ -2331,6 +2429,7 @@ function saveTags_(ss, bySrc, today) {
   if (sh.getLastRow() > 1) sh.getRange(2, 1, sh.getLastRow() - 1, 9).getValues().forEach(r => { map[r[0] + '§' + r[1]] = r; });
   bySrc.forEach(byCh => Object.keys(byCh).forEach(ch => Object.keys(byCh[ch]).forEach(k => {
     const it = byCh[ch][k];
+    if (it.baseOnly && map[ch + '§' + k]) return; // SM_OFF: API에 없어 캡션 전문이 없는 게시물은 잘린 제목으로 다시 판정하지 않고 태그 유지
     const t = tagItem_(ch, it);
     map[ch + '§' + k] = [ch, k, t.g, t.p, t.w.join(', '), today, it.url || '', '', t.tc];
     txt[ch + '§' + k] = t.tx;
@@ -2663,14 +2762,16 @@ function attachTags_(ss, items, keys) {
   });
   // 유튜브 전체 기간(「유튜브_전체기간」 탭, Supermetrics 2012~어제) → it.L = [조회, 좋아요, 댓글, 공유]
   try {
-    const ls = ss.getSheetByName('유튜브_전체기간');
-    if (ls && ls.getLastRow() > 1) {
+    // SM_OFF: 멈춘 옛 탭을 깔고 API 탭으로 덮음(API 목록에 없는 비공개 영상은 마지막 값 유지)
+    const L = {};
+    ['유튜브_전체기간'].concat(smOff_() ? [YT_LIFE_API] : []).forEach(tab => {
+      const ls = ss.getSheetByName(tab);
+      if (!ls || ls.getLastRow() < 2) return;
       const lv = ls.getDataRange().getValues(), lh = lv[0].map(h => String(h).trim());
       const iu = lh.indexOf('Video URL'), iv = lh.indexOf('Video views'), il = lh.indexOf('Likes'), ic = lh.indexOf('Comments'), ish = lh.indexOf('Shares');
-      const L = {};
       if (iu >= 0 && iv >= 0) lv.slice(1).forEach(r => { const id = vid(String(r[iu])); if (id) L[id] = [Number(r[iv]) || 0, il >= 0 ? Number(r[il]) || 0 : null, ic >= 0 ? Number(r[ic]) || 0 : null, ish >= 0 ? Number(r[ish]) || 0 : null]; });
-      items.forEach(it => { if (it.c === '유튜브') { const x = L[vid(it.u)]; if (x) it.L = x; } });
-    }
+    });
+    items.forEach(it => { if (it.c === '유튜브') { const x = L[vid(it.u)]; if (x) it.L = x; } });
   } catch (e) {}
   // 소재 보고서(「구글애즈 동영상」·「메타 광고(광고별)」)로 직접 연결 — 가장 확실하므로 추정·패턴보다 우선해 「확인」으로 올림
   try {
@@ -3230,6 +3331,7 @@ function ytOverlay_(out, today) {
     Object.keys(api.videos).forEach(id => {
       const v = api.videos[id], a = api.stats[id], k = 'yt:' + id, it = ch[k];
       if (it) {
+        if (it.baseOnly) { it.full = v.title; it.desc = v.desc; delete it.baseOnly; } // SM_OFF: 태그 판정용 전문은 API에서
         if (v.ts) it.ts = v.ts; // 게시 시각(「게시 후 조회」 경과 시간용, 스냅샷 탭에는 안 씀)
         if (!it.lengthSec && v.lengthSec) { it.lengthSec = v.lengthSec; it.type = lengthBucket_(v.lengthSec); }
         if (a) { // 분석 API(채널 권한이 있을 때): 원본 시트와 같은 기간 값으로 바로 교체
@@ -3238,6 +3340,12 @@ function ytOverlay_(out, today) {
           it.views = mx(a.views, v.views); it.likes = mx(a.likes, v.likes); it.comments = mx(a.comments, v.comments);
           if (a.engaged !== '') it.engaged = a.engaged;
           if (a.avgSec !== '') it.avgSec = a.avgSec;
+          upd++;
+          return;
+        }
+        // SM_OFF: 기준이 직전 기록이라 아래 차이 방식을 쓰면 같은 증가를 매번 더함. 기간 시작 뒤 영상은 공개 수치, 2024년 전 영상은 마지막 값 유지
+        if (smOff_()) {
+          if (v.date >= YT_PERIOD_START) ['views', 'likes', 'comments'].forEach(f => { it[f] = Math.max(Number(it[f]) || 0, v[f]); });
           upd++;
           return;
         }
@@ -3413,7 +3521,7 @@ function igOverlay_(out, today, chName) {
   const ch = out[chName] = out[chName] || {};
   try {
     const api = IG_API_[chName] || (IG_API_[chName] = fetchInstagram_(chName));
-    const m = igMatch_(ch, api.media);
+    const m = smOff_() ? igMatchKeyed_(ch, api.media.filter(x => x.product !== 'STORY'), chName, today) : igMatch_(ch, api.media);
     let upd = 0, add = 0, held = 0;
     const recent = shiftDate_(today, -IG_NEW_DAYS), newFrom = cf.allNew ? cf.from : recent;
     const linked = {}, loose = {};
@@ -3423,6 +3531,7 @@ function igOverlay_(out, today, chName) {
     api.media.forEach(x => {
       const k = m.byId[x.id], it = k ? ch[k] : null;
       if (it) {
+        delete it.baseOnly;
         ['views', 'likes', 'comments', 'shares', 'saves', 'reach'].forEach(f => { if (x[f] !== '') it[f] = x[f]; });
         if (x.url) it.url = x.url;
         if (x.caption) it.full = x.caption; // 게시 뒤 고친 캡션(크레딧 추가 등)도 판정에 쓰게: 원본 시트는 받아 둔 옛 캡션(2026-11-05 정림 강연이 계속 자체 제작). 키·제목은 안 바꿈
@@ -4552,6 +4661,19 @@ function ytaVideoInfo_(ss, today) {
   return out.length;
 }
 
+// 「유튜브_전체기간」 탭(Supermetrics)을 대신할 탭: 조회·좋아요·댓글 = 공개 수치, 공유 = 분석 API 전체 기간(2026-11-07). 같은 열 이름, 영상 ID 기준 합쳐 쓰기(지우지 않음)
+const YT_LIFE_API = '유튜브_전체기간(API)';
+function ytaLifetime_(ss, today) {
+  const api = YT_API_ || (YT_API_ = fetchYouTube_(Object.keys(ytLifetime_()), today));
+  const ids = Object.keys(api.videos), shares = {};
+  for (let i = 0; i < ids.length; i += YT_BATCH) {
+    ytaReport_({ startDate: '2012-01-01', endDate: today, dimensions: 'video', filters: 'video==' + ids.slice(i, i + YT_BATCH).join(','), maxResults: 200, metrics: 'shares' })
+      .forEach(r => { shares[r.video] = r.shares; });
+  }
+  const rows = ids.map(id => { const v = api.videos[id]; return ['https://www.youtube.com/watch?v=' + id, v.views, v.likes, v.comments, shares[id] || 0, today]; });
+  igxUpsert_(ss, YT_LIFE_API, ['Video URL', 'Video views', 'Likes', 'Comments', 'Shares', '기록일'], [0], rows);
+  return rows.length;
+}
 // 매일 기록 단계(yta): 가벼운 것만 — 채널 일별·시청자(최근 28일 + 지난달 2개까지)·영상 분석·최근 영상 유입·검색어·댓글
 function ytaStep_(ss, today, logs) {
   if (!PropertiesService.getScriptProperties().getProperty('YT_REFRESH')) { logs.push([new Date(), '유튜브 추가 수집', 0, '건너뜀: 브랜드 계정 승인(YT_REFRESH) 없음']); return; }
@@ -4572,6 +4694,8 @@ function ytaStep_(ss, today, logs) {
   run('노출·최종 화면(보고서 API)', () => ytrStep_(ss, 60 * 1000).text);
   run('유형 일별', () => ytaTypeDaily_(ss, today) + '줄');
   run('영상 추가 지표', () => ytaVideoMore_(ss, today) + '개');
+  // 전체 기간 탭은 실패해도 다른 단계를 다시 돌리지 않음(bad에 안 셈)
+  try { parts.push('전체 기간 ' + ytaLifetime_(ss, today) + '개'); } catch (e) { parts.push('전체 기간 오류: ' + String(e.message).slice(0, 120)); }
   if (!bad) props.setProperty('YTA_DAY', today);   // 오류가 있으면 다음 기록이 다시 받음
   logs.push([new Date(), '유튜브 추가 수집', 0, parts.join(' · ') + ytaFailText_()]);
 }
@@ -4660,11 +4784,12 @@ function benchOverlay_(out, today, cutoff) {
     try {
       const api = benchFetch_(u, since, 6);
       const media = api.media.map(x => ({ id: String(x.m.id), date: x.date, caption: String(x.m.caption || ''), product: String(x.m.media_product_type || ''), m: x.m }));
-      const mt = igMatch_(ch, media);
+      const mt = smOff_() ? igMatchKeyed_(ch, media, chName, today) : igMatch_(ch, media);
       let upd = 0, add = 0;
       media.forEach(x => {
         const k = mt.byId[x.id];
         if (k) {
+          if (ch[k].baseOnly) { ch[k].full = x.caption; delete ch[k].baseOnly; }
           ch[k].likes = Number(x.m.like_count) || 0;
           ch[k].comments = Number(x.m.comments_count) || 0;
           if (x.m.permalink) ch[k].url = x.m.permalink;
@@ -7000,7 +7125,8 @@ function shadowCompare_(ss, today, logs) {
   snap.getRange(t.todayFrom + 2, 1, col.length - t.todayFrom, SNAP_HEADER.length).getValues().forEach(r => {
     const ch = String(r[1]), k = String(r[2]);
     if (!ch || !k) return;
-    (cur[ch] = cur[ch] || {})[k] = { date: fmtDate_(r[C.date]), title: String(r[C.title]), full: String(r[C.title]), views: r[C.views], likes: r[C.likes], comments: r[C.comments] };
+    (cur[ch] = cur[ch] || {})[k] = { date: fmtDate_(r[C.date]), title: String(r[C.title]), full: String(r[C.title]), views: r[C.views], likes: r[C.likes], comments: r[C.comments],
+      shares: r[C.shares], saves: r[C.saves], reach: r[C.reach], engaged: r[C.engaged], avgSec: r[C.avgSec], lengthSec: r[C.lengthSec], type: String(r[C.type] || '') };
   });
   const map = {}, km = ss.getSheetByName(KEYMAP_SHEET);
   if (km && km.getLastRow() > 1) km.getRange(2, 1, km.getLastRow() - 1, 3).getValues().forEach(r => { (map[String(r[0])] = map[String(r[0])] || {})[String(r[1])] = String(r[2]); });
@@ -7068,6 +7194,11 @@ function shadowCompare_(ss, today, logs) {
       compare('유튜브', old ? '유튜브(2024년 전 영상)' : '유튜브', media, ['views', 'likes', 'comments'], ytLink);
     });
     cur['유튜브'] = all;
+    // 「지금 기록에만」 영상의 공개 상태: 공개 업로드 목록에 안 나오는 일부 공개·비공개인지 확인
+    const priv = ytPrivMap_(), st = { public: 0, unlisted: 0, private: 0, '모름': 0 };
+    const only = Object.keys(all).filter(k => k.indexOf('yt:') === 0 && !api.videos[k.slice(3)]);
+    only.forEach(k => { const s = priv[k.slice(3)] || '모름'; st[s] = (st[s] || 0) + 1; });
+    rows.push([today, '유튜브', '지금 기록에만 · 공개 상태', only.length, '', '공개 ' + st.public + ' · 일부 공개 ' + st.unlisted + ' · 비공개 ' + st.private + ' · 모름 ' + st['모름']]);
   } catch (e) { sum.push('유튜브 오류: ' + String(e.message).slice(0, 80)); }
   // 타 대학: API는 릴스 재생 수를 주지 않음 → 지금 기록에 조회가 있는 게시물 수를 따로 셈(전환하면 잃는 값)
   IGM_BENCH.forEach(u => {
@@ -7081,9 +7212,62 @@ function shadowCompare_(ss, today, logs) {
     } catch (e) { sum.push(u + ' 오류: ' + String(e.message).slice(0, 80)); }
   });
   try { shadowAcct_(ss, today, rows); } catch (e) { sum.push('계정 지표 오류: ' + String(e.message).slice(0, 80)); }
+  try { shadowBase_(today, cur, rows, sum); } catch (e) { SM_FORCE_ = null; sum.push('전환 시험 오류: ' + String(e.message).slice(0, 120)); }
+  try { shadowLife_(ss, today, rows); } catch (e) { sum.push('전체 기간 비교 오류: ' + String(e.message).slice(0, 80)); }
   if (newMap.length) igxUpsert_(ss, KEYMAP_SHEET, ['채널', 'API ID', '콘텐츠키', '기록일'], [0, 1], newMap);
   igxUpsert_(ss, SHADOW_SHEET, SHADOW_HEAD, [0, 1, 2], rows); // 같은 날 다시 돌리면 그날 줄을 바꿈
   logs.push([new Date(), 'API 단독 비교', rows.length, sum.join(' / ') + (newMap.length ? ' · 키 연결 ' + newMap.length + '개 저장' : '')]);
+}
+// SM_OFF 경로 시험: 어제까지의 기록 + API로 오늘 값을 만들어 실제 오늘 기록과 모든 지표를 비교(시트의 기록은 바꾸지 않음)
+function shadowBase_(today, cur, rows, sum) {
+  const numv = v => (v === '' || v == null || isNaN(Number(v))) ? null : Number(v);
+  const F = ['views', 'likes', 'comments', 'shares', 'saves', 'reach', 'engaged', 'avgSec', 'lengthSec', 'type', 'date'];
+  const NM = { views: '조회', likes: '좋아요', comments: '댓글', shares: '공유', saves: '저장', reach: '도달', engaged: '참여 조회', avgSec: '평균 시청', lengthSec: '길이', type: '유형', date: '게시일' };
+  SM_FORCE_ = true;
+  try {
+    SOURCES.forEach(src => {
+      const byCh = readSource_(src, today);
+      Object.keys(byCh).forEach(ch => {
+        const sim = byCh[ch], c = cur[ch] || {}, label = '전환 시험·' + ch;
+        const onlyC = Object.keys(c).filter(k => !sim[k]), onlyS = Object.keys(sim).filter(k => !c[k]);
+        rows.push([today, label, '게시물 수', Object.keys(c).length, Object.keys(sim).length, '']);
+        rows.push([today, label, '기록에만', onlyC.length, '', onlyC.slice(0, 3).map(k => k.slice(0, 40)).join(' / ')]);
+        rows.push([today, label, '시험에만', '', onlyS.length, onlyS.slice(0, 3).map(k => k.slice(0, 40)).join(' / ')]);
+        const dif = [];
+        F.forEach(f => {
+          let n = 0, ex = [];
+          Object.keys(c).forEach(k => {
+            if (!sim[k]) return;
+            const a = c[k][f], b = sim[k][f], x = numv(a), y = numv(b);
+            const d = (f === 'type' || f === 'date') ? String(a) !== String(b) : (x != null && y != null ? Math.abs(x - y) > Math.max(2, Math.abs(x) * 0.02) : (x == null) !== (y == null));
+            if (d) { n++; if (ex.length < 2) ex.push(c[k].date + ' ' + a + '→' + b); }
+          });
+          if (n) { rows.push([today, label, NM[f] + ' 다름', n, '', ex.join(' / ')]); dif.push(NM[f] + ' ' + n); }
+        });
+        sum.push(label + ' 기록에만 ' + onlyC.length + '·시험에만 ' + onlyS.length + (dif.length ? '·다름 ' + dif.join(',') : '·다름 0'));
+      });
+    });
+  } finally { SM_FORCE_ = null; }
+}
+// 전체 기간 값: 「유튜브_전체기간」(Supermetrics) ↔ 「유튜브_전체기간(API)」
+function shadowLife_(ss, today, rows) {
+  const load = name => {
+    const sh = ss.getSheetByName(name), o = {};
+    if (!sh || sh.getLastRow() < 2) return o;
+    const v = sh.getDataRange().getValues(), h = v[0].map(x => String(x).trim()), iu = h.indexOf('Video URL');
+    const col = ['Video views', 'Likes', 'Comments', 'Shares'].map(n => h.indexOf(n));
+    v.slice(1).forEach(r => { const m = /(?:v=|youtu\.be\/|shorts\/)([\w-]{11})/.exec(String(r[iu])); if (m) o[m[1]] = col.map(i => i >= 0 ? Number(r[i]) || 0 : null); });
+    return o;
+  };
+  const a = load('유튜브_전체기간'), b = load(YT_LIFE_API), label = '전환 시험·전체 기간';
+  if (!Object.keys(b).length) { rows.push([today, label, 'API 탭 아직 없음', '', '', '다음 기록의 yta 단계에서 채움']); return; }
+  const both = Object.keys(a).filter(id => b[id]);
+  rows.push([today, label, '영상 수', Object.keys(a).length, Object.keys(b).length, '둘 다 ' + both.length]);
+  ['조회', '좋아요', '댓글', '공유'].forEach((n, i) => {
+    let c = 0, ex = [];
+    both.forEach(id => { const x = a[id][i], y = b[id][i]; if (x != null && y != null && Math.abs(x - y) > Math.max(2, x * 0.02)) { c++; if (ex.length < 2) ex.push(x + '→' + y); } });
+    rows.push([today, label, n + ' 다름(2% 넘게)', c, '', ex.join(' / ')]);
+  });
 }
 // 계정 지표: 오늘 「계정 지표」 줄(Supermetrics 탭) ↔ API 일별 탭 합(최근 7일·지난주 월~일). Supermetrics 쿼리 기간을 몰라 두 기간을 같이 적음
 function shadowAcct_(ss, today, rows) {
@@ -7106,6 +7290,8 @@ function shadowAcct_(ss, today, rows) {
   put('인스타그램', ir, 'New followers', (f, to) => sumOf(IG, 1, 5, f, to));
   put('인스타그램', ir, 'Profile views', (f, to) => sumOf(IG, 1, 8, f, to));
   put('인스타그램', ir, 'Profile reach', (f, to) => sumOf(IG, 1, 6, f, to), 'API는 하루 도달의 합이라 겹친 사람을 여러 번 셈');
+  // 「Profile views」가 프로필 방문이 아니라 계정 전체 조회인지 확인(91,646 vs 프로필 방문 2,989)
+  rows.push([today, '계정·인스타그램', 'Profile views ↔ API 조회 합 · 지난주 월~일', ir ? ir[head.indexOf('Profile views')] : '', sumOf(IG, 1, 7, W[1][1], W[1][2]), W[1][1] + '~' + W[1][2]]);
   // 유튜브: 「유튜브 채널 일별」 [날짜, 조회, 시청 시간(분), 평균 시청(초), 구독 증가, 구독 감소, …]
   const YT = read('유튜브 채널 일별', 0), yr = latest('유튜브');
   put('유튜브', yr, 'Gained subscribers', (f, to) => sumOf(YT, 0, 4, f, to));
