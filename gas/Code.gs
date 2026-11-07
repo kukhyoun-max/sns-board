@@ -6217,6 +6217,7 @@ function todayWarm() {
   try { cachePut_(JSON.stringify(partToday_(ss)), 'part:today', TODAY_TTL); }
   catch (e) { logRows_(ss, [[new Date(), '오늘 칸 미리 만들기', 0, '오류: ' + String(e.message).slice(0, 120)]]); }
 }
+const THUMB_CACHE = 'part:thumbs', THUMB_TTL = 21600;
 const PLAN_CAL = '공식 SNS 발행 일정';
 function planFolder_(desc) {
   const t = String(desc || '').replace(/<br\s*\/?>|<\/p>|<\/div>/gi, '\n').replace(/<[^>]+>/g, ' ');
@@ -6286,8 +6287,13 @@ function partToday_(ss) {
   tick('plan');
   // 최근 게시물 썸네일(2026-10-25 홈 「개요」 인기 콘텐츠·인스타 격자): 계정마다 최신 30개 [게시물 코드, 게시일, 캡션 앞 30자, 사진 주소, 채널].
   // 브라우저에서 instagram.com 사진 주소는 막혀서 메타 CDN 주소를 씀(며칠 뒤 만료되지만 10분마다 새로 받음). hong은 보드에 주소가 없어 게시일·캡션으로 맞춤
-  const thumbs = [];
-  try { igxChannels_().forEach(c => { (igxGet_(c.conf, c.user + '/media', { fields: 'permalink,timestamp,caption,media_url,thumbnail_url', limit: 30 }).data || []).forEach(x => { const m = String(x.permalink || '').match(/\/(?:p|reel|reels|tv)\/([^/?#]+)/), img = x.thumbnail_url || x.media_url || ''; if (m && img) thumbs.push([m[1], Utilities.formatDate(new Date(x.timestamp), TZ, 'yyyy-MM-dd'), String(x.caption || '').replace(/\s+/g, ' ').trim().slice(0, 30), img, c.ch]); }); }); } catch (e) { notes.push('썸네일 확인 실패'); }
+  // 사진 목록은 6시간 저장(2026-11-07 「사진은 매번 불러오는건 너무 비효율적」). 어제·오늘 새 게시물 사진은 위에서 받은 값으로 앞에 더해 바로 보임
+  let thumbs = [];
+  try { thumbs = JSON.parse(cacheGet_(THUMB_CACHE) || '[]'); } catch (e) { thumbs = []; }
+  if (!thumbs.length) {
+    try { igxChannels_().forEach(c => { (igxGet_(c.conf, c.user + '/media', { fields: 'permalink,timestamp,caption,media_url,thumbnail_url', limit: 30 }).data || []).forEach(x => { const m = String(x.permalink || '').match(/\/(?:p|reel|reels|tv)\/([^/?#]+)/), img = x.thumbnail_url || x.media_url || ''; if (m && img) thumbs.push([m[1], Utilities.formatDate(new Date(x.timestamp), TZ, 'yyyy-MM-dd'), String(x.caption || '').replace(/\s+/g, ' ').trim().slice(0, 30), img, c.ch]); }); }); if (thumbs.length) cachePut_(JSON.stringify(thumbs), THUMB_CACHE, THUMB_TTL); } catch (e) { thumbs = []; notes.push('썸네일 확인 실패'); }
+  }
+  posts.forEach(x => { const m = String(x.url || '').match(/\/(?:p|reel|reels|tv)\/([^/?#]+)/); if (x.ch !== '유튜브' && m && x.img && !thumbs.some(t => t[0] === m[1])) thumbs.unshift([m[1], Utilities.formatDate(x.at, TZ, 'yyyy-MM-dd'), String(x.title || '').replace(/\s+/g, ' ').trim().slice(0, 30), x.img, x.ch]); });
   tick('thumb');
   const story = briefStories_(ss, today);
   tick('story');
