@@ -2605,7 +2605,16 @@
     const pf = !hasG ? 'meta' : !hasM ? 'google' : S.ch === '인스타그램' ? 'meta' : 'google';
     if (S.adPf !== pf) { S.adPf = pf; S.adYear = 'all'; S.adOpen = null; }
     const seg = ''; // 매체 안내는 「계정」 칩에
+    // 2026-11-07 「19년 누르면 다시 전체탭으로」: 다시 그리면 연도 줄 가로 스크롤이 0으로 돌아가 고른 연도가 밀려남 → 스크롤을 잇고 고른 연도가 보이게
+    const yStrip = () => { const c = $('view').querySelector('[data-y]'); return c && c.parentNode; };
+    const y0 = yStrip(), yLeft = y0 ? y0.scrollLeft : 0;
     if (pf === 'meta') viewMeta(seg); else viewGoogle(seg);
+    const y1 = yStrip(), yOn = y1 && y1.querySelector('[aria-pressed="true"]');
+    if (yOn) {
+      y1.scrollLeft = yLeft;
+      const a = yOn.getBoundingClientRect(), b = y1.getBoundingClientRect();
+      if (a.left < b.left) y1.scrollLeft += a.left - b.left; else if (a.right > b.right - 28) y1.scrollLeft += a.right - b.right + 28; // 28 = 오른쪽 흐림 폭
+    }
   }
   const usd = v => v == null || isNaN(v) ? '–' : '$' + (Math.abs(v) >= 100 ? fmt(Math.round(v)) : (+v).toFixed(2));
   const fxNote = () => D.ads.meta.some(c => c.usd != null) ? ' · 달러 집행분은 1달러 = ' + fmt((D.ads && D.ads.fx) || KRW_PER_USD) + '원으로 환산' : '';
