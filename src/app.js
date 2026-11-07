@@ -353,9 +353,18 @@
   // 한 문장 → 지표 탭(조회·팔로워·올린 게시물, 누르면 아래 막대가 그 지표로) → 채널 비중 → 인기 콘텐츠(썸네일) → 인스타 격자
   const OV_M = [['v', '조회수'], ['f', '팔로워'], ['n', '올린 게시물']];
   // 사진: 유튜브 = i.ytimg.com, 인스타·hong = 「오늘」 응답의 thumbs(메타 CDN, 브라우저에서 instagram.com 주소는 막힘). hong은 주소가 없어 게시일 ±1일 + 캡션 앞부분으로 맞춤
+  // 2026-11-07 「유튜브 썸네일은 옆에 검정칸」: mqdefault는 16:9라 세로 영상 양옆이 채워짐. 쇼츠가 될 수 있는 3분 이하는 세로 원본 oardefault → oar2 → mqdefault 순서. 없는 주소는 404지만 120×90 회색 그림을 함께 줘서 onerror가 안 뜨므로 onload에서 가로 그림이면 다음 주소로
+  const ytShortish = t => t === '1분 이하' || t === '1~3분';
+  const ytThumb = (id, shortish) => 'https://i.ytimg.com/vi/' + id + (shortish ? '/oardefault.jpg' : '/mqdefault.jpg');
+  window.__ytFb = (im, bad) => {
+    const next = /\/oardefault\.jpg/.test(im.src) ? '/oar2.jpg' : /\/oar2\.jpg/.test(im.src) ? '/mqdefault.jpg' : '';
+    if (next && (bad || im.naturalWidth > im.naturalHeight)) im.src = im.src.replace(/\/oar(default|2)\.jpg/, next);
+    else if (bad) im.remove();
+  };
+  const IMG_ERR = 'onload="__ytFb(this)" onerror="__ytFb(this,1)"';
   const ovKey = t => String(t || '').replace(/[^0-9A-Za-z가-힣]/g, '').slice(0, 10);
   const ovThumb = it => {
-    if (it.c === '유튜브') return ytId(it.u) ? 'https://i.ytimg.com/vi/' + ytId(it.u) + '/mqdefault.jpg' : '';
+    if (it.c === '유튜브') return ytId(it.u) ? ytThumb(ytId(it.u), ytShortish(it.t)) : '';
     const T = (TD.d && TD.d.thumbs) || [];
     if (it.u) { const r = T.find(x => x[0] === igCode(it.u)); if (r) return r[3]; }
     const k = ovKey(it.n), r = k.length >= 4 && T.find(x => x[4] === it.c && Math.abs(daysBetween(x[1], it.d)) <= 1 && ovKey(x[2]).slice(0, k.length) === k.slice(0, ovKey(x[2]).length));
@@ -363,10 +372,10 @@
   };
   const needThumbs = again => { if (TD.d && TD.d.thumbs) return; if (needThumbs.w) return; needThumbs.w = 1; loadToday(false).then(() => { needThumbs.w = 0; if (TD.d && TD.d.thumbs) again(); }, () => { needThumbs.w = 0; }); };
   const OV_WAIT = [];
-  const ovFill = () => document.querySelectorAll('[data-ovw]').forEach(el => { const it = OV_WAIT[+el.dataset.ovw], u = it && ovThumb(it); el.removeAttribute('data-ovw'); if (u) el.insertAdjacentHTML('afterbegin', '<img loading="lazy" alt="" src="' + esc(u) + '" onerror="this.remove()">'); });
+  const ovFill = () => document.querySelectorAll('[data-ovw]').forEach(el => { const it = OV_WAIT[+el.dataset.ovw], u = it && ovThumb(it); el.removeAttribute('data-ovw'); if (u) el.insertAdjacentHTML('afterbegin', '<img loading="lazy" alt="" src="' + esc(u) + '" ' + IMG_ERR + '>'); });
   const ovImg = (it, cls) => { const u = ovThumb(it), wait = !u && it.c !== '유튜브' && !(TD.d && TD.d.thumbs);
     if (wait) needThumbs(() => setTimeout(ovFill, 0));
-    return '<span class="' + cls + '" style="--c:' + chColor(it.c) + '" aria-hidden="true"' + (wait ? ' data-ovw="' + (OV_WAIT.push(it) - 1) + '"' : '') + '>' + (u ? '<img loading="lazy" alt="" src="' + esc(u) + '" onerror="this.remove()">' : '') + '<b>' + esc(chName(it.c)) + '</b></span>'; };
+    return '<span class="' + cls + '" style="--c:' + chColor(it.c) + '" aria-hidden="true"' + (wait ? ' data-ovw="' + (OV_WAIT.push(it) - 1) + '"' : '') + '>' + (u ? '<img loading="lazy" alt="" src="' + esc(u) + '" ' + IMG_ERR + '>' : '') + '<b>' + esc(chName(it.c)) + '</b></span>'; };
   const dayLab = d => (+d.slice(8, 10)) + '일';
   const fmtM = v => v == null ? '–' : Math.abs(v) >= 1e4 ? (Math.round(v / 1e3) / 10) + '만' : fmt(v);
   function ovModel(chs) {
@@ -1294,7 +1303,7 @@
         t: esc(title(it.n)), m: ['인스타', when(it.d)].filter(Boolean).join(' · '),
         r: /릴스/.test(it.t) && val(it, 0) ? '조회 <span class="num">' + fmtK(val(it, 0)) + '</span>' : hid ? '<span class="mu">좋아요 비공개</span>' : '좋아요 <span class="num">' + fmtK(val(it, 1)) + '</span>' })));
       const yt = V.map(r => hmRow({ tag: 'a', attr: 'href="https://www.youtube.com/watch?v=' + esc(r[1]) + '" target="_blank" rel="noopener"',
-        thumb: '<span class="hm-th ov-th" style="--c:' + chColor(ch) + '" aria-hidden="true"><img loading="lazy" alt="" src="https://i.ytimg.com/vi/' + esc(r[1]) + '/mqdefault.jpg" onerror="this.remove()"></span>',
+        thumb: '<span class="hm-th ov-th" style="--c:' + chColor(ch) + '" aria-hidden="true"><img loading="lazy" alt="" src="' + ytThumb(esc(r[1]), r[4] != null && r[4] <= 180) + '" ' + IMG_ERR + '></span>',
         t: esc(r[3]), m: ['유튜브', r[4] != null && r[4] <= 60 ? '쇼츠' : '', when(r[2])].filter(Boolean).join(' · '), r: r[5] != null ? '조회 <span class="num">' + fmtK(r[5]) + '</span>' : '' }));
       const n = ig.length + yt.length;
       const igS = L.map(it => /릴스/.test(it.t) && val(it, 0) ? val(it, 0) : hid ? -1 : val(it, 1) || 0);
@@ -1342,7 +1351,7 @@
     const top = Y.v.filter(r => !Y.ch.some(c => c[0] === r[0] && c[2]) && r[2] >= addDays(today, -30) && r[5] != null).sort((x, y) => y[5] - x[5]).slice(0, 5);
     const len = x => x == null ? '' : x <= 60 ? '1분 이하' : x < 180 ? '1~3분' : x < 600 ? '3~10분' : '10분 넘음';
     const rows = top.map(r => hmRow({ tag: 'a', attr: 'href="https://www.youtube.com/watch?v=' + esc(r[1]) + '" target="_blank" rel="noopener"',
-      thumb: '<span class="hm-th ov-th" style="--c:' + chColor(YTB_IG[r[0]] || r[0]) + '" aria-hidden="true"><img loading="lazy" alt="" src="https://i.ytimg.com/vi/' + esc(r[1]) + '/mqdefault.jpg" onerror="this.remove()"></span>',
+      thumb: '<span class="hm-th ov-th" style="--c:' + chColor(YTB_IG[r[0]] || r[0]) + '" aria-hidden="true"><img loading="lazy" alt="" src="' + ytThumb(esc(r[1]), r[4] != null && r[4] <= 180) + '" ' + IMG_ERR + '></span>',
       t: esc(r[3]), v: '조회 ' + fmtK(r[5]), m: esc(r[0]) + ' · ' + dot(r[2]) + (len(r[4]) ? ' · ' + len(r[4]) : ''), r: r[6] != null ? '좋아요 ' + fmtK(r[6]) : '' })).join('');
     const ss = R.filter(r => r.since);
     return head + '<div class="bc-grid n4">' +
@@ -3679,7 +3688,7 @@
   }
   // 오늘 칸(2026-10-22 홈 위계 시안 반영 「바꾸자」): 큰 숫자 하나(어제·오늘 게시물 조회와 평소 비교) → 카드 없는 지표 한 줄 → 게시물 목록 줄 → 게시 예정 → 팔로워 한 줄. 그래프·팔로워 추이는 접어 둠
   // 목록 썸네일(2026-10-22, 토스·Stripe 목록처럼 왼쪽 작은 그림): 인스타·hong = 서버가 받은 img, 유튜브 = 영상 번호로 만든 주소
-  const tdThumb = p => { const src = p.img || (p.c === '유튜브' && /^[\w-]{11}$/.test(p.id) ? 'https://i.ytimg.com/vi/' + p.id + '/mqdefault.jpg' : ''); return '<span class="hm-th" style="--c:' + chColor(p.c) + '" aria-hidden="true">' + (src ? '<img src="' + esc(src) + '" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.remove()">' : '') + '</span>'; };
+  const tdThumb = p => { const src = p.img || (p.c === '유튜브' && /^[\w-]{11}$/.test(p.id) ? ytThumb(p.id, ytShortish(p.t)) : ''); return '<span class="hm-th" style="--c:' + chColor(p.c) + '" aria-hidden="true">' + (src ? '<img src="' + esc(src) + '" alt="" loading="lazy" referrerpolicy="no-referrer" ' + IMG_ERR + '>' : '') + '</span>'; };
   // 홈 시안 2(2026-10-23 「이대로」, 캔버스 「디자인 기준」): 글자 40·20·16·14, 굵기 400·700, 카드 둥글기 16 · 버튼 알약, 간격 8·12·16·24.
   // 목록은 모두 hmRow 한 모양 — 윗줄 = 제목 + 오른쪽 값, 아랫줄 = 채널 색 글자 · 이름표 + 오른쪽 보조
   function hmRow(o) {
