@@ -5,7 +5,7 @@
   const CH_BADGE = { '인스타그램': '인스타', '유튜브': '유튜브', 'hong._.video': 'hong', 'jbnu1947': '전북대', 'wonkwang_univ': '원광대', 'woosukuni': '우석대' };
   const PROD_CLASS = { '홍보대사': 'p-amb', '광고': 'p-ad', '자체 제작': 'p-own', '학생 크리에이터': 'p-ugc', '학과·기관 협업': 'p-col', '근로장학생': 'p-ws' };
   const PRODS = ['자체 제작', '홍보대사', '근로장학생', '학생 크리에이터', '학과·기관 협업'];
-  const RANGES = [['30', '1달'], ['90', '3달'], ['365', '1년'], ['all', '전체']];
+  const RANGES = [['7', '1주'], ['30', '1달'], ['90', '3달'], ['365', '1년'], ['all', '전체']];
   const MN = ['조회', '좋아요', '댓글', '공유', '저장'];
   const WD = ['일', '월', '화', '수', '목', '금', '토'];
   const KRW_PER_USD = 1400; // 메타 달러 집행분 환산 기본 환율 — 스크립트 속성 META_KRW_PER_USD가 있으면 그 값(D.ads.fx)
@@ -319,6 +319,7 @@
     $('st2').textContent = weekly() ? '지난 기록 ' + md2(D.dates[D.dates.length - 2]) : '매주 월요일 7시 기록'; $('st2').title = weekly() ? '증가는 ' + mdLabel(D.dates[D.dates.length - 2]) + ' → ' + mdLabel(D.updated) + ' 기록 사이 값이에요' : '';
     if (!TABS.includes(S.ch)) S.ch = '전체';
     $('rangeSeg').hidden = !rangeOn();
+    $('rangeNote').hidden = !(rangeOn() && S.range === '7');
     const adOn = !['season', 'export', 'ads'].includes(S.view) && S.ch !== '타 대학' && S.ch !== 'hong._.video' && (S.ch !== '인스타그램' || D.items.some(it => it.c === '인스타그램' && it.ad));
     $('adTg').hidden = !adOn;
     $('adTg').setAttribute('aria-pressed', S.ads);
@@ -2350,7 +2351,7 @@
     L.forEach(it => (it.w || []).forEach(n => { (m[n] = m[n] || []).push(it); }));
     return Object.entries(m).map(([n, arr]) => {
       const best = arr.slice().sort((a, b) => (mainVal(b) || 0) - (mainVal(a) || 0))[0];
-      return { n, role: (D.roles || {})[n] || '근로장학생', left: (D.left || []).includes(n), k: arr.length, views: sum(arr.map(it => val(it, 0))), idx: median(arr.map(ratio)), hits: arr.filter(isHit).length, score: Math.round(sum(arr.map(it => SCORE(val(it, 0)))) * 10) / 10, best, arr };
+      return { n, role: (D.roles || {})[n] || '근로장학생', left: (D.left || []).includes(n), k: arr.length, views: sum(arr.map(it => val(it, 0))), idx: median(arr.filter(it => !young(it)).map(ratio)), hits: arr.filter(isHit).length, score: Math.round(sum(arr.map(it => SCORE(val(it, 0)))) * 10) / 10, best, arr };
     });
   }
   function viewMaker() {
