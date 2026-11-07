@@ -479,11 +479,16 @@ h3 small { font-size: var(--fs-xs); color: var(--muted); font-weight: 600; margi
 .ntf li b { display: block; font-size: var(--fs-sm); font-weight: 700; color: var(--fg); line-height: 1.45; }
 .ntf li.new b::before { content: ""; display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: var(--st-danger); margin-right: 7px; vertical-align: 2px; }
 .ntf li p { margin: 4px 0 0; font-size: var(--fs-xs); color: var(--sub); line-height: 1.6; }
-.ntf-more { margin-top: 6px; }
-.ntf-more summary { min-height: 44px; display: flex; align-items: center; font-size: var(--fs-sm); font-weight: 600; color: var(--fg); cursor: pointer; }
-.ntf-arch { display: block; width: 100%; min-height: 44px; padding: 8px 0; border: 0; border-top: 1px solid var(--line); background: none; color: var(--fg); font: inherit; text-align: left; cursor: pointer; }
+.ntf-more { display: flex; align-items: center; justify-content: space-between; width: 100%; min-height: 44px; margin-top: 8px; padding: 0 12px; border: 1px solid var(--line); border-radius: 10px; background: none; color: var(--fg); font: inherit; font-size: var(--fs-sm); font-weight: 600; cursor: pointer; }
+.ntf-more i { font-style: normal; color: var(--sub); }
+.ntf-more[aria-expanded="true"] i { transform: rotate(180deg); }
+.ntf-list { margin-top: 6px; }
+.ntf-row { display: flex; align-items: center; gap: 10px; border-top: 1px solid var(--line); }
+.ntf-row:first-child { border-top: 0; }
+.ntf-arch { flex: 1; min-width: 0; min-height: 44px; padding: 8px 0; border: 0; background: none; color: var(--fg); font: inherit; text-align: left; cursor: pointer; }
 .ntf-arch span { display: block; font-size: var(--fs-sm); line-height: 1.45; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .ntf-arch small { display: block; margin-top: 2px; font-size: var(--fs-xs); color: var(--sub); line-height: 1.5; }
+.ntf-go { flex: none; display: flex; align-items: center; min-height: 44px; padding: 0 2px; font-size: var(--fs-xs); font-weight: 600; color: var(--ch-ig, var(--fg)); white-space: nowrap; text-decoration: underline; text-underline-offset: 2px; }
 .ntf-e { margin: 0; padding: 4px 16px 12px; font-size: var(--fs-xs); color: var(--muted); }
 @media print { .bell, .ntf { display: none !important; } }
 /* 입시 시즌 카드: 휴대폰에서도 2칸, 홀수면 마지막 카드는 넓게 */

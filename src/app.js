@@ -4767,10 +4767,10 @@
     window.__archN = AR;
     if (AR.length) {
       const nEnd = AR.filter(it => archRec(it).k === 'end').length, nLow = AR.length - nEnd;
-      const rowOf = (it, i) => { const a = archRec(it); return '<button type="button" class="ntf-arch" data-arch="' + i + '"><span>' + esc(title(it.n)) + '</span><small>' + dot(it.d) + ' · ' + (a.k === 'end' ? '기간 끝남' : '도달 평소 대비 ' + vsP(a.rr) + ' · 공유 ' + (a.sh * 100).toFixed(2) + '% · 저장 ' + (a.sv * 100).toFixed(2) + '%') + '</small></button>'; };
+      const rowOf = (it, i) => { const a = archRec(it); return '<div class="ntf-row"><button type="button" class="ntf-arch" data-arch="' + i + '"><span>' + esc(title(it.n)) + '</span><small>' + dot(it.d) + ' · ' + (a.k === 'end' ? '기간 끝남' : '도달 평소 대비 ' + vsP(a.rr) + ' · 공유 ' + (a.sh * 100).toFixed(2) + '% · 저장 ' + (a.sv * 100).toFixed(2) + '%') + '</small></button>' + (String(it.u || '').startsWith('https://www.instagram.com/') ? '<a class="ntf-go" href="' + esc(it.u) + '" target="_blank" rel="noopener">인스타 열기</a>' : '') + '</div>'; };
       out.push({ id: 'arch:' + AR[0].d, t: '인스타 보관 후보 ' + AR.length + '개',
-        b: [nEnd ? '기간이 끝났을 이벤트·공지 ' + nEnd + '개' : '', nLow ? '도달·공유·저장이 모두 낮은 게시물 ' + nLow + '개' : ''].filter(Boolean).join(', ') + '예요. 보관은 인스타 앱에서 직접 해요.',
-        h: '<details class="ntf-more"><summary>게시물 보기</summary>' + AR.map(rowOf).join('') + '</details>' });
+        b: [nEnd ? '기간이 끝났을 이벤트·공지 ' + nEnd + '개' : '', nLow ? '도달·공유·저장이 모두 낮은 게시물 ' + nLow + '개' : ''].filter(Boolean).join(', ') + '예요. 「인스타 열기」로 게시물을 열어 ··· 메뉴에서 보관하면, 다음 기록 때 이 목록에서 빠지고 보관함으로 옮겨져요.',
+        h: '<button type="button" class="ntf-more" data-archmore aria-expanded="false"><span>게시물 ' + AR.length + '개 보기</span><i aria-hidden="true">▾</i></button><div class="ntf-list" hidden>' + AR.map(rowOf).join('') + '</div>' });
     }
     // 화면에서 뺀 설정 안내(원칙 9): 빈 「채널 목표」·「전략 기록」·「광고 계획」 탭, 타 대학 팔로워 자료
     if (!goalsHtml()) out.push({ id: 'setup:goal', t: '월 목표가 아직 없어요', b: '스냅샷 시트 「채널 목표」 탭에 채널 · 지표 · 목표값을 적으면 전략 화면에 진행률이 나와요. 지표는 게시 수 · 조회 · 히트율 · 평균 조회 · 팔로워 순증(늘어난 수) 중에서 골라요. 월을 비우면 매달 같은 목표예요.' });
@@ -4792,7 +4792,7 @@
     if (btn.__w) return; btn.__w = 1;
     const close = () => { if (p.hidden) return; p.hidden = true; btn.setAttribute('aria-expanded', 'false'); renderBell(); };
     btn.addEventListener('click', e => { e.stopPropagation(); if (!p.hidden) { close(); return; } p.hidden = false; btn.setAttribute('aria-expanded', 'true'); try { localStorage.setItem('sb-seen', JSON.stringify(notices().map(x => x.id))); } catch (er) {} $('bellN').hidden = true; });
-    p.addEventListener('click', e => { const b = e.target.closest('[data-arch]'); if (!b) return; const it = (window.__archN || [])[+b.dataset.arch]; close(); if (it) openDetail(it); });
+    p.addEventListener('click', e => { const mb = e.target.closest('[data-archmore]'); if (mb) { const open = mb.getAttribute('aria-expanded') !== 'true'; mb.setAttribute('aria-expanded', open); mb.nextElementSibling.hidden = !open; mb.querySelector('span').textContent = '게시물 ' + (window.__archN || []).length + '개 ' + (open ? '접기' : '보기'); return; } const b = e.target.closest('[data-arch]'); if (!b) return; const it = (window.__archN || [])[+b.dataset.arch]; close(); if (it) openDetail(it); });
     document.addEventListener('click', e => { if (!p.contains(e.target)) close(); });
     document.addEventListener('keydown', e => { if (e.key === 'Escape' && !p.hidden) { close(); btn.focus(); } });
   }
