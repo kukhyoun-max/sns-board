@@ -1882,7 +1882,7 @@
       '<div class="pl">' + p.rows.map(r => { const vc = r.vd === '늘리기' ? 'up' : r.vd === '줄이기' ? 'down' : 'mu', mx = Math.max(1, ...p.rows.map(x => x.rec));
         return '<div class="pl-r" title="' + esc(r.why) + '"><span class="pl-t">' + esc(fmtType(r.t)) + '<small>지금 월 ' + r.per.toFixed(1) + '개 · ' + esc(r.bs) + '</small></span><span class="pl-b" aria-hidden="true"><i style="width:' + (r.rec / mx * 100).toFixed(1) + '%' + (r.rec > 0 ? ';--c-u:var(--jj);' + unitBg(r.rec, 'right') : '') + '"></i></span><b class="num">' + r.rec + '</b><em class="' + vc + '">' + r.vd + '</em></div>'; }).join('') + '</div>' +
       (p.topics.length ? '<p class="hm-note">지난 ' + m + '월에 잘 된 주제(' + yrSpan(p.yrs) + ', 조회 평소 대비): ' + p.topics.map(t => '<b>' + esc(t.k) + '</b> <span class="' + xCls(t.idx) + '">' + vsP(t.idx) + '</span>').join(' · ') + '</p>' : '<p class="hm-note">' + (p.yrs.length ? yrSpan(p.yrs) + ' ' + m + '월엔 뚜렷하게 잘 된 주제가 없었어요.' : '지난 ' + m + '월 데이터가 없어요.') + '</p>') +
-      (p.best.length ? '<p class="hm-note"><b>지난 ' + m + '월 가장 잘 된 게시물</b></p><ol class="rank" id="plBest' + pi + '">' + rankRows(p.best) + '</ol>' : ''))).join('') + '</div>' +
+      (p.best.length ? '<details class="fold"><summary>지난 ' + m + '월 가장 잘 된 게시물 ' + p.best.length + '개</summary><ol class="rank" id="plBest' + pi + '">' + rankRows(p.best) + '</ol></details>' : ''))).join('') + '</div>' +
       '<div style="margin-top:16px"><button type="button" class="btn" id="planCopy" title="형식별 권장 개수 · 이유 · 잘 된 주제를 글로 복사"><svg viewBox="0 0 20 20" width="16" height="16" aria-hidden="true"><path d="M7 7h9v9H7zM4 13V4h9" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>회의용으로 복사</button></div>';
   }
   const yrSpan = y => y.length > 1 ? y[0] + '~' + y[y.length - 1] + '년' : y[0] + '년';
@@ -1972,7 +1972,7 @@
     // 홈 시안 2 모양: 채널 묶음 + 숫자 카드 2개 + rankRows
     return '<div class="hm-rx">' + R.map(r => hmSec(chTxt(r.ch), dot(r.from) + ' → ' + dot(r.to) + ' · ' + r.days + '일',
       hmCards([hmCard('이 기간 늘어난 조회', '+' + fmtK(r.tot), '게시물 전체'), hmCard('그중 1년 넘은 게시물', '+' + fmtK(r.oldSum), pct0(r.tot ? r.oldSum / r.tot : null) + ' · ' + r.n + '개')]) +
-      '<ol class="rank" id="lt_' + OWN.indexOf(r.ch) + '">' + rankRows(r.top, { top: it => '<span class="up">+' + fmtK(r.g.get(it)) + '</span>' }) + '</ol>' +
+      '<ol class="rank" id="lt_' + OWN.indexOf(r.ch) + '">' + rankRows(r.top.slice(0, 5), { top: it => '<span class="up">+' + fmtK(r.g.get(it)) + '</span>' }) + '</ol>' +
       '<p class="hm-note">→ 위 게시물 ' + (r.ch === '유튜브' ? '설명란' : '캡션') + '·고정 댓글에 입학처·최근 영상 링크를 달고, 같은 주제로 새 버전을 만들어 보세요.</p>')).join('') + '</div>' +
       '<p class="hm-note">오래돼도 조회가 계속 늘면 검색·추천으로 꾸준히 보이고 있을 가능성이 커요.</p>';
   }
@@ -2025,13 +2025,15 @@
     const anCell = (lab, val, c) => '<span class="an-cell"><small>' + lab + '</small><b class="num ' + c + '">' + val + '</b></span>';
     const anBody = x => x.shape === '이벤트' ? '<span class="an-cells one">' + anCell('댓글 ÷ 도달', A.pc2(x.cr), 'mu') + '</span>' : x.sr === undefined ? '<span class="an-one">' + esc(x.line) + '</span>' :
       '<span class="an-cells">' + anCell('조회', x.age >= 14 || x.vk !== '다 자란 평소' ? anV(x.vr) : '모으는 중', x.age >= 14 || x.vk !== '다 자란 평소' ? anC(x.vr) : 'mu') + anCell('공유', anV(x.sr), anC(x.sr)) + anCell('저장', anV(x.svr), anC(x.svr)) + anCell('좋아요', anV(x.lr), anC(x.lr)) + '</span>';
-    h += window.__ana.length ? '<ol class="hm-list" id="anaList">' + window.__ana.map((x, i) => hmRow({ tag: 'li', cls: 'hm-rk an-r', attr: 'data-ai="' + i + '" tabindex="0" role="button" aria-label="' + esc(x.title) + ' 상세 보기"', tip: x.line, t: esc(x.title), v: esc(x.shape), vc: cls(x.shape) === 'flat' ? 'mu' : cls(x.shape), c: x.c, m: md2(x.it.d) + ' · ' + esc(fmtType(x.t)), r: x.shape === '덜 퍼짐' ? '첫 장 점검' : x.age < 14 ? '아직 느는 중' : '' }).replace(/<\/span><\/li>$/, anBody(x) + '</span></li>')).join('') + '</ol>' : '<p class="note">최근 7일 올린 게시물이 없어요</p>';
-    const gr = g => '<tr><th class="r">' + esc(g.k) + '</th><td>' + g.n + '</td><td>' + A.pc2(g.s) + '</td><td>' + A.pc2(g.sv) + '</td><td class="an-v">' + esc(g.vd || '') + '</td></tr>';
-    h += '<h3 class="sub">유형별 남길 것·고칠 것 <small>인스타 · 올린 지 14~104일</small></h3><div class="tw"><table class="mx an-tb"><thead><tr><th class="r">유형</th><th>개수</th><th>공유</th><th>저장</th><th>판정</th></tr></thead><tbody>' + gr({ k: '전체(이벤트 빼고)', n: G.all.n, s: G.all.s, sv: G.all.sv, vd: '' }) + G.ty.map(gr).join('') + '</tbody></table></div>';
-    h += '<h3 class="sub">캡션 특징 <small>공유 ÷ 도달</small></h3><div class="hm-list">' + G.feat.map(f => hmRow({ tip: f.why, t: esc(f.name) + ' 있음', v: A.pc2(f.yes.s), vc: f.yes.n < Ana.MIN_N ? 'mu' : f.yes.s > f.no.s ? 'up' : f.yes.s < f.no.s ? 'down' : 'mu', m: f.yes.n + '개' + (f.yes.n < Ana.MIN_N ? ' · 게시물 적음' : ''), r: '없음 ' + f.no.n + '개 ' + A.pc2(f.no.s) })).join('') + '</div>';
-    if (G.ev.n) h += '<p class="an-f">이벤트는 댓글로 봐요: 최근 댓글 ÷ 도달 ' + G.ev.last.map(x => md2(x.d) + ' ' + A.pc2(x.c)).join(' → ') + '</p>';
+    const anaRow = (x, i) => hmRow({ tag: 'li', cls: 'hm-rk an-r', attr: 'data-ai="' + i + '" tabindex="0" role="button" aria-label="' + esc(x.title) + ' 상세 보기"', tip: x.line, t: esc(x.title), v: esc(x.shape), vc: cls(x.shape) === 'flat' ? 'mu' : cls(x.shape), c: x.c, m: md2(x.it.d) + ' · ' + esc(fmtType(x.t)), r: x.shape === '덜 퍼짐' ? '첫 장 점검' : x.age < 14 ? '아직 느는 중' : '' }).replace(/<\/span><\/li>$/, anBody(x) + '</span></li>');
+    h += window.__ana.length ? '<div id="anaList"><ol class="hm-list">' + window.__ana.slice(0, 4).map(anaRow).join('') + '</ol>' + (window.__ana.length > 4 ? '<details class="fold"><summary>나머지 ' + (window.__ana.length - 4) + '개</summary><ol class="hm-list">' + window.__ana.slice(4).map((x, i) => anaRow(x, i + 4)).join('') + '</ol></details>' : '') + '</div>' : '<p class="note">최근 7일 올린 게시물이 없어요</p>';
     const N = D.note;
     h += N && N.title ? '<div class="an-n"><h3 class="sub">주간 해석 <small>Claude · ' + esc(N.at || '') + '</small></h3><b>' + esc(N.title) + '</b><ul>' + (N.points || []).slice(0, 6).map(p => '<li>' + esc(p) + '</li>').join('') + '</ul>' + (N.url ? '<a href="' + esc(N.url) + '" target="_blank" rel="noopener">전체 보고서 열기</a>' : '') + '</div>' : '<p class="note">주간 해석은 월요일 아침 Claude 보고가 끝나면 여기에 떠요</p>';
+    const vdC = v => /늘리기/.test(v) ? 'up' : /줄이기|고치기/.test(v) ? 'down' : 'mu';
+    const gr = g => hmRow({ t: esc(g.k), v: esc(g.vd === '표본 적음' ? '게시물 적음' : g.vd || ''), vc: vdC(g.vd || ''), m: g.n + '개', r: '공유 ' + A.pc2(g.s) + ' · 저장 ' + A.pc2(g.sv) });
+    h += '<details class="fold"><summary>유형별 남길 것 · 캡션 특징</summary><h3 class="sub">유형별 <small>인스타 · 올린 지 14~104일</small></h3><div class="hm-list">' + gr({ k: '전체(이벤트 빼고)', n: G.all.n, s: G.all.s, sv: G.all.sv, vd: '' }) + G.ty.map(gr).join('') + '</div>' +
+      '<h3 class="sub">캡션 특징 <small>공유 ÷ 도달</small></h3><div class="hm-list">' + G.feat.map(f => hmRow({ tip: f.why, t: esc(f.name) + ' 있음', v: A.pc2(f.yes.s), vc: f.yes.n < Ana.MIN_N ? 'mu' : f.yes.s > f.no.s ? 'up' : f.yes.s < f.no.s ? 'down' : 'mu', m: f.yes.n + '개' + (f.yes.n < Ana.MIN_N ? ' · 게시물 적음' : ''), r: '없음 ' + f.no.n + '개 ' + A.pc2(f.no.s) })).join('') + '</div>' +
+      (G.ev.n ? '<p class="an-f">이벤트 댓글 ÷ 도달: ' + G.ev.last.map(x => md2(x.d) + ' ' + A.pc2(x.c)).join(' → ') + '</p>' : '') + '</details>';
     return h + secClose;
   }
   // 공동작업 성과(2026-11-07 「공동작업이 성과에 어떤 영향을」 → 「지켜보자」): 공식 계정·hong이 함께한 게시물 vs 같은 계정 단독, 최근 1년·올린 지 14일 지남
@@ -2081,7 +2083,7 @@
     const order = ['릴스', '캐러셀', '이미지', '1분 이하', '1~3분', '3~10분', '10분 초과', '릴스/영상'];
     types.sort((a, b) => order.indexOf(a) - order.indexOf(b));
     const MXB = S.mxBy === 'p' ? 'p' : 'g'; // 개편 1단계: 형식 × 분류 / 형식 × 제작
-    const cats = groupBy(L, MXB).sort((a, b) => b.n - a.n);
+    const cats = groupBy(L, MXB).filter(r => r.k !== '주제 없음').sort((a, b) => b.n - a.n);
     const hb = hitRate(L);
     // 히트율이 없으면(올린 지 얼마 안 돼 판정 전인 게시물만) 「–」 대신 「모이는 중」
     const hrTxt = hr => hr == null ? '<b class="mu">모이는 중</b>' : '<b>' + pct0(hr) + '</b>';
@@ -2125,16 +2127,17 @@
       // 빈 설정 안내는 종 알림으로 옮기고 화면에는 한 줄만(원칙 9)
       top += kpi7Html(chs);
       top += anaHtml();
-      top += secOpen('이번 달 목표', gh ? '목표를 얼마나 채웠는지 · 세로선(오늘 기준) = 오늘까지 와 있어야 할 위치 · 주황 = 뒤처짐' : '') + (gh || '<p class="note">목표가 아직 없어요 · 오른쪽 위 알림에서 적는 법을 볼 수 있어요</p>') + secClose;
+      if (gh) top += secOpen('이번 달 목표', '목표를 얼마나 채웠는지 · 세로선(오늘 기준) = 오늘까지 와 있어야 할 위치 · 주황 = 뒤처짐') + gh + secClose;
       const AR = L.filter(it => it.arc).sort((a, b) => (mainVal(b) || 0) - (mainVal(a) || 0));
-      if (AR.length) top += secOpen('보관한 게시물', '보관하면 여기 모여요') + '<ol class="hm-list" id="arcList">' + rankRows(AR, { right: it => it.arw ? esc(it.arw) : '보관 ' + md2(it.arc) }) + '</ol><p class="note">원인과 「기획 때 하지 말 것」은 분석 문서에 정리해요 · 숫자는 보관 전 마지막 값</p>' + secClose;
+      if (AR.length) FN.push('보관한 게시물');
+      if (AR.length) fold += secOpen('보관한 게시물', '보관하면 여기 모여요') + '<ol class="hm-list" id="arcList">' + rankRows(AR, { right: it => it.arw ? esc(it.arw) : '보관 ' + md2(it.arc) }) + '</ol><p class="note">원인과 「기획 때 하지 말 것」은 분석 문서에 정리해요 · 숫자는 보관 전 마지막 값</p>' + secClose;
       top += secOpen('이번 주 처방', (ch ? '' : esc(scopeLabel()) + ' · ') + '잘 되는데 최근 2달 덜 올린 것 · 많이 올렸는데 약한 것') + rxHtml(RX) + secClose;
-      top += coHtml(chs) + aiHtml(chs);
+      { const co = coHtml(chs), ai = aiHtml(chs); if (co) FN.push('공동작업'); if (ai) FN.push('클로드 작업'); fold += co + ai; }
       fold += secOpen('시도한 전략 채점', '「전략 기록」 탭에 적은 시도가 평소보다 잘 됐는지 채점해요') + stratHtml() + secClose; FN.push('전략 채점');
       FN.push('잘 되는 조건'); fold += secOpen('잘 되는 조건', '해당 게시물과 나머지가 25% 넘게 차이 나는 조건만 골랐어요') + rulesHtml(chs) + secClose;
       top += secOpen((+monthStart(D.updated, 1).slice(5, 7)) + '월 편성 제안', '최근 6달 올린 양에서 잘 되는 형식은 늘리고 약한 건 줄였어요 · 작년 같은 달 인기 주제도 함께') + planHtml(PLAN) + secClose;
     }
-    let html = top + secOpen('무엇을 만들면 잘 되나', (ch ? '' : esc(scopeLabel()) + ' · ') + periodPhrase() + ' 게시물 · 칸의 숫자 = 히트율 · 진할수록 잘 돼요', '<div class="seg" id="mxBy" aria-label="행 기준">' + [['g', '형식 × 분류'], ['p', '형식 × 제작']].map(o => '<button type="button" data-v="' + o[0] + '" aria-pressed="' + (MXB === o[0]) + '">' + o[1] + '</button>').join('') + '</div>') + '<dl class="defs"><div><dt>히트율</dt><dd>조회가 평소의 1.5배 이상인 게시물(히트)의 비율</dd></div><div><dt>모이는 중</dt><dd>올린 지 ' + AGE_MIN + '일 안 된 게시물만 있는 칸</dd></div></dl>' + mx + sel + secClose;
+    let html = top + secOpen('무엇을 만들면 잘 되나', (ch ? '' : esc(scopeLabel()) + ' · ') + periodPhrase() + ' 게시물 · 칸의 숫자 = 히트율(조회가 평소의 1.5배 이상인 비율) · 진할수록 잘 돼요', '<div class="seg" id="mxBy" aria-label="행 기준">' + [['g', '형식 × 분류'], ['p', '형식 × 제작']].map(o => '<button type="button" data-v="' + o[0] + '" aria-pressed="' + (MXB === o[0]) + '">' + o[1] + '</button>').join('') + '</div>') + mx + sel + secClose;
 
     // 반응의 종류
     if (ch && OWN.includes(ch) || S.ch === '전체') FN.push('콘텐츠 역할');

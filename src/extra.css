@@ -1312,3 +1312,12 @@ em.nm { font-style: normal; font-weight: 700; color: var(--fg); }
 .co-h { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; font-size: 14px; color: var(--muted); }
 .co-h b { margin-left: auto; font-size: 18px; font-weight: 700; } .co-h b.up { color: var(--up-tx); } .co-h b.down { color: var(--down); } .co-h b.mu { color: var(--muted); font-size: 14px; }
 .ins-r.co-r { cursor: default; }
+/* 전략 탭 정리·사진 정사각형(2026-11-07) */
+.hm-th { width: 56px; height: 56px; border-radius: 10px; }
+.ct .hm-th { width: 48px; height: 48px; }
+.hm-th.ov-th { background: color-mix(in srgb, var(--c, var(--muted)) 12%, var(--bg)); }
+.hm-th.ov-th b { display: none; }
+.k7-r { border-radius: 0; }
+.mx td { padding: 6px 4px; }
+.mx th.r { width: 96px; }
+.tw .mx td b { font-size: var(--fs-sm); }
