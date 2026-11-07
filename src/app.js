@@ -2012,17 +2012,23 @@
   }
 
   // 매일 분석(2026-11-03 담당자 「추천하는대로 진행」, src/ana.js — 아침 9시 메일과 같은 규칙): 최근 7일 게시물 모양 판정 · 인스타 90일 유형별 남길 것 · 캡션 특징 · 주간 Claude 해석(D.note)
+  const hmCards2 = A => '<div class="hm-cards an-kc">' + A.join('') + '</div>';
   function anaHtml() {
     let A; try { A = Ana.build(D, { days: 7 }); } catch (e) { return ''; }
     const K = A.kpi, G = A.g, cls = sh => /잘 퍼짐|공유형|저장형|고르게/.test(sh) ? 'up' : /약함|덜 퍼짐/.test(sh) ? 'down' : 'flat';
     const okc = (v, t) => v == null ? '' : v >= t ? 'up' : 'down';
     window.__ana = A.yest.slice().reverse();
-    let h = secOpen('매일 분석', '숫자 규칙으로 판정 · 같은 채널·형식 최근 1년 평소와 비교 · 원인·다음 기획은 아래 주간 해석');
-    h += '<div class="an-k"><span>공유 ÷ 도달 <b class="num ' + okc(K.share, K.target.share) + '">' + A.pc2(K.share) + '</b> <small>목표 1.0%</small></span><span>캐러셀 저장 ÷ 도달 <b class="num ' + okc(K.save, K.target.save) + '">' + A.pc2(K.save) + '</b> <small>목표 0.3%</small></span><span>공지·소식 <b class="num">' + A.pc(K.notice) + '</b></span><span>릴스 <b class="num">' + K.reels + '개</b> <small>작년 같은 90일 ' + K.reelsLy + '개</small></span></div>';
-    h += window.__ana.length ? '<ol class="an-list" id="anaList">' + window.__ana.map((x, i) => '<li data-ai="' + i + '" tabindex="0" role="button" aria-label="' + esc(x.title) + ' 상세 보기"><div class="an-h"><span class="an-c ' + cls(x.shape) + '">' + esc(x.shape) + '</span>' + chTxt(x.c) + ' · ' + md2(x.it.d) + ' · ' + esc(fmtType(x.t)) + '</div><b class="an-t">' + esc(x.title) + '</b><p class="an-l">' + esc(x.line) + '</p></li>').join('') + '</ol>' : '<p class="note">최근 7일 올린 게시물이 없어요</p>';
+    let h = secOpen('매일 분석', '최근 7일 · % = 평소 대비');
+    h += hmCards2([hmCard('공유 ÷ 도달', A.pc2(K.share), '목표 1.0%', okc(K.share, K.target.share)), hmCard('캐러셀 저장', A.pc2(K.save), '목표 0.3%', okc(K.save, K.target.save)), hmCard('공지·소식', A.pc(K.notice), '최근 90일'), hmCard('릴스', K.reels + '개', '작년 같은 90일 ' + K.reelsLy + '개')]);
+    // 2026-11-07 「가독성」: 문장 3줄 → 윗줄 제목 + 판정, 아랫줄 채널·날짜, 지표 4칸(조회·공유·저장·좋아요 평소 대비). 메일은 x.line 문장 그대로, 문장은 마우스 올림에
+    const anV = r => r == null ? '–' : r >= 10 ? Math.round(r) + '배' : vsP(r), anC = r => r == null ? 'mu' : r >= 1.15 ? 'up' : r < 0.85 ? 'down' : 'mu';
+    const anCell = (lab, val, c) => '<span class="an-cell"><small>' + lab + '</small><b class="num ' + c + '">' + val + '</b></span>';
+    const anBody = x => x.shape === '이벤트' ? '<span class="an-cells one">' + anCell('댓글 ÷ 도달', A.pc2(x.cr), 'mu') + '</span>' : x.sr === undefined ? '<span class="an-one">' + esc(x.line) + '</span>' :
+      '<span class="an-cells">' + anCell('조회', x.age >= 14 || x.vk !== '다 자란 평소' ? anV(x.vr) : '모으는 중', x.age >= 14 || x.vk !== '다 자란 평소' ? anC(x.vr) : 'mu') + anCell('공유', anV(x.sr), anC(x.sr)) + anCell('저장', anV(x.svr), anC(x.svr)) + anCell('좋아요', anV(x.lr), anC(x.lr)) + '</span>';
+    h += window.__ana.length ? '<ol class="hm-list" id="anaList">' + window.__ana.map((x, i) => hmRow({ tag: 'li', cls: 'hm-rk an-r', attr: 'data-ai="' + i + '" tabindex="0" role="button" aria-label="' + esc(x.title) + ' 상세 보기"', tip: x.line, t: esc(x.title), v: esc(x.shape), vc: cls(x.shape) === 'flat' ? 'mu' : cls(x.shape), c: x.c, m: md2(x.it.d) + ' · ' + esc(fmtType(x.t)), r: x.shape === '덜 퍼짐' ? '첫 장 점검' : x.age < 14 ? '아직 느는 중' : '' }).replace(/<\/span><\/li>$/, anBody(x) + '</span></li>')).join('') + '</ol>' : '<p class="note">최근 7일 올린 게시물이 없어요</p>';
     const gr = g => '<tr><th class="r">' + esc(g.k) + '</th><td>' + g.n + '</td><td>' + A.pc2(g.s) + '</td><td>' + A.pc2(g.sv) + '</td><td class="an-v">' + esc(g.vd || '') + '</td></tr>';
     h += '<h3 class="sub">유형별 남길 것·고칠 것 <small>인스타 · 올린 지 14~104일</small></h3><div class="tw"><table class="mx an-tb"><thead><tr><th class="r">유형</th><th>개수</th><th>공유</th><th>저장</th><th>판정</th></tr></thead><tbody>' + gr({ k: '전체(이벤트 빼고)', n: G.all.n, s: G.all.s, sv: G.all.sv, vd: '' }) + G.ty.map(gr).join('') + '</tbody></table></div>';
-    h += '<h3 class="sub">캡션 특징</h3>' + G.feat.map(f => '<p class="an-f"><b>' + esc(f.name) + '</b> 있음 ' + f.yes.n + '개 공유 <b class="num">' + A.pc2(f.yes.s) + '</b> · 없음 ' + f.no.n + '개 ' + A.pc2(f.no.s) + (f.yes.n < Ana.MIN_N ? ' · 표본 적음' : '') + '<br><small>' + esc(f.why) + '</small></p>').join('');
+    h += '<h3 class="sub">캡션 특징 <small>공유 ÷ 도달</small></h3><div class="hm-list">' + G.feat.map(f => hmRow({ tip: f.why, t: esc(f.name) + ' 있음', v: A.pc2(f.yes.s), vc: f.yes.n < Ana.MIN_N ? 'mu' : f.yes.s > f.no.s ? 'up' : f.yes.s < f.no.s ? 'down' : 'mu', m: f.yes.n + '개' + (f.yes.n < Ana.MIN_N ? ' · 게시물 적음' : ''), r: '없음 ' + f.no.n + '개 ' + A.pc2(f.no.s) })).join('') + '</div>';
     if (G.ev.n) h += '<p class="an-f">이벤트는 댓글로 봐요: 최근 댓글 ÷ 도달 ' + G.ev.last.map(x => md2(x.d) + ' ' + A.pc2(x.c)).join(' → ') + '</p>';
     const N = D.note;
     h += N && N.title ? '<div class="an-n"><h3 class="sub">주간 해석 <small>Claude · ' + esc(N.at || '') + '</small></h3><b>' + esc(N.title) + '</b><ul>' + (N.points || []).slice(0, 6).map(p => '<li>' + esc(p) + '</li>').join('') + '</ul>' + (N.url ? '<a href="' + esc(N.url) + '" target="_blank" rel="noopener">전체 보고서 열기</a>' : '') + '</div>' : '<p class="note">주간 해석은 월요일 아침 Claude 보고가 끝나면 여기에 떠요</p>';
