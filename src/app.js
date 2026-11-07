@@ -206,6 +206,8 @@
   function archRec(it) {
     if (it.c !== '인스타그램' || it.t === '스토리' || it.ad || it.co || it.hid || it.x || it.adm || it.arc || frozen(it)) return null;
     const age = daysBetween(it.d, D.updated); if (age < AGE_MIN) return null;
+    // 최근 두 기록에 값이 없으면 계정 목록에 없는 게시물(보관·삭제)이라 후보가 아님. 「보관 게시물」 탭은 2026-10-20 뒤에 사라진 것만 잡아 그 전 것은 it.arc가 없음(2026-11-08)
+    const nD = D.dates.length; if (!it.h[nD - 1] && !it.h[nD - 2]) return null;
     const r = ratio(it) || 0;
     // 낱말은 이벤트·공지 유형에서만 봄: 릴스 캡션 끝의 「신청」 한 단어로 일반 콘텐츠(기숙사 릴스 등)가 걸리지 않게
     if (it.tc === 'T28' || it.tg === '이벤트' || ((it.tg === '공지·소식' || !it.tg) && /모집|신청|접수|마감|EVENT|이벤트|당첨|추첨|응모/i.test(String(it.n || '')))) return { r, age, k: 'end' };
