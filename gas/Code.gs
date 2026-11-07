@@ -1451,10 +1451,10 @@ function doGet(e) {
     if (!PART_TABS[part]) json = JSON.stringify({ error: 'part' });
     else {
       const pre = part === 'yv' ? 'pyv:' + String(e.parameter.v || '').replace(/[^\w-]/g, '').slice(0, 20) : 'part:' + part;
-      try { json = part === 'yc' || part === 'ma' || (part === 'ytb' && e.parameter.fresh) ? null : cacheGet_(pre); } catch (err) { json = null; }
+      try { json = part === 'yc' || part === 'ma' || part === 'sm' || (part === 'ytb' && e.parameter.fresh) ? null : cacheGet_(pre); } catch (err) { json = null; }
       if (json && part === 'today' && e.parameter.fresh) { try { if (Date.now() - Number(JSON.parse(json).ts || 0) > 2 * 60 * 1000) json = null; } catch (err) { json = null; } }
       if (!json) {
-        try { json = JSON.stringify(buildPart_(part, e)); if (part !== 'yc' && part !== 'ma' && (!isRecording_() || part === 'today')) { try { cachePut_(json, pre, part === 'today' ? TODAY_TTL : 0); } catch (err) {} } }
+        try { json = JSON.stringify(buildPart_(part, e)); if (part !== 'yc' && part !== 'ma' && part !== 'sm' && (!isRecording_() || part === 'today')) { try { cachePut_(json, pre, part === 'today' ? TODAY_TTL : 0); } catch (err) {} } }
         catch (err) { json = JSON.stringify({ error: '분석 데이터를 만들지 못했어요: ' + String(err && err.message || err) }); }
       }
     }
@@ -6027,7 +6027,7 @@ function briefHtml_(posts, stories, recent, notes, today, stamp, ideas, chans, e
 //       | yv&v=<영상 ID>(그 영상의 시청 지속 곡선·검색어). 기본 응답(약 1MB)에 넣지 않아 첫 화면이 느려지지 않음
 //  · JSONP 콜백은 __sbData 또는 __sbP + 숫자(동시에 여러 개 부를 수 있게). 캐시는 part마다 따로, 매일 기록 때 비움
 const PART_CB = /^__sbP\d{1,6}$/;
-const PART_TABS = { yt: 1, ig: 1, yv: 1, today: 1, ytb: 1, hreel: 1, yc: 1, ma: 1 };
+const PART_TABS = { yt: 1, ig: 1, yv: 1, today: 1, ytb: 1, hreel: 1, yc: 1, ma: 1, sm: 1 };
 function buildPart_(part, e) {
   const ss = SpreadsheetApp.openById(SS_ID);
   if (part === 'yt') return partYt_(ss);
@@ -6037,6 +6037,7 @@ function buildPart_(part, e) {
   if (part === 'ytb') return partYtb_(ss);
   if (part === 'hreel') return partHreel_(ss);
   if (part === 'ma') return partMetaAudit_();
+  if (part === 'sm') return partSm_(ss);
   if (part === 'yc') { const lg = ss.getSheetByName(LOG), ln = lg ? Math.min(40, lg.getLastRow() - 1) : 0; return { rows: partRows_(ss, YC_SHEET, 6).map(r => [String(r[0]), String(r[1]), String(r[2]), String(r[3]), partN_(r[4]), String(r[5])]), log: ln > 0 ? lg.getRange(lg.getLastRow() - ln + 1, 1, ln, 4).getDisplayValues().reverse().map(r => r.map(x => String(x).slice(0, 300))) : [], ts: Date.now() }; } // log = 실행 로그 최근 40줄(확인용 시트가 2시간마다라 늦을 때)
   return { error: 'part' };
 }
@@ -6956,6 +6957,30 @@ function partHreel_(ss) {
 //  · 유튜브 조회는 공개 수치(전체 기간) 하나로 볼 계획이라, 2024년 전 영상(지금 기록은 2024-01-01부터 기간 값)은 따로 셈
 const SHADOW_SHEET = 'API 단독 비교', KEYMAP_SHEET = 'API 키 대응';
 const SHADOW_HEAD = ['기록일', '채널', '항목', '지금 기록', 'API만', '비고'];
+// Supermetrics 전환 점검용 읽기 전용 응답(?part=sm, 2026-11-07): 비교 탭 최근 기록 + 실행 로그의 비교 줄 + 원본·쿼리 탭 상태. 시트에 쓰지 않고 캐시도 안 함. 전환이 끝나면 비교 코드와 함께 지움
+function partSm_(ss) {
+  const out = { ts: Date.now(), shadow: [], log: [], sources: [], acct: [] };
+  const sh = ss.getSheetByName(SHADOW_SHEET);
+  if (sh && sh.getLastRow() > 1) {
+    const rows = sh.getRange(2, 1, sh.getLastRow() - 1, SHADOW_HEAD.length).getDisplayValues();
+    const days = Array.from(new Set(rows.map(r => r[0]))).sort().slice(-14);
+    out.shadow = rows.filter(r => days.indexOf(r[0]) >= 0);
+  }
+  const log = ss.getSheetByName(LOG);
+  if (log && log.getLastRow() > 1) {
+    const n = Math.min(5000, log.getLastRow() - 1);
+    out.log = log.getRange(log.getLastRow() - n + 1, 1, n, 4).getDisplayValues().filter(r => r[1] === SHADOW_SHEET).slice(-20);
+  }
+  SOURCES.forEach(src => {
+    try { out.sources.push({ channel: src.channel, updated: Utilities.formatDate(DriveApp.getFileById(src.id).getLastUpdated(), 'Asia/Seoul', 'yyyy-MM-dd HH:mm') }); }
+    catch (err) { out.sources.push({ channel: src.channel, error: String(err && err.message || err).slice(0, 120) }); }
+  });
+  ACCOUNT_SOURCES.forEach(a => {
+    const t = ss.getSheetByName(a.tab);
+    out.acct.push(t ? { tab: a.tab, rows: t.getLastRow(), a1: String(t.getRange(1, 1).getDisplayValue()).slice(0, 80) } : { tab: a.tab, missing: 1 });
+  });
+  return out;
+}
 function shadowCompare() {
   return withLock_('API 단독 비교', () => {
     const ss = SpreadsheetApp.getActive() || SpreadsheetApp.openById(SS_ID);
