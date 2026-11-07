@@ -204,6 +204,8 @@ function onOpen() {
     .addItem('과거 데이터 채우기(끝날 때까지 여러 번)', 'backfillExtras')
     .addItem('페이스북 페이지 지금 받기', 'facebookNow')
     .addItem('API만으로 만든 목록과 비교 지금(Supermetrics 전환 점검)', 'shadowCompare')
+    .addItem('Supermetrics 없이 기록 켜기(SM_OFF)', 'smTurnOn')
+    .addItem('Supermetrics 없이 기록 끄기(되돌리기)', 'smTurnOff')
     .addSeparator()
     .addItem('최초 설정(탭·트리거)', 'setup')
     .addToUi();
@@ -618,6 +620,13 @@ let SM_FORCE_ = null;
 const SM_BASE_ = {}, SM_NEWMAP_ = [];
 let SM_KEYMAP_ = null;
 const smOff_ = () => SM_FORCE_ ? true : PropertiesService.getScriptProperties().getProperty('SM_OFF') === 'on';
+function smTurn_(on) {
+  const p = PropertiesService.getScriptProperties();
+  if (on) p.setProperty('SM_OFF', 'on'); else p.deleteProperty('SM_OFF');
+  logRows_(SpreadsheetApp.getActive() || SpreadsheetApp.openById(SS_ID), [[new Date(), 'Supermetrics 전환', 0, on ? 'SM_OFF 켬: 다음 기록부터 직전 기록 + API' : 'SM_OFF 끔: 다음 기록부터 원본 시트']]);
+}
+function smTurnOn() { smTurn_(true); }
+function smTurnOff() { smTurn_(false); }
 function smBaseAll_(today, strict) {
   const ck = strict ? 'b' : 'e';
   if (SM_BASE_[ck]) return SM_BASE_[ck];
@@ -669,6 +678,16 @@ function igMatchKeyed_(ch, media, chName, today) {
   media.forEach(a => { if (byId[a.id]) return; const k = capKey_(a.date, a.caption); if (ch[k] && !used[k]) { byId[a.id] = k; used[k] = 1; } });
   Object.keys(byId).forEach(id => { if (map[id] !== byId[id]) { SM_NEWMAP_.push([chName, id, byId[id], today]); map[id] = byId[id]; SM_KEYMAP_[chName] = map; } });
   return { byId: byId, amb: mt.amb, sameDay: mt.sameDay, offDay: mt.offDay, dateOnly: mt.dateOnly };
+}
+// 타 대학 릴스 조회(SM_OFF): 메타 API가 안 주므로 「호남권 릴스」 탭(Apify, 주 1회)의 재생으로 채움. 게시물 코드로 연결, 값을 낮추지 않음, 탭에 없는 릴스는 마지막 값 유지(2026-11-07 담당자 결정)
+function hreelViews_() {
+  const sh = (SpreadsheetApp.getActive() || SpreadsheetApp.openById(SS_ID)).getSheetByName(HREEL_SHEET), o = {};
+  if (!sh || sh.getLastRow() < 2) return o;
+  sh.getRange(2, 1, sh.getLastRow() - 1, 6).getValues().forEach(r => {
+    const c = String(r[0]).trim(), v = r[5];
+    if (c && v !== '' && !isNaN(Number(v))) o[c] = Math.max(o[c] || 0, Number(v));
+  });
+  return o;
 }
 function smOverlay_(src, out, today, cutoff) {
   if (src.channel === '유튜브') ytOverlay_(out, today);
@@ -4804,7 +4823,12 @@ function benchOverlay_(out, today, cutoff) {
         }
       });
       total += upd + add;
-      parts.push(u + ' 갱신 ' + upd + '·새 ' + add + (mt.amb ? '·겹침 ' + mt.amb : ''));
+      let rv = 0;
+      if (smOff_()) {
+        const hv = hreelViews_();
+        Object.keys(ch).forEach(k => { const v = hv[igShort_(ch[k].url)]; if (v != null && v > (Number(ch[k].views) || 0)) { ch[k].views = v; rv++; } });
+      }
+      parts.push(u + ' 갱신 ' + upd + '·새 ' + add + (mt.amb ? '·겹침 ' + mt.amb : '') + (rv ? '·릴스 조회 ' + rv : ''));
     } catch (e) { parts.push(u + ' 오류(원본 값 사용): ' + String(e.message).slice(0, 80)); }
   });
   BENCH_API_LOG_.n = total;
