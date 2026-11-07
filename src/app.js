@@ -863,9 +863,7 @@
     const top1 = chs.some(c => OWN.includes(c)) && (ovModel(chs).top[0] || {}).it;
     if (J.length && J[0].p.r >= 1.3 && J[0].it !== top1) pRow('up', '이번 주 가장 잘 된 게시물', J[0].it, J[0].p.r);
     const lo = J.filter(x => x.p.r < 0.7).pop();
-    // 보관 권고(최근 60일): 몇 개인지 + 가장 낮은 것
-    const AR = D.items.filter(it => chs.includes(it.c) && it.d >= addDays(D.updated, -60) && archRec(it)).sort((a, b) => archRec(a).r - archRec(b).r);
-    if (AR.length) pRow('down', '보관 후보 ' + AR.length + '개', AR[0], archRec(AR[0]).r);
+    // 보관 후보는 종 알림으로 옮김(2026-11-08 담당자, notices 「보관 후보」)
     if (lo) pRow('down', '평소보다 낮은 게시물', lo.it, lo.p.r);
     // 예전 게시물이 이번 주 다시 크게 늘었나(이번 주 늘어난 조회의 20% 이상 또는 5천 이상)
     if (j >= 0 && j < n) {
@@ -4764,6 +4762,16 @@
     const wl = weekPart(OWN, n - 1), late = wl ? wl.late : [];
     if (late.length) out.push({ id: 'late:' + D.updated + ':' + late.length, t: '늦게 들어온 예전 게시물 ' + late.length + '개는 증가 합계에서 뺐어요',
       b: late.slice(0, 3).map(it => chName(it.c) + ' 「' + title(it.n).slice(0, 18) + '」 ' + dot(it.d)).join(' · ') + (late.length > 3 ? ' 외' : '') + ' — 이번 기록에 처음 들어와 지금까지 쌓인 조회가 한꺼번에 잡혀요. 콘텐츠 목록에는 그대로 나와요.' });
+    // 보관 후보(2026-11-08 담당자 「알림 버튼에 뜨게」): 최근 1년, 최신순. id는 가장 최근 후보 날짜라 새 후보가 생기면 다시 새 알림으로 뜸
+    const AR = D.items.filter(it => it.c === '인스타그램' && it.d >= addDays(D.updated, -365) && archRec(it)).sort((x, y) => x.d < y.d ? 1 : -1);
+    window.__archN = AR;
+    if (AR.length) {
+      const nEnd = AR.filter(it => archRec(it).k === 'end').length, nLow = AR.length - nEnd;
+      const rowOf = (it, i) => { const a = archRec(it); return '<button type="button" class="ntf-arch" data-arch="' + i + '"><span>' + esc(title(it.n)) + '</span><small>' + dot(it.d) + ' · ' + (a.k === 'end' ? '기간 끝남' : '도달 평소 대비 ' + vsP(a.rr) + ' · 공유 ' + (a.sh * 100).toFixed(2) + '% · 저장 ' + (a.sv * 100).toFixed(2) + '%') + '</small></button>'; };
+      out.push({ id: 'arch:' + AR[0].d, t: '인스타 보관 후보 ' + AR.length + '개',
+        b: [nEnd ? '기간이 끝났을 이벤트·공지 ' + nEnd + '개' : '', nLow ? '도달·공유·저장이 모두 낮은 게시물 ' + nLow + '개' : ''].filter(Boolean).join(', ') + '예요. 보관은 인스타 앱에서 직접 해요.',
+        h: '<details class="ntf-more"><summary>게시물 보기</summary>' + AR.map(rowOf).join('') + '</details>' });
+    }
     // 화면에서 뺀 설정 안내(원칙 9): 빈 「채널 목표」·「전략 기록」·「광고 계획」 탭, 타 대학 팔로워 자료
     if (!goalsHtml()) out.push({ id: 'setup:goal', t: '월 목표가 아직 없어요', b: '스냅샷 시트 「채널 목표」 탭에 채널 · 지표 · 목표값을 적으면 전략 화면에 진행률이 나와요. 지표는 게시 수 · 조회 · 히트율 · 평균 조회 · 팔로워 순증(늘어난 수) 중에서 골라요. 월을 비우면 매달 같은 목표예요.' });
     if (!(D.strat || []).some(s => s.from && s.what)) out.push({ id: 'setup:strat', t: '채점할 전략 기록이 없어요', b: '「전략 기록」 탭에 시작일 · 종료일 · 채널 · 분류 · 형식 · 제목 키워드 · 시도 내용을 한 줄씩 적으면, 그 기간 게시물이 평소보다 나아졌는지 채점해요. 예) 2026-10-14 · 2026-11-30 · 인스타 · 학과 소개 · 릴스 · 비움 · 학과 소개를 릴스로 주 1회' });
@@ -4780,10 +4788,11 @@
     const N = notices(), seen = seenGet(), k = N.filter(x => !seen.includes(x.id)).length;
     $('bellN').textContent = k; $('bellN').hidden = !k;
     btn.setAttribute('aria-label', '알림 ' + N.length + '개' + (k ? ', 새 알림 ' + k + '개' : ''));
-    p.innerHTML = '<div class="ntf-h">알림</div>' + (N.length ? '<ul>' + N.map(x => '<li' + (seen.includes(x.id) ? '' : ' class="new"') + '><b>' + esc(x.t) + '</b><p>' + esc(x.b) + '</p></li>').join('') + '</ul>' : '<p class="ntf-e">지금은 확인할 게 없어요. 데이터가 모두 제때 들어오고 있어요.</p>');
+    p.innerHTML = '<div class="ntf-h">알림</div>' + (N.length ? '<ul>' + N.map(x => '<li' + (seen.includes(x.id) ? '' : ' class="new"') + '><b>' + esc(x.t) + '</b><p>' + esc(x.b) + '</p>' + (x.h || '') + '</li>').join('') + '</ul>' : '<p class="ntf-e">지금은 확인할 게 없어요. 데이터가 모두 제때 들어오고 있어요.</p>');
     if (btn.__w) return; btn.__w = 1;
     const close = () => { if (p.hidden) return; p.hidden = true; btn.setAttribute('aria-expanded', 'false'); renderBell(); };
     btn.addEventListener('click', e => { e.stopPropagation(); if (!p.hidden) { close(); return; } p.hidden = false; btn.setAttribute('aria-expanded', 'true'); try { localStorage.setItem('sb-seen', JSON.stringify(notices().map(x => x.id))); } catch (er) {} $('bellN').hidden = true; });
+    p.addEventListener('click', e => { const b = e.target.closest('[data-arch]'); if (!b) return; const it = (window.__archN || [])[+b.dataset.arch]; close(); if (it) openDetail(it); });
     document.addEventListener('click', e => { if (!p.contains(e.target)) close(); });
     document.addEventListener('keydown', e => { if (e.key === 'Escape' && !p.hidden) { close(); btn.focus(); } });
   }
