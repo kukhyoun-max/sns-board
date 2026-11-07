@@ -6226,6 +6226,12 @@ function planFolder_(desc) {
   if (n) { try { const it = DriveApp.getFoldersByName(n[1].trim()); return it.hasNext() ? it.next().getUrl() : ''; } catch (e) { return ''; } }
   return '';
 }
+// 게시 확정 때 일정 설명에 적은 「예상: 조회 2.5만~5만」 줄(2026-11-07 「게시 확정되면 나오는 예상 값」). 그 줄의 값만 보드로 보냄
+function planFc_(desc) {
+  const t = String(desc || '').replace(/<br\s*\/?>|<\/p>|<\/div>/gi, '\n').replace(/<[^>]+>/g, ' ');
+  const m = t.match(/^\s*예상\s*:\s*(?:조회\s*)?([^\n]+)/m);
+  return m ? m[1].trim().slice(0, 30) : '';
+}
 function partToday_(ss) {
   const tm = {}, t0 = Date.now(); let tt = t0; const tick = k => { const x = Date.now(); tm[k] = x - tt; tt = x; }; igxCalls_ = 0; igxUse_ = 0; // 단계별 시간(ms) — 어디가 느린지 보려고(2026-11-07)
   const LV = livePosts_(120), now = new Date(), today = LV.today, notes = LV.notes.slice(), posts = LV.posts; // 2분 안에 받은 값이면 다시 받지 않음(보드는 2분 넘은 값만 새로 요청)
@@ -6269,13 +6275,13 @@ function partToday_(ss) {
   let hr = { hist: {}, base: {} };
   try { const ids = {}, keep = {}; p.concat(wk).forEach(x => { ids[String(x.id)] = 1; }); wk.forEach(x => { keep[String(x.id)] = 1; }); hr = hourlyFor_(ss, ids, keep); } catch (e) {}
   tick('hour');
-  // 게시 예정(2026-10-22): 「공식 SNS 발행 일정」 캘린더의 오늘~7일 뒤 [날짜, 제목, 업로드 폴더 주소]. 설명에서는 드라이브 폴더 주소만 꺼냄(제작자 이름 등 나머지는 보내지 않음)
+  // 게시 예정(2026-10-22): 「공식 SNS 발행 일정」 캘린더의 오늘~7일 뒤 [날짜, 제목, 업로드 폴더 주소, 예상 값]. 설명에서는 드라이브 폴더 주소와 「예상:」 줄만 꺼냄(제작자 이름 등 나머지는 보내지 않음)
   // 주소가 없고 「드라이브: ★ SNS 업로드용/<폴더 이름>」만 적혀 있으면 그 이름의 폴더를 찾음
   let plan = [];
   try {
     const cal = CalendarApp.getCalendarsByName(PLAN_CAL)[0];
     if (cal) plan = cal.getEvents(new Date(today + 'T00:00:00+09:00'), new Date(shiftDate_(today, 8) + 'T00:00:00+09:00'))
-      .slice(0, 12).map(e => [Utilities.formatDate(e.getStartTime(), TZ, 'yyyy-MM-dd'), String(e.getTitle()).slice(0, 80), planFolder_(e.getDescription())]);
+      .slice(0, 12).map(e => [Utilities.formatDate(e.getStartTime(), TZ, 'yyyy-MM-dd'), String(e.getTitle()).slice(0, 80), planFolder_(e.getDescription()), planFc_(e.getDescription())]);
   } catch (e) { notes.push('게시 예정 확인 실패'); }
   tick('plan');
   // 최근 게시물 썸네일(2026-10-25 홈 「개요」 인기 콘텐츠·인스타 격자): 계정마다 최신 30개 [게시물 코드, 게시일, 캡션 앞 30자, 사진 주소, 채널].

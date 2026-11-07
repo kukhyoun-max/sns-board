@@ -3876,7 +3876,7 @@
       const pu = done && (ks.map((k, j) => /스토리/.test(k) ? '' : lk[j]).find(Boolean) || lk.find(Boolean)), href = pu || x[2];
       const meta = '<span class="' + (now ? 'hm-now' : '') + '">' + (now ? '오늘' : md2(x[0]) + ' ' + wd(x[0])) + '</span> · ' + ks.map((k, j) => '<span class="hm-ch' + (ok[j] ? ' ok' : '') + '" style="--c:' + chInk(pch(k)) + '"' + (ok[j] ? ' title="올라간 것 확인"' : '') + '>' + esc(k) + '</span>').join(' ');
       return hmRow({ tag: href ? 'a' : 'div', attr: href ? 'href="' + esc(href) + '" target="_blank" rel="noopener" title="' + (pu ? '올린 게시물 열기' : '업로드 폴더 열기') + '"' : '', cls: done ? 'done' : '',
-        t: esc(m ? m[2] : x[1]), m: meta, v: done ? '게시 완료' : some ? '일부 올림' : '', vc: 'up', r: pu ? '게시물 ›' : x[2] ? '폴더 ›' : '' });
+        t: esc(m ? m[2] : x[1]), m: meta, v: done ? '게시 완료' : some ? '일부 올림' : x[3] ? '예상 ' + esc(x[3]) : '', vc: done || some ? 'up' : '', r: pu ? '게시물 ›' : x[2] ? '폴더 ›' : '' });
     }).join('') : hmRow({ t: '7일 안에 잡힌 일정이 없어요', m: '공식 SNS 발행 일정 캘린더 기준' });
     return hmSec2('게시 예정', pl.length ? '공식 SNS 발행 일정 · 7일' : '', '<div class="hm-list">' + rows + '</div>');
   }
