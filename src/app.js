@@ -2071,6 +2071,65 @@
   }
   function coHtml(chs) { return chs.includes('hong._.video') || chs.includes('인스타그램') ? secOpen('공동작업 성과', '공식 계정과 hong이 함께한 게시물 · 최근 1년') + '<div id="coBox">' + coInner(chs) + '</div>' + secClose : ''; }
   function wireCo(chs) { const box = $('coBox'); if (!box) return; box.querySelectorAll('#coBy button').forEach(b => b.addEventListener('click', () => { COS.m = b.dataset.m; box.innerHTML = coInner(chs); wireCo(chs); })); if ($('coList')) wireRank($('coList'), COS.L); }
+  // 릴스·쇼츠 짝 비교(2026-11-07 「응 넘겨」): 스냅샷 시트 「릴스·쇼츠 짝」 탭에 고정한 짝을 part=pair로 받음. 「더 보기」를 열 때 받음
+  // 비교에서 뺌: 광고, 2025-04-01 이전(조회 집계 기준 변경), 올린 지 14일 안 됨, 비공개·일부 공개로 목록에 없는 게시물
+  const PR_FROM = '2025-04-01', PR_M = [['v', '조회'], ['sh', '공유 ÷ 조회'], ['w', '평균 시청']], PRS = { m: 'v', P: null, L: [], Dv: [] };
+  const prIg = u => (String(u || '').match(/\/(?:p|reel|reels|tv)\/([^/?#]+)/) || [])[1] || '';
+  function prData(P) {
+    const by = {}; D.items.forEach(it => { const k = it.c === '인스타그램' ? prIg(it.u) : it.c === '유튜브' ? ytId(it.u) : ''; if (k) by[k] = it; });
+    const ripe = addDays(D.updated, -AGE_MIN), A = [], young = []; let out = 0;
+    P.rows.forEach(r => {
+      const a = by[prIg(r[0])], b = by[ytId(r[1])];
+      if (!a || !b || a.ad || b.ad || a.hid || b.hid || a.d < PR_FROM || b.d < PR_FROM) { out++; return; }
+      const va = val(a, 0), vb = val(b, 0), vd = P.vid[ytId(b.u)] || [];
+      const p = { a, b, auto: r[2], va, vb, x: va && vb ? va / vb : null, sa: va ? (val(a, 3) || 0) / va : null, sb: vb ? (val(b, 3) || 0) / vb : null, wa: P.reel[prIg(a.u)], wb: vb && vd[4] != null ? vd[4] * 60 / vb : null, sub: vd[0], ra: ratio(a), rb: ratio(b) };
+      (a.d > ripe || b.d > ripe ? young : A).push(p);
+    });
+    return { A, young, out };
+  }
+  // 두 채널이 다르게 움직임: 평소 대비로 한쪽은 잘 되고(1.3배 이상) 다른 쪽은 낮음(0.85배 미만)
+  const prDiff = p => p.ra == null || p.rb == null ? null : p.ra >= 1.3 && p.rb < 0.85 ? '릴스만 잘 됨' : p.rb >= 1.3 && p.ra < 0.85 ? '쇼츠만 잘 됨' : null;
+  const prGap = p => Math.max(p.ra / Math.max(p.rb, 0.01), p.rb / Math.max(p.ra, 0.01));
+  function prInner(P) {
+    const { A, young, out } = prData(P), m = PRS.m, med = k => medOf(A.map(p => p[k]));
+    if (!A.length) return '<p class="note">비교할 짝이 아직 없어요</p>';
+    const F = m === 'v' ? fmtK : m === 'sh' ? pctA : v => v == null ? '–' : v.toFixed(1) + '초';
+    const a = med(m === 'v' ? 'va' : m === 'sh' ? 'sa' : 'wa'), b = med(m === 'v' ? 'vb' : m === 'sh' ? 'sb' : 'wb'), mx = Math.max(a || 0, b || 0) || 1;
+    const r = m === 'v' ? med('x') : a != null && b ? a / b : null;
+    const jd = r == null ? '' : r >= 1.15 ? '<b class="num up">릴스가 ' + r.toFixed(1) + '배</b>' : r <= 0.85 ? '<b class="num up">쇼츠가 ' + (1 / r).toFixed(1) + '배</b>' : '<b class="mu">비슷해요</b>';
+    const row = (lab, v, col) => '<div class="ins-r co-r"><span class="ins-n"><b>' + lab + '</b></span><span class="bc-t"><i style="width:' + (v == null ? 0 : Math.max(2, v / mx * 100)).toFixed(1) + '%;background:' + col + '"></i></span><b class="num ins-v">' + (v == null ? '–' : F(v)) + '</b></div>';
+    const rest = [young.length ? '조회 모으는 중 ' + young.length + '쌍' : '', out ? '광고·비공개·집계 기준 변경 전 ' + out + '쌍' : ''].filter(Boolean).join(' · ');
+    let h = '<div class="seg" id="prBy" role="group" aria-label="볼 지표">' + PR_M.map(x => '<button type="button" data-m="' + x[0] + '" aria-pressed="' + (m === x[0]) + '">' + x[1] + '</button>').join('') + '</div>' +
+      '<div class="hm-rx hm-stack co-st"><div class="bc-b ins-c"><div class="co-h"><span>' + A.length + '쌍 중간값</span>' + jd + '</div>' + row('릴스', a, chColor('인스타그램')) + row('쇼츠', b, chColor('유튜브')) + (rest ? '<div class="wk-f">비교에서 뺌: ' + rest + '</div>' : '') + '</div></div><p class="note">계정 크기와 조회 기준이 달라 플랫폼 효과로 단정하지 않아요 · 배수는 짝마다 잰 릴스 ÷ 쇼츠의 중간값</p>';
+    // 쇼츠 유입 경로: 짝이 있는 쇼츠의 경로별 조회 합계
+    const tot = {}; A.forEach(p => (P.src[ytId(p.b.u)] || []).forEach(s => { tot[s[0]] = (tot[s[0]] || 0) + s[1]; }));
+    const sum = Object.values(tot).reduce((x, y) => x + y, 0), sr = Object.keys(tot).map(k => [P.srcN[k], tot[k]]).sort((x, y) => y[1] - x[1]);
+    if (sum) { const top = sr.slice(0, 4), etc = sr.slice(4).reduce((x, y) => x + y[1], 0); if (etc) top.push(['그 밖', etc]); h += '<h3 class="sub">쇼츠는 어디서 왔나 <small>경로별 조회 합계</small></h3>' + pbars(top.map(x => [x[0], 0, x[1] / sum, '조회 ' + fmtK(x[1])])); }
+    // 쇼츠 구독: 값이 쇼츠에만 있어 릴스와 견주지 않음
+    const SB = A.filter(p => p.sub != null);
+    if (SB.length) { const n = SB.reduce((x, p) => x + p.sub, 0), v = SB.reduce((x, p) => x + (p.vb || 0), 0); h += '<h3 class="sub">쇼츠로 늘어난 구독</h3><div class="hm-list">' + hmRow({ t: SB.length + '편 합계', v: fmt(n) + '명', vc: 'mu', m: '구독 0명 ' + SB.filter(p => !p.sub).length + '편', r: v ? '조회 1만당 ' + (n / v * 1e4).toFixed(1) + '명' : '' }) + '</div><p class="note">수가 적어 전환을 판단하기엔 일러요 · 릴스는 팔로우 값이 없어 견주지 못해요</p>'; }
+    // 다르게 움직인 게시물
+    PRS.Dv = A.filter(prDiff).sort((x, y) => prGap(y) - prGap(x));
+    const drow = (p, i) => hmRow({ tag: 'li', cls: 'hm-rk', attr: 'tabindex="0" data-i="' + i + '"', thumb: ovImg(p.a, 'hm-th ov-th'), t: esc(title(p.a.n)), v: prDiff(p), vc: 'up', m: '릴스 ' + vsP(p.ra) + ' · 쇼츠 ' + vsP(p.rb), r: md2(p.a.d) });
+    h += '<h3 class="sub">두 채널이 다르게 움직인 게시물 <small>조회 평소 대비</small></h3>' + (PRS.Dv.length ? '<ol class="hm-list" id="prDiffL">' + PRS.Dv.map(drow).join('') + '</ol>' : '<p class="note">한쪽만 잘 된 게시물이 없어요</p>');
+    // 짝 전체: 조회 배수 큰 순, 모으는 중은 맨 아래
+    const LS = A.slice().sort((x, y) => (y.x || 0) - (x.x || 0)).concat(young); PRS.L = LS;
+    const lrow = (p, i) => hmRow({ tag: 'li', cls: 'hm-rk', attr: 'tabindex="0" data-i="' + i + '"', thumb: ovImg(p.a, 'hm-th ov-th'), t: esc(title(p.a.n)), v: A.includes(p) && p.x != null ? p.x.toFixed(1) + '배' : '모으는 중', vc: 'mu', m: '릴스 ' + fmtK(p.va) + ' · 쇼츠 ' + fmtK(p.vb), r: p.auto === '자동' ? '자동으로 묶음' : '' });
+    h += '<details class="fold"><summary>짝 ' + LS.length + '쌍 전체</summary><ol class="hm-list" id="prAll">' + LS.map(lrow).join('') + '</ol><p class="note">잘못 묶였으면 스냅샷 시트 「릴스·쇼츠 짝」 탭에서 고쳐요 · 영상 파일로 대조한 짝은 아니에요</p></details>';
+    return h;
+  }
+  function prHtml(chs) { return chs.includes('인스타그램') || chs.includes('유튜브') ? secOpen('릴스·쇼츠 짝 비교', '같은 콘텐츠 비교') + '<div id="prBox"><p class="note">불러오는 중이에요</p></div>' + secClose : ''; }
+  function prWire(box) {
+    box.querySelectorAll('#prBy button').forEach(b => b.addEventListener('click', () => { PRS.m = b.dataset.m; box.innerHTML = prInner(PRS.P); prWire(box); }));
+    if ($('prDiffL')) wireRank($('prDiffL'), PRS.Dv.map(p => p.a));
+    if ($('prAll')) wireRank($('prAll'), PRS.L.map(p => p.a));
+  }
+  function wirePr() {
+    if (!$('prBox')) return;
+    const go = () => loadPart('pair').then(P => { const b = $('prBox'); if (!b) return; PRS.P = P; if (!P || !P.rows) { b.innerHTML = '<p class="note">짝 자료를 받지 못했어요</p>'; return; } b.innerHTML = prInner(P); prWire(b); });
+    const sm = $('stratMore');
+    if (sm && !sm.open) { const t = () => { if (sm.open) { sm.removeEventListener('toggle', t); go(); } }; sm.addEventListener('toggle', t); } else go();
+  }
   // 클로드 작업 성과(2026-11-07 「나중에 비율이나 분석 데이터로」): 기록이 시작된 날부터, 채널마다 비율과 평소 대비(같은 채널·같은 형식 기준이라 형식 차이는 빠짐). 14일 지난 게시물만 비교
   const AIS = { L: [] };
   function aiHtml(chs) {
@@ -2142,7 +2201,7 @@
       if (AR.length) FN.push('보관한 게시물');
       if (AR.length) fold += secOpen('보관한 게시물', '보관하면 여기 모여요') + '<ol class="hm-list" id="arcList">' + rankRows(AR, { right: it => it.arw ? esc(it.arw) : '보관 ' + md2(it.arc) }) + '</ol><p class="note">원인과 「기획 때 하지 말 것」은 분석 문서에 정리해요 · 숫자는 보관 전 마지막 값</p>' + secClose;
       top += secOpen('이번 주 처방', (ch ? '' : esc(scopeLabel()) + ' · ') + '잘 되는데 최근 2달 덜 올린 것 · 많이 올렸는데 약한 것') + rxHtml(RX) + secClose;
-      { const co = coHtml(chs), ai = aiHtml(chs); if (co) FN.push('공동작업'); if (ai) FN.push('클로드 작업'); fold += co + ai; }
+      { const co = coHtml(chs), pr = prHtml(chs), ai = aiHtml(chs); if (co) FN.push('공동작업'); if (pr) FN.push('릴스·쇼츠 짝'); if (ai) FN.push('클로드 작업'); fold += co + pr + ai; }
       fold += secOpen('시도한 전략 채점', '「전략 기록」 탭에 적은 시도가 평소보다 잘 됐는지 채점해요') + stratHtml() + secClose; FN.push('전략 채점');
       FN.push('잘 되는 조건'); fold += secOpen('잘 되는 조건', '해당 게시물과 나머지가 25% 넘게 차이 나는 조건만 골랐어요') + rulesHtml(chs) + secClose;
       top += secOpen((+monthStart(D.updated, 1).slice(5, 7)) + '월 편성 제안', '최근 6달 올린 양에서 잘 되는 형식은 늘리고 약한 건 줄였어요 · 작년 같은 달 인기 주제도 함께') + planHtml(PLAN) + secClose;
@@ -2179,6 +2238,7 @@
     $('view').querySelectorAll('.mx td[data-k]').forEach(td => { if (td.classList.contains('none')) return; td.addEventListener('click', () => { S.mx = S.mx === td.dataset.k ? null : td.dataset.k; viewStrategy(); if (S.mx) setTimeout(() => { const el = $('mxList'); if (el) el.scrollIntoView({ behavior: SM(), block: 'nearest' }); }, 30); }); });
     wireRank($('arcList'), L.filter(it => it.arc).sort((a, b) => a.arc < b.arc ? 1 : -1));
     wireCo(chs);
+    wirePr();
     if ($('aiList')) wireRank($('aiList'), AIS.L);
     document.querySelectorAll('#anaList [data-ai]').forEach(li => { const go = () => { const x = (window.__ana || [])[+li.dataset.ai]; if (x) openDetail(x.it); }; li.addEventListener('click', go); li.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); go(); } }); });
     if (S.mx) { const [g, t] = S.mx.split('|'); wireRank($('mxList'), L.filter(it => it[MXB] === g && it.t === t).sort((a, b) => (ratio(b) || 0) - (ratio(a) || 0)).slice(0, 20)); }

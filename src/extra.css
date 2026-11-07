@@ -1339,3 +1339,6 @@ em.nm { font-style: normal; font-weight: 700; color: var(--fg); }
 .tbl th, .tbl th button, .tw th, .tw th button { line-height: 1.45; }
 .c3r, .c3k { line-height: 1.45; } .cmp3, .kpi-t.best .cmp3 { gap: 5px; }
 .status .range-note { order: 5; flex-basis: 100%; margin: 0; font-size: 14px; line-height: 1.6; color: var(--muted); }
+
+/* 릴스·쇼츠 짝 비교 */
+#prBox h3.sub { margin-top: 24px; }

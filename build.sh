@@ -33,7 +33,7 @@ if ($mode eq 'preview') {
     wr('.preview/index.html', $pre . $html . $post);
     wr('.preview/data.json', rd('sample/data.json'));
     # API 분석 데이터(part) 미리보기용 가짜 값
-    for my $p (qw(yt ig yv today)) { wr(".preview/part_$p.json", rd("sample/part_$p.json")) if -e "sample/part_$p.json"; }
+    for my $p (qw(yt ig yv today pair)) { wr(".preview/part_$p.json", rd("sample/part_$p.json")) if -e "sample/part_$p.json"; }
     print ".preview/index.html (샘플 데이터)\n";
 } else {
     # 새 버전 알림(2026-10-23): 내용 해시를 version.txt에 쓰고, 화면은 돌아올 때마다 비교해 다르면 새로고침(휴대폰이 예전 화면을 붙잡고 있지 않게)

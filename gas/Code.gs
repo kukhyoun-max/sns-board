@@ -532,7 +532,8 @@ const STEP_FN = {
       const D = buildDashboardData_();
       try { const n = saveDailyClean_(x.ss, D, x.today); x.logs.push([new Date(), '일별 합계(광고 등 뺌)', n, '정상']); }
       catch (e) { x.logs.push([new Date(), '일별 합계(광고 등 뺌)', 0, '오류: ' + e.message]); }
-      try { CacheService.getScriptCache().removeAll(['part:yt:meta', 'part:ig:meta', 'part:ytb:meta', 'part:hreel:meta']); } catch (e) {}
+      try { const n = pairSync_(x.ss, D.items); if (n) x.logs.push([new Date(), '릴스·쇼츠 짝', n, '정상']); } catch (e) { x.logs.push([new Date(), '릴스·쇼츠 짝', 0, '오류: ' + e.message]); }
+      try { CacheService.getScriptCache().removeAll(['part:yt:meta', 'part:ig:meta', 'part:ytb:meta', 'part:hreel:meta', 'part:pair:meta']); } catch (e) {}
       const r = cachePut_(JSON.stringify(D));
       x.logs.push([new Date(), '응답 캐시', r.n, '정상 (' + Math.round(r.raw / 1024) + 'KB → 압축 ' + Math.round(r.bytes / 1024) + 'KB)']);
     } catch (e) { dropCache_(); x.logs.push([new Date(), '응답 캐시', 0, '오류: ' + e.message]); }
@@ -1569,9 +1570,10 @@ function doGet(e) {
     else {
       const pre = part === 'yv' ? 'pyv:' + String(e.parameter.v || '').replace(/[^\w-]/g, '').slice(0, 20) : 'part:' + part;
       try { json = part === 'yc' || part === 'ma' || part === 'sm' || (part === 'ytb' && e.parameter.fresh) ? null : cacheGet_(pre); } catch (err) { json = null; }
+      if (json && part === 'pair' && json.indexOf('"rows":[]') >= 0) json = null; // 빈 응답은 캐시로 쓰지 않음(처음 값을 넣기 전에 끊긴 경우)
       if (json && part === 'today' && e.parameter.fresh) { try { if (Date.now() - Number(JSON.parse(json).ts || 0) > 2 * 60 * 1000) json = null; } catch (err) { json = null; } }
       if (!json) {
-        try { json = JSON.stringify(buildPart_(part, e)); if (part !== 'yc' && part !== 'ma' && part !== 'sm' && (!isRecording_() || part === 'today')) { try { cachePut_(json, pre, part === 'today' ? TODAY_TTL : 0); } catch (err) {} } }
+        try { json = JSON.stringify(buildPart_(part, e)); if (part !== 'yc' && part !== 'ma' && part !== 'sm' && (!isRecording_() || part === 'today') && !(part === 'pair' && json.indexOf('"rows":[]') >= 0)) { try { cachePut_(json, pre, part === 'today' ? TODAY_TTL : 0); } catch (err) {} } }
         catch (err) { json = JSON.stringify({ error: '분석 데이터를 만들지 못했어요: ' + String(err && err.message || err) }); }
       }
     }
@@ -1624,7 +1626,7 @@ function cacheGet_(pre) {
   return Utilities.ungzip(Utilities.newBlob(Utilities.base64Decode(b64), 'application/x-gzip')).getDataAsString('UTF-8');
 }
 function cacheClear_() {
-  CacheService.getScriptCache().removeAll([CACHE_PREFIX + ':meta', 'part:yt:meta', 'part:ig:meta', 'part:ytb:meta', 'part:hreel:meta']); // 영상 하나(pyv)는 6시간 뒤 저절로 지워짐
+  CacheService.getScriptCache().removeAll([CACHE_PREFIX + ':meta', 'part:yt:meta', 'part:ig:meta', 'part:ytb:meta', 'part:hreel:meta', 'part:pair:meta']); // 영상 하나(pyv)는 6시간 뒤 저절로 지워짐
 }
 function dropCache_() { try { cacheClear_(); } catch (e) {} }
 function cacheBuild_() {
@@ -1640,7 +1642,7 @@ function onEdit(e) {
   try {
     const name = e && e.range && e.range.getSheet().getName();
     if (name === ACCESS_SHEET) { accessFill_(e.source); return; }
-    if ([ROSTER_SHEET, ID_SHEET, ADMAP_SHEET, ADPLAN_SHEET, TAGFIX_SHEET, STRAT_SHEET, GOAL_SHEET, META_SHEET, IG_HIST_SHEET, AD_EXTRA_SHEET, GADS_SHEET].indexOf(name) >= 0) dropCache_();
+    if ([ROSTER_SHEET, ID_SHEET, ADMAP_SHEET, ADPLAN_SHEET, TAGFIX_SHEET, STRAT_SHEET, GOAL_SHEET, META_SHEET, IG_HIST_SHEET, AD_EXTRA_SHEET, GADS_SHEET, PAIR_SHEET].indexOf(name) >= 0) dropCache_();
   } catch (err) {}
 }
 
@@ -4747,6 +4749,8 @@ function igmMedia_(ss, today, all, deadline) {
     });
   });
   if (rows.length) igxUpsert_(ss, '인스타 게시물 추가', ['채널', '게시물 ID', '게시 시각', '유형', '링크', '팔로우 유입', '프로필 방문', '프로필 활동', '상호작용', '릴스 평균 시청(초)', '릴스 총 시청(초)', '기록일'], [0, 1], rows);
+  // 2026-11-07: J·K열이 날짜 서식이면 getValues가 Date를 줘 총 시청이 조 단위로 읽힘 → 숫자 서식으로 고정(값은 그대로)
+  if (rows.length) { const igmS = ss.getSheetByName('인스타 게시물 추가'); igmS.getRange(2, 10, igmS.getLastRow() - 1, 2).setNumberFormat('0.0'); }
   return { n: rows.length, miss: miss, stopped: stopped };
 }
 
@@ -6176,7 +6180,7 @@ function briefHtml_(posts, stories, recent, notes, today, stamp, ideas, chans, e
 //       | yv&v=<영상 ID>(그 영상의 시청 지속 곡선·검색어). 기본 응답(약 1MB)에 넣지 않아 첫 화면이 느려지지 않음
 //  · JSONP 콜백은 __sbData 또는 __sbP + 숫자(동시에 여러 개 부를 수 있게). 캐시는 part마다 따로, 매일 기록 때 비움
 const PART_CB = /^__sbP\d{1,6}$/;
-const PART_TABS = { yt: 1, ig: 1, yv: 1, today: 1, ytb: 1, hreel: 1, yc: 1, ma: 1, sm: 1 };
+const PART_TABS = { yt: 1, ig: 1, yv: 1, today: 1, ytb: 1, hreel: 1, yc: 1, ma: 1, sm: 1, pair: 1 };
 function buildPart_(part, e) {
   const ss = SpreadsheetApp.openById(SS_ID);
   if (part === 'yt') return partYt_(ss);
@@ -6187,6 +6191,7 @@ function buildPart_(part, e) {
   if (part === 'hreel') return partHreel_(ss);
   if (part === 'ma') return partMetaAudit_();
   if (part === 'sm') return partSm_(ss);
+  if (part === 'pair') return partPair_(ss);
   if (part === 'yc') { const lg = ss.getSheetByName(LOG), ln = lg ? Math.min(40, lg.getLastRow() - 1) : 0; return { rows: partRows_(ss, YC_SHEET, 6).map(r => [String(r[0]), String(r[1]), String(r[2]), String(r[3]), partN_(r[4]), String(r[5])]), log: ln > 0 ? lg.getRange(lg.getLastRow() - ln + 1, 1, ln, 4).getDisplayValues().reverse().map(r => r.map(x => String(x).slice(0, 300))) : [], ts: Date.now() }; } // log = 실행 로그 최근 40줄(확인용 시트가 2시간마다라 늦을 때)
   return { error: 'part' };
 }
@@ -6196,6 +6201,8 @@ function partRows_(ss, name, cols) {
   return sh.getRange(2, 1, sh.getLastRow() - 1, cols).getValues();
 }
 const partN_ = v => v === '' || v == null || isNaN(Number(v)) ? null : Number(v);
+// 숫자 칸이 날짜 서식이면 getValues가 Date를 줌 → 시트 일련번호(= 원래 숫자)로 되돌림
+const partSer_ = v => v instanceof Date ? Math.round(((v.getTime() - Date.UTC(1899, 11, 30)) / 86400000 + 0.375) * 10) / 10 : partN_(v);
 const partD_ = v => v instanceof Date ? Utilities.formatDate(v, TZ, 'yyyy-MM-dd') : String(v || '').slice(0, 10);
 function partYt_(ss) {
   // 채널 일별 [날짜, 조회, 시청 시간(분), 평균 시청(초), 구독 증가, 구독 감소, 좋아요, 댓글, 공유]
@@ -6253,7 +6260,7 @@ function partIg_(ss) {
     .filter(r => r[0] && /^\d{4}-\d{2}-\d{2}$/.test(r[1])).sort((a, b) => a[1] < b[1] ? -1 : a[1] > b[1] ? 1 : 0);
   // 게시물 추가 지표 {게시물 주소: [팔로우 유입, 프로필 방문, 프로필 활동, 상호작용, 릴스 평균 시청(초), 릴스 총 시청(초)]}
   const post = {};
-  partRows_(ss, '인스타 게시물 추가', 11).forEach(r => { const u = String(r[4]).split('?')[0].replace(/\/+$/, ''); if (u) post[u] = r.slice(5, 11).map(partN_); });
+  partRows_(ss, '인스타 게시물 추가', 11).forEach(r => { const u = String(r[4]).split('?')[0].replace(/\/+$/, ''); if (u) post[u] = r.slice(5, 11).map(partSer_); });
   // 팔로워 분포: 채널마다 가장 최근 기록일만 [채널, 구분, 항목, 팔로워 수]
   const dm = partRows_(ss, IGX_DEMO_SHEET, 5).map(r => [partD_(r[0]), String(r[1]).trim(), String(r[2]).trim(), String(r[3]).trim(), partN_(r[4])]);
   const lastD = {}; dm.forEach(r => { if (!lastD[r[1]] || r[0] > lastD[r[1]]) lastD[r[1]] = r[0]; });
@@ -7325,4 +7332,154 @@ function shadowAcct_(ss, today, rows) {
   let subs = '';
   try { subs = Number(ytaGet_('https://www.googleapis.com/youtube/v3/channels?part=statistics&mine=true').items[0].statistics.subscriberCount); } catch (e) {}
   put('유튜브', yr, 'Channel total subscribers', () => subs, 'API는 지금 값');
+}
+
+// ───────── 릴스·쇼츠 짝(2026-11-07, 담당자 「응 넘겨」) ─────────
+// 같은 콘텐츠의 인스타 릴스와 유튜브 쇼츠를 「릴스·쇼츠 짝」 탭에 고정한다. 탭이 원본이고 보드는 탭만 읽는다(part=pair).
+// 자동 판정은 기록 cache 단계(pairSync_)가 아직 짝이 없는 게시물만 보고 탭 맨 아래에 붙인다. 이미 있는 줄은 고치지 않는다.
+// 사람이 고치는 법: 주소를 바꾸거나, 새 줄을 더하거나(같은 게시물이 두 줄이면 아래 줄이 이김), C열에 「뺌」(두 주소 = 그 짝만 금지, 주소 하나 = 그 게시물은 자동으로 안 묶음).
+const PAIR_SHEET = '릴스·쇼츠 짝';
+const PAIR_HEAD = ['릴스 주소', '쇼츠 주소', '처리', '메모', '출처', '넣은 날'];
+const PAIR_FROM = '2025-04-01'; // 인스타·쇼츠 조회 집계 기준이 바뀐 뒤
+const PAIR_DAYS = 21, PAIR_SIM = 0.55;
+const pairIg_ = u => igShort_(u);
+const pairYt_ = u => (String(u || '').match(/(?:[?&]v=|shorts\/|youtu\.be\/)([\w-]{11})/) || [])[1] || '';
+// 제목 정리: 인스타 캡션 첫 ⠀ 앞까지, 해시태그·「전주대(학교)」·기호·공백 제거, 소문자
+function pairTitle_(s) {
+  return String(s || '').split('⠀')[0].replace(/#\S+/g, ' ').replace(/전주대학교|전주대/g, ' ').toLowerCase().replace(/[^\p{L}\p{N}]/gu, '').slice(0, 80);
+}
+// 글자 유사도(겹치는 덩어리 글자 수 × 2 ÷ 두 길이 합, 분석 때 쓴 파이썬 difflib ratio와 같은 계산)
+function pairSim_(a, b) {
+  const hit = (a1, a2, b1, b2) => {
+    let best = 0, bi = 0, bj = 0, row = {};
+    for (let i = a1; i < a2; i++) {
+      const nx = {};
+      for (let j = b1; j < b2; j++) if (a[i] === b[j]) { const k = (row[j - 1] || 0) + 1; nx[j] = k; if (k > best) { best = k; bi = i - k + 1; bj = j - k + 1; } }
+      row = nx;
+    }
+    return best ? best + hit(a1, bi, b1, bj) + hit(bi + best, a2, bj + best, b2) : 0;
+  };
+  return a.length + b.length ? 2 * hit(0, a.length, 0, b.length) / (a.length + b.length) : 0;
+}
+// 자동 후보: 날짜 차이 21일 이내 + (제목이 같음 | 4자 이상이고 한쪽이 다른 쪽에 포함 | 4자 이상이고 유사도 0.55 이상 | 짧은 제목이 맨 앞에 오고 7일 이내). 점수 높은 순으로 하나씩만 연결
+// taken = 이미 짝이 있거나 빼 둔 게시물(코드 → 1), banned = 금지한 짝(릴스 코드|쇼츠 ID → 1)
+function pairFind_(items, taken, banned) {
+  const days = (a, b) => Math.abs(Date.parse(a) - Date.parse(b)) / 86400000;
+  const R = items.filter(x => x.c === '인스타그램' && x.t === '릴스' && x.d >= PAIR_FROM && pairIg_(x.u) && !taken[pairIg_(x.u)]).map(x => ({ x, k: pairIg_(x.u), t: pairTitle_(x.n) })).filter(o => o.t);
+  const Y = items.filter(x => x.c === '유튜브' && x.t === '1분 이하' && x.d >= PAIR_FROM && pairYt_(x.u) && !taken[pairYt_(x.u)]).map(x => ({ x, k: pairYt_(x.u), t: pairTitle_(x.n) })).filter(o => o.t);
+  const C = [];
+  R.forEach(r => Y.forEach(y => {
+    const gap = days(r.x.d, y.x.d);
+    if (gap > PAIR_DAYS || banned[r.k + '|' + y.k]) return;
+    const short = Math.min(r.t.length, y.t.length) < 4;
+    // 짧은 제목은 같거나, 긴 제목의 맨 앞에 오고 7일 이내일 때만(「네이놈」 ↔ 「네이놈 2026 천원의 아침밥 안내」)
+    const pre = r.t.indexOf(y.t) === 0 || y.t.indexOf(r.t) === 0;
+    let s = r.t === y.t ? 3 : short ? (pre && gap <= 7 && Math.min(r.t.length, y.t.length) >= 2 ? 1.5 : 0) : r.t.indexOf(y.t) >= 0 || y.t.indexOf(r.t) >= 0 ? 2 : 0;
+    if (!s && !short) { const q = pairSim_(r.t, y.t); if (q >= PAIR_SIM) s = q; }
+    if (s) C.push({ r, y, s, gap });
+  }));
+  C.sort((a, b) => b.s - a.s || a.gap - b.gap);
+  const out = [], ur = {}, uy = {};
+  C.forEach(c => { if (ur[c.r.k] || uy[c.y.k]) return; ur[c.r.k] = uy[c.y.k] = 1; out.push([c.r.x.u, c.y.x.u]); });
+  return out.sort((a, b) => a[0] < b[0] ? -1 : 1);
+}
+// 탭 줄 → 지금 쓰는 짝. 같은 게시물이 두 줄이면 아래 줄이 이김
+function pairRead_(rows) {
+  const use = [], taken = {}, banned = {};
+  for (let i = rows.length - 1; i >= 0; i--) {
+    const a = String(rows[i][0] || '').trim(), b = String(rows[i][1] || '').trim(), ka = pairIg_(a), kb = pairYt_(b);
+    if (String(rows[i][2] || '').trim() === '뺌') {
+      if (ka && kb) banned[ka + '|' + kb] = 1; else if (ka) taken[ka] = 1; else if (kb) taken[kb] = 1;
+      continue;
+    }
+    if (!ka || !kb || taken[ka] || taken[kb]) continue;
+    taken[ka] = taken[kb] = 1;
+    use.unshift([a, b, String(rows[i][4] || '').trim()]);
+  }
+  return { use, taken, banned };
+}
+// 처음 값: 2026-11-07 분석의 38쌍 + 잘못 묶인다고 확인된 짝(뺌)
+const PAIR_SEED = [
+  ['https://www.instagram.com/reel/Dev0naNqZxf/', 'https://www.youtube.com/watch?v=WPRmki4Ww_U', '', '', '자동'],
+  ['https://www.instagram.com/reel/Ded_06iTVjV/', 'https://www.youtube.com/watch?v=IMLUSm0l-l8', '', '', '자동'],
+  ['https://www.instagram.com/reel/Dc2_1-GKbIH/', 'https://www.youtube.com/watch?v=P8Aswq_pcWE', '', '', '자동'],
+  ['https://www.instagram.com/reel/DZZiK3rTuCe/', 'https://www.youtube.com/watch?v=be4rWybT5HU', '', '', '손으로'],
+  ['https://www.instagram.com/reel/DZUHFbAT3a_/', 'https://www.youtube.com/watch?v=l0g5lG_3kmo', '', '', '손으로'],
+  ['https://www.instagram.com/reel/DY6jksNzfOh/', 'https://www.youtube.com/watch?v=CvqY5y9fjY0', '', '', '자동'],
+  ['https://www.instagram.com/reel/DYEjJr7zAGz/', 'https://www.youtube.com/watch?v=DYPEwaabu6c', '', '', '자동'],
+  ['https://www.instagram.com/reel/DXbQ-cFk8j4/', 'https://www.youtube.com/watch?v=gLB5T_Y23I0', '', '', '자동'],
+  ['https://www.instagram.com/reel/DWqseA5k_Zn/', 'https://www.youtube.com/watch?v=LkrICYgvdyM', '', '', '자동'],
+  ['https://www.instagram.com/reel/DWgK3bIkxG7/', 'https://www.youtube.com/watch?v=v7WT0rv1CZ0', '', '', '자동'],
+  ['https://www.instagram.com/reel/DVx024sE0zW/', 'https://www.youtube.com/watch?v=LalWVaepGcM', '', '', '손으로'],
+  ['https://www.instagram.com/reel/DTfEy9sE9DN/', 'https://www.youtube.com/watch?v=Bvln-mBNc8s', '', '', '손으로'],
+  ['https://www.instagram.com/reel/DSuE8wCE7CE/', 'https://www.youtube.com/watch?v=BlWXgfGWl08', '', '', '자동'],
+  ['https://www.instagram.com/reel/DSE5xHUkwBn/', 'https://www.youtube.com/watch?v=YeMU_q7-KMw', '', '', '자동'],
+  ['https://www.instagram.com/reel/DRy7dk_k0dm/', 'https://www.youtube.com/watch?v=oPMFq0p8kDE', '', '', '자동'],
+  ['https://www.instagram.com/reel/DRmBtbpk6rV/', 'https://www.youtube.com/watch?v=HstqZ3ltnMk', '', '', '자동'],
+  ['https://www.instagram.com/reel/DRB9Uf_E1sp/', 'https://www.youtube.com/watch?v=aDflEMc9iZw', '', '', '손으로'],
+  ['https://www.instagram.com/reel/DQlpcf5E7J3/', 'https://www.youtube.com/watch?v=tzg86wy_B0Y', '', '', '손으로'],
+  ['https://www.instagram.com/reel/DP0t16zE5Vg/', 'https://www.youtube.com/watch?v=YxZoutYWhVE', '', '', '자동'],
+  ['https://www.instagram.com/reel/DOvOijgE8XD/', 'https://www.youtube.com/watch?v=Za5ECGKWoXY', '', '', '손으로'],
+  ['https://www.instagram.com/reel/DOnemknE00B/', 'https://www.youtube.com/watch?v=ZQ_-TwL0wHw', '', '', '손으로'],
+  ['https://www.instagram.com/reel/DOaiic_E99W/', 'https://www.youtube.com/watch?v=J3KNEpkbX9k', '', '', '손으로'],
+  ['https://www.instagram.com/reel/DOYCkd3k5dl/', 'https://www.youtube.com/watch?v=R0yQ-UYHxpk', '', '', '손으로'],
+  ['https://www.instagram.com/reel/DOOIx10Ezi8/', 'https://www.youtube.com/watch?v=p7HAEpki2Hg', '', '', '자동'],
+  ['https://www.instagram.com/reel/DN5Jbzjk80u/', 'https://www.youtube.com/watch?v=VIhVtlZ9ZLw', '', '', '손으로'],
+  ['https://www.instagram.com/reel/DN2jcidZksE/', 'https://www.youtube.com/watch?v=199GpIfLcyQ', '', '', '손으로'],
+  ['https://www.instagram.com/reel/DNVGEzTvslY/', 'https://www.youtube.com/watch?v=damhGYk8J64', '', '', '자동'],
+  ['https://www.instagram.com/reel/DNSf_Stv1Hk/', 'https://www.youtube.com/watch?v=-CUOzYNnf6g', '', '', '자동'],
+  ['https://www.instagram.com/reel/DNP8p7qvN8v/', 'https://www.youtube.com/watch?v=5iI0-KIbDQ0', '', '', '손으로'],
+  ['https://www.instagram.com/reel/DNC4-uBPOtT/', 'https://www.youtube.com/watch?v=hu5qvp9gkLM', '', '', '손으로'],
+  ['https://www.instagram.com/reel/DM7ILqBvWB8/', 'https://www.youtube.com/watch?v=Nv2UZ5vZabs', '', '', '손으로'],
+  ['https://www.instagram.com/reel/DLHQtYlKqlz/', 'https://www.youtube.com/watch?v=cXDc6-I820o', '', '', '자동'],
+  ['https://www.instagram.com/reel/DLCLzOsvZAQ/', 'https://www.youtube.com/watch?v=BkSpG1_-fHU', '', '', '손으로'],
+  ['https://www.instagram.com/reel/DK_obPsvYsR/', 'https://www.youtube.com/watch?v=_SnT07WJ6pk', '', '', '자동'],
+  ['https://www.instagram.com/reel/DJ3k9zCK14g/', 'https://www.youtube.com/watch?v=RDbdhmpreb8', '', '', '자동'],
+  ['https://www.instagram.com/reel/DJYCSPjPNd5/', 'https://www.youtube.com/watch?v=LOMmSqDcXPw', '', '', '손으로'],
+  ['https://www.instagram.com/reel/DITPNXBv5u9/', 'https://www.youtube.com/watch?v=Kfnzb5O1SZ4', '', '', '자동'],
+  ['https://www.instagram.com/reel/DIOAi_PqKa-/', 'https://www.youtube.com/watch?v=b4QYLlv6O7E', '', '', '자동'],
+  ['https://www.instagram.com/reel/DJ_W76AvUKk/', 'https://www.youtube.com/watch?v=LSlOWVgZdrY', '뺌', '제목 유사도만 높음, 다른 콘텐츠', '손으로'],
+];
+function pairTab_(ss) {
+  let sh = ss.getSheetByName(PAIR_SHEET);
+  if (sh && sh.getLastRow() >= 2) return sh;
+  if (!sh) sh = ss.insertSheet(PAIR_SHEET); // 탭만 생기고 처음 값을 못 넣은 채 끊겼으면(시간 초과) 다시 채움
+  sh.getRange(1, 1, 1, PAIR_HEAD.length).setValues([PAIR_HEAD]).setFontWeight('bold'); sh.setFrozenRows(1);
+  sh.getRange(1, 3).setNote('비움 = 짝. 「뺌」 = 두 주소가 다 있으면 그 짝만 금지, 주소가 하나면 그 게시물을 자동으로 안 묶음');
+  sh.getRange(1, 5).setNote('비움 = 사람 · 자동 = 제목·날짜로 자동 판정 · 손으로 = 2026-11-07 분석 때 제목·날짜를 보고 묶음. 어느 쪽도 영상 파일로 대조하지는 않음');
+  const today = Utilities.formatDate(new Date(), TZ, 'yyyy-MM-dd');
+  sh.getRange(2, 1, PAIR_SEED.length, PAIR_HEAD.length).setValues(PAIR_SEED.map(r => [r[0], r[1], r[2] || '', r[3] || '', r[4] || '', today]));
+  return sh;
+}
+// 탭을 (없으면 처음 값으로) 만들고, 아직 짝이 없는 게시물을 자동으로 찾아 맨 아래에 붙임. 지우거나 고치지 않음
+function pairSync_(ss, items) {
+  const sh = pairTab_(ss), n = sh.getLastRow() - 1;
+  const R = pairRead_(n > 0 ? sh.getRange(2, 1, n, PAIR_HEAD.length).getValues() : []);
+  const add = pairFind_(items, R.taken, R.banned);
+  if (add.length) { const today = Utilities.formatDate(new Date(), TZ, 'yyyy-MM-dd'); sh.getRange(n + 2, 1, add.length, PAIR_HEAD.length).setValues(add.map(p => [p[0], p[1], '', '', '자동', today])); }
+  return add.length;
+}
+// 편집기에서 바로 돌릴 때
+function pairNow() { Logger.log('새 짝 ' + pairSync_(SpreadsheetApp.openById(SS_ID), buildDashboardData_().items) + '개'); dropCache_(); }
+// 보드 응답: 짝 + 짝에 든 게시물의 분석 값만
+function partPair_(ss) {
+  const s0 = ss.getSheetByName(PAIR_SHEET);
+  if (!s0 || s0.getLastRow() < 2) { // 배포 뒤 첫 호출에서 한 번만. 전체를 다시 계산하면 웹앱이 시간 초과로 끊겨서 캐시된 게시물을 먼저 씀
+    let cur = null; try { const j = cacheGet_(); if (j) cur = JSON.parse(j).items; } catch (e) {}
+    pairSync_(ss, cur || buildDashboardData_().items);
+  }
+  const sh = ss.getSheetByName(PAIR_SHEET), n = sh.getLastRow() - 1, tab = n > 0 ? sh.getRange(2, 1, n, PAIR_HEAD.length).getValues() : [];
+  const R = pairRead_(tab), yt = {}, ig = {};
+  R.use.forEach(p => { yt[pairYt_(p[1])] = 1; ig[pairIg_(p[0])] = 1; });
+  // 영상별 [구독 증가, 구독 감소, 공유, 평균 시청률(%), 시청 시간(분)] · 유입 경로 [경로 번호, 조회] · 릴스 평균 시청(초)
+  const vid = {}, srcN = [], si = {}, src = {}, reel = {};
+  partRows_(ss, '유튜브 영상 분석', 6).forEach(r => { const id = String(r[0]).trim(); if (yt[id]) vid[id] = r.slice(1, 6).map(partN_); });
+  partRows_(ss, '유튜브 유입 경로', 6).forEach(r => {
+    const id = String(r[0]).trim(), s = String(r[3]).trim(), v = partN_(r[4]);
+    if (!yt[id] || !s || !v) return;
+    if (!(s in si)) { si[s] = srcN.length; srcN.push(s); }
+    (src[id] = src[id] || []).push([si[s], v]);
+  });
+  partRows_(ss, '인스타 게시물 추가', 10).forEach(r => { const k = pairIg_(r[4]); if (k && ig[k]) reel[k] = partN_(r[9]); });
+  return { rows: R.use, ban: tab.filter(r => String(r[2] || '').trim() === '뺌').length, vid: vid, src: src, srcN: srcN, reel: reel };
 }
