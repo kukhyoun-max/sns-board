@@ -5495,15 +5495,16 @@ function livePosts_(maxAge) {
   return { posts: posts, notes: notes, err: err, ts: ts, today: today };
 }
 // 이번 주 월요일~그제 올린 게시물(어제·오늘은 livePosts_가 받음). 월·화요일이면 없음
+// 1시간 저장(2026-11-07 「응」): 10분 저장이 미리 만들기 간격과 같아 매번 새로 받았음(오늘 칸 15초 중 5.5초). 캡션이 길어도 되게 나눠 저장
 function weekPosts_(today) {
   const dow = Number(Utilities.formatDate(new Date(today + 'T12:00:00+09:00'), TZ, 'u')), mon = shiftDate_(today, 1 - dow), to = shiftDate_(today, -2);
   if (mon > to) return [];
-  const key = 'wk1|' + today, cache = CacheService.getScriptCache();
-  try { const j = JSON.parse(cache.get(key) || 'null'); if (j) return j.map(x => Object.assign(x, { at: new Date(x.at) })); } catch (e) {}
-  let out = [];
-  try { out = out.concat(briefInstagram_(to, [], mon)); } catch (e) {}
-  try { out = out.concat(briefYouTube_(to, mon)); } catch (e) {}
-  try { cache.put(key, JSON.stringify(out.map(x => Object.assign({}, x, { at: x.at.getTime() }))), 600); } catch (e) {}
+  const key = 'wk2|' + today;
+  try { const j = JSON.parse(cacheGet_(key) || 'null'); if (j) return j.map(x => Object.assign(x, { at: new Date(x.at) })); } catch (e) {}
+  let out = [], ok = true; // 한쪽이라도 실패하면 저장하지 않음(빈 값이 1시간 남지 않게)
+  try { out = out.concat(briefInstagram_(to, [], mon)); } catch (e) { ok = false; }
+  try { out = out.concat(briefYouTube_(to, mon)); } catch (e) { ok = false; }
+  if (ok) try { cachePut_(JSON.stringify(out.map(x => Object.assign({}, x, { at: x.at.getTime() }))), key, 3600); } catch (e) {}
   return out;
 }
 function briefInstagram_(today, notes, from) {
