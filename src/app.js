@@ -859,7 +859,9 @@
     const pRow = (lv, lab, it, r) => row('', lab, it.c, esc(title(it.n)), mName(it) + ' ' + fmtK(mainVal(it)), it, '<b class="' + lv + '">' + vsTxt(r) + '</b>');
     // 이번 주 게시물 중 가장 잘 된 것 · 가장 낮은 것(같은 형식 같은 날수 평소 대비)
     const J = w.posts.map(it => ({ it, p: paceOf(it) })).filter(x => x.p && !(x.p.base && young(x.it))).sort((a, b) => b.p.r - a.p.r);
-    if (J.length && J[0].p.r >= 1.3) pRow('up', '이번 주 가장 잘 된 게시물', J[0].it, J[0].p.r);
+    // 「이 기간 인기 콘텐츠」 1위와 같은 게시물이면 빼서 두 칸에 같은 줄이 나오지 않게(2026-11-08 담당자)
+    const top1 = chs.some(c => OWN.includes(c)) && (ovModel(chs).top[0] || {}).it;
+    if (J.length && J[0].p.r >= 1.3 && J[0].it !== top1) pRow('up', '이번 주 가장 잘 된 게시물', J[0].it, J[0].p.r);
     const lo = J.filter(x => x.p.r < 0.7).pop();
     // 보관 권고(최근 60일): 몇 개인지 + 가장 낮은 것
     const AR = D.items.filter(it => chs.includes(it.c) && it.d >= addDays(D.updated, -60) && archRec(it)).sort((a, b) => archRec(a).r - archRec(b).r);
