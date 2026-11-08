@@ -1374,3 +1374,6 @@ em.nm { font-style: normal; font-weight: 700; color: var(--fg); }
 .ov-cols i.stk.wide { opacity: .4; }
 .ov-ch + .ov-lg-in { margin-top: 34px; }
 .ov-lg-in + .note { margin-top: 10px; }
+/* 인기 콘텐츠 순위 숫자(2026-11-08 「사진 위에 순위 숫자」): 사진 왼쪽 위, 1위만 파랑 */
+.ov-th .ov-rk { position: absolute; left: 0; top: 0; z-index: 2; min-width: 22px; height: 22px; padding: 0 6px; display: grid; place-items: center; border-bottom-right-radius: 8px; background: rgba(25, 31, 40, .78); color: #fff; font-size: 14px; font-weight: 700; line-height: 1; }
+.ov-top li:first-child .ov-th .ov-rk { background: var(--jj); }
