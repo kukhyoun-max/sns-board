@@ -1049,7 +1049,7 @@
     const L = wk.length ? byK(wk).slice(0, 8) : byK(all.filter(it => cut(it) && daysBetween(it.d, D.updated) <= 14)).slice(0, 4);
     window.__race = L;
     if (!L.length) return '';
-    return '<div class="race hm-rx"><div class="hm-h"><h3>' + (wk.length ? '이번 주 올린 게시물' : '최근 게시물') + '</h3>' + raceSel('kpi') + '</div><p class="hm-note">인스타 공유율 목표 1% · 유튜브 롱폼 목표 평소<br>목표 대비 높은 순 · 쇼츠·hong은 KPI 없음</p><ol class="hm-list">' + L.map((it, i) => {
+    return '<div class="race hm-rx"><div class="hm-h"><h3>' + (wk.length ? '이번 주 올린 게시물' : '최근 게시물') + '</h3>' + raceSel('kpi') + '</div><p class="hm-note">인스타·hong 공유율 · 롱폼 평소 · 쇼츠 시청 비율<br>목표 대비 높은 순</p><ol class="hm-list">' + L.map((it, i) => {
       const k = kOf(it);
       return hmRow({ tag: 'li', cls: archRec(it) ? 'is-arch' : '', attr: 'data-r="' + i + '" tabindex="0" role="button" aria-label="' + esc(title(it.n)) + ' 상세 보기"', tip: k.tip, thumb: ovImg(it, 'hm-th ov-th', i + 1), c: it.c, t: esc(title(it.n)),
         v: k.v || k.na, vc: k.v ? (k.ok ? 'up' : 'down') : 'mu',
