@@ -2299,6 +2299,13 @@
     if ($('mxFewBtn')) $('mxFewBtn').addEventListener('click', e => { S.mxFew = !S.mxFew; $('mxFew').hidden = !S.mxFew; e.currentTarget.setAttribute('aria-expanded', S.mxFew); e.currentTarget.textContent = S.mxFew ? '게시물 ' + MIN_N + '개 미만 분류 접기' : '게시물 ' + MIN_N + '개 미만 분류 ' + $('mxFew').rows.length + '개 더 보기 ›'; });
     $('view').querySelectorAll('.mx td[data-k]').forEach(td => { if (td.classList.contains('none')) return; td.addEventListener('click', () => { S.mx = S.mx === td.dataset.k ? null : td.dataset.k; viewStrategy(); if (S.mx) setTimeout(() => { const el = $('mxList'); if (el) el.scrollIntoView({ behavior: SM(), block: 'nearest' }); }, 30); }); });
     wireRank($('arcList'), L.filter(it => it.arc).sort((a, b) => a.arc < b.arc ? 1 : -1));
+    // 보관한 게시물은 처음 5개만, 「더 보기 / 접기」로 펼침(2026-11-08 담당자 「접기 버튼 만들고 처음엔 5개만」)
+    if ($('arcList')) { const el = $('arcList'), rest = [...el.children].slice(5);
+      if (rest.length) { rest.forEach(li => { li.hidden = true; });
+        el.insertAdjacentHTML('afterend', '<button type="button" class="more" aria-expanded="false">더 보기 › ' + rest.length + '개</button>');
+        el.nextElementSibling.addEventListener('click', e => { const b = e.currentTarget, open = b.getAttribute('aria-expanded') !== 'true';
+          rest.forEach(li => { li.hidden = !open; }); b.setAttribute('aria-expanded', open); b.textContent = open ? '접기' : '더 보기 › ' + rest.length + '개';
+          if (!open) el.scrollIntoView({ behavior: SM(), block: 'nearest' }); }); } }
     wireCo(chs);
     wirePr();
     if ($('aiList')) wireRank($('aiList'), AIS.L);
