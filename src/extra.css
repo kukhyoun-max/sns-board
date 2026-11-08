@@ -94,7 +94,7 @@
 /* 하단 내비 (토스형) */
 .app { padding-bottom: calc(76px + env(safe-area-inset-bottom, 0px)); }
 .bnav { position: fixed; left: 0; right: 0; bottom: 0; z-index: 30; background: var(--bg); border-top: 1px solid var(--line); padding-bottom: env(safe-area-inset-bottom, 0px); }
-.bnav .in { max-width: 1080px; margin: 0 auto; display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); }
+.bnav .in { max-width: 1080px; margin: 0 auto; display: grid; grid-template-columns: repeat(8, minmax(0, 1fr)); }
 .bnav button { border: 0; background: none; padding: 9px 0 10px; display: flex; flex-direction: column; align-items: center; gap: 3px; font: inherit; font-size: var(--fs-tag); font-weight: 600; color: #b0b8c1; cursor: pointer; }
 .bnav button svg { width: 25px; height: 25px; }
 .bnav button[aria-current="page"] { color: var(--fg); }
@@ -1381,3 +1381,7 @@ em.nm { font-style: normal; font-weight: 700; color: var(--fg); }
 .hm-sec > details.hm-folf > summary { font-size: 15px; font-weight: 600; color: var(--muted); min-height: 44px; padding: 8px 0 0; }
 /* 유튜브 세로 썸네일 후보 주소는 맞는 그림이 뜰 때까지 숨김(없으면 회색 그림이 와서 다음 주소로 바꾸는 사이 깜빡이던 것, 2026-11-08) */
 img[src*="/oardefault.jpg"]:not(.ok), img[src*="/oar2.jpg"]:not(.ok), img.wt { visibility: hidden; }
+
+/* 역대(명예의 전당) 2026-11-09 */
+.hall-note { margin: 0; }
+#view .sec .sh .btn[data-hch] { white-space: nowrap; }

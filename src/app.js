@@ -11,7 +11,7 @@
   const KRW_PER_USD = 1400; // 메타 달러 집행분 환산 기본 환율 — 스크립트 속성 META_KRW_PER_USD가 있으면 그 값(D.ads.fx)
   const HIT = 1.5; // 히트 = 평소(같은 채널·같은 형식 최근 1년 중앙값, 형식 표본이 적으면 채널 중앙값)의 1.5배 이상
   const MIN_N = 5; // 표본 적음 기준 — 이보다 적은 그룹은 결론·순위에서 뺀다
-  const VIEWS = [['brief', '홈'], ['strategy', '전략'], ['maker', '제작·사람'], ['season', '입시'], ['ads', '광고'], ['explore', '콘텐츠'], ['export', '추출']];
+  const VIEWS = [['brief', '홈'], ['strategy', '전략'], ['maker', '제작·사람'], ['season', '입시'], ['ads', '광고'], ['explore', '콘텐츠'], ['hall', '역대'], ['export', '추출']];
   const TABS = ['전체', '인스타그램', '유튜브', 'hong._.video', '타 대학'];
   const ICONS = {
     brief: '<path d="M4 10.5 12 4l8 6.5V20a1 1 0 0 1-1 1h-4.5v-6h-5v6H5a1 1 0 0 1-1-1z"/>',
@@ -20,6 +20,7 @@
     season: '<path d="M2.5 9 12 4.5 21.5 9 12 13.5z"/><path d="M6.5 11v4.5c1.5 1.6 3.4 2.5 5.5 2.5s4-.9 5.5-2.5V11"/><path d="M21.5 9v5"/>',
     ads: '<path d="M4 10v4a1 1 0 0 0 1 1h2l5 4V5L7 9H5a1 1 0 0 0-1 1z"/><path d="M16 9.5a3.5 3.5 0 0 1 0 5"/><path d="M18.5 7a7 7 0 0 1 0 10"/>',
     explore: '<circle cx="11" cy="11" r="6.5"/><path d="m16 16 4.5 4.5"/>',
+    hall: '<path d="M7.5 4.5h9v5a4.5 4.5 0 0 1-9 0z"/><path d="M7.5 6.5H5a2.5 2.5 0 0 0 2.6 3.4M16.5 6.5H19a2.5 2.5 0 0 1-2.6 3.4"/><path d="M12 14v3.5"/><path d="M8.5 20h7l-.8-2.5H9.3z"/>',
     export: '<path d="M12 4v11"/><path d="m7.5 10.5 4.5 4.5 4.5-4.5"/><path d="M4.5 19.5h15"/>',
   };
   // 본문용 선 아이콘(아래 탭과 같은 굵기) — 이모지·기호 대신
@@ -271,7 +272,7 @@
       // 순위 탭(2026-10-24): opt.top이 있으면 오른쪽 위 = 그 탭이 줄 세운 값, 평소 대비는 오른쪽 아래(색만 유지)
       const vsLow = v ? '<b class="' + vc + '">' + (r != null && !yg && !it.ad && !it.hid ? vsTxt(r) : yg && pr != null ? agName(pc.e) + ' ' + vsP(pr) : v) + '</b>' : '';
       const top = opt.top ? opt.top(it, mvTxt) : null;
-      return hmRow({ tag: 'li', cls: 'hm-rk', attr: 'tabindex="0" data-i="' + i + '"', tip, thumb: opt.thumb === 0 ? '' : ovImg(it, 'hm-th ov-th', opt.rank ? i + 1 : 0), c: it.c, t: esc(title(it.n)), v: top != null ? top : v, vc: top != null ? '' : vc,
+      return hmRow({ tag: 'li', cls: 'hm-rk', attr: 'tabindex="0" data-i="' + i + '"', tip, thumb: opt.thumb === 0 ? '' : ovImg(it, 'hm-th ov-th', opt.rank ? (opt.rankOf ? opt.rankOf(i) : i + 1) : 0), c: it.c, t: esc(title(it.n)), v: top != null ? top : v, vc: top != null ? '' : vc,
         // 경고(보관 후보 등)를 앞에 — 끝에 두면 휴대폰에서 「보…」로 잘림(2026-11-01)
         m: [...(opt.pre && opt.pre(it) ? [opt.pre(it)] : []), ...warn.map(w => '<span class="down">' + esc(w) + '</span>'), '<span title="' + esc(dot(it.d)) + '">' + whenTxt(it.d) + '</span>', ty ? esc(ty) : ''].filter(Boolean).join(' · '),
         r: opt.right ? opt.right(it) : top != null ? vsLow : mName(it) + ' <span class="num">' + mvTxt + '</span>' });
@@ -305,7 +306,7 @@
   // ───────── 탭·컨트롤 ─────────
   const rangeLabel = () => (RANGES.find(r => r[0] === S.range) || [0, ({ '182': '6달', '1095': '3년' })[S.range] || S.range + '일'])[1];
   const periodPhrase = () => S.range === 'all' ? '전체 기간' : '최근 ' + rangeLabel();
-  const rangeOn = () => ({ brief: false, strategy: true, maker: S.ch !== '타 대학', season: false, ads: false, explore: true, export: false })[S.view];
+  const rangeOn = () => ({ brief: false, strategy: true, maker: S.ch !== '타 대학', season: false, ads: false, explore: true, hall: false, export: false })[S.view];
   function buildChrome() {
     // 왼쪽 위 제목: 홈(전체)으로 돌아가며 새로고침(최신 데이터 다시 받기)
     if ($('brandHome') && !$('brandHome').__w) { $('brandHome').__w = 1; $('brandHome').addEventListener('click', e => { e.preventDefault(); S.view = 'brief'; S.ch = '전체'; save(); location.reload(); }); }
@@ -328,7 +329,7 @@
     if (!TABS.includes(S.ch)) S.ch = '전체';
     $('rangeSeg').hidden = !rangeOn();
     $('rangeNote').hidden = !(rangeOn() && S.range === '7');
-    const adOn = !['season', 'export', 'ads'].includes(S.view) && S.ch !== '타 대학' && S.ch !== 'hong._.video' && (S.ch !== '인스타그램' || D.items.some(it => it.c === '인스타그램' && it.ad));
+    const adOn = !['season', 'export', 'ads', 'hall'].includes(S.view) && S.ch !== '타 대학' && S.ch !== 'hong._.video' && (S.ch !== '인스타그램' || D.items.some(it => it.c === '인스타그램' && it.ad));
     $('adTg').hidden = !adOn;
     $('adTg').setAttribute('aria-pressed', S.ads);
     $('adTg').textContent = '광고 포함'; $('adTg').title = S.ads ? '광고 영상까지 포함해서 보는 중' : '광고 영상은 빼고 보는 중';
@@ -1048,7 +1049,8 @@
       const tip = (q.rt != null ? mn + ' ' + fmtK(q.n) + ' · ' + RT_N + ' ' + pctA(q.rt) + (q.r != null ? ' · 평소 ' + vsTxt(q.r) : '') : '') + (t === 2 ? ' · 이벤트라 순위에서 뺐어요' : few ? ' · ' + mn + ' ' + RACE_CNT + '개 미만이라 비율이 크게 흔들려요' : '');
       return hmRow({ tag: 'li', attr: 'data-r="' + i + '" tabindex="0" role="button" aria-label="' + esc(title(it.n)) + ' 상세 보기"', tip, thumb: ovImg(it, 'hm-th ov-th', i + 1), c: it.c, t: esc(title(it.n)), // 2026-11-08 「여기도 썸네일」
         v: isRt && q.rt != null && !few ? RT_N + ' ' + pctA(q.rt) : q.n == null ? '자료 없음' : mn + ' ' + fmtK(q.n), vc: q.n == null || t ? 'mu' : '',
-        m: whenTxt(it.d) + (t === 2 ? ' · 이벤트' : few ? ' · 개수 적음' : '') + (m !== 'v' ? ' · 조회 ' + fmtK(mainVal(it)) : '') });
+        // 2026-11-09 「A」: 비율 순서가 평소 대비라 값 크기와 어긋나 보여서 아랫줄에 평소 대비를 다시 붙임(조회 대신)
+        m: whenTxt(it.d) + (t === 2 ? ' · 이벤트' : few ? ' · 개수 적음' : isRt && q.r != null ? ' · ' + vsTxt(q.r) : '') + (m !== 'v' && !(isRt && !t && q.r != null) ? ' · 조회 ' + fmtK(mainVal(it)) : '') });
     }).join('') + '</ol></div>';
   }
   const raceSel = m => '<label class="race-m"><select id="raceM" aria-label="볼 값 고르기">' + RACE_M.map(x => '<option value="' + x[0] + '"' + (x[0] === m ? ' selected' : '') + '>' + x[1] + '</option>').join('') + '<option value="kpi"' + (m === 'kpi' ? ' selected' : '') + '>KPI</option></select></label>';
@@ -2966,6 +2968,43 @@
   }
 
   // ═════════ 6. 콘텐츠 탐색 ═════════
+
+  // ───────── 역대(명예의 전당) ─────────
+  // 2026-11-09 담당자 「명예의 전당처럼 역대 항목별 랭킹」 「순수 수치로만」 「광고 빼고」: 평소 대비 같은 보정 없이 누적 숫자 그대로,
+  // 기록이 있는 모든 기간, 광고 집행·스토리·비공개로 보임 제외(광고 의심 칩만 붙은 게시물은 남김), 채널끼리 섞지 않음
+  const HALL_N = { '전체': 3 };
+  const hallPool = ch => D.items.filter(it => it.c === ch && it.t !== '스토리' && !it.ad && !it.hid);
+  const hallSorted = (ch, m) => hallPool(ch).map(it => [it, val(it, m)]).filter(x => x[1] > 0).sort((a, b) => b[1] - a[1] || (b[0].d > a[0].d ? 1 : b[0].d < a[0].d ? -1 : 0));
+  // 같은 숫자는 같은 순위(1, 2, 2, 4)
+  const hallRanks = S2 => { const r = []; S2.forEach((x, i) => r.push(i && x[1] === S2[i - 1][1] ? r[i - 1] : i + 1)); return r; };
+  const hallMs = chs => [0, 1, 2, 3, 4].filter(m => chs.some(ch => hallPool(ch).some(it => val(it, m) > 0)));
+  function hallList(ch, m, n) {
+    const S2 = hallSorted(ch, m), rk = hallRanks(S2), shown = S2.slice(0, n).map(x => x[0]);
+    return { all: S2.length, shown, html: rankRows(shown, { rank: 1, rankOf: i => rk[i], top: it => MN[m] + ' <span class="num">' + fmt(val(it, m)) + '</span>', right: () => '' }) };
+  }
+  function viewHall() {
+    if (S.ch === '타 대학') return msgView('역대 순위는 우리 채널만 봐요.', '타 대학은 조회를 일부 게시물만 받아 와서 누적 숫자로 줄 세우지 않아요.', ['우리 채널 전체 보기', () => { S.ch = '전체'; save(); render(); }]);
+    const chs = S.ch === '전체' ? OWN : [S.ch], ms = hallMs(chs);
+    if (!ms.includes(S.hm)) S.hm = 0;
+    const m = S.hm, chips = '<div class="chips" id="hallM">' + ms.map(k => '<button class="chip" type="button" data-m="' + k + '" aria-pressed="' + (k === m) + '">' + MN[k] + '</button>').join('') + '</div>';
+    const note = '<p class="hm-note hall-note">광고 집행·스토리·비공개로 보이는 영상은 빼요 · 유튜브는 전체 기간 값 · 인스타 2024-12-27 이전 게시물은 2026-01-01 기록 값' + (D.updated ? ' · ' + mdLabel(D.updated) + ' 기록 기준' : '') + '</p>';
+    let html = '<section class="sec"><div class="sh"><div><h2>명예의 전당</h2><p>' + (S.ch === '전체' ? '채널마다 ' : chName(S.ch) + ' ') + MN[m] + ' 많은 순 · 처음 기록부터 지금까지 누적 숫자 그대로</p></div></div>' + chips + '</section>';
+    const L = {};
+    if (S.ch === '전체') {
+      chs.forEach(ch => {
+        const r = hallList(ch, m, HALL_N['전체']); L[ch] = r.shown;
+        html += secOpen(esc(chName(ch)), r.all ? '' : MN[m] + ' 기록이 없어요', r.all > HALL_N['전체'] ? '<button type="button" class="btn" data-hch="' + esc(ch) + '">' + esc(chName(ch)) + ' 순위 더 보기</button>' : '') + (r.all ? '<ol class="rank" data-hl="' + esc(ch) + '">' + r.html + '</ol>' : '') + secClose;
+      });
+    } else {
+      const r = hallList(S.ch, m, S.rankShown); L[S.ch] = r.shown;
+      html += '<section class="sec hall-one"><ol class="rank" data-hl="' + esc(S.ch) + '">' + r.html + '</ol>' + (r.all > S.rankShown ? '<button class="more" id="hallMore" type="button">더 보기 ›</button>' : '') + secClose;
+    }
+    $('view').innerHTML = html + '<section class="sec">' + note + '</section>';
+    $('hallM').querySelectorAll('.chip').forEach(b => b.addEventListener('click', () => { S.hm = +b.dataset.m; S.rankShown = 10; viewHall(); }));
+    document.querySelectorAll('#view ol[data-hl]').forEach(ol => wireRank(ol, L[ol.dataset.hl]));
+    document.querySelectorAll('#view [data-hch]').forEach(b => b.addEventListener('click', () => { S.ch = b.dataset.hch; S.rankShown = 10; save(); render(); window.scrollTo({ top: 0 }); }));
+    if ($('hallMore')) $('hallMore').addEventListener('click', () => { S.rankShown += 10; viewHall(); });
+  }
   function viewExplore() {
     const html = '<section class="sec"><div class="sh"><div><h2>콘텐츠 동향</h2><p id="trendSub"></p></div><div class="seg" id="trendCh" hidden></div></div>' +
       '<div class="tm-by" id="tmBy"></div><div class="chips fade" id="gchips" hidden></div><ol class="hm-list" id="tlist"></ol><div id="tlMoreBox"></div></section>' +
@@ -4855,7 +4894,7 @@
     if (S.view !== 'brief' && $('tdRe')) $('tdRe').remove();
     Object.keys(charts).forEach(k => { if (k !== 'dCanvas') { charts[k].destroy(); delete charts[k]; } });
     save(); syncChrome();
-    ({ brief: viewBrief, strategy: viewStrategy, maker: viewMaker, season: viewSeason, ads: viewAds, explore: viewExplore, export: viewExport }[S.view] || viewBrief)();
+    ({ brief: viewBrief, strategy: viewStrategy, maker: viewMaker, season: viewSeason, ads: viewAds, explore: viewExplore, hall: viewHall, export: viewExport }[S.view] || viewBrief)();
   }
   let rt; window.addEventListener('resize', () => { clearTimeout(rt); rt = setTimeout(() => { if (S.view === 'explore') renderTrend(); }, 150); });
 
