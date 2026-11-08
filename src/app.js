@@ -980,30 +980,68 @@
     const j = RACE_M.find(x => x[0] === m)[2], n = v ? v[j] : null, rt = rcRate(it, j), b = rt == null ? null : rcBase(it, m, x => rcRate(x, j)), dn = it.c === '유튜브' ? '조회' : '도달';
     return { n, rt, r: b ? rt / b : null, tip: rt == null ? (n == null ? '이 채널은 자료가 없어요' : dn + '가 적어 비율을 아직 안 봐요') : dn + ' 대비 ' + pctA(rt) + (b ? ' · 같은 형식 평소 ' + pctA(b) : ' · 같은 형식 게시물이 적어 비교 전') };
   }
+  // 2026-11-08 담당자 「수치만 보여주고, KPI 모드를 누르면 KPI 데이터」: 게시물 하나의 KPI 값(전략 KPI 7개와 같은 정의)
+  // 인스타 = 공유율(공유 ÷ 도달, 도달 300 이상·이벤트 뺌, 목표 1.0%) + 캐러셀은 저장률(목표 0.3%) · 유튜브 롱폼 = 조회 ÷ 채널 롱폼 1년 중간값(목표 평소) + 3~10분은 시청 비율(목표 25%) · 쇼츠·hong = KPI 없음
+  function kpiOf(it, ytB) {
+    if (it.c === '인스타그램') {
+      if (it.tg === '이벤트') return { na: '이벤트', tip: '이벤트는 공유·저장 KPI에서 빠져요' };
+      const sh = k7Rate(it, 3), sv = it.t === '캐러셀' ? k7Rate(it, 4) : null;
+      if (sh == null) return { na: '도달 모으는 중', tip: '도달 300 이상부터 공유율을 봐요' };
+      return { v: '공유율 ' + pctA(sh), g: sh / KPI_D20.share, ok: sh >= KPI_D20.share, goal: sh >= KPI_D20.share ? '목표 넘음' : (Math.round((KPI_D20.share - sh) * 1000) / 10) + '%p 남음',
+        sub: sv != null ? '저장률 ' + pctA(sv) : '', tip: '공유 ÷ 도달 · 목표 ' + pctA(KPI_D20.share) + (sv != null ? ' · 저장률 목표 ' + (KPI_D20.save * 100) + '%' : '') };
+    }
+    if (it.c === '유튜브' && it.t !== '1분 이하') {
+      const p = young(it) ? paceOf(it) : null, r = young(it) ? (p ? p.r : null) : ytB ? mainVal(it) / ytB : null;
+      const cp = it.t === '3~10분' ? cpAdj(it) : null;
+      if (r == null) return { na: '조회 모이는 중', tip: '같은 날수 평소가 아직 없어요' };
+      return { v: '롱폼 ' + vsP(r), g: r / KPI_D20.ytLong, ok: r >= KPI_D20.ytLong, goal: r >= KPI_D20.ytLong ? '목표 넘음' : Math.round((1 - r) * 100) + '% 남음',
+        sub: cp != null ? '시청 비율 ' + pct0(cp) : '', tip: (young(it) ? '올린 지 같은 날 평소와 비교 · ' : '') + '채널 롱폼 1년 중간값 대비 · 목표 평소' + (cp != null ? ' · 시청 비율 목표 25%' : '') };
+    }
+    return { na: 'KPI 없음', tip: '쇼츠·hong은 KPI가 없어요' };
+  }
   function raceHtml(chs, w) {
     window.__raceArgs = [chs, w];
+    if (S.raceM === 'kpi') return raceKpi(chs, w);
     const m = RACE_M.some(x => x[0] === S.raceM) ? S.raceM : 'v', mn = RACE_M.find(x => x[0] === m)[1];
     const all = D.items.filter(it => chs.includes(it.c) && OWN.includes(it.c) && it.t !== '스토리' && (S.ads || !it.ad)).sort((a, b) => a.d < b.d ? 1 : a.d > b.d ? -1 : 0);
     // 어제·오늘 올린 건 위 「오늘」 목록에 있어 뺌(점검 7번: 홈에 같은 게시물이 세 번 나옴)
     const kst = new Date(Date.now() + 9 * 3600000).toISOString().slice(0, 10), y1 = addDays(kst, -1), cut = it => it.d < y1;
     const wk = w ? all.filter(it => it.d >= w.mon && cut(it)) : [];
-    // 2026-11-08 「1」: 비율 지표(좋아요·댓글·공유·저장)는 판단 = 평소 대비라 그 순서로, 오른쪽 위도 횟수 대신 비율(새 칸 기준 1번)
+    // 2026-11-08 「1」: 비율 지표(좋아요·댓글·공유·저장)는 오른쪽 위를 횟수 대신 비율로. 같은 날 「수치만 보여주고」로 평소 대비 줄은 빼고 순서도 보이는 값 큰 순
     const isRt = m !== 'v' && m !== 'reach', RT_N = { l: '좋아요율', cm: '댓글률', sh: '공유율', sv: '저장률' }[m];
-    const rk = it => { const q = raceVal(it, m), n = isRt ? q.r : q.n; return n == null ? -1 : n; }, byV = X => X.slice().sort((a, b) => rk(b) - rk(a) || (raceVal(b, m).n || 0) - (raceVal(a, m).n || 0));
+    const rk = it => { const q = raceVal(it, m), n = isRt ? q.rt : q.n; return n == null ? -1 : n; }, byV = X => X.slice().sort((a, b) => rk(b) - rk(a) || (raceVal(b, m).n || 0) - (raceVal(a, m).n || 0));
     const L = wk.length ? byV(wk).slice(0, 8) : byV(all.filter(it => cut(it) && daysBetween(it.d, D.updated) <= 14)).slice(0, 4);
     window.__race = L;
     if (!L.length) return '';
     // 홈 시안 2 모양: hmRow 한 줄(윗줄 제목 + 평소 대비, 아랫줄 채널 · 올린 날 + 고른 값). 판정 단계(낮음·잘 됨…)와 비교 기준은 마우스를 올리면
-    const sel = '<label class="race-m"><select id="raceM" aria-label="볼 값 고르기">' + RACE_M.map(x => '<option value="' + x[0] + '"' + (x[0] === m ? ' selected' : '') + '>' + x[1] + '</option>').join('') + '</select></label>';
-    // 2026-11-08 담당자 「줄이 왜 저렇게」·「괄호 없어야」: 괄호 빼고 휴대폰 한 줄에 들어가게 줄마다 끊음(원칙 7번)
-    const how = !isRt ? '퍼센트는 같은 형식 평소와 비교' : RT_N + ' = ' + mn + ' ÷ 도달 · 평소 대비 높은 순<br>유튜브는 도달 대신 조회로 계산';
-    return '<div class="race hm-rx"><div class="hm-h"><h3>' + (wk.length ? '이번 주 올린 게시물' : '최근 게시물') + '</h3>' + sel + '</div><p class="hm-note">' + how + '<br>어제·오늘 올린 건 맨 위 오늘 칸에 있어요</p><ol class="hm-list">' + L.map((it, i) => {
-      const q = raceVal(it, m), r = q.r, t = r == null ? null : tierOf(r);
-      return hmRow({ tag: 'li', cls: archRec(it) ? 'is-arch' : '', attr: 'data-r="' + i + '" tabindex="0" role="button" aria-label="' + esc(title(it.n)) + ' 상세 보기"', tip: (t ? t[0] + ' · ' : '') + (q.rt != null ? mn + ' ' + fmtK(q.n) + ' · ' + RT_N + ' ' + pctA(q.rt) + ' · ' : '') + (q.tip || ''), thumb: ovImg(it, 'hm-th ov-th', i + 1), c: it.c, t: esc(title(it.n)), // 2026-11-08 「여기도 썸네일」
-        // 2026-10-24 순위 탭과 같게: 오른쪽 위 = 고른 값(결과), 오른쪽 아래 = 평소 대비(색)
+    const sel = raceSel(m);
+    // 2026-11-08 담당자 「수치만 보여주고」: 오른쪽 아래 평소 대비를 빼고 고른 값만. 평소 비교는 KPI 모드에서
+    const how = isRt ? RT_N + ' = ' + mn + ' ÷ 도달 · 유튜브는 ÷ 조회<br>' : '';
+    return '<div class="race hm-rx"><div class="hm-h"><h3>' + (wk.length ? '이번 주 올린 게시물' : '최근 게시물') + '</h3>' + sel + '</div><p class="hm-note">' + how + '어제·오늘 올린 건 맨 위 오늘 칸에 있어요</p><ol class="hm-list">' + L.map((it, i) => {
+      const q = raceVal(it, m);
+      return hmRow({ tag: 'li', cls: archRec(it) ? 'is-arch' : '', attr: 'data-r="' + i + '" tabindex="0" role="button" aria-label="' + esc(title(it.n)) + ' 상세 보기"', tip: q.rt != null ? mn + ' ' + fmtK(q.n) + ' · ' + RT_N + ' ' + pctA(q.rt) : '', thumb: ovImg(it, 'hm-th ov-th', i + 1), c: it.c, t: esc(title(it.n)), // 2026-11-08 「여기도 썸네일」
         v: isRt && q.rt != null ? RT_N + ' ' + pctA(q.rt) : q.n == null ? '자료 없음' : mn + ' ' + fmtK(q.n), vc: q.n == null ? 'mu' : '',
-        m: (archRec(it) ? '<span class="arch-b">보관 후보</span> · ' : '') + whenTxt(it.d) + (q.rt == null && m !== 'v' ? ' · 조회 ' + fmtK(mainVal(it)) : ''),
-        r: '<b class="' + (r == null ? 'mu' : r < 0.7 ? 'down' : r < 1.3 ? 'mu' : 'up') + '">' + (r == null ? '비교 전' : vsTxt(r)) + '</b>' });
+        m: (archRec(it) ? '<span class="arch-b">보관 후보</span> · ' : '') + whenTxt(it.d) + (m !== 'v' ? ' · 조회 ' + fmtK(mainVal(it)) : '') });
+    }).join('') + '</ol></div>';
+  }
+  const raceSel = m => '<label class="race-m"><select id="raceM" aria-label="볼 값 고르기">' + RACE_M.map(x => '<option value="' + x[0] + '"' + (x[0] === m ? ' selected' : '') + '>' + x[1] + '</option>').join('') + '<option value="kpi"' + (m === 'kpi' ? ' selected' : '') + '>KPI</option></select></label>';
+  // KPI 모드: 오른쪽 위 = 그 게시물의 KPI 값(목표 넘으면 파랑, 아래면 주황), 오른쪽 아래 = 목표까지 남은 만큼, 순서 = 목표 대비 높은 순(KPI 없는 게시물은 맨 아래)
+  function raceKpi(chs, w) {
+    const all = D.items.filter(it => chs.includes(it.c) && OWN.includes(it.c) && it.t !== '스토리' && (S.ads || !it.ad)).sort((a, b) => a.d < b.d ? 1 : a.d > b.d ? -1 : 0);
+    const kst = new Date(Date.now() + 9 * 3600000).toISOString().slice(0, 10), y1 = addDays(kst, -1), cut = it => it.d < y1;
+    const wk = w ? all.filter(it => it.d >= w.mon && cut(it)) : [];
+    const { y1: yr, own } = k7Ctx(), ytB = median(own.filter(it => it.c === '유튜브' && it.t !== '1분 이하' && it.d >= yr && !young(it)).map(mainVal));
+    const K = new Map(), kOf = it => { if (!K.has(it)) K.set(it, kpiOf(it, ytB)); return K.get(it); };
+    const byK = X => X.slice().sort((a, b) => (kOf(b).g == null ? -1 : kOf(b).g) - (kOf(a).g == null ? -1 : kOf(a).g) || (mainVal(b) || 0) - (mainVal(a) || 0));
+    const L = wk.length ? byK(wk).slice(0, 8) : byK(all.filter(it => cut(it) && daysBetween(it.d, D.updated) <= 14)).slice(0, 4);
+    window.__race = L;
+    if (!L.length) return '';
+    return '<div class="race hm-rx"><div class="hm-h"><h3>' + (wk.length ? '이번 주 올린 게시물' : '최근 게시물') + '</h3>' + raceSel('kpi') + '</div><p class="hm-note">인스타 공유율 목표 1% · 유튜브 롱폼 목표 평소<br>목표 대비 높은 순 · 쇼츠·hong은 KPI 없음</p><ol class="hm-list">' + L.map((it, i) => {
+      const k = kOf(it);
+      return hmRow({ tag: 'li', cls: archRec(it) ? 'is-arch' : '', attr: 'data-r="' + i + '" tabindex="0" role="button" aria-label="' + esc(title(it.n)) + ' 상세 보기"', tip: k.tip, thumb: ovImg(it, 'hm-th ov-th', i + 1), c: it.c, t: esc(title(it.n)),
+        v: k.v || k.na, vc: k.v ? (k.ok ? 'up' : 'down') : 'mu',
+        m: (archRec(it) ? '<span class="arch-b">보관 후보</span> · ' : '') + whenTxt(it.d) + (k.sub ? ' · ' + k.sub : ' · 조회 ' + fmtK(mainVal(it))),
+        r: k.v ? '<b class="' + (k.ok ? 'up' : 'mu') + '">' + k.goal + '</b>' : '' });
     }).join('') + '</ol></div>';
   }
   // 판정 단계(밤 10시 브리핑 BR_TIER와 같은 기준): 평소의 0.7배 미만 낮음 · 1.3배 미만 평소 수준 · 2배 잘 됨 · 5배 아주 잘 됨 · 그 이상 대박
