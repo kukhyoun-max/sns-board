@@ -272,7 +272,7 @@
       const top = opt.top ? opt.top(it, mvTxt) : null;
       return hmRow({ tag: 'li', cls: 'hm-rk' + (!it.arc && archRec(it) ? ' is-arch' : ''), attr: 'tabindex="0" data-i="' + i + '"', tip, thumb: opt.thumb === 0 ? '' : ovImg(it, 'hm-th ov-th', opt.rank ? i + 1 : 0), c: it.c, t: esc(title(it.n)), v: top != null ? top : v, vc: top != null ? '' : vc,
         // 경고(보관 후보 등)를 앞에 — 끝에 두면 휴대폰에서 「보…」로 잘림(2026-11-01)
-        m: [...warn.map(w => w === '보관 후보' ? '<span class="arch-b">보관 후보</span>' : '<span class="down">' + esc(w) + '</span>'), '<span title="' + esc(dot(it.d)) + '">' + whenTxt(it.d) + '</span>', ty ? esc(ty) : ''].filter(Boolean).join(' · '),
+        m: [...(opt.pre && opt.pre(it) ? [opt.pre(it)] : []), ...warn.map(w => w === '보관 후보' ? '<span class="arch-b">보관 후보</span>' : '<span class="down">' + esc(w) + '</span>'), '<span title="' + esc(dot(it.d)) + '">' + whenTxt(it.d) + '</span>', ty ? esc(ty) : ''].filter(Boolean).join(' · '),
         r: opt.right ? opt.right(it) : top != null ? vsLow : mName(it) + ' <span class="num">' + mvTxt + '</span>' });
     }).join('') || '<li class="empty">조건에 맞는 콘텐츠가 없어요.</li>';
   }
@@ -4379,7 +4379,12 @@
     if (it.w && it.w.length) metrics.push(['참여자', it.w.join(', ')]);
     if (it.ad && it.ad.mk && D.ads && D.ads.meta) { const ms = D.ads.meta.filter(c => it.ad.mk.includes(c.n)); if (ms.length) metrics.push(['메타 광고비', wonF(sum(ms.map(c => c.spend)))], ['메타 광고 노출', fmt(sum(ms.map(c => c.imp)))], ['메타 링크 클릭', fmt(sum(ms.map(c => c.clk)))]); }
     if (it.ad && it.ad.k.length && D.ads) { const cs = D.ads.camps.filter(c => it.ad.k.includes(c.n)); if (cs.length) metrics.push(['광고 캠페인', cs.length + '개 · ' + dot(cs.map(c => c.from).sort()[0]) + '~' + dot(cs.map(c => c.to).sort().pop())], ['캠페인 광고비', fmt(sum(cs.map(c => c.cost))) + '원' + (cs.some(c => c.videos.length > 1) ? ' (여러 영상 공동)' : '')], ['캠페인 노출', fmt(sum(cs.map(c => c.imp)))]); }
-    const sim = D.items.filter(x => x !== it && x.c === it.c && x.g === it.g && x.t !== '스토리').sort((a, b) => (mainVal(b) || 0) - (mainVal(a) || 0)).slice(0, 5);
+    // 2026-11-08 담당자 「정림 분석판인데 같은 분류 맞나요?」: 큰 분류(g)만 맞춰 강연 옆에 운동부 우승이 나옴 → 같은 주제(s) 먼저, 5개가 안 되면 같은 큰 분류로 채우고 그 줄에 「다른 주제」 표시
+    const simPool = D.items.filter(x => x !== it && x.c === it.c && x.t !== '스토리'), byMv = (a, b) => (mainVal(b) || 0) - (mainVal(a) || 0);
+    const simS = it.s ? simPool.filter(x => x.s === it.s).sort(byMv).slice(0, 5) : [];
+    const simG = simPool.filter(x => x.g === it.g && simS.indexOf(x) < 0).sort(byMv).slice(0, 5 - simS.length);
+    const sim = simS.concat(simG);
+    const simNote = it.s && simG.length ? '<p class="mu" style="margin:0 0 6px">' + esc(it.s) + ' ' + simS.length + '개 · 나머지는 ' + esc(it.g) + ' 다른 주제</p>' : '';
     const el = $('detail');
     el.innerHTML = '<div class="dwrap">' +
       '<div class="dh"><button type="button" id="dClose" aria-label="뒤로">‹</button><div class="ctr"><small>' + esc(chName(it.c)) + ' · ' + esc(glab(it)) + '</small><b class="num ' + cls + '">' + MN[m] + ' ' + fmtK(mainVal(it)) + (d == null ? (it.hid ? ' · 비공개로 보임' : '') : young(it) ? ' · 모이는 중' : ' · ' + vsTxt(d + 1)) + '</b></div><span></span></div>' +
@@ -4399,7 +4404,7 @@
       deepDetailHtml(it) +
       '<div class="gap"></div><section class="dsec" id="dMet"><h3 style="margin:0 0 6px;font-size:var(--fs-xl);font-weight:700">지표</h3><div class="mgrid">' + metrics.map(m2 => '<div><span>' + esc(m2[0]) + '</span><b>' + esc(m2[1]) + '</b></div>').join('') + '</div>' +
         '<h3 style="margin:22px 0 10px;font-size:var(--fs-lg);font-weight:700">캡션</h3><p class="caption">' + esc(String(it.n || '').trim()) + '</p></section>' +
-      '<div class="gap"></div><section class="dsec" id="dSim"><h3 style="margin:0 0 6px;font-size:var(--fs-xl);font-weight:700">같은 분류의 다른 콘텐츠</h3><ol class="rank" id="dSimList">' + rankRows(sim) + '</ol></section>' +
+      '<div class="gap"></div><section class="dsec" id="dSim"><h3 style="margin:0 0 6px;font-size:var(--fs-xl);font-weight:700">같은 주제의 다른 콘텐츠</h3>' + simNote + '<ol class="rank" id="dSimList">' + rankRows(sim, { pre: x => it.s && x.s !== it.s ? '<span class="mu" title="' + esc('주제 ' + (x.s || '없음')) + '">다른 주제</span>' : '' }) + '</ol></section>' +
       '</div><div class="cta">' + (it.u ? '<a href="' + esc(it.u) + '" target="_blank" rel="noopener">원본 보기</a>' : '<span>원본 링크는 인스타그램 앱에서 확인해 주세요</span>') + '</div>';
     el.hidden = false; el.scrollTop = 0; document.body.style.overflow = 'hidden'; detPush();
     $('dClose').focus();
