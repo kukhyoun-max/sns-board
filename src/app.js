@@ -218,7 +218,7 @@
     return archFresh(it) ? null : { r, age, k: 'low', rr, sh, sv, likes };
   }
   // 보관함(2026-11-01): 서버 「보관 게시물」 탭 — API 목록에서 사라진 게시물(보관 또는 삭제). 값은 보관 전 마지막 값에서 멈추고 평소 계산에는 그대로 둠(살아남은 것만 남으면 평소가 부풀어서)
-  const archTag = it => { if (it.arc) return '<span class="tag arch" title="' + esc(md2(it.arc) + '부터 인스타 목록에 안 보여요 · 숫자는 보관 전 마지막 값' + (it.arw ? ' · 이유: ' + it.arw : '')) + '">보관함</span>'; const a = archRec(it); return a ? '<span class="tag arch" title="' + esc(a.k === 'low' ? '올린 지 ' + a.age + '일 · 도달 평소 대비 ' + vsP(a.rr) + ' · 공유 ' + (a.sh * 100).toFixed(2) + '%(기준 0.5%) · 저장 ' + (a.sv * 100).toFixed(2) + '%(기준 0.15%) · 좋아요 ' + a.likes + '(기준 100) · 그리드를 보고 정해요' : '기간이 끝났을 이벤트·모집·신청 게시물 · 올린 지 ' + a.age + '일 · 도달·공유·저장·좋아요가 모두 낮아요 · 기간과 당첨 발표까지 끝났으면 보관해요') + '">보관 후보</span>' : ''; };
+  const archTag = it => { if (it.arc) return '<span class="tag arch" title="' + esc(md2(it.arc) + '부터 인스타 목록에 안 보여요 · 숫자는 보관 전 마지막 값' + (it.arw ? ' · 이유: ' + it.arw : '')) + '">보관함</span>'; const a = archRec(it); return a ? '<span class="tag arch rec" title="' + esc(a.k === 'low' ? '올린 지 ' + a.age + '일 · 도달 평소 대비 ' + vsP(a.rr) + ' · 공유 ' + (a.sh * 100).toFixed(2) + '%(기준 0.5%) · 저장 ' + (a.sv * 100).toFixed(2) + '%(기준 0.15%) · 좋아요 ' + a.likes + '(기준 100) · 그리드를 보고 정해요' : '기간이 끝났을 이벤트·모집·신청 게시물 · 올린 지 ' + a.age + '일 · 도달·공유·저장·좋아요가 모두 낮아요 · 기간과 당첨 발표까지 끝났으면 보관해요') + '">보관 후보</span>' : ''; };
   const credTag = it => {
     if (!OWN.includes(it.c) || !it.w || !it.w.length || !['자체 제작', '근로장학생'].includes(it.p)) return '';
     const amb = it.w.filter(n => (D.roles || {})[n] === '홍보대사');
@@ -268,9 +268,9 @@
       // 순위 탭(2026-10-24): opt.top이 있으면 오른쪽 위 = 그 탭이 줄 세운 값, 평소 대비는 오른쪽 아래(색만 유지)
       const vsLow = v ? '<b class="' + vc + '">' + (r != null && !yg && !it.ad && !it.hid ? vsTxt(r) : yg && pr != null ? agName(pc.e) + ' ' + vsP(pr) : v) + '</b>' : '';
       const top = opt.top ? opt.top(it, mvTxt) : null;
-      return hmRow({ tag: 'li', cls: 'hm-rk', attr: 'tabindex="0" data-i="' + i + '"', tip, thumb: opt.thumb === 0 ? '' : ovImg(it, 'hm-th ov-th'), c: it.c, t: esc(title(it.n)), v: top != null ? top : v, vc: top != null ? '' : vc,
+      return hmRow({ tag: 'li', cls: 'hm-rk' + (!it.arc && archRec(it) ? ' is-arch' : ''), attr: 'tabindex="0" data-i="' + i + '"', tip, thumb: opt.thumb === 0 ? '' : ovImg(it, 'hm-th ov-th'), c: it.c, t: esc(title(it.n)), v: top != null ? top : v, vc: top != null ? '' : vc,
         // 경고(보관 후보 등)를 앞에 — 끝에 두면 휴대폰에서 「보…」로 잘림(2026-11-01)
-        m: [...warn.map(w => '<span class="down">' + esc(w) + '</span>'), '<span title="' + esc(dot(it.d)) + '">' + whenTxt(it.d) + '</span>', ty ? esc(ty) : ''].filter(Boolean).join(' · '),
+        m: [...warn.map(w => w === '보관 후보' ? '<span class="arch-b">보관 후보</span>' : '<span class="down">' + esc(w) + '</span>'), '<span title="' + esc(dot(it.d)) + '">' + whenTxt(it.d) + '</span>', ty ? esc(ty) : ''].filter(Boolean).join(' · '),
         r: opt.right ? opt.right(it) : top != null ? vsLow : mName(it) + ' <span class="num">' + mvTxt + '</span>' });
     }).join('') || '<li class="empty">조건에 맞는 콘텐츠가 없어요.</li>';
   }
@@ -987,10 +987,10 @@
     const how = m === 'v' || m === 'reach' ? '아래 퍼센트는 같은 형식의 평소와 비교' : '아래 퍼센트는 도달(유튜브는 조회) 대비 비율을 같은 형식 평소와 비교'; // 2026-10-24 「오른쪽 위 =」 같은 설명투를 쉬운 말로
     return '<div class="race hm-rx"><div class="hm-h"><h3>' + (wk.length ? '이번 주 올린 게시물' : '최근 게시물') + '</h3>' + sel + '</div><p class="hm-note">' + how + '<br>어제·오늘 올린 건 위 「오늘」에 있어요</p><ol class="hm-list">' + L.map((it, i) => {
       const q = raceVal(it, m), r = q.r, t = r == null ? null : tierOf(r);
-      return hmRow({ tag: 'li', attr: 'data-r="' + i + '" tabindex="0" role="button" aria-label="' + esc(title(it.n)) + ' 상세 보기"', tip: (t ? t[0] + ' · ' : '') + (q.tip || ''), c: it.c, t: esc(title(it.n)),
+      return hmRow({ tag: 'li', cls: archRec(it) ? 'is-arch' : '', attr: 'data-r="' + i + '" tabindex="0" role="button" aria-label="' + esc(title(it.n)) + ' 상세 보기"', tip: (t ? t[0] + ' · ' : '') + (q.tip || ''), c: it.c, t: esc(title(it.n)),
         // 2026-10-24 순위 탭과 같게: 오른쪽 위 = 고른 값(결과), 오른쪽 아래 = 평소 대비(색)
         v: q.n == null ? '자료 없음' : mn + ' ' + fmtK(q.n), vc: q.n == null ? 'mu' : '',
-        m: whenTxt(it.d) + (archRec(it) ? ' · <span class="down">보관 후보</span>' : '') + (m !== 'v' ? ' · 조회 ' + fmtK(mainVal(it)) : '') + (q.rt != null ? ' · ' + (it.c === '유튜브' ? '조회' : '도달') + ' 대비 ' + pctA(q.rt) : ''),
+        m: (archRec(it) ? '<span class="arch-b">보관 후보</span> · ' : '') + whenTxt(it.d) + (m !== 'v' ? ' · 조회 ' + fmtK(mainVal(it)) : '') + (q.rt != null ? ' · ' + (it.c === '유튜브' ? '조회' : '도달') + ' 대비 ' + pctA(q.rt) : ''),
         r: '<b class="' + (r == null ? 'mu' : r < 0.7 ? 'down' : r < 1.3 ? 'mu' : 'up') + '">' + (r == null ? '비교 전' : vsTxt(r)) + '</b>' });
     }).join('') + '</ol></div>';
   }
@@ -3959,12 +3959,15 @@
         if (i >= 0) { q.lk[j] = pool[i].u; pool.splice(i, 1); q.ok[j] = 1; q.early = 1; }
       });
     });
+    const anyTh = PL.some(q => /^data:image/.test(q.x[4] || ''));
     const rows = pl.length ? PL.map(({ x, m, ks, ok, lk }) => {
       const done = ks.length && ks.every((k, j) => ok[j]), some = ok.some(Boolean), now = x[0] === d.today;
       // 게시 완료면 올린 게시물로(채널이 여럿이면 피드 게시물 먼저), 주소를 못 받았으면 폴더 그대로
       const pu = done && (ks.map((k, j) => /스토리/.test(k) ? '' : lk[j]).find(Boolean) || lk.find(Boolean)), href = pu || x[2];
       const meta = '<span class="' + (now ? 'hm-now' : '') + '">' + (now ? '오늘' : md2(x[0]) + ' ' + wd(x[0])) + '</span> · ' + ks.map((k, j) => '<span class="hm-ch' + (ok[j] ? ' ok' : '') + '" style="--c:' + chInk(pch(k)) + '"' + (ok[j] ? ' title="올라간 것 확인"' : '') + '>' + esc(k) + '</span>').join(' ');
-      return hmRow({ tag: href ? 'a' : 'div', attr: href ? 'href="' + esc(href) + '" target="_blank" rel="noopener" title="' + (pu ? '올린 게시물 열기' : '업로드 폴더 열기') + '"' : '', cls: done ? 'done' : '',
+      // 미리보기(2026-11-08 「여기도 미리보기 이미지」): 서버가 업로드 폴더 cover·첫 이미지를 data URI로 [4]에. 한 줄이라도 있으면 모든 줄에 칸(없으면 채널 색 옅은 칸)
+      const im = /^data:image/.test(x[4] || '') ? x[4] : '', thumb = anyTh ? '<span class="hm-th" style="--c:' + chColor(pch(ks[0] || '')) + '" aria-hidden="true">' + (im ? '<img src="' + esc(im) + '" alt="" loading="lazy">' : '') + '</span>' : '';
+      return hmRow({ tag: href ? 'a' : 'div', attr: href ? 'href="' + esc(href) + '" target="_blank" rel="noopener" title="' + (pu ? '올린 게시물 열기' : '업로드 폴더 열기') + '"' : '', cls: done ? 'done' : '', thumb,
         t: esc(m ? m[2] : x[1]), m: meta, v: done ? '게시 완료' : some ? '일부 올림' : x[3] ? '예상 ' + esc(x[3]) : '', vc: done || some ? 'up' : '', r: pu ? '게시물 ›' : x[2] ? '폴더 ›' : '' });
     }).join('') : hmRow({ t: '7일 안에 잡힌 일정이 없어요', m: '공식 SNS 발행 일정 캘린더 기준' });
     return hmSec2('게시 예정', pl.length ? '공식 SNS 발행 일정 · 7일' : '', '<div class="hm-list">' + rows + '</div>');
@@ -4778,7 +4781,7 @@
     if (AR.length) {
       const nEnd = AR.filter(it => archRec(it).k === 'end').length, nLow = AR.length - nEnd;
       const rowOf = (it, i) => { const a = archRec(it); return '<div class="ntf-row"><button type="button" class="ntf-arch" data-arch="' + i + '"><span>' + esc(title(it.n)) + '</span><small>' + dot(it.d) + ' · ' + (a.k === 'end' ? '기간 끝남 · ' : '') + '공유 ' + (a.sh * 100).toFixed(2) + '% · 저장 ' + (a.sv * 100).toFixed(2) + '% · 좋아요 ' + a.likes + '</small></button>' + (String(it.u || '').startsWith('https://www.instagram.com/') ? '<a class="ntf-go" href="' + esc(it.u) + '" target="_blank" rel="noopener">인스타 열기</a>' : '') + '</div>'; };
-      out.push({ id: 'arch:' + AR[0].d, t: '인스타 보관 후보 ' + AR.length + '개',
+      out.push({ id: 'arch:' + AR[0].d, cls: 'ntf-archn', t: '인스타 보관 후보 ' + AR.length + '개',
         b: [nEnd ? '기간이 끝났을 이벤트·공지 ' + nEnd + '개' : '', nLow ? '도달·공유·저장·좋아요가 모두 낮은 게시물 ' + nLow + '개' : ''].filter(Boolean).join(', ') + '예요. 「인스타 열기」로 게시물을 열어 ··· 메뉴에서 보관하면, 다음 기록 때 이 목록에서 빠지고 보관함으로 옮겨져요.',
         h: '<button type="button" class="ntf-more" data-archmore aria-expanded="false"><span>게시물 ' + AR.length + '개 보기</span><i aria-hidden="true">▾</i></button><div class="ntf-list" hidden>' + AR.map(rowOf).join('') + '</div>' });
     }
@@ -4798,7 +4801,7 @@
     const N = notices(), seen = seenGet(), k = N.filter(x => !seen.includes(x.id)).length;
     $('bellN').textContent = k; $('bellN').hidden = !k;
     btn.setAttribute('aria-label', '알림 ' + N.length + '개' + (k ? ', 새 알림 ' + k + '개' : ''));
-    p.innerHTML = '<div class="ntf-h">알림</div>' + (N.length ? '<ul>' + N.map(x => '<li' + (seen.includes(x.id) ? '' : ' class="new"') + '><b>' + esc(x.t) + '</b><p>' + esc(x.b) + '</p>' + (x.h || '') + '</li>').join('') + '</ul>' : '<p class="ntf-e">지금은 확인할 게 없어요. 데이터가 모두 제때 들어오고 있어요.</p>');
+    p.innerHTML = '<div class="ntf-h">알림</div>' + (N.length ? '<ul>' + N.map(x => '<li' + ((seen.includes(x.id) ? '' : 'new') || x.cls ? ' class="' + [seen.includes(x.id) ? '' : 'new', x.cls || ''].filter(Boolean).join(' ') + '"' : '') + '><b>' + esc(x.t) + '</b><p>' + esc(x.b) + '</p>' + (x.h || '') + '</li>').join('') + '</ul>' : '<p class="ntf-e">지금은 확인할 게 없어요. 데이터가 모두 제때 들어오고 있어요.</p>');
     if (btn.__w) return; btn.__w = 1;
     const close = () => { if (p.hidden) return; p.hidden = true; btn.setAttribute('aria-expanded', 'false'); renderBell(); };
     btn.addEventListener('click', e => { e.stopPropagation(); if (!p.hidden) { close(); return; } p.hidden = false; btn.setAttribute('aria-expanded', 'true'); try { localStorage.setItem('sb-seen', JSON.stringify(notices().map(x => x.id))); } catch (er) {} $('bellN').hidden = true; });

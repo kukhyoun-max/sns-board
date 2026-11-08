@@ -6385,6 +6385,30 @@ function planFolder_(desc) {
   if (n) { try { const it = DriveApp.getFoldersByName(n[1].trim()); return it.hasNext() ? it.next().getUrl() : ''; } catch (e) { return ''; } }
   return '';
 }
+// 업로드 폴더 미리보기(2026-11-08): 이름에 cover가 든 이미지 → 이름순 첫 이미지 → 영상. 파일 id·수정 시각으로 6시간 저장, 너무 크면 안 보냄
+function planThumb_(url) {
+  const m = String(url || '').match(/folders\/([\w-]+)/); if (!m) return '';
+  try {
+    const it = DriveApp.getFolderById(m[1]).getFiles(), F = [];
+    while (it.hasNext() && F.length < 40) { const f = it.next(), t = f.getMimeType(); if (/^(image|video)\//.test(t)) F.push({ f, n: f.getName(), v: /^video\//.test(t) }); }
+    if (!F.length) return '';
+    F.sort((a, b) => (a.v - b.v) || (/cover|커버/i.test(b.n) - /cover|커버/i.test(a.n)) || (a.n < b.n ? -1 : a.n > b.n ? 1 : 0));
+    const f = F[0].f, key = 'pth:' + f.getId() + ':' + f.getLastUpdated().getTime(), c = CacheService.getScriptCache(), hit = c.get(key);
+    if (hit != null) return hit;
+    // 드라이브 썸네일 주소에 =s160을 붙여 작게(1장 10~20KB). 안 되면 DriveApp 썸네일(220px)
+    let bl = null, out = '';
+    try {
+      const H = { headers: { Authorization: 'Bearer ' + ScriptApp.getOAuthToken() }, muteHttpExceptions: true };
+      const r = UrlFetchApp.fetch('https://www.googleapis.com/drive/v3/files/' + f.getId() + '?fields=thumbnailLink&supportsAllDrives=true', H);
+      const lk = r.getResponseCode() === 200 ? JSON.parse(r.getContentText()).thumbnailLink : '';
+      if (lk) { const g = UrlFetchApp.fetch(lk.replace(/=s\d+$/, '') + '=s160', H); if (g.getResponseCode() === 200) bl = g.getBlob(); }
+    } catch (e) { bl = null; }
+    if (!bl) bl = f.getThumbnail();
+    if (bl) { const b64 = Utilities.base64Encode(bl.getBytes()); if (b64.length < 90000) out = 'data:' + (bl.getContentType() || 'image/png') + ';base64,' + b64; }
+    c.put(key, out, 21600);
+    return out;
+  } catch (e) { return ''; }
+}
 // 게시 확정 때 일정 설명에 적은 「예상: 조회 2.5만~5만」 줄(2026-11-07 「게시 확정되면 나오는 예상 값」). 그 줄의 값만 보드로 보냄
 function planFc_(desc) {
   const t = String(desc || '').replace(/<br\s*\/?>|<\/p>|<\/div>/gi, '\n').replace(/<[^>]+>/g, ' ');
@@ -6441,6 +6465,8 @@ function partToday_(ss) {
     const cal = CalendarApp.getCalendarsByName(PLAN_CAL)[0];
     if (cal) plan = cal.getEvents(new Date(today + 'T00:00:00+09:00'), new Date(shiftDate_(today, 8) + 'T00:00:00+09:00'))
       .slice(0, 12).map(e => [Utilities.formatDate(e.getStartTime(), TZ, 'yyyy-MM-dd'), String(e.getTitle()).slice(0, 80), planFolder_(e.getDescription()), planFc_(e.getDescription())]);
+    // 미리보기(2026-11-08 「여기도 미리보기 이미지」): 업로드 폴더의 cover → 첫 이미지 → 영상 썸네일을 작은 data URI로 [4]에. 드라이브 주소는 로그인 없이 안 보여서 서버에서 받음
+    plan.forEach(x => { x[4] = planThumb_(x[2]); });
   } catch (e) { notes.push('게시 예정 확인 실패'); }
   tick('plan');
   // 최근 게시물 썸네일(2026-10-25 홈 「개요」 인기 콘텐츠·인스타 격자): 계정마다 최신 30개 [게시물 코드, 게시일, 캡션 앞 30자, 사진 주소, 채널].
