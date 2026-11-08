@@ -1240,7 +1240,6 @@ em.nm { font-style: normal; font-weight: 700; color: var(--fg); }
 .yd-e { margin: 0; padding: 14px 0; font-size: var(--fs-tag); color: var(--muted); }
 @media (max-width: 760px) { .yd-grid { grid-template-columns: minmax(0, 1fr); gap: 16px; } }
 /* 매일 분석(2026-11-03) */
-.hm-cards.an-kc{display:grid;grid-template-columns:repeat(2,minmax(0,1fr))}
 .an-r .hm-rb{display:block}
 .an-cells{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:4px;margin-top:8px}
 .an-cells.one{grid-template-columns:minmax(0,1fr)}
