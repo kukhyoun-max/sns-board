@@ -981,7 +981,7 @@
     return { n, rt, r: b ? rt / b : null, tip: rt == null ? (n == null ? '이 채널은 자료가 없어요' : dn + '가 적어 비율을 아직 안 봐요') : dn + ' 대비 ' + pctA(rt) + (b ? ' · 같은 형식 평소 ' + pctA(b) : ' · 같은 형식 게시물이 적어 비교 전') };
   }
   // 2026-11-08 담당자 「수치만 보여주고, KPI 모드를 누르면 KPI 데이터」: 게시물 하나의 KPI 값(전략 KPI 7개와 같은 정의)
-  // 인스타 = 공유율(공유 ÷ 도달, 도달 300 이상·이벤트 뺌, 목표 1.0%) + 캐러셀은 저장률(목표 0.3%) · 유튜브 롱폼 = 조회 ÷ 채널 롱폼 1년 중간값(목표 평소) + 3~10분은 시청 비율(목표 25%) · 쇼츠·hong = KPI 없음
+  // 인스타 = 공유율(공유 ÷ 도달, 도달 300 이상·이벤트 뺌, 목표 1.0%) + 캐러셀은 저장률(목표 0.3%) · 유튜브 롱폼 = 조회 ÷ 채널 롱폼 1년 중간값(목표 평소) + 3~10분은 시청 비율(목표 25%) · hong = 공유율(1.3%) · 쇼츠 = 시청 비율(70%)(2026-11-08)
   function kpiOf(it, ytB) {
     if (it.c === '인스타그램') {
       if (it.tg === '이벤트') return { na: '이벤트', tip: '이벤트는 공유·저장 KPI에서 빠져요' };
@@ -997,7 +997,20 @@
       return { v: '롱폼 ' + vsP(r), g: r / KPI_D20.ytLong, ok: r >= KPI_D20.ytLong, goal: r >= KPI_D20.ytLong ? '목표 넘음' : Math.round((1 - r) * 100) + '% 남음',
         sub: cp != null ? '시청 비율 ' + pct0(cp) : '', tip: (young(it) ? '올린 지 같은 날 평소와 비교 · ' : '') + '채널 롱폼 1년 중간값 대비 · 목표 평소' + (cp != null ? ' · 시청 비율 목표 25%' : '') };
     }
-    return { na: 'KPI 없음', tip: '쇼츠·hong은 KPI가 없어요' };
+    // 2026-11-08 hong·쇼츠 KPI: 게시물 하나는 비율(hong 공유율·쇼츠 시청 비율)로 목표와 견주고, 양(도달·참여 조회)은 아랫줄에만(덜 쌓인 게시물이 많아서)
+    if (it.c === 'hong._.video') {
+      const g = K4.k7hsh, sh = g.val(it);
+      if (sh == null) return { na: '도달 모으는 중', tip: '도달 300 이상부터 공유율을 봐요' };
+      return { v: '공유율 ' + pctA(sh), g: sh / g.tgt, ok: sh >= g.tgt, goal: sh >= g.tgt ? '목표 넘음' : g.gap(g.tgt - sh) + ' 남음',
+        sub: it.r ? '도달 ' + fmtK(it.r) : '', tip: '공유 ÷ 도달 · 목표 ' + pctA(g.tgt) + ' · 게시물 도달 목표 ' + fmtK(K4.k7hr.tgt) + '(6개월 중간값)' + (it.co ? ' · Collab은 KPI 계산에서 빠져요' : '') };
+    }
+    if (it.c === '유튜브' && it.t === '1분 이하') {
+      const g = K4.k7svr, vr = g.val(it);
+      if (vr == null) return { na: '시청 모으는 중', tip: '평균 시청 값이 아직 없어요' };
+      return { v: '시청 비율 ' + pct0(vr), g: vr / g.tgt, ok: vr >= g.tgt, goal: vr >= g.tgt ? '목표 넘음' : g.gap(g.tgt - vr) + ' 남음',
+        sub: it.e ? '참여 조회 ' + fmtK(it.e) : '', tip: '평균 시청 ÷ 길이 · 목표 ' + pct0(g.tgt) + ' · 참여 조회 목표 ' + fmtK(K4.k7sev.tgt) + '(6개월 중간값)과 함께 봐요' };
+    }
+    return { na: 'KPI 없음', tip: '이 형식은 KPI가 없어요' };
   }
   function raceHtml(chs, w) {
     window.__raceArgs = [chs, w];
@@ -1771,6 +1784,24 @@
   const V310B = { s: 0.26, l: 0.18, all: 0.21 };
   const cpAdj = it => { const c = completion(it); return c == null ? null : c * V310B.all / (it.l <= 300 ? V310B.s : V310B.l); };
   const k7Rate = (it, j) => { const v = last(it); return v && it.r >= 300 && v[j] != null ? v[j] / it.r : null; }; // 인스타 공유(3)·저장(4) ÷ 도달, 도달 300 이상
+  // 2026-11-08 담당자 승인 hong·쇼츠 KPI 4개(전략 5절 H1·H2·S1·S2, 제안 https://claude.ai/artifact/7g2h7rJNsSLrwvvsmQaf7t)
+  // 최근 6개월 이동 중간값 · 올린 지 14일 지남 · 광고 제외 · hong은 공식 계정 Collab(it.co) 뺌 · 15개 미만 = 게시물 적음
+  // 쇼츠 S1은 조회가 아니라 참여 조회(it.e, 2025-03-31 쇼츠 조회 정의 변경) · S2 = 평균 시청 ÷ 길이(it.a ÷ it.l, 승인 기준값 58%와 같은 계산), S1과 함께 판정
+  const K4_MIN = 15;
+  const K4 = {
+    k7hsh: { ch: 'hong._.video', nm: 'hong 공유율', s: v => pctA(v), def: '도달 대비 · 공식 계정 Collab 뺌 · 최근 6개월 중간값', tgt: 0.013, now: 0.0108, val: it => k7Rate(it, 3), f: v => pctA(v), gap: v => (Math.round(v * 10000) / 100) + '%p', unit: '공유 ÷ 도달' },
+    k7hr: { ch: 'hong._.video', nm: 'hong 게시물 도달', s: v => fmtK(v), def: '게시물 하나의 도달 중간값 · 총량 아님 · Collab 뺌 · 최근 6개월', tgt: 9600, now: 8043, val: it => it.r || null, f: v => '도달 ' + fmtK(v), gap: v => fmtK(Math.round(v)), unit: '도달' },
+    k7sev: { ch: '유튜브', nm: '쇼츠 참여 조회', s: v => fmtK(v), def: '조회가 아니라 참여 조회(2025-03-31 쇼츠 조회 정의 변경) · 최근 6개월 중간값', tgt: 1000, now: 619, val: it => it.e || null, f: v => '참여 조회 ' + fmtK(v), gap: v => fmtK(Math.round(v)), unit: '참여 조회' },
+    k7svr: { ch: '유튜브', nm: '쇼츠 평균 시청 비율', s: v => pct0(v), def: '평균 시청 ÷ 길이 · 참여 조회와 함께 판정 · 최근 6개월 중간값', tgt: 0.7, now: 0.58, val: it => it.a && it.l ? it.a / it.l : null, f: v => pct0(v), gap: v => Math.round(v * 100) + '%p', unit: '평균 시청 ÷ 길이' }
+  };
+  function k4Pool(C, key, from) {
+    const s = from || addDays(C.today, -182), hong = K4[key].ch === 'hong._.video';
+    return C.own.filter(it => it.d >= s && daysBetween(it.d, C.today) >= AGE_MIN && (hong ? it.c === 'hong._.video' && !it.co : it.c === '유튜브' && it.t === '1분 이하'));
+  }
+  function k4Val(C, key) {
+    const L = k4Pool(C, key).filter(it => K4[key].val(it) != null);
+    return { L, v: median(L.map(K4[key].val)), n: L.length };
+  }
   function k7Ctx() {
     const today = D.updated, q0 = today.slice(0, 5) + String(Math.floor((+today.slice(5, 7) - 1) / 3) * 3 + 1).padStart(2, '0') + '-01';
     return { today, q0, d90: addDays(today, -90), y1: addDays(today, -365), own: D.items.filter(it => OWN.includes(it.c) && it.t !== '스토리' && !it.ad && !it.hid) };
@@ -1796,10 +1827,15 @@
       '<div class="k7-f"><small>목표 ' + tgt + (note ? ' · ' + note : '') + '</small><small class="' + (ok ? 'up' : '') + '">' + (v == null ? '' : ok ? '달성' : left || '') + '</small></div><span class="kgo" aria-hidden="true">›</span></div>';
     const sv = rate(carC.length >= 3 ? carC : car, 4), sh = rate(ig, 3);
     const pp = (t, c) => (Math.round((t - c) * 1000) / 10) + '%p 남음', ppA = (t, c) => (Math.round((t - c) * 10000) / 100) + '%p 남음';
-    const okN = [sv >= KPI_D20.save, sh >= KPI_D20.share, ytR >= KPI_D20.ytLong, v310 >= KPI_D20.view310, cv.n >= KPI_D20.cover, stu >= KPI_D20.student].filter(Boolean).length;
+    const kc = { today, own }, k4 = {}; Object.keys(K4).forEach(k => { k4[k] = k4Val(kc, k); });
+    const k4ok = k => { const x = k4[k], g = K4[k]; if (x.v == null) return false; if (k !== 'k7svr') return x.v >= g.tgt; return x.v >= g.tgt ? (k4.k7sev.v >= K4.k7sev.tgt ? true : null) : false; }; // S2는 S1도 넘어야 달성, S2만 넘으면 회색
+    const k4row = k => { const x = k4[k], g = K4[k], few = x.n < K4_MIN, ok = k4ok(k);
+      return [g.ch, row(k, g.nm, g.def + ' · 지금 ' + x.n + '개', x.v == null ? null : g.s(x.v), g.s(g.tgt), ok, (few ? '게시물 적음 · ' : '') + '6개월 ' + x.n + '개', x.v, g.tgt, 0, x.v == null ? '' : ok === null ? '참여 조회도 넘어야 달성' : '목표까지 ' + g.gap(g.tgt - x.v))]; };
+    const okN = [sv >= KPI_D20.save, sh >= KPI_D20.share, ytR >= KPI_D20.ytLong, v310 >= KPI_D20.view310, cv.n >= KPI_D20.cover, stu >= KPI_D20.student].concat(Object.keys(K4).map(k => k4ok(k) === true)).filter(Boolean).length;
     const near = [[sh, KPI_D20.share, '공유율'], [v310, KPI_D20.view310, '시청 비율'], [stu, KPI_D20.student, '학생 제작'], [sv, KPI_D20.save, '저장률']].filter(x => x[0] != null && x[0] < x[1] && x[0] >= x[1] * 0.9).map(x => x[2]);
-    const okC = { '인스타그램': [sh >= KPI_D20.share, stu >= KPI_D20.student, sv >= KPI_D20.save], '유튜브': [v310 >= KPI_D20.view310, ytR >= KPI_D20.ytLong] }[one];
-    const lead = one ? '<p class="k7-lead">' + (okC ? chName(one) + ' KPI ' + okC.length + '개 중 ' + okC.filter(Boolean).length + '개는 목표를 넘었어요' : chName(one) + '만 보는 KPI는 없어요') + ' · 나머지는 전체 탭에서</p>' : '<p class="k7-lead">KPI 7개 중 ' + okN + '개는 목표를 넘었' + (near.length ? '고, ' + near.join('과 ') + '은 거의 다 왔어요' : '어요') + '</p>';
+    const okC = { '인스타그램': [sh >= KPI_D20.share, stu >= KPI_D20.student, sv >= KPI_D20.save], '유튜브': [v310 >= KPI_D20.view310, ytR >= KPI_D20.ytLong, k4ok('k7sev') === true, k4ok('k7svr') === true], 'hong._.video': [k4ok('k7hsh'), k4ok('k7hr')] }[one];
+    const kAll = 6 + Object.keys(K4).length + 1; // 노출 학과 수는 목표 판정 없음 → 「N개 중」은 목표가 있는 10개 + 학과 1개 = 11개
+    const lead = one ? '<p class="k7-lead">' + (okC ? chName(one) + ' KPI ' + okC.length + '개 중 ' + okC.filter(Boolean).length + '개는 목표를 넘었어요' : chName(one) + '만 보는 KPI는 없어요') + ' · 나머지는 전체 탭에서</p>' : '<p class="k7-lead">KPI ' + kAll + '개 중 ' + okN + '개는 목표를 넘었' + (near.length ? '고, ' + near.join('과 ') + '은 거의 다 왔어요' : '어요') + '</p>';
     // 줄마다 채널(2026-10-30 「유튜브 탭에 인스타 kpi?」): 채널 탭에서는 그 채널 줄 + 공통 줄(경험 지도·학과)만
     const R7 = [
       ['인스타그램', row('k7share', '인스타 공유율', '도달 대비 · 최근 90일 중간값', sh == null ? null : pctA(sh), pctA(KPI_D20.share), sh >= KPI_D20.share, '최근 90일', sh, KPI_D20.share, 0, sh == null ? '' : ppA(KPI_D20.share, sh))],
@@ -1807,6 +1843,7 @@
       ['유튜브', row('k7yt', '유튜브 롱폼 평소 대비', '채널 롱폼 1년 중간값 대비 · 최근 90일', ytR == null ? null : vsP(ytR), '평소 이상', ytR >= KPI_D20.ytLong, '최근 90일', ytR, KPI_D20.ytLong, 0, ytR == null ? '' : '평소까지 ' + Math.round((1 - ytR) * 100) + '%')],
       ['인스타그램', row('k7stu', '학생 제작 비율', '인스타 최근 1년 · 제작 주체 홍보대사', stu == null ? null : pct0(stu), pct0(KPI_D20.student) + ' 이상', stu >= KPI_D20.student, '인스타 최근 1년', stu, KPI_D20.student, 0, stu == null ? '' : pp(KPI_D20.student, stu))],
       ['인스타그램', row('k7save', '인스타 저장률', '코너 캐러셀 · 도달 대비 · 최근 90일 중간값', sv == null ? null : pctA(sv), pctA(KPI_D20.save), sv >= KPI_D20.save, (carC.length >= 3 ? '' : '캐러셀 전체 · ') + '최근 90일', sv, KPI_D20.save, 0, sv == null ? '' : '목표의 ' + Math.round(sv / KPI_D20.save * 100) + '%')],
+      k4row('k7hsh'), k4row('k7hr'), k4row('k7sev'), k4row('k7svr'),
       ['', row('k7cov', '경험 지도 커버리지', '이번 분기 · 20개 영역 중 2건 이상', cv.n + '/' + cv.all, KPI_D20.cover + '/' + cv.all, cv.n >= KPI_D20.cover, cv.sug ? '이번 분기 · 자동 제안 섞임' : '이번 분기', cv.n, KPI_D20.cover, cv.all, (KPI_D20.cover - cv.n) + '개 더')],
       ['', row('k7dept', '노출 학과 수', '최근 1년 제목·캡션 앞부분에 나온 학과(하한값)', dep.size + '곳', '2년 안에 ' + (EXP.depts || []).length + '곳', null, '최근 1년', dep.size, (EXP.depts || []).length, (EXP.depts || []).length, '달마다 ' + Math.max(1, Math.ceil(((EXP.depts || []).length - dep.size) / 24)) + '곳씩')]
     ].filter(r => !one || !r[0] || r[0] === one);
@@ -1822,7 +1859,7 @@
     const e90 = f90.filter(it => it.tg === '이벤트'), eRx = median(e90.map(it => k7Rate(it, 2)).filter(v => v != null));
     const fl = f90.length ? '<p class="note">피드 점검 · 인스타 피드 중 공지·소식 ' + pct0(fN / f90.length) + ' (최근 90일 ' + fN + '/' + f90.length + '개' + (fMon.length ? ' · ' + esc(fMon.join(' · ')) : '') + ') · 낮을수록 매거진답게' +
       (e90.length ? ' · 이벤트 ' + e90.length + '개, 댓글 ÷ 도달 ' + pctA(eRx) : '') + (f90.some(it => !trustTy(it)) ? ' · 자동 판정 포함' : '') + '</p>' : '';
-    return secOpen(one ? chName(one) + ' KPI' : 'KPI 7개', (one ? '경험 지도·노출 학과는 공식 채널 전체 · ' : '') + '기간 버튼과 관계없이 줄마다 적힌 기간으로 계산 · 2026-10-23 승인(결정 대기 D20) · 줄을 누르면 자세한 데이터와 목표까지 할 일') + lead + '<div class="k7">' + h + '</div>' + emp + (!one || one === '인스타그램' ? fl : '') + secClose;
+    return secOpen(one ? chName(one) + ' KPI' : 'KPI ' + kAll + '개', (one ? '경험 지도·노출 학과는 공식 채널 전체 · ' : '') + '기간 버튼과 관계없이 줄마다 적힌 기간으로 계산 · 2026-10-23 승인(결정 대기 D20) · hong·쇼츠 4개 2026-11-08 승인 · 줄을 누르면 자세한 데이터와 목표까지 할 일') + lead + '<div class="k7">' + h + '</div>' + emp + (!one || one === '인스타그램' ? fl : '') + secClose;
   }
   function prescribe(chs) {
     const s365 = addDays(D.updated, -365), s60 = addDays(D.updated, -60);
@@ -4561,7 +4598,7 @@
         else if (G[0]) tip('주제', '「' + G[0].k + '」 롱폼 늘리기', '평소 대비 ' + vsP(G[0].v) + ' · 최근 1년 ' + G[0].n + '개' + (gAuto ? ' · 자동 판정 포함' : ''));
         if (Q.length && yg.length * 2 <= Q.length) tip('대상', '예비 신입생이 볼 주제를 과반으로', '지금 ' + yg.length + '/' + Q.length + '개 · 기숙사·수강신청·학과 수업·진로·장학·통학');
         tip('제목', '제목 앞에 검색어', '학교 이름 · 학과 · 기숙사처럼 찾아볼 말 · 선행 지표 「제목 검색어 포함 100%」');
-        tip('쇼츠', '롱폼마다 쇼츠 1~2개', '쇼츠에서 본편으로 데려오기 · 선행 지표');
+        tip('쇼츠', '롱폼마다 쇼츠 1개', '쇼츠에서 본편으로 데려오기 · 선행 지표 주 1건(2026-11-08)');
         const M = k7Mon(Y1.filter(it => !young(it)), f);
         return { scope: '유튜브', title: '유튜브 롱폼 평소 대비', big: vsP(cur), sub: '목표 ±0% 이상 · ' + (cur == null ? '' : cur >= 1 ? '목표 넘음' : '평소까지 ' + Math.round((1 - cur) * 100) + '%'), A, T,
           note: '월별 롱폼 조회 평소 대비 중간값 · 1분 넘는 영상 · 점선 = 평소',
@@ -4646,6 +4683,32 @@
         chart: k7Bar(M, pct0, tgt, '목표 ' + pct0(tgt)),
         list: L.length ? { t: '최근 1년 잘 된 홍보대사 게시물', L } : null,
         table: kTbl(['월', '인스타 게시물', '홍보대사', '비율'], M.slice().reverse().map(x => [x.k.replace('-', '.'), x.n + '개', yi.filter(it => it.d.slice(0, 7) === x.k && it.p === '홍보대사').length + '개', pct0(x.v)])) };
+    }
+    if (K4[key]) { // hong·쇼츠 KPI 4개(2026-11-08)
+      const g = K4[key], x = k4Val(C, key), vf = a => median(a.map(g.val).filter(v => v != null)), hong = g.ch === 'hong._.video';
+      const Y = k4Pool(C, key, C.y1).filter(it => g.val(it) != null), M = k7Mon(Y, vf), okN = x.L.filter(it => g.val(it) >= g.tgt).length;
+      A.push(kRow(x.n < K4_MIN ? 'info' : x.v >= g.tgt ? 'good' : 'bad', '지금', g.f(x.v) + ' · 최근 6개월 ' + x.n + '개', '승인 때(11-07) ' + g.f(g.now) + ' · 목표 ' + g.f(g.tgt) + (x.n < K4_MIN ? ' · 게시물 ' + K4_MIN + '개 미만이라 방향만 봐요' : '')));
+      if (x.n) A.push(kRow(okN * 2 >= x.n ? 'good' : 'info', '목표', x.n + '개 중 ' + okN + '개가 목표 넘음', g.unit + ' · 게시물마다'));
+      if (hong) {
+        const coL = C.own.filter(it => it.c === 'hong._.video' && it.co && it.d >= C.y1 && daysBetween(it.d, C.today) >= AGE_MIN && g.val(it) != null);
+        if (coL.length) A.push(kRow('info', 'Collab', '공식 계정과 함께한 ' + coL.length + '개 ' + g.f(vf(coL)) + ' · 계산에서 뺌', '최근 1년 · 고른 게시물을 Collab해서 원인으로 보지 않아요'));
+        if (key === 'k7hr') A.push(kRow('bad', '원인', '팔로워 밖 추천이 줄었어요', '팔로워 조회는 월 2~3만 그대로 · 비팔로워 조회 2025-12 241만 → 2026-10 11만 · 홈 hong 「팔로워 밖으로 얼마나 퍼졌나」'));
+        tip('소재', '친구에게 보낼 장면을 첫 3초에', '공유가 저장의 약 20배인 계정 · 공감 상황·우리 과 이야기');
+        tip('편성', '주 2건, 같은 주에 몰지 않기', '선행 지표 · 지금 주 1.8건');
+        tip('Collab', '반응 상위작만 공식 계정과 Collab', '채널 전략 1절 · KPI 계산에서는 뺌');
+      } else {
+        const ev = k4Val(C, 'k7sev').v;
+        if (key === 'k7svr') A.push(kRow(ev != null && ev >= K4.k7sev.tgt ? 'good' : 'bad', '함께', '참여 조회 ' + fmtK(ev) + ' · 목표 ' + fmtK(K4.k7sev.tgt), '짧게 잘라 시청 비율만 오르는 것을 막으려고 둘 다 넘어야 달성'));
+        tip('첫 화면', '현장 장면으로 시작', '제목 카드로 시작한 쇼츠는 같은 해 쇼츠의 0.15~0.57배 · 현장 첫 화면 1.13배(2026-10-30 가이드)');
+        tip('편성', '롱폼마다 쇼츠 1개 · 주 1건', '선행 지표 · 최근 6개월 주 0.53건');
+        tip('기준', '조회 말고 참여 조회로 보기', '2025-03-31부터 쇼츠 조회는 재생할 때마다 셈 · 앞뒤 조회를 그대로 비교하지 않아요');
+      }
+      const top = x.L.slice().sort((a, b) => g.val(b) - g.val(a)).slice(0, 8);
+      return { scope: hong ? chName('hong._.video') : '유튜브 쇼츠', title: g.nm, big: x.v == null ? '–' : g.f(x.v), sub: '목표 ' + g.f(g.tgt) + ' · ' + k7Gap(x.v, g.tgt, g.gap), A, T,
+        note: '월별 ' + g.unit + ' 중간값 · 최근 1년 · 올린 지 14일 지난 것' + (hong ? ' · Collab 뺌' : '') + ' · 파란 막대 = 목표 넘음 · 점선 = 목표',
+        chart: k7Bar(M, g.f, g.tgt, '목표 ' + g.f(g.tgt)),
+        list: { t: '최근 6개월 ' + g.unit + ' 높은 게시물', L: top, o: { right: it => '<span class="num">' + g.f(g.val(it)) + '</span>' } },
+        table: kTbl(['월', '게시물', g.unit + ' 중간값'], M.slice().reverse().map(r => [r.k.replace('-', '.'), r.n + '개', r.v == null ? '–' : g.f(r.v)])) };
     }
     return null;
   }
