@@ -1365,3 +1365,8 @@ em.nm { font-style: normal; font-weight: 700; color: var(--fg); }
 .tag.arch.rec { background: var(--down); color: var(--bg, #fff); box-shadow: none; font-weight: 700; }
 .hm-row.is-arch .hm-th { box-shadow: 0 0 0 2px var(--down); }
 .ntf li.ntf-archn { border-left: 3px solid var(--down); background: var(--down-soft); }
+/* 유튜브 비교도 지표 버튼 + 막대 한 칸(2026-11-08): 호남권 릴스 칸과 같은 이름 폭·값 칸 */
+#ytbSec .bc-r { grid-template-columns: 92px minmax(0, 1fr) 104px; }
+#ytbSec .hr-n { font-size: var(--fs-sm); color: var(--sub); white-space: nowrap; }
+#ytbSec .bc-r.ours .hr-n { color: var(--fg); font-weight: 700; }
+#ytbSec .hr-seg { margin-bottom: 12px; }

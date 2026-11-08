@@ -1249,7 +1249,7 @@
   }
 
   // ═════════ 홈 ③ 타 대학 비교 ═════════
-  const BC = { p: 182, ar: 'jb' }; // ar = 릴스·유튜브 비교 학교 범위(jb 전북 4곳 기본 · hn 호남권 전체, 2026-10-30 담당자 「전북 3개 대학만 보여주고 버튼으로 호남권」)
+  const BC = { p: 182, ar: 'jb', ym: 'subs' }; // ym = 유튜브 비교 막대 지표(새로고침 전까지) // ar = 릴스·유튜브 비교 학교 범위(jb 전북 4곳 기본 · hn 호남권 전체, 2026-10-30 담당자 「전북 3개 대학만 보여주고 버튼으로 호남권」)
   // 타 대학 비교 기간(BC.p = 일수, 7 = 지난주 월~일, 2026-11-07 「지난주도 나오게」)
   const bcLW = () => BC.p === 7;
   const bcFrom = () => bcLW() ? addDays(monOf(D.updated), -7) : addDays(D.updated, -BC.p);
@@ -1347,31 +1347,35 @@
       return { n, own, ch: YTB_IG[n] || n, subs: a ? a[2] : null, dSubs: A.length > 1 && a[2] != null && A[0][2] != null ? a[2] - A[0][2] : null, since: A.length > 1 ? A[0][0] : null,
         up: bcLW() ? V.length : V.length / (BC.p / 30.4), lg: median(lg.map(r => r[5])), nl: lg.length, sh: median(sh.map(r => r[5])), ns: sh.length };
     });
-    const blk = (ttl, key, f, tip) => {
-      const mx = Math.max(...R.map(r => r[key] || 0)) || 1;
-      return '<div class="bc-b"><h3' + (tip ? ' title="' + esc(tip) + '"' : '') + '>' + ttl + '</h3>' + R.map(r => '<div class="bc-r' + (r.own ? ' ours' : '') + '"><span class="bc-n">' + esc(r.n) + '</span>' +
-        '<span class="bc-t">' + (r[key] == null ? '' : '<i style="width:' + Math.max(2, r[key] / mx * 100) + '%;background:' + chColor(r.ch) + '"></i>') + '</span>' +
-        '<span class="bc-v num">' + (r[key] == null ? '<span class="mu">없음</span>' : f(r)) + '</span></div>').join('') + '</div>';
-    };
+    // 지표 버튼으로 막대 한 칸만(2026-11-08 담당자 「버튼을 만들어서 주제별로 선택하면 데이터 나타나게」 — 호남권 14곳 × 4칸이 휴대폰에서 너무 길어서). 값 큰 순
+    const ss = R.filter(r => r.since);
+    const YM = {
+      subs: ['구독자', '구독자 수 · 작은 숫자 = ' + (ss.length ? dot(ss[0].since) + ' 기록 시작 뒤 변화' : '기록 시작 뒤 변화'), r => fmtK(r.subs) + (r.dSubs ? ' <small class="' + (r.dSubs > 0 ? 'up' : 'down') + '">' + sgn(r.dSubs) + fmtK(Math.abs(r.dSubs)) + '</small>' : '')],
+      up: ['올린 수', bcLW() ? '지난주 올린 영상 수' : '한 달 평균 올린 영상 수', r => (Math.round(r.up * 10) / 10) + '개'],
+      lg: ['긴 영상', '1분 넘는 영상 1개 조회 중간값 · 작은 숫자 = 영상 수', r => fmtK(r.lg) + ' <small class="mu">' + r.nl + '개</small>'],
+      sh: ['짧은 영상', '쇼츠 등 1분 이하 영상 1개 조회 중간값 · 작은 숫자 = 영상 수', r => fmtK(r.sh) + ' <small class="mu">' + r.ns + '개</small>'] };
+    const key = YM[BC.ym] ? BC.ym : 'subs', M = YM[key];
+    const RS = R.slice().sort((a, b) => (b[key] == null ? -1 : b[key]) - (a[key] == null ? -1 : a[key]));
+    const mx = Math.max(...RS.map(r => r[key] || 0)) || 1;
+    const seg = '<div class="seg hr-seg" role="group" aria-label="막대 지표">' + Object.keys(YM).map(k => '<button type="button" data-ytm="' + k + '" aria-pressed="' + (k === key) + '">' + YM[k][0] + '</button>').join('') + '</div>';
+    const bars = RS.map((r, i) => '<div class="bc-r' + (r.own ? ' ours' : '') + '"><span class="bc-n hr-n">' + (i + 1) + '. ' + esc(r.n) + '</span>' +
+      '<span class="bc-t">' + (r[key] == null ? '' : '<i style="width:' + Math.max(2, r[key] / mx * 100) + '%;background:' + chColor(r.ch) + '"></i>') + '</span>' +
+      '<span class="bc-v num">' + (r[key] == null ? '<span class="mu">없음</span>' : M[2](r)) + '</span></div>').join('');
     // 타 대학 최근 30일 영상 중 조회 많은 5개(우리 채널 빼고)
     const top = Y.v.filter(r => !Y.ch.some(c => c[0] === r[0] && c[2]) && r[2] >= addDays(today, -30) && r[5] != null).sort((x, y) => y[5] - x[5]).slice(0, 5);
     const len = x => x == null ? '' : x <= 60 ? '1분 이하' : x < 180 ? '1~3분' : x < 600 ? '3~10분' : '10분 넘음';
     const rows = top.map(r => hmRow({ tag: 'a', attr: 'href="https://www.youtube.com/watch?v=' + esc(r[1]) + '" target="_blank" rel="noopener"',
       thumb: '<span class="hm-th ov-th" style="--c:' + chColor(YTB_IG[r[0]] || r[0]) + '" aria-hidden="true"><img loading="lazy" alt="" src="' + ytThumb(esc(r[1]), r[4] != null && r[4] <= 180) + '" ' + IMG_ERR + '></span>',
       t: esc(r[3]), v: '조회 ' + fmtK(r[5]), m: esc(r[0]) + ' · ' + dot(r[2]) + (len(r[4]) ? ' · ' + len(r[4]) : ''), r: r[6] != null ? '좋아요 ' + fmtK(r[6]) : '' })).join('');
-    const ss = R.filter(r => r.since);
-    return head + '<div class="bc-grid n4">' +
-      blk('구독자', 'subs', r => fmtK(r.subs) + (r.dSubs ? ' <small class="' + (r.dSubs > 0 ? 'up' : 'down') + '">' + sgn(r.dSubs) + fmtK(Math.abs(r.dSubs)) + '</small>' : ''), ss.length ? '작은 숫자 = ' + dot(ss[0].since) + ' 기록 시작 뒤 변화' : '') +
-      blk(bcLW() ? '지난주 올린 영상' : '한 달 평균 올린 영상', 'up', r => (Math.round(r.up * 10) / 10) + '개') +
-      blk('1분 넘는 영상 조회', 'lg', r => fmtK(r.lg) + ' <small class="mu">' + r.nl + '개</small>', '1분 넘는 영상의 조회 중간값 · 작은 숫자 = 영상 수') +
-      blk('1분 이하 영상 조회', 'sh', r => fmtK(r.sh) + ' <small class="mu">' + r.ns + '개</small>', '쇼츠 등 1분 이하 영상의 조회 중간값 · 작은 숫자 = 영상 수') + '</div>' +
+    return head + '<div class="bc-grid n1"><div class="bc-b">' + seg + '<h3>' + M[1] + '</h3>' + bars + '</div></div>' +
       (rows ? '<div class="hm-sec"><div class="hm-h"><h3>타 대학 최근 30일 조회 많은 영상</h3><span>누르면 유튜브로</span></div><div class="hm-list">' + rows + '</div></div>' : '');
   }
   function paintYtb() {
     const box = $('ytbSec'); if (!box) return;
-    if (PART.ytb) { box.innerHTML = ytbHtml(PART.ytb); wireAr(box); return; }
+    const put = (b, Y) => { b.innerHTML = ytbHtml(Y); wireAr(b); b.querySelectorAll('[data-ytm]').forEach(x => x.addEventListener('click', () => { BC.ym = x.dataset.ytm; put(b, Y); })); };
+    if (PART.ytb) { put(box, PART.ytb); return; }
     box.innerHTML = '<div class="sh"><div><h2>유튜브 비교</h2></div></div><div class="wait">불러오는 중이에요</div>';
-    loadPart('ytb').then(Y => { const b = $('ytbSec'); if (b) { b.innerHTML = ytbHtml(Y); wireAr(b); } paintYday(); });
+    loadPart('ytb').then(Y => { const b = $('ytbSec'); if (b) put(b, Y); paintYday(); });
   }
   // ───────── 호남권 대학 릴스(공개 재생수, ?part=hreel · Apify 주 1회 · 2026-10-29~) ─────────
   // 인스타 API가 타 계정 릴스 재생수를 안 줘서 따로 받음. 계정마다 최근 릴스만 쌓이므로 「주당 게시」는 내지 않음
@@ -3853,14 +3857,11 @@
     const avg = sum(cnt.slice(0, 13)) / 13, dow = (new Date(today + 'T00:00:00Z').getUTCDay() + 6) % 7, wk = sum(cnt.slice(13 - dow)), lastW = sum(cnt.slice(6 - dow, 7));
     const attn = attnHtml(chs, calWeek(chs));
     if (!P.length) {
-      // 업로드 없는 날: 성장 → 지금 볼 것 → 참고하면 좋을 것 → 이번 주(요일 막대 + 마지막 게시) → 게시 예정
-      const lp = D.items.filter(it => own.includes(it.c) && it.t !== '스토리' && !it.ad).sort((a, b) => a.d < b.d ? 1 : -1)[0];
-      let last = '';
-      if (lp) { const p = paceOf(lp), dd = daysBetween(lp.d, today); window.__tdLast = lp;
-        last = hmRow({ tag: 'button', attr: 'type="button" id="tdLast"', c: lp.c, t: esc(title(lp.n)), m: '마지막 게시 · ' + (dd <= 0 ? '오늘' : dd + '일 전'), v: p && !p.base ? vsP(p.r) : '', vc: p ? xCls(p.r) : '' }); }
+      // 업로드 없는 날: 성장 → 지금 볼 것 → 참고하면 좋을 것 → 이번 주(요일 막대) → 게시 예정
+      // 마지막 게시 줄은 뺌(2026-11-08 담당자 「응 다 빼」)
       const bars = weekBars(WK_D.map((n, k) => k <= dow ? cnt[13 - dow + k] : undefined), WK_D.map((n, k) => cnt[6 - dow + k]), '요일별 게시 수 · 회색 = 지난주 · 반반 칸 = 공식 계정과 hong 공동작업', 1, false, chW);
       // 개요에 게시 수가 있으면 「이번 주」 칸은 뺌(2026-11-08 담당자 「마지막 게시는 없애도」 — 개요·오늘 칸에 이미 보임)
-      const wkS = S.view === 'brief' ? '' : hmSec2('이번 주', '', '<div class="hm-list"><div class="hm-card hm-wk"><div class="hm-wh"><b class="num">' + wk + '개 올림</b><span>지난주 같은 때 ' + lastW + '개</span></div>' + bars + '</div>' + last + '</div>');
+      const wkS = S.view === 'brief' ? '' : hmSec2('이번 주', '', '<div class="hm-list"><div class="hm-card hm-wk"><div class="hm-wh"><b class="num">' + wk + '개 올림</b><span>지난주 같은 때 ' + lastW + '개</span></div>' + bars + '</div></div>');
       return '<section class="sec hm">' + tdGrow(chs, d, today) + attn + tdIdeas(chs) + wkS + tdPlan(d) + secClose;
     }
     // ① 큰 숫자: 어제·오늘 게시물 조회 합 · 평소 같은 시간(없으면 첫날 평소)과 비교
@@ -4067,7 +4068,6 @@
     box.innerHTML = todayInner(TD.chs);
     const ov = $('ov'), first = tdFirst(TD.chs); if (ov) { const ovUp = box.compareDocumentPosition(ov) & Node.DOCUMENT_POSITION_PRECEDING; if (first && ovUp) ov.before(box); else if (!first && !ovUp) box.before(ov); }
     tdDraw();
-    const tl = $('tdLast'); if (tl && window.__tdLast) tl.addEventListener('click', () => openDetail(window.__tdLast));
     box.querySelectorAll('[data-wa]').forEach(b => b.addEventListener('click', () => { const it = (window.__attn || [])[+b.dataset.wa]; if (it) openDetail(it); }));
     box.querySelectorAll('[data-ti]').forEach(b => b.addEventListener('click', () => { const it = (window.__tdIdea || [])[+b.dataset.ti]; if (it) openDetail(it); }));
     box.querySelectorAll('ol[data-tdc]').forEach(el => wireRank(el, (window.__tdCombo || [])[+el.dataset.tdc] || []));
