@@ -1359,3 +1359,9 @@ em.nm { font-style: normal; font-weight: 700; color: var(--fg); }
 .hm-cb > summary .hm-m::after { content: ' ▾'; color: var(--muted); } .hm-cb[open] > summary .hm-m::after { content: ' ▴'; }
 .hm-cb[open] > .hm-ins-l { margin-top: 0; }
 @media (hover: hover) { .hm-cb > summary:hover .hm-t { text-decoration: underline; text-underline-offset: 3px; } }
+
+/* 2026-11-08 담당자 「보관 권하는 콘텐츠는 좀 더 튀어 보이게」: 보관 후보 = 채운 빨간 알약 + 썸네일 빨간 테두리 + 알림 칸 빨간 줄 (보관함은 그대로 테두리 칩) */
+.arch-b { display: inline-block; padding: 1px 7px; border-radius: 999px; background: var(--down); color: var(--bg, #fff); font-size: var(--fs-tag, 11px); font-weight: 700; line-height: 1.5; vertical-align: 1px; white-space: nowrap; }
+.tag.arch.rec { background: var(--down); color: var(--bg, #fff); box-shadow: none; font-weight: 700; }
+.hm-row.is-arch .hm-th { box-shadow: 0 0 0 2px var(--down); }
+.ntf li.ntf-archn { border-left: 3px solid var(--down); background: var(--down-soft); }
