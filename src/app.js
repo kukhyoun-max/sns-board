@@ -885,13 +885,7 @@
       const p = weekPart(chs, n, j);
       if (p) { const old = p.old.filter(it => it.d < w.mon && p.inc0(it) > 0).sort((a, b) => p.inc0(b) - p.inc0(a))[0]; if (old && (p.inc0(old) >= 5000 || (p.v && p.inc0(old) / p.v >= 0.2))) row('up', '예전 게시물이 다시 늘어요', old.c, esc(title(old.n)), mName(old) + ' +' + fmtK(p.inc0(old)), old, '이번 주'); }
     }
-    // 팔로워가 크게 준 날(이번 주, 5명 이상 감소)
-    chs.filter(c => c === '인스타그램' || c === 'hong._.video').forEach(c => {
-      const F = {}; (D.fol || []).filter(r => r[1] === c).forEach(r => { F[r[0]] = r[2]; });
-      let worst = null;
-      for (let k = 0; k < 7; k++) { const d = addDays(w.mon, k); if (d >= w.end) break; const a = F[d], b = F[addDays(d, 1)]; if (a != null && b != null && b - a <= -5 && (!worst || b - a < worst[1])) worst = [d, b - a]; }
-      if (worst) row('down', '하루 감소', c, md2(worst[0]) + '(' + WK_D[(wdOf(worst[0]) + 6) % 7] + ') 팔로워가 줄었어요', '팔로워 −' + fmt(-worst[1]) + '명');
-    });
+    // 팔로워가 크게 준 날 줄은 2026-11-08 뺌(담당자 「응 빼」 — 팔로워는 전략 5절 관찰 지표라 할 일 목록에 올리지 않음)
     // 이번 주 아직 안 올린 채널(평소 주 1개 이상, 3일 이상 지남)
     if (daysBetween(w.mon, w.end) >= 2) chs.filter(c => OWN.includes(c)).forEach(c => {
       if (w.posts.some(it => it.c === c)) return;
@@ -989,20 +983,22 @@
     // 어제·오늘 올린 건 위 「오늘」 목록에 있어 뺌(점검 7번: 홈에 같은 게시물이 세 번 나옴)
     const kst = new Date(Date.now() + 9 * 3600000).toISOString().slice(0, 10), y1 = addDays(kst, -1), cut = it => it.d < y1;
     const wk = w ? all.filter(it => it.d >= w.mon && cut(it)) : [];
-    const rk = it => { const n = raceVal(it, m).n; return n == null ? -1 : n; }, byV = X => X.slice().sort((a, b) => rk(b) - rk(a));
+    // 2026-11-08 「1」: 비율 지표(좋아요·댓글·공유·저장)는 판단 = 평소 대비라 그 순서로, 오른쪽 위도 횟수 대신 비율(새 칸 기준 1번)
+    const isRt = m !== 'v' && m !== 'reach', RT_N = { l: '좋아요율', cm: '댓글률', sh: '공유율', sv: '저장률' }[m];
+    const rk = it => { const q = raceVal(it, m), n = isRt ? q.r : q.n; return n == null ? -1 : n; }, byV = X => X.slice().sort((a, b) => rk(b) - rk(a) || (raceVal(b, m).n || 0) - (raceVal(a, m).n || 0));
     const L = wk.length ? byV(wk).slice(0, 8) : byV(all.filter(it => cut(it) && daysBetween(it.d, D.updated) <= 14)).slice(0, 4);
     window.__race = L;
     if (!L.length) return '';
     // 홈 시안 2 모양: hmRow 한 줄(윗줄 제목 + 평소 대비, 아랫줄 채널 · 올린 날 + 고른 값). 판정 단계(낮음·잘 됨…)와 비교 기준은 마우스를 올리면
     const sel = '<label class="race-m"><select id="raceM" aria-label="볼 값 고르기">' + RACE_M.map(x => '<option value="' + x[0] + '"' + (x[0] === m ? ' selected' : '') + '>' + x[1] + '</option>').join('') + '</select></label>';
     // 2026-11-08 담당자 「줄이 왜 저렇게」·「괄호 없어야」: 괄호 빼고 휴대폰 한 줄에 들어가게 줄마다 끊음(원칙 7번)
-    const how = m === 'v' || m === 'reach' ? '퍼센트는 같은 형식 평소와 비교' : '도달 대비 비율을 같은 형식 평소와 비교<br>유튜브는 도달 대신 조회로 계산';
+    const how = !isRt ? '퍼센트는 같은 형식 평소와 비교' : RT_N + ' = ' + mn + ' ÷ 도달 · 평소 대비 높은 순<br>유튜브는 도달 대신 조회로 계산';
     return '<div class="race hm-rx"><div class="hm-h"><h3>' + (wk.length ? '이번 주 올린 게시물' : '최근 게시물') + '</h3>' + sel + '</div><p class="hm-note">' + how + '<br>어제·오늘 올린 건 맨 위 오늘 칸에 있어요</p><ol class="hm-list">' + L.map((it, i) => {
       const q = raceVal(it, m), r = q.r, t = r == null ? null : tierOf(r);
       return hmRow({ tag: 'li', cls: archRec(it) ? 'is-arch' : '', attr: 'data-r="' + i + '" tabindex="0" role="button" aria-label="' + esc(title(it.n)) + ' 상세 보기"', tip: (t ? t[0] + ' · ' : '') + (q.rt != null ? mn + ' 비율 ' + pctA(q.rt) + ' · ' : '') + (q.tip || ''), thumb: ovImg(it, 'hm-th ov-th'), c: it.c, t: esc(title(it.n)), // 2026-11-08 「여기도 썸네일」
         // 2026-10-24 순위 탭과 같게: 오른쪽 위 = 고른 값(결과), 오른쪽 아래 = 평소 대비(색)
-        v: q.n == null ? '자료 없음' : mn + ' ' + fmtK(q.n), vc: q.n == null ? 'mu' : '',
-        m: (archRec(it) ? '<span class="arch-b">보관 후보</span> · ' : '') + whenTxt(it.d) + (q.rt == null && m !== 'v' ? ' · 조회 ' + fmtK(mainVal(it)) : ''),
+        v: isRt && q.rt != null ? RT_N + ' ' + pctA(q.rt) : q.n == null ? '자료 없음' : mn + ' ' + fmtK(q.n), vc: q.n == null ? 'mu' : '',
+        m: (archRec(it) ? '<span class="arch-b">보관 후보</span> · ' : '') + whenTxt(it.d) + (isRt && q.rt != null && q.n != null ? ' · ' + mn + ' ' + fmtK(q.n) : q.rt == null && m !== 'v' ? ' · 조회 ' + fmtK(mainVal(it)) : ''),
         r: '<b class="' + (r == null ? 'mu' : r < 0.7 ? 'down' : r < 1.3 ? 'mu' : 'up') + '">' + (r == null ? '비교 전' : vsTxt(r)) + '</b>' });
     }).join('') + '</ol></div>';
   }
