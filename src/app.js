@@ -356,7 +356,8 @@
   }
   // ───────── 홈 「개요」(2026-10-24 스튜디오형: 유튜브 스튜디오 분석 + 인스타 인사이트 문법) ─────────
   // 한 문장 → 지표 탭(조회·팔로워·올린 게시물, 누르면 아래 막대가 그 지표로) → 채널 비중 → 인기 콘텐츠(썸네일) → 인스타 격자
-  const OV_M = [['v', '조회수'], ['f', '팔로워'], ['n', '올린 게시물']];
+  // 「전체」는 팔로워 대신 인스타 공유율(s, KPI), 채널 탭은 그 채널 팔로워(f) 그대로
+  const OV_M = [['v', '조회수'], ['s', '인스타 공유율'], ['f', '팔로워'], ['n', '올린 게시물']];
   // 사진: 유튜브 = i.ytimg.com, 인스타·hong = 「오늘」 응답의 thumbs(메타 CDN, 브라우저에서 instagram.com 주소는 막힘). hong은 주소가 없어 게시일 ±1일 + 캡션 앞부분으로 맞춤
   // 2026-11-07 「유튜브 썸네일은 옆에 검정칸」: mqdefault는 16:9라 세로 영상 양옆이 채워짐. 쇼츠가 될 수 있는 3분 이하는 세로 원본 oardefault → oar2 → mqdefault 순서. 없는 주소는 404지만 120×90 회색 그림을 함께 줘서 onerror가 안 뜨므로 onload에서 가로 그림이면 다음 주소로
   const ytShortish = t => t === '1분 이하' || t === '1~3분';
@@ -413,11 +414,16 @@
     // 7일 전 기록이 없는 예전 게시물은 뺌(기록 전 값을 0으로 보면 누적 조회 전체가 「늘어난 조회」가 됨)
     const has0 = it => i0 != null && it.h[i0] && it.h[i0][mainM(it.c)] != null;
     const top = P.filter(it => it.h && (it.d > s7 || has0(it))).map(it => ({ it, g: vAt(it, D.dates.length - 1) - (it.d > s7 ? 0 : vAt(it, i0)) })).filter(x => x.g > 0).sort((a, b) => b.g - a.g).slice(0, 5);
-    return { cur, vCur, vPrev, share, fNow, fWas, fDays, fc, posts, avg8, nDays, top, P };
+    // 인스타 공유율(2026-11-08 「전체 메인에 팔로워가 맞나」 → 관찰 지표 대신 KPI): 전략 KPI와 같은 정의 = 게시물마다 공유 ÷ 도달(도달 300 이상, 이벤트 뺌)의 중간값, 목표 1.0%
+    // 지난 7일 올린 게시물 vs 그 앞 7일 올린 게시물. 막 올린 게시물도 공유·도달이 함께 늘어 비율은 크게 안 흔들림
+    const igS = chs.includes('인스타그램') ? P.filter(it => it.c === '인스타그램' && it.tg !== '이벤트') : [];
+    const sRows = igS.filter(it => it.d > s7 && it.d <= end).map(it => ({ it, d: it.d, v: k7Rate(it, 3) })).filter(x => x.v != null).sort((a, b) => a.d < b.d ? -1 : 1);
+    const sCur = median(sRows.map(x => x.v)), sPrev = median(igS.filter(it => it.d > s14 && it.d <= s7).map(it => k7Rate(it, 3)));
+    return { cur, vCur, vPrev, share, fNow, fWas, fDays, fc, posts, avg8, nDays, top, P, sRows, sCur, sPrev, sOn: S.ch === '전체' && igS.length > 0 };
   }
   function ovHtml(chs) {
     if (!chs.some(c => OWN.includes(c))) return '';
-    const M = ovModel(chs), m = OV_M.some(x => x[0] === S.ovM) && (S.ovM !== 'f' || M.fc.length) ? S.ovM : 'v', scope = S.ch === '전체' ? '공식 채널' : chName(S.ch);
+    const M = ovModel(chs), m = OV_M.some(x => x[0] === S.ovM) && (S.ovM !== 'f' || (!M.sOn && M.fc.length)) && (S.ovM !== 's' || M.sOn) ? S.ovM : 'v', scope = S.ch === '전체' ? '공식 채널' : chName(S.ch);
     const vd = M.vCur == null || !M.vPrev ? null : M.vCur / M.vPrev - 1, fd = M.fNow != null && M.fWas != null ? M.fNow - M.fWas : null;
     const best = M.top[0];
     const lead = M.vCur == null ? '지난 7일 조회 기록이 아직 없어요' : '지난 7일 동안 ' + scope + ' 조회수가 ' + fmtM(M.vCur) + ' 회 늘었어요';
@@ -426,17 +432,20 @@
     const tab = (k, lab, val, d) => '<button type="button" class="ov-t" data-m="' + k + '" aria-pressed="' + (k === m) + '"><small>' + lab + '</small><b class="num">' + val + '</b>' + d + '</button>';
     const vdT = vd == null ? '<i class="mu">비교 전</i>' : '<i class="' + (Math.abs(vd) < 0.03 ? 'mu' : vd > 0 ? 'up arr' : 'down arr dn') + '">' + Math.round(Math.abs(vd) * 100) + '%</i>';
     const fdT = fd == null ? '<i class="mu">비교 전</i>' : '<i class="' + (fd === 0 ? 'mu' : fd > 0 ? 'up arr' : 'down arr dn') + '">' + (fd === 0 ? '변화 없음' : fmt(Math.abs(fd)) + '명') + '</i>';
+    const sd = M.sCur != null && M.sPrev != null ? M.sCur - M.sPrev : null;
+    const sdT = sd == null ? '<i class="mu">' + (M.sCur == null ? '자료 없음' : '비교 전') + '</i>' : '<i class="' + (Math.abs(sd) < 0.0005 ? 'mu' : sd > 0 ? 'up arr' : 'down arr dn') + '">' + (Math.abs(sd) < 0.0005 ? '비슷해요' : (Math.round(Math.abs(sd) * 1000) / 10) + '%p') + '</i>';
     const tabs = '<div class="ov-ts" role="group" aria-label="지표 고르기">' + tab('v', '조회수', fmtM(M.vCur), vdT) +
-      (M.fc.length ? tab('f', M.fc.length > 1 ? '팔로워' : chName(M.fc[0]) + ' 팔로워', M.fNow == null ? '–' : fmt(M.fNow), fdT) : '') +
+      (M.sOn ? tab('s', '인스타 공유율', M.sCur == null ? '–' : pctA(M.sCur), sdT) : M.fc.length ? tab('f', M.fc.length > 1 ? '팔로워' : chName(M.fc[0]) + ' 팔로워', M.fNow == null ? '–' : fmt(M.fNow), fdT) : '') +
       tab('n', '올린 게시물', M.posts.length + '개', '<i class="mu">평소 주 ' + (Math.round(M.avg8 * 10) / 10) + '개</i>') + '</div>';
     // 막대: 고른 지표 하나, 한 가지 색. 기록이 며칠 묶인 막대는 연하게
     const B = m === 'v' ? M.cur.map(x => ({ lab: daysBetween(x.a, x.b) > 1 ? (+addDays(x.a, 1).slice(8, 10)) + '~' + dayLab(x.b) : dayLab(x.b), v: x.v, wide: daysBetween(x.a, x.b) > 1 }))
-      : (m === 'f' ? M.fDays : M.nDays).map(x => ({ lab: dayLab(x.d), v: x.v, cs: x.cs }));
-    const mx = Math.max(1, ...B.map(x => Math.abs(x.v || 0)));
+      : (m === 's' ? M.sRows : m === 'f' ? M.fDays : M.nDays).map(x => ({ lab: dayLab(x.d), v: x.v, cs: x.cs }));
+    const mx = Math.max(m === 's' ? KPI_D20.share : 1, ...B.map(x => Math.abs(x.v || 0))); // 공유율은 1 미만이라 바닥값 대신 목표(1.0%)
     const sign = v => m === 'f' && v > 0 ? '+' : v < 0 ? '−' : '';
-    const bars = B.length ? '<div class="ov-ch" role="img" aria-label="' + esc(OV_M.find(x => x[0] === m)[1] + ' 날짜별: ' + B.map(x => x.lab + ' ' + (x.v == null ? '기록 없음' : sign(x.v) + fmtK(Math.abs(x.v)))).join(', ')) + '"><div class="ov-cols" style="--n:' + B.length + '">' +
-      B.map(x => '<span><b class="num">' + (x.v == null ? '' : sign(x.v) + fmtK(Math.abs(x.v))) + '</b><i class="' + (x.wide ? 'wide' : x.v < 0 ? 'dn' : '') + (m === 'n' && x.v > 0 && chs.length > 1 && x.cs ? ' cells' : '') + '" style="height:' + (x.v == null ? 0 : Math.max(2, Math.abs(x.v) / mx * 100)).toFixed(1) + '%' + (m === 'n' && x.v > 0 && !(chs.length > 1 && x.cs) ? ';--c-u:var(--jj);' + unitBg(x.v, 'top') : '') + '">' + (m === 'n' && x.v > 0 && chs.length > 1 && x.cs ? x.cs.map(c => '<u style="background:' + (Array.isArray(c) ? 'linear-gradient(to right,' + chColor(c[0]) + ' 50%,' + chColor(c[1]) + ' 50%)' : chColor(c)) + '"></u>').join('') : '') + '</i><small>' + x.lab + '</small></span>').join('') + '</div></div>' +
-      '<p class="note">' + (m === 'v' ? '하루에 늘어난 조회' + (B.some(x => x.wide) ? ' · 연한 막대는 그 사이 기록이 없어 며칠을 합친 값' : '') : m === 'f' ? '하루 팔로워 증감 · ' + esc(M.fc.map(chName).join('·')) : '날짜별 올린 게시물 수') + '</p>' : '<p class="note">이 기간 기록이 아직 없어요</p>';
+    const bTxt = v => m === 's' ? pctA(v) : sign(v) + fmtK(Math.abs(v));
+    const bars = B.length ? '<div class="ov-ch" role="img" aria-label="' + esc(OV_M.find(x => x[0] === m)[1] + ' 날짜별: ' + B.map(x => x.lab + ' ' + (x.v == null ? '기록 없음' : bTxt(x.v))).join(', ')) + '"><div class="ov-cols" style="--n:' + B.length + '">' +
+      B.map(x => '<span><b class="num">' + (x.v == null ? '' : bTxt(x.v)) + '</b><i class="' + (x.wide ? 'wide' : x.v < 0 ? 'dn' : '') + (m === 'n' && x.v > 0 && chs.length > 1 && x.cs ? ' cells' : '') + '" style="height:' + (x.v == null ? 0 : Math.max(2, Math.abs(x.v) / mx * 100)).toFixed(1) + '%' + (m === 'n' && x.v > 0 && !(chs.length > 1 && x.cs) ? ';--c-u:var(--jj);' + unitBg(x.v, 'top') : '') + '">' + (m === 'n' && x.v > 0 && chs.length > 1 && x.cs ? x.cs.map(c => '<u style="background:' + (Array.isArray(c) ? 'linear-gradient(to right,' + chColor(c[0]) + ' 50%,' + chColor(c[1]) + ' 50%)' : chColor(c)) + '"></u>').join('') : '') + '</i><small>' + x.lab + '</small></span>').join('') + '</div></div>' +
+      '<p class="note">' + (m === 'v' ? '하루에 늘어난 조회' + (B.some(x => x.wide) ? ' · 연한 막대는 그 사이 기록이 없어 며칠을 합친 값' : '') : m === 's' ? '목표 ' + pctA(KPI_D20.share) + ' 넘은 게시물 ' + B.filter(x => x.v >= KPI_D20.share).length + '/' + B.length + '개 · 게시물마다 공유 ÷ 도달, 도달 300 이상·이벤트 뺌' : m === 'f' ? '하루 팔로워 증감 · ' + esc(M.fc.map(chName).join('·')) : '날짜별 올린 게시물 수') + '</p>' : '<p class="note">이 기간 기록이 아직 없어요</p>';
     const tot = sum(M.share.map(x => x.v));
     const share = M.share.length > 1 && tot ? '<div class="ov-sec"><div class="hm-h"><h2>어디서 봤나</h2><span>지난 7일 조회 증가 중 채널별 비중</span></div>' +
       '<div class="ov-sh" role="img" aria-label="' + esc(M.share.map(x => chName(x.c) + ' ' + pct0(x.v / tot)).join(', ')) + '">' + M.share.map(x => '<i style="width:' + (x.v / tot * 100).toFixed(1) + '%;background:' + chColor(x.c) + '"></i>').join('') + '</div>' +
