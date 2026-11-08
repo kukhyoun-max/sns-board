@@ -492,9 +492,7 @@
     const low = cur.filter(it => judged(it) && ratio(it) < 0.5).sort((a, b) => ratio(a) - ratio(b)).slice(0, 3);
     const ovB = '<div id="ov">' + ovHtml(chs) + '</div>', tdB = '<div id="today">' + todayShell(chs) + '</div>';
     let html = tdFirst(chs) ? tdB + ovB : ovB + tdB;
-    // 보관할 콘텐츠(2026-11-08 담당자 「전체 탭에서 현재 보관 처리해야 할 콘텐츠만」): 이미 보관한 것은 안 보이고, 지금 후보만 최신순 · 처음 5개
-    const ARH = S.ch === '전체' ? D.items.filter(it => it.c === '인스타그램' && it.d >= addDays(D.updated, -365) && archRec(it)).sort((x, y) => x.d < y.d ? 1 : -1) : [];
-    if (ARH.length) html += secOpen('보관할 콘텐츠', '인스타 ' + ARH.length + '개') + '<ol class="hm-list" id="arcHome">' + rankRows(ARH, { right: it => archRec(it).k === 'end' ? '기간 끝남' : '반응 낮음' }) + '</ol><p class="note">최근 1년 · 도달·공유·저장·좋아요가 모두 낮은 게시물 · 상세 「원본 보기」로 가서 보관하면 다음 기록 때 빠져요</p>' + secClose;
+    // 홈 「보관할 콘텐츠」 칸은 2026-11-08 뺌(담당자 「보관 추천은 그냥 알림에만」 → 종 알림 「인스타 보관 후보」만)
     const topH = topHtml(chs); let chk = '';
     // 용어 뜻은 맨 아래 접은 칸으로, 조건 설명 줄은 제목에 마우스를 올리면
     chk += '<section class="sec"><div class="sh"><div><h2>점검할 것</h2><p>최근 3달 분류별 · 가운데 선 = 평소</p></div></div>' +
@@ -511,13 +509,6 @@
     $('view').innerHTML = html;
     wireWeek(); wireTrend(); wireBenchCmp(); wireAdv(); wireTop(chs);
     wireRank($('bLow'), low); wireIns();
-    if ($('arcHome')) { const el = $('arcHome'); wireRank(el, ARH);
-      const rest = [...el.children].slice(5);
-      if (rest.length) { rest.forEach(li => { li.hidden = true; });
-        el.insertAdjacentHTML('afterend', '<button type="button" class="more" aria-expanded="false">더 보기 › ' + rest.length + '개</button>');
-        el.nextElementSibling.addEventListener('click', e => { const b = e.currentTarget, open = b.getAttribute('aria-expanded') !== 'true';
-          rest.forEach(li => { li.hidden = !open; }); b.setAttribute('aria-expanded', open); b.textContent = open ? '접기' : '더 보기 › ' + rest.length + '개';
-          if (!open) el.scrollIntoView({ behavior: SM(), block: 'nearest' }); }); } }
     if (S.ch !== '전체') bars('bCat', groupBy(pool({ channels: chs, since: addDays(D.updated, -90) }), 'g').filter(r => r.n >= MIN_N).sort(byIdx), subN, k => { S.view = 'explore'; S.g = k; render(); window.scrollTo({ top: 0 }); });
     wireBrief(); wireDeep(chs); wireToday(chs); wireOv(chs);
     // 접힌 칸 안 그래프는 폭이 0으로 그려져서, 펼칠 때 크기를 다시 잼
