@@ -1382,3 +1382,5 @@ em.nm { font-style: normal; font-weight: 700; color: var(--fg); }
 /* 핵심 지표 안 「채널별 팔로워」 접은 칸: 구역 제목보다 한 단계 낮게(2026-11-08 「위아래가 구분이 안 되지 않아?」) */
 .hm-sec > details.hm-folf { margin-top: 8px; }
 .hm-sec > details.hm-folf > summary { font-size: 15px; font-weight: 600; color: var(--muted); min-height: 44px; padding: 8px 0 0; }
+/* 유튜브 세로 썸네일 후보 주소는 맞는 그림이 뜰 때까지 숨김(없으면 회색 그림이 와서 다음 주소로 바꾸는 사이 깜빡이던 것, 2026-11-08) */
+img[src*="/oardefault.jpg"]:not(.ok), img[src*="/oar2.jpg"]:not(.ok), img.wt { visibility: hidden; }

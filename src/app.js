@@ -363,11 +363,16 @@
   // 사진: 유튜브 = i.ytimg.com, 인스타·hong = 「오늘」 응답의 thumbs(메타 CDN, 브라우저에서 instagram.com 주소는 막힘). hong은 주소가 없어 게시일 ±1일 + 캡션 앞부분으로 맞춤
   // 2026-11-07 「유튜브 썸네일은 옆에 검정칸」: mqdefault는 16:9라 세로 영상 양옆이 채워짐. 쇼츠가 될 수 있는 3분 이하는 세로 원본 oardefault → oar2 → mqdefault 순서. 없는 주소는 404지만 120×90 회색 그림을 함께 줘서 onerror가 안 뜨므로 onload에서 가로 그림이면 다음 주소로
   const ytShortish = t => t === '1분 이하' || t === '1~3분';
-  const ytThumb = (id, shortish) => 'https://i.ytimg.com/vi/' + id + (shortish ? '/oardefault.jpg' : '/mqdefault.jpg');
+  // 깜빡임(2026-11-08 담당자 「사진이 하나씩 깜빡이지?」): 회색 대체 그림 → 다음 주소로 바꾸는 사이 회색이 한 번씩 보였음.
+  // 세로 썸네일 후보 주소(oardefault·oar2)만 맞는 그림이 뜰 때까지 숨겨 두고(CSS, 맞으면 class ok), 영상마다 찾은 주소를 기억해 다시 그릴 땐 바로 그 주소로(YT_OK)
+  const YT_OK = {};
+  const ytThumb = (id, shortish) => YT_OK[id] || 'https://i.ytimg.com/vi/' + id + (shortish ? '/oardefault.jpg' : '/mqdefault.jpg');
   window.__ytFb = (im, bad) => {
     const next = /\/oardefault\.jpg/.test(im.src) ? '/oar2.jpg' : /\/oar2\.jpg/.test(im.src) ? '/mqdefault.jpg' : '';
-    if (next && (bad || im.naturalWidth > im.naturalHeight)) im.src = im.src.replace(/\/oar(default|2)\.jpg/, next);
-    else if (bad) im.remove();
+    if (next && (bad || im.naturalWidth > im.naturalHeight)) { im.classList.add('wt'); im.src = im.src.replace(/\/oar(default|2)\.jpg/, next); return; }
+    if (bad) { im.remove(); return; }
+    const m = /i\.ytimg\.com\/vi\/([\w-]{11})\//.exec(im.src); if (m) YT_OK[m[1]] = im.src;
+    im.classList.remove('wt'); im.classList.add('ok');
   };
   const IMG_ERR = 'onload="__ytFb(this)" onerror="__ytFb(this,1)"';
   const ovKey = t => String(t || '').replace(/[^0-9A-Za-z가-힣]/g, '').slice(0, 10);
@@ -471,8 +476,8 @@
     const box = $('ov'); if (!box) return;
     box.querySelectorAll('.ov-t').forEach(b => b.addEventListener('click', () => { S.ovM = b.dataset.m; save(); box.innerHTML = ovHtml(chs); wireOv(chs); }));
     wireRank($('ovTop'), window.__ovTop || []); wireRank($('ovGrid'), window.__ovIg || []);
-    // 「오늘」 응답(썸네일)이 늦게 오면 한 번 다시 그림
-    if (!(TD.d && TD.d.thumbs) && !box.dataset.wait) { box.dataset.wait = '1'; loadToday(false).then(() => { if (TD.d && TD.d.thumbs && $('ov') === box) { box.innerHTML = ovHtml(chs); wireOv(chs); } }); }
+    // 「오늘」 응답(썸네일)이 늦게 오면 빈 사진 칸만 채움 — 전에는 개요를 통째로 다시 그려 이미 뜬 사진까지 한 번씩 깜빡였음(2026-11-08)
+    if (!(TD.d && TD.d.thumbs) && !box.dataset.wait) { box.dataset.wait = '1'; loadToday(false).then(() => { if (TD.d && TD.d.thumbs) ovFill(); }); }
   }
   function viewBrief() {
     if (S.ch === '타 대학') {
