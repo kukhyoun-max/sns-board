@@ -1352,3 +1352,10 @@ em.nm { font-style: normal; font-weight: 700; color: var(--fg); }
 
 /* 릴스·쇼츠 짝 비교 */
 #prBox h3.sub { margin-top: 24px; }
+
+/* 홈 「참고하면 좋을 것」 조합 줄 펼침(2026-11-08): 줄 모양은 hm-row 그대로, 아랫줄 끝에 ▾/▴ */
+.hm-cb > summary { list-style: none; cursor: pointer; } .hm-cb > summary::-webkit-details-marker { display: none; }
+.hm-list > .hm-cb:first-child > .hm-row { border-top: 0; }
+.hm-cb > summary .hm-m::after { content: ' ▾'; color: var(--muted); } .hm-cb[open] > summary .hm-m::after { content: ' ▴'; }
+.hm-cb[open] > .hm-ins-l { margin-top: 0; }
+@media (hover: hover) { .hm-cb > summary:hover .hm-t { text-decoration: underline; text-underline-offset: 3px; } }

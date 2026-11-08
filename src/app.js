@@ -3831,8 +3831,13 @@
     if (best) pRow('최근 30일 가장 잘 된 게시물', best, xCls(ratio(best)));
     const P = prescribe(own);
     if (P.again[0]) pRow('작년 이맘때 잘 된 게시물', P.again[0], 'up');
-    if (P.more[0]) row('더 만들면 좋은 조합 · 최근 2달 ' + P.more[0].recent + '개', P.more[0].c, esc(P.more[0].g) + ' × ' + esc(P.more[0].t), vsTxt(P.more[0].idx), 'up');
-    if (P.less[0]) row('줄이거나 바꿀 조합 · 최근 2달 ' + P.less[0].recent + '개', P.less[0].c, esc(P.less[0].g) + ' × ' + esc(P.less[0].t), vsTxt(P.less[0].idx), 'down');
+    // 조합 줄은 누르면 그 조합 게시물(최근 1년, 판정 기준과 같은 묶음)이 펼쳐짐(2026-11-08 「관련 영상들 목록으로 펼쳐지면」): 더 만들기 = 높은 순, 줄이기 = 낮은 순, 5개
+    const L2 = window.__tdCombo = [];
+    const cRow = (lab, r, vc) => { const up = vc === 'up', L5 = r.arr.slice().sort((a, b) => up ? (ratio(b) || 0) - (ratio(a) || 0) : (ratio(a) || 0) - (ratio(b) || 0)).slice(0, 5), k = L2.push(L5) - 1;
+      R.push('<details class="hm-cb">' + hmRow({ tag: 'summary', tip: '누르면 이 조합 게시물 ' + L5.length + '개(최근 1년 ' + r.n + '개 중 ' + (up ? '잘 된' : '덜 된') + ' 순)', c: r.c, t: esc(r.g) + ' × ' + esc(fmtType(r.t)), m: lab, v: vsTxt(r.idx), vc }) +
+        '<ol class="hm-list hm-ins-l" data-tdc="' + k + '">' + rankRows(L5) + '</ol></details>'); };
+    if (P.more[0]) cRow('더 만들면 좋은 조합 · 최근 2달 ' + P.more[0].recent + '개', P.more[0], 'up');
+    if (P.less[0]) cRow('줄이거나 바꿀 조합 · 최근 2달 ' + P.less[0].recent + '개', P.less[0], 'down');
     return R.length ? hmSec2('참고하면 좋을 것', '지난 기록 · 다음 기획용', '<div class="hm-list">' + R.join('') + '</div>') : '';
   }
   function todayInner(chs) {
@@ -4061,6 +4066,7 @@
     const tl = $('tdLast'); if (tl && window.__tdLast) tl.addEventListener('click', () => openDetail(window.__tdLast));
     box.querySelectorAll('[data-wa]').forEach(b => b.addEventListener('click', () => { const it = (window.__attn || [])[+b.dataset.wa]; if (it) openDetail(it); }));
     box.querySelectorAll('[data-ti]').forEach(b => b.addEventListener('click', () => { const it = (window.__tdIdea || [])[+b.dataset.ti]; if (it) openDetail(it); }));
+    box.querySelectorAll('ol[data-tdc]').forEach(el => wireRank(el, (window.__tdCombo || [])[+el.dataset.tdc] || []));
     const fd = $('tdChF'); if (fd) fd.addEventListener('toggle', () => { try { localStorage.setItem('sb-td-ch', fd.open ? '1' : '0'); } catch (e) {} if (fd.open) tdDraw(); });
     const L = window.__td || [];
     box.querySelectorAll('li[data-td]').forEach(li => { const go = () => { const p = L[+li.dataset.td], it = p && tdItem(p); if (it) openDetail(it); else if (p && p.u) window.open(p.u, '_blank', 'noopener'); }; li.addEventListener('click', go); li.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); go(); } }); });
