@@ -252,6 +252,7 @@
   const whenTxt = d => { const a = daysBetween(d, D.updated); return a <= 0 ? '오늘' : a === 1 ? '어제' : a <= 30 ? a + '일 전' : dot(d); };
   // 게시물 목록도 홈 시안 2 한 모양(hmRow): 윗줄 제목 + 평소 대비, 아랫줄 채널 · 형식 · 올린 날(+ 보관 후보 같은 알림) + 조회. 분류·제작 같은 칩은 마우스를 올리면(title) 보임
   const tagTxt = h => h.replace(/<[^>]+>/g, '').trim();
+  // opt.rank: 높은 순으로 줄 세운 목록(잘 된 순·조회 많은 순 등)만 사진 위 순위 숫자(2026-11-08 「이번주 잘된 순, 역대 조회수 순 이런 유형에만」)
   function rankRows(L, opt) {
     opt = opt || {};
     return L.map((it, i) => {
@@ -269,7 +270,7 @@
       // 순위 탭(2026-10-24): opt.top이 있으면 오른쪽 위 = 그 탭이 줄 세운 값, 평소 대비는 오른쪽 아래(색만 유지)
       const vsLow = v ? '<b class="' + vc + '">' + (r != null && !yg && !it.ad && !it.hid ? vsTxt(r) : yg && pr != null ? agName(pc.e) + ' ' + vsP(pr) : v) + '</b>' : '';
       const top = opt.top ? opt.top(it, mvTxt) : null;
-      return hmRow({ tag: 'li', cls: 'hm-rk' + (!it.arc && archRec(it) ? ' is-arch' : ''), attr: 'tabindex="0" data-i="' + i + '"', tip, thumb: opt.thumb === 0 ? '' : ovImg(it, 'hm-th ov-th'), c: it.c, t: esc(title(it.n)), v: top != null ? top : v, vc: top != null ? '' : vc,
+      return hmRow({ tag: 'li', cls: 'hm-rk' + (!it.arc && archRec(it) ? ' is-arch' : ''), attr: 'tabindex="0" data-i="' + i + '"', tip, thumb: opt.thumb === 0 ? '' : ovImg(it, 'hm-th ov-th', opt.rank ? i + 1 : 0), c: it.c, t: esc(title(it.n)), v: top != null ? top : v, vc: top != null ? '' : vc,
         // 경고(보관 후보 등)를 앞에 — 끝에 두면 휴대폰에서 「보…」로 잘림(2026-11-01)
         m: [...warn.map(w => w === '보관 후보' ? '<span class="arch-b">보관 후보</span>' : '<span class="down">' + esc(w) + '</span>'), '<span title="' + esc(dot(it.d)) + '">' + whenTxt(it.d) + '</span>', ty ? esc(ty) : ''].filter(Boolean).join(' · '),
         r: opt.right ? opt.right(it) : top != null ? vsLow : mName(it) + ' <span class="num">' + mvTxt + '</span>' });
@@ -382,7 +383,7 @@
   const ovFill = () => document.querySelectorAll('[data-ovw]').forEach(el => { const it = OV_WAIT[+el.dataset.ovw], u = it && ovThumb(it); el.removeAttribute('data-ovw'); if (u) el.insertAdjacentHTML('afterbegin', '<img loading="lazy" alt="" src="' + esc(u) + '" ' + IMG_ERR + '>'); });
   const ovImg = (it, cls, rk) => { const u = ovThumb(it), wait = !u && it.c !== '유튜브' && !(TD.d && TD.d.thumbs);
     if (wait) needThumbs(() => setTimeout(ovFill, 0));
-    return '<span class="' + cls + '" style="--c:' + chColor(it.c) + '" aria-hidden="true"' + (wait ? ' data-ovw="' + (OV_WAIT.push(it) - 1) + '"' : '') + '>' + (u ? '<img loading="lazy" alt="" src="' + esc(u) + '" ' + IMG_ERR + '>' : '') + '<b>' + esc(chName(it.c)) + '</b>' + (rk ? '<span class="ov-rk num">' + rk + '</span>' : '') + '</span>'; };
+    return '<span class="' + cls + '" style="--c:' + chColor(it.c) + '" aria-hidden="true"' + (wait ? ' data-ovw="' + (OV_WAIT.push(it) - 1) + '"' : '') + '>' + (u ? '<img loading="lazy" alt="" src="' + esc(u) + '" ' + IMG_ERR + '>' : '') + '<b>' + esc(chName(it.c)) + '</b>' + (rk ? '<span class="ov-rk num' + (rk === 1 ? ' r1' : '') + '">' + rk + '</span>' : '') + '</span>'; };
   const dayLab = d => (+d.slice(8, 10)) + '일';
   const fmtM = v => v == null ? '–' : Math.abs(v) >= 1e4 ? (Math.round(v / 1e3) / 10) + '만' : fmt(v);
   function ovModel(chs) {
@@ -996,7 +997,7 @@
     const how = !isRt ? '퍼센트는 같은 형식 평소와 비교' : RT_N + ' = ' + mn + ' ÷ 도달 · 평소 대비 높은 순<br>유튜브는 도달 대신 조회로 계산';
     return '<div class="race hm-rx"><div class="hm-h"><h3>' + (wk.length ? '이번 주 올린 게시물' : '최근 게시물') + '</h3>' + sel + '</div><p class="hm-note">' + how + '<br>어제·오늘 올린 건 맨 위 오늘 칸에 있어요</p><ol class="hm-list">' + L.map((it, i) => {
       const q = raceVal(it, m), r = q.r, t = r == null ? null : tierOf(r);
-      return hmRow({ tag: 'li', cls: archRec(it) ? 'is-arch' : '', attr: 'data-r="' + i + '" tabindex="0" role="button" aria-label="' + esc(title(it.n)) + ' 상세 보기"', tip: (t ? t[0] + ' · ' : '') + (q.rt != null ? mn + ' ' + fmtK(q.n) + ' · ' + RT_N + ' ' + pctA(q.rt) + ' · ' : '') + (q.tip || ''), thumb: ovImg(it, 'hm-th ov-th'), c: it.c, t: esc(title(it.n)), // 2026-11-08 「여기도 썸네일」
+      return hmRow({ tag: 'li', cls: archRec(it) ? 'is-arch' : '', attr: 'data-r="' + i + '" tabindex="0" role="button" aria-label="' + esc(title(it.n)) + ' 상세 보기"', tip: (t ? t[0] + ' · ' : '') + (q.rt != null ? mn + ' ' + fmtK(q.n) + ' · ' + RT_N + ' ' + pctA(q.rt) + ' · ' : '') + (q.tip || ''), thumb: ovImg(it, 'hm-th ov-th', i + 1), c: it.c, t: esc(title(it.n)), // 2026-11-08 「여기도 썸네일」
         // 2026-10-24 순위 탭과 같게: 오른쪽 위 = 고른 값(결과), 오른쪽 아래 = 평소 대비(색)
         v: isRt && q.rt != null ? RT_N + ' ' + pctA(q.rt) : q.n == null ? '자료 없음' : mn + ' ' + fmtK(q.n), vc: q.n == null ? 'mu' : '',
         m: (archRec(it) ? '<span class="arch-b">보관 후보</span> · ' : '') + whenTxt(it.d) + (q.rt == null && m !== 'v' ? ' · 조회 ' + fmtK(mainVal(it)) : ''),
@@ -1075,10 +1076,10 @@
     const old = p.old.filter(it => p.inc0(it) > 0).sort((a, b) => p.inc0(b) - p.inc0(a)).slice(0, 5);
     // 새로 올린 콘텐츠가 없으면 빈 칸을 두지 않고 '많이 늘어난 콘텐츠' 하나만 넓게
     const oldBox = '<div><h3>' + (nw.length ? '많이 늘어난 기존 콘텐츠' : '많이 늘어난 콘텐츠') + '</h3><ol class="rank' + (nw.length ? '' : ' wide') + '" id="wkOld">' +
-      (old.length ? rankRows(old, { top: it => '<span class="up">+' + fmtK(p.inc0(it)) + '</span>', right: it => MN[m] + ' 누적 <span class="num">' + fmtK(mv(it)) + '</span>' }) : '<li class="empty">이번 기간에 늘어난 콘텐츠가 없어요</li>') + '</ol></div>';
+      (old.length ? rankRows(old, { rank: 1, top: it => '<span class="up">+' + fmtK(p.inc0(it)) + '</span>', right: it => MN[m] + ' 누적 <span class="num">' + fmtK(mv(it)) + '</span>' }) : '<li class="empty">이번 기간에 늘어난 콘텐츠가 없어요</li>') + '</ol></div>';
     // 목록은 접어 둔다(홈 길이 줄이기) — 펼친 상태는 S.wkOpen으로 지표 버튼을 눌러도 유지
     const lists = nw.length ? '<div class="two wk-lists"><div><h3>이번 주 올린 콘텐츠 <small>' + nw.length + '개</small></h3><ol class="rank" id="wkNew">' +
-      rankRows(nw.slice(0, 8), { right: it => MN[m] + ' <span class="num">' + fmtK(mv(it)) + '</span>' }) + '</ol></div>' + oldBox + '</div>' : '<div class="wk-lists">' + oldBox + '</div>';
+      rankRows(nw.slice(0, 8), { rank: 1, right: it => MN[m] + ' <span class="num">' + fmtK(mv(it)) + '</span>' }) + '</ol></div>' + oldBox + '</div>' : '<div class="wk-lists">' + oldBox + '</div>';
     h += '<details class="fold" id="wkFold"' + (S.wkOpen ? ' open' : '') + '><summary>콘텐츠 목록 <small>' + (nw.length ? '새 게시물 ' + nw.length + '개 · ' : '') + '많이 늘어난 ' + old.length + '개</small></summary>' + lists + '</details>';
     w.lists = { nw: nw.slice(0, 8), old };
     window.__wk = w;
@@ -1647,7 +1648,7 @@
     const arr = uniq(M.series.flatMap(s => s.arrs[i])).sort((x, y) => (mainVal(y) || 0) - (mainVal(x) || 0));
     const rng = b.from === b.to ? dot(b.from) : dot(b.from) + ' ~ ' + dot(b.to > M.to ? M.to : b.to);
     return '<div class="cpick"><div><b>' + rng + '</b> · 게시 ' + arr.length + '개 · ' + M.def[1] + ' ' + mfmt(M.def, mval(M.def, arr)) + '</div><button type="button" class="btn" id="csPickX"><svg viewBox="0 0 20 20" width="16" height="16" aria-hidden="true"><path d="M10 3v10M6 9l4 4 4-4M4 17h12" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>이 기간 엑셀로</button></div>' +
-      '<ol class="rank" id="csList">' + rankRows(arr.slice(0, 5)) + '</ol>' + (arr.length > 5 ? '<p class="note">상위 5개만 보여요 · 전체는 「이 기간 엑셀로」</p>' : '');
+      '<ol class="rank" id="csList">' + rankRows(arr.slice(0, 5), { rank: 1 }) + '</ol>' + (arr.length > 5 ? '<p class="note">상위 5개만 보여요 · 전체는 「이 기간 엑셀로」</p>' : '');
   }
   function rerenderChart() { const el = $('chartSec'); if (!el) return; el.outerHTML = chartHtml(); wireChart(); }
   function toExport(from, to, group, chs) {
@@ -1910,7 +1911,7 @@
       '<div class="pl">' + p.rows.map(r => { const vc = r.vd === '늘리기' ? 'up' : r.vd === '줄이기' ? 'down' : 'mu', mx = Math.max(1, ...p.rows.map(x => x.rec));
         return '<div class="pl-r" title="' + esc(r.why) + '"><span class="pl-t">' + esc(fmtType(r.t)) + '<small>지금 월 ' + r.per.toFixed(1) + '개 · ' + esc(r.bs) + '</small></span><span class="pl-b" aria-hidden="true"><i style="width:' + (r.rec / mx * 100).toFixed(1) + '%' + (r.rec > 0 ? ';--c-u:var(--jj);' + unitBg(r.rec, 'right') : '') + '"></i></span><b class="num">' + r.rec + '</b><em class="' + vc + '">' + r.vd + '</em></div>'; }).join('') + '</div>' +
       (p.topics.length ? '<p class="hm-note">지난 ' + m + '월에 잘 된 주제(' + yrSpan(p.yrs) + ', 조회 평소 대비): ' + p.topics.map(t => '<b>' + esc(t.k) + '</b> <span class="' + xCls(t.idx) + '">' + vsP(t.idx) + '</span>').join(' · ') + '</p>' : '<p class="hm-note">' + (p.yrs.length ? yrSpan(p.yrs) + ' ' + m + '월엔 뚜렷하게 잘 된 주제가 없었어요.' : '지난 ' + m + '월 데이터가 없어요.') + '</p>') +
-      (p.best.length ? '<details class="fold"><summary>지난 ' + m + '월 가장 잘 된 게시물 ' + p.best.length + '개</summary><ol class="rank" id="plBest' + pi + '">' + rankRows(p.best) + '</ol></details>' : ''))).join('') + '</div>' +
+      (p.best.length ? '<details class="fold"><summary>지난 ' + m + '월 가장 잘 된 게시물 ' + p.best.length + '개</summary><ol class="rank" id="plBest' + pi + '">' + rankRows(p.best, { rank: 1 }) + '</ol></details>' : ''))).join('') + '</div>' +
       '<div style="margin-top:16px"><button type="button" class="btn" id="planCopy" title="형식별 권장 개수 · 이유 · 잘 된 주제를 글로 복사"><svg viewBox="0 0 20 20" width="16" height="16" aria-hidden="true"><path d="M7 7h9v9H7zM4 13V4h9" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>회의용으로 복사</button></div>';
   }
   const yrSpan = y => y.length > 1 ? y[0] + '~' + y[y.length - 1] + '년' : y[0] + '년';
@@ -1969,7 +1970,7 @@
     // 홈 시안 2 모양: 채널 묶음 + 숫자 카드 2개 + rankRows
     return '<div class="hm-rx">' + R.map(r => hmSec(chTxt(r.ch), dot(r.from) + ' → ' + dot(r.to) + ' · ' + r.days + '일',
       hmCards([hmCard('이 기간 늘어난 조회', '+' + fmtK(r.tot), '게시물 전체'), hmCard('그중 1년 넘은 게시물', '+' + fmtK(r.oldSum), pct0(r.tot ? r.oldSum / r.tot : null) + ' · ' + r.n + '개')]) +
-      '<ol class="rank" id="lt_' + OWN.indexOf(r.ch) + '">' + rankRows(r.top.slice(0, 5), { top: it => '<span class="up">+' + fmtK(r.g.get(it)) + '</span>' }) + '</ol>' +
+      '<ol class="rank" id="lt_' + OWN.indexOf(r.ch) + '">' + rankRows(r.top.slice(0, 5), { rank: 1, top: it => '<span class="up">+' + fmtK(r.g.get(it)) + '</span>' }) + '</ol>' +
       '<p class="hm-note">→ 위 게시물 ' + (r.ch === '유튜브' ? '설명란' : '캡션') + '·고정 댓글에 입학처·최근 영상 링크를 달고, 같은 주제로 새 버전을 만들어 보세요.</p>')).join('') + '</div>' +
       '<p class="hm-note">오래돼도 조회가 계속 늘면 검색·추천으로 꾸준히 보이고 있을 가능성이 커요.</p>';
   }
@@ -2440,11 +2441,11 @@
       // 휴대폰은 표 대신 홈 시안 2 목록(hmRow): 윗줄 이름 + 조회 평소 대비, 아랫줄 역할 · 참여 · 히트 + 조회 합. 15명씩, 정렬은 칩
       (pMob ? '<div class="chips" id="pSort">' + [['n', '참여'], ['views', '조회 합'], ['idx', '평소 대비'], ['hits', '히트'], ['score', '등급 점수']].map(x => '<button class="chip" type="button" data-s="' + x[0] + '" aria-pressed="' + (S.psort === x[0] || (!S.psort && x[0] === 'n')) + '">' + x[1] + '</button>').join('') + '</div>' +
         '<ol class="hm-list" id="pTbl">' + (ps.length ? ps.slice(0, S.pAll ? ps.length : 15).map(p => hmRow({ tag: 'li', attr: 'data-n="' + esc(p.n) + '" tabindex="0" role="button"', cls: S.person === p.n ? 'on' : '', tip: '등급 점수 ' + fmt(p.score) + (p.best ? ' · 최고 ' + title(p.best.n) : ''), t: esc(p.n), v: vsP(p.idx), vc: p.idx == null || p.k < MIN_N ? 'mu' : xCls(p.idx), m: esc(p.role) + (p.left ? ' <span class="mu">활동 끝</span>' : '') + ' · 참여 ' + p.k + ' · 히트 ' + p.hits, r: '조회 ' + fmtK(p.views) }) +
-          (S.person === p.n ? '<li class="hm-open"><ol class="rank" id="pList">' + rankRows(p.arr.slice().sort((a, b) => (mainVal(b) || 0) - (mainVal(a) || 0)).slice(0, 10)) + '</ol></li>' : '')).join('') : '<li class="empty">' + periodPhrase() + ' 동안 크레딧에 이름이 있는 콘텐츠가 없어요.</li>') + '</ol>' +
+          (S.person === p.n ? '<li class="hm-open"><ol class="rank" id="pList">' + rankRows(p.arr.slice().sort((a, b) => (mainVal(b) || 0) - (mainVal(a) || 0)).slice(0, 10), { rank: 1 }) + '</ol></li>' : '')).join('') : '<li class="empty">' + periodPhrase() + ' 동안 크레딧에 이름이 있는 콘텐츠가 없어요.</li>') + '</ol>' +
         (!S.pAll && ps.length > 15 ? '<button type="button" class="more" id="pAll">' + (ps.length - 15) + '명 더 보기 ›</button>' : '') :
       '<div class="tw"><table class="tbl" id="pTbl"><thead><tr><th>이름</th><th>역할</th>' + th('n', '참여') + th('views', '조회 합') + th('idx', '조회 평소 대비') + th('hits', '히트') + th('score', '등급 점수') + '<th>최고 콘텐츠</th></tr></thead><tbody>' +
       ps.map(p => '<tr class="click' + (S.person === p.n ? ' on' : '') + '" data-n="' + esc(p.n) + '"><td><b>' + esc(p.n) + '</b></td><td>' + ptag(p.role) + (p.left ? ' <small class="mu">활동 끝</small>' : '') + '</td><td class="n">' + p.k + '</td><td class="n">' + fmtK(p.views) + '</td><td class="n ' + (p.idx == null || p.k < MIN_N ? 'mu' : xCls(p.idx)) + '">' + vsP(p.idx) + '</td><td class="n">' + p.hits + '</td><td class="n ' + (p.score >= 0 ? 'up' : 'down') + '">' + (p.score > 0 ? '+' : '') + p.score + '</td><td><div class="ellip">' + line(p.best) + '</div></td></tr>' +
-        (S.person === p.n ? '<tr><td colspan="8" style="padding:0 0 10px;white-space:normal"><ol class="rank" id="pList">' + rankRows(p.arr.slice().sort((a, b) => (mainVal(b) || 0) - (mainVal(a) || 0)).slice(0, 10)) + '</ol>' + (p.arr.length > 10 ? '<p class="note">조회 높은 10개만 보여요. 전체 목록은 「엑셀로 받기」나 「데이터 추출 → 사람」에서 받을 수 있어요.</p>' : '') + '</td></tr>' : '')).join('') +
+        (S.person === p.n ? '<tr><td colspan="8" style="padding:0 0 10px;white-space:normal"><ol class="rank" id="pList">' + rankRows(p.arr.slice().sort((a, b) => (mainVal(b) || 0) - (mainVal(a) || 0)).slice(0, 10), { rank: 1 }) + '</ol>' + (p.arr.length > 10 ? '<p class="note">조회 높은 10개만 보여요. 전체 목록은 「엑셀로 받기」나 「데이터 추출 → 사람」에서 받을 수 있어요.</p>' : '') + '</td></tr>' : '')).join('') +
       (ps.length ? '' : '<tr><td colspan="8" class="empty">' + periodPhrase() + ' 동안 크레딧에 이름이 있는 콘텐츠가 없어요.</td></tr>') +
       '</tbody></table></div>') +
       '<p class="note">이름을 누르면 그 사람이 참여한 콘텐츠가 펼쳐져요. 역할이 틀렸다면 스냅샷 시트 「명단」 탭에서 고칠 수 있어요.</p>' + secClose;
@@ -2520,9 +2521,9 @@
     const admSorted = st.adm.slice().sort((a, b) => (ratio(b) || 0) - (ratio(a) || 0));
     const topSorted = st.org.slice().sort((a, b) => (ratio(b) || 0) - (ratio(a) || 0)).slice(0, 8);
     // 입시·모집 콘텐츠가 없으면 빈 칸 대신 가장 잘 된 목록만 한 열로(KPI에 0개가 이미 나옴)
-    html += secOpen('시즌 콘텐츠', '') + (st.adm.length ? '<div class="two"><div><h3>입시·모집 콘텐츠</h3><p class="d">평소보다 잘 된 순</p><ol class="rank" id="sAdm">' + rankRows(admSorted) + '</ol></div>' +
-      '<div><h3>시즌 중 가장 잘 된 콘텐츠</h3><p class="d">분류와 관계없이 · 광고 제외</p><ol class="rank" id="sTop">' + rankRows(topSorted) + '</ol></div></div>'
-      : '<h3 class="sub">시즌 중 가장 잘 된 콘텐츠</h3><p class="d">분류와 관계없이 · 광고 제외 · 이 시즌엔 입시·모집 분류 콘텐츠가 없어요</p><ol class="rank wide" id="sTop">' + rankRows(topSorted) + '</ol>') + secClose;
+    html += secOpen('시즌 콘텐츠', '') + (st.adm.length ? '<div class="two"><div><h3>입시·모집 콘텐츠</h3><p class="d">평소보다 잘 된 순</p><ol class="rank" id="sAdm">' + rankRows(admSorted, { rank: 1 }) + '</ol></div>' +
+      '<div><h3>시즌 중 가장 잘 된 콘텐츠</h3><p class="d">분류와 관계없이 · 광고 제외</p><ol class="rank" id="sTop">' + rankRows(topSorted, { rank: 1 }) + '</ol></div></div>'
+      : '<h3 class="sub">시즌 중 가장 잘 된 콘텐츠</h3><p class="d">분류와 관계없이 · 광고 제외 · 이 시즌엔 입시·모집 분류 콘텐츠가 없어요</p><ol class="rank wide" id="sTop">' + rankRows(topSorted, { rank: 1 }) + '</ol>') + secClose;
     // 시즌 비교 — 게시물도 광고도 없는 시즌 줄(hong 시작 전 등)은 숨김(계산 데이터는 그대로)
     const ssRows = ss.map(x => ({ x, t: seasonStats(x) })), ssShow = ssRows.filter(r => r.t.org.length || r.t.ad.length || r.x.id === s.id), ssHid = ssRows.length - ssShow.length;
     html += secOpen('시즌별 비교', '최근 시즌은 조회가 쌓인 기간이 짧아 적게 보일 수 있어요') +
@@ -2679,7 +2680,7 @@
       '</tbody></table></div><p class="note">캠페인 이름(게시물 캡션 앞부분)으로 인스타 게시물을 찾아 연결했어요. 연결된 게시물은 「광고」 표시가 붙고 평소 계산에서 빠져요 · 상단 버튼이 「광고 제외」일 때는 목록·합계에서도 빠져요.</p>' + secClose;
     if (posts.length) {
       const top = posts.slice().sort((a, b) => (val(b, 0) || 0) - (val(a, 0) || 0)).slice(0, 15);
-      html += secOpen('광고한 인스타 게시물', '메타 광고로 홍보한 게시물 · 조회 많은 순') + '<ol class="rank" id="mTop">' + rankRows(top, { top: it => '조회 ' + fmtK(val(it, 0)), right: it => '좋아요 ' + fmt(val(it, 1)) }) + '</ol>' + secClose;
+      html += secOpen('광고한 인스타 게시물', '메타 광고로 홍보한 게시물 · 조회 많은 순') + '<ol class="rank" id="mTop">' + rankRows(top, { rank: 1, top: it => '조회 ' + fmtK(val(it, 0)), right: it => '좋아요 ' + fmt(val(it, 1)) }) + '</ol>' + secClose;
       $('view').innerHTML = html; wireRank($('mTop'), top);
     } else $('view').innerHTML = html;
     $('view').querySelectorAll('[data-y]').forEach(b => b.addEventListener('click', () => { S.adYear = b.dataset.y; S.adOpen = null; viewAds(); }));
@@ -2774,7 +2775,7 @@
       '<dl class="defs"><div><dt>확인</dt><dd>제목·게시일이 맞는 연결</dd></div><div><dt>짐작</dt><dd>시기·조회 흐름으로 짐작한 연결</dd></div>' + (unlinked ? '<div><dt>영상 연결 없음 ' + unlinked + '개</dt><dd>디스플레이·이미지 광고 등</dd></div>' : '') + (rows.some(r => r.part && r.vs.length) ? '<div><dt>일부</dt><dd>' + dot(YT0) + ' 전에 시작한 캠페인 · 조회당 비용은 계산하지 않아요</dd></div>' : '') + '<div><dt>고치기</dt><dd>시트 「광고 매핑」 탭</dd></div></dl>' + secClose;
     // 광고 영상
     const top = vids.slice().sort((a, b) => (val(b, 0) || 0) - (val(a, 0) || 0)).slice(0, 15);
-    html += secOpen('광고 영상', '캠페인과 연결된 유튜브 영상 · 조회 많은 순') + '<ol class="rank" id="adTop">' + rankRows(top, { top: it => '조회 ' + fmtK(val(it, 0)), right: it => '<span title="광고 조회에는 좋아요가 거의 붙지 않아요">좋아요 ' + fmt(val(it, 1)) + '</span>' }) + '</ol>' + secClose;
+    html += secOpen('광고 영상', '캠페인과 연결된 유튜브 영상 · 조회 많은 순') + '<ol class="rank" id="adTop">' + rankRows(top, { rank: 1, top: it => '조회 ' + fmtK(val(it, 0)), right: it => '<span title="광고 조회에는 좋아요가 거의 붙지 않아요">좋아요 ' + fmt(val(it, 1)) + '</span>' }) + '</ol>' + secClose;
     $('view').innerHTML = html;
     $('view').querySelectorAll('[data-y]').forEach(b => b.addEventListener('click', () => { S.adYear = b.dataset.y; S.adOpen = null; viewAds(); }));
     $('view').querySelectorAll('[data-as]').forEach(b => b.addEventListener('click', () => { S.adSort = b.dataset.as; viewAds(); }));
@@ -2862,7 +2863,7 @@
         '<div class="op-s"><span>게시 비중</span><i><em style="width:' + pct0(o.theirShare) + '"></em></i><small>' + chName(o.ch) + ' ' + pct0(o.theirShare) + '</small><i><em class="o" style="width:' + pct0(o.ourShare) + '"></em></i><small>우리 ' + pct0(o.ourShare) + '</small></div>').join('') + '</div>' : '') + secClose;
     // 벤치마킹 후보
     const cand = data.slice(1).filter(d => !d.hidden).flatMap(d => d.L).filter(it => likeRatio(it) != null).sort((a, b) => likeRatio(b) - likeRatio(a)).slice(0, 10);
-    html += secOpen('따라 해 볼 만한 콘텐츠', '각 계정에서 평소보다 좋아요가 많이 나온 게시물') + '<ol class="rank" id="bCand">' + rankRows(cand, { top: it => '<span class="' + xCls(likeRatio(it)) + '">' + vsP(likeRatio(it)) + '</span>', right: it => '좋아요 <span class="num">' + fmtK(val(it, 1)) + '</span>' }) + '</ol>' + secClose;
+    html += secOpen('따라 해 볼 만한 콘텐츠', '각 계정에서 평소보다 좋아요가 많이 나온 게시물') + '<ol class="rank" id="bCand">' + rankRows(cand, { rank: 1, top: it => '<span class="' + xCls(likeRatio(it)) + '">' + vsP(likeRatio(it)) + '</span>', right: it => '좋아요 <span class="num">' + fmtK(val(it, 1)) + '</span>' }) + '</ol>' + secClose;
     $('view').innerHTML = html.replace(/^<div class="gap"><\/div>/, '');
     wireRank($('bCand'), cand);
     if (window.__share) {
@@ -2946,7 +2947,7 @@
     const items = (S.tmSel ? LL.filter(it => keyOf(it) === S.tmSel && (by !== 'tg' || !S.tys || it.ty === S.tys)) : L.filter(it => it.g === S.g && (!S.gs || it.s === S.gs))).sort((a, b) => (mainVal(b) || 0) - (mainVal(a) || 0));
     if (!items.length) { box.innerHTML = '<li class="empty">조건에 맞는 콘텐츠가 없어요.</li>'; return; }
     const shown = items.slice(0, S.tlShown || 10);
-    box.innerHTML = rankRows(shown); wireRank(box, shown);
+    box.innerHTML = rankRows(shown, { rank: 1 }); wireRank(box, shown);
     if (items.length > shown.length) { more.innerHTML = '<button class="more" id="tlMore" type="button">' + (items.length - shown.length) + '개 더 보기 ›</button>'; $('tlMore').addEventListener('click', () => { S.tlShown = (S.tlShown || 10) + 20; renderTrend(); }); }
   }
 
@@ -2974,7 +2975,7 @@
       share: { top: it => RXM.share[1] + ' ' + pctA(rxRate(it, 'share')), right: rxSame('share') },
       talk: { top: it => '댓글 ' + fmt(val(it, 2)), right: it => val(it, 1) > 0 ? '좋아요 <span class="num">' + fmtK(val(it, 1)) + '</span>' : '' },
     }[S.rankBy] || null;
-    $('rank').innerHTML = rankRows(shown, OPT);
+    $('rank').innerHTML = rankRows(shown, Object.assign({ rank: 1 }, OPT));
     wireRank($('rank'), shown);
     $('rankMore').hidden = S.rankShown >= sorted.length;
   }
