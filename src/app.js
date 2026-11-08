@@ -988,10 +988,10 @@
     const how = m === 'v' || m === 'reach' ? '퍼센트는 같은 형식 평소와 비교' : '도달 대비 비율을 같은 형식 평소와 비교<br>유튜브는 도달 대신 조회로 계산';
     return '<div class="race hm-rx"><div class="hm-h"><h3>' + (wk.length ? '이번 주 올린 게시물' : '최근 게시물') + '</h3>' + sel + '</div><p class="hm-note">' + how + '<br>어제·오늘 올린 건 맨 위 오늘 칸에 있어요</p><ol class="hm-list">' + L.map((it, i) => {
       const q = raceVal(it, m), r = q.r, t = r == null ? null : tierOf(r);
-      return hmRow({ tag: 'li', cls: archRec(it) ? 'is-arch' : '', attr: 'data-r="' + i + '" tabindex="0" role="button" aria-label="' + esc(title(it.n)) + ' 상세 보기"', tip: (t ? t[0] + ' · ' : '') + (q.tip || ''), c: it.c, t: esc(title(it.n)),
+      return hmRow({ tag: 'li', cls: archRec(it) ? 'is-arch' : '', attr: 'data-r="' + i + '" tabindex="0" role="button" aria-label="' + esc(title(it.n)) + ' 상세 보기"', tip: (t ? t[0] + ' · ' : '') + (q.rt != null ? mn + ' 비율 ' + pctA(q.rt) + ' · ' : '') + (q.tip || ''), thumb: ovImg(it, 'hm-th ov-th'), c: it.c, t: esc(title(it.n)), // 2026-11-08 「여기도 썸네일」
         // 2026-10-24 순위 탭과 같게: 오른쪽 위 = 고른 값(결과), 오른쪽 아래 = 평소 대비(색)
         v: q.n == null ? '자료 없음' : mn + ' ' + fmtK(q.n), vc: q.n == null ? 'mu' : '',
-        m: (archRec(it) ? '<span class="arch-b">보관 후보</span> · ' : '') + whenTxt(it.d) + (m !== 'v' ? ' · 조회 ' + fmtK(mainVal(it)) : '') + (q.rt != null ? ' · ' + (it.c === '유튜브' ? '조회' : '도달') + ' 대비 ' + pctA(q.rt) : ''),
+        m: (archRec(it) ? '<span class="arch-b">보관 후보</span> · ' : '') + whenTxt(it.d) + (q.rt == null && m !== 'v' ? ' · 조회 ' + fmtK(mainVal(it)) : ''),
         r: '<b class="' + (r == null ? 'mu' : r < 0.7 ? 'down' : r < 1.3 ? 'mu' : 'up') + '">' + (r == null ? '비교 전' : vsTxt(r)) + '</b>' });
     }).join('') + '</ol></div>';
   }
@@ -3929,7 +3929,7 @@
   }
   // 게시 예정(「공식 SNS 발행 일정」 오늘~7일). 오늘 예정이 실제로 올라갔으면 「게시 완료」, 누르면 업로드 폴더(게시 완료면 올린 게시물, 2026-10-27)
   function tdPlan(d) {
-    if (!d.plan) return '';
+    if (!d.plan || S.ch !== '전체') return ''; // 2026-11-08 담당자 「게시 예정은 전체에서만」
     const pl = d.plan.filter(x => x[0] >= d.today);
     // 캘린더 제목 「(인스타) 제목」·「(유튜브/인스타) 제목」 → 채널 색 글자 + 제목 한 줄
     const pch = k => /유튜브|숏츠|쇼츠/.test(k) ? '유튜브' : /hong|홍/.test(k) ? 'hong._.video' : '인스타그램';
