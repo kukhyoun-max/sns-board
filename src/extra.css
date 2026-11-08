@@ -1372,7 +1372,9 @@ em.nm { font-style: normal; font-weight: 700; color: var(--fg); }
 /* 개요 조회 막대 = 채널 쌓기 + 바로 아래 범례(2026-11-08 「어디서 봤나」 합침) */
 .ov-cols i.stk { gap: 1px; }
 .ov-cols i.stk.wide { opacity: .4; }
-.ov-ch + .ov-lg-in { margin-top: 34px; }
+.ov-ch + .ov-lg-in, .ov-ch + .ov-sh-in { margin-top: 34px; }
+.ov-sh-in { height: 12px; border-radius: 6px; }
+.ov-sh-in + .ov-lg-in { margin-top: 14px; }
 .ov-lg-in + .note { margin-top: 10px; }
 /* 순위 숫자(2026-11-08 「사진 위에 순위 숫자」 → 「잘된 순·조회수 순 유형에만」): 사진 왼쪽 위, 1위만 파랑 */
 .ov-rk { position: absolute; left: 0; top: 0; z-index: 2; min-width: 22px; height: 22px; padding: 0 6px; display: grid; place-items: center; border-bottom-right-radius: 8px; background: rgba(25, 31, 40, .78); color: #fff; font-size: 14px; font-weight: 700; line-height: 1; }
