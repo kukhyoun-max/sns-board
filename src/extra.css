@@ -1370,6 +1370,7 @@ em.nm { font-style: normal; font-weight: 700; color: var(--fg); }
 #ytbSec .bc-r.ours .hr-n { color: var(--fg); font-weight: 700; }
 #ytbSec .hr-seg { margin-bottom: 12px; }
 /* 개요 조회 막대 = 채널 쌓기 + 바로 아래 범례(2026-11-08 「어디서 봤나」 합침) */
+.ov-cols i.stk { gap: 1px; }
 .ov-cols i.stk.wide { opacity: .4; }
 .ov-ch + .ov-lg-in { margin-top: 34px; }
 .ov-lg-in + .note { margin-top: 10px; }
