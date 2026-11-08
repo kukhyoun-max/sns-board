@@ -3894,8 +3894,9 @@
     if (KN.sh != null) KC.push(hmCard('인스타 공유율', pctA(KN.sh), '목표 ' + pctA(KPI_D20.share) + (KN.sh >= KPI_D20.share ? ' 넘음' : ' 아래'), KN.sh >= KPI_D20.share ? 'up' : 'down', '최근 90일 · 게시물마다 공유 ÷ 도달의 중간값 · 이벤트 빼고 · 전략 KPI와 같은 값'));
     if (KN.sv != null) KC.push(hmCard('인스타 저장률', pctA(KN.sv), '목표 ' + (KPI_D20.save * 100) + '%' + (KN.sv >= KPI_D20.save ? ' 넘음' : ' 아래'), KN.sv >= KPI_D20.save ? 'up' : 'down', '최근 90일 · ' + (KN.svAll ? '캐러셀 전체' : '코너 캐러셀') + ' · 게시물마다 저장 ÷ 도달의 중간값 · 전략 KPI와 같은 값'));
     if (KN.ytR != null) KC.push(hmCard('유튜브 롱폼', vsP(KN.ytR), KN.ytR >= KPI_D20.ytLong ? '목표 넘음' : '평소까지 ' + Math.round((1 - KN.ytR) * 100) + '%', KN.ytR >= KPI_D20.ytLong ? 'up' : 'down', '최근 90일 롱폼 조회 ÷ 채널 롱폼 1년 중간값의 중간값 · 전략 KPI와 같은 값'));
-    if (S.view === 'brief' && KC.length) return hmSec2('핵심 지표', '최근 90일 · 목표 대비', hmCards(KC) + '<p class="hm-note">어제·오늘은 올린 게시물이 없어요</p>') +
-      '<details class="fold"><summary>채널별 팔로워' + (dd.length ? ' · ' + (dd.every(g => g.since <= addDays(today, -350)) ? '1년 전보다 ' : '기록 시작 뒤 ') + sgnN(gd) + '명' : '') + '</summary>' + hmCards(G.map(g => folCard(g, 1))) + '</details>';
+    if (S.view === 'brief' && KC.length) return hmSec2('핵심 지표', '최근 90일 · 목표 대비', hmCards(KC) + '<p class="hm-note">어제·오늘은 올린 게시물이 없어요</p>' +
+      // 팔로워 접은 칸은 핵심 지표 구역 안에(2026-11-08 담당자 「위아래가 구분이 안 되지 않아?」 — 구역 밖에 있으면 「지금 볼 것」 위 띠가 빠져 팔로워가 그 첫 줄처럼 보임)
+      '<details class="fold hm-folf"><summary>채널별 팔로워' + (dd.length ? ' · ' + (dd.every(g => g.since <= addDays(today, -350)) ? '1년 전보다 ' : '기록 시작 뒤 ') + sgnN(gd) + '명' : '') + '</summary>' + hmCards(G.map(g => folCard(g, 1))) + '</details>');
     if (S.view === 'brief') return hmSec2('채널별 팔로워', (dd.length ? (dd.every(g => g.since <= addDays(today, -350)) ? '1년 전보다 ' : '기록 시작 뒤 ') + sgnN(gd) + '명 · ' : '') + (hits ? '올해 히트 ' + hits + '개' : ''), hmCards(G.map(g => folCard(g, 1))) + '<p class="hm-note">어제·오늘은 올린 게시물이 없어요</p>');
     return '<div class="hm-hero"><span class="hm-lab">우리 채널을 구독·팔로우하는 사람</span><b class="hm-big num">' + fmt(tot) + '명</b>' +
       (dd.length ? '<span class="hm-vs ' + (gd > 0 ? 'up' : gd < 0 ? 'down' : 'flat') + '">' + (dd.every(g => g.since <= addDays(today, -350)) ? '1년 전보다 ' : '기록을 시작한 뒤로 ') + sgnN(gd) + '명</span>' : '') +
