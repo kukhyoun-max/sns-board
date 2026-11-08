@@ -963,7 +963,8 @@
   // 조회 = 올린 지 같은 날 평소와(paceOf). 도달 = 조회 비교에 「조회 대비 도달」이 평소보다 많고 적은 만큼을 곱해 짐작.
   // 좋아요·댓글·공유·저장 = 도달(유튜브는 조회) 대비 비율을 같은 형식 평소 비율과 비교(비율이라 올린 지 며칠이어도 견줄 수 있음)
   const RACE_M = [['v', '조회'], ['reach', '도달'], ['l', '좋아요', 1], ['cm', '댓글', 2], ['sh', '공유', 3], ['sv', '저장', 4]];
-  const RCB = {};
+  const RCB = {}, RACE_CNT = 5; // 비율로 줄 세울 최소 개수(2026-11-09)
+  const raceEv = it => it.tg === '이벤트' || /이벤트|EVENT|추첨|당첨|응모/i.test(it.n || '');
   const rcDen = it => { const v = last(it); if (!v) return null; return it.c === '유튜브' ? (v[0] >= 100 ? v[0] : null) : (it.r >= 300 ? it.r : null); };
   const rcRate = (it, j) => { const v = last(it), d = rcDen(it); return !v || !d || v[j] == null ? null : v[j] / d; };
   const rcRv = it => { const v = last(it); return v && v[0] > 0 && it.r > 0 ? it.r / v[0] : null; }; // 조회 대비 도달
@@ -1028,20 +1029,26 @@
     const kst = new Date(Date.now() + 9 * 3600000).toISOString().slice(0, 10), y1 = addDays(kst, -1), cut = it => it.d < y1;
     const wk = w ? all.filter(it => it.d >= w.mon && cut(it)) : [];
     // 2026-11-08 「1」: 비율 지표(좋아요·댓글·공유·저장)는 오른쪽 위를 횟수 대신 비율로. 같은 날 「수치만 보여주고」로 평소 대비 줄은 빼고 순서도 보이는 값 큰 순
-    const isRt = m !== 'v' && m !== 'reach', RT_N = { l: '좋아요율', cm: '댓글률', sh: '공유율', sv: '저장률' }[m];
-    const rk = it => { const q = raceVal(it, m), n = isRt ? q.rt : q.n; return n == null ? -1 : n; }, byV = X => X.slice().sort((a, b) => rk(b) - rk(a) || (raceVal(b, m).n || 0) - (raceVal(a, m).n || 0));
+    // 2026-11-09 담당자 「평균의 함정 같은 오류」 → 추천 1~4: ① 비율은 개수 RACE_CNT개 미만이면 「적음」(댓글 1개로 0.19% 2위가 되던 것) ② 이벤트는 맨 아래(댓글·공유가 참여 조건)
+    // ③ 비율 순서 = 같은 채널·형식 평소 대비(인스타 ÷ 도달·유튜브 ÷ 조회, hong 평소가 달라 값끼리 줄 세우면 틀림), 보이는 값은 비율 그대로 ④ 댓글은 대부분 0~몇 개라 비율 대신 개수
+    const isRt = ['l', 'sh', 'sv'].includes(m), RT_N = { l: '좋아요율', sh: '공유율', sv: '저장률' }[m], evM = isRt || m === 'cm';
+    const QV = new Map(), qOf = it => { if (!QV.has(it)) QV.set(it, raceVal(it, m)); return QV.get(it); };
+    const tier = it => { if (evM && raceEv(it)) return 2; const q = qOf(it); return isRt && (q.rt == null || (q.n || 0) < RACE_CNT) ? 1 : 0; };
+    const rk = it => { const q = qOf(it); if (isRt) return q.r != null ? q.r : q.rt != null ? q.rt / 1e3 : -1; return q.n == null ? -1 : q.n; };
+    const byV = X => X.slice().sort((a, b) => tier(a) - tier(b) || rk(b) - rk(a) || (qOf(b).n || 0) - (qOf(a).n || 0));
     const L = wk.length ? byV(wk).slice(0, 8) : byV(all.filter(it => cut(it) && daysBetween(it.d, D.updated) <= 14)).slice(0, 4);
     window.__race = L;
     if (!L.length) return '';
     // 홈 시안 2 모양: hmRow 한 줄(윗줄 제목 + 평소 대비, 아랫줄 채널 · 올린 날 + 고른 값). 판정 단계(낮음·잘 됨…)와 비교 기준은 마우스를 올리면
     const sel = raceSel(m);
     // 2026-11-08 담당자 「수치만 보여주고」: 오른쪽 아래 평소 대비를 빼고 고른 값만. 평소 비교는 KPI 모드에서
-    const how = isRt ? RT_N + ' = ' + mn + ' ÷ 도달 · 유튜브는 ÷ 조회<br>' : '';
+    const how = isRt ? RT_N + ' = ' + mn + ' ÷ 도달 · 유튜브는 ÷ 조회<br>순서 = 평소 대비 · ' + RACE_CNT + '개 미만·이벤트는 아래<br>' : m === 'cm' ? '이벤트는 아래<br>' : '';
     return '<div class="race hm-rx"><div class="hm-h"><h3>' + (wk.length ? '이번 주 올린 게시물' : '최근 게시물') + '</h3>' + sel + '</div><p class="hm-note">' + how + '어제·오늘 올린 건 맨 위 오늘 칸에 있어요</p><ol class="hm-list">' + L.map((it, i) => {
-      const q = raceVal(it, m);
-      return hmRow({ tag: 'li', attr: 'data-r="' + i + '" tabindex="0" role="button" aria-label="' + esc(title(it.n)) + ' 상세 보기"', tip: q.rt != null ? mn + ' ' + fmtK(q.n) + ' · ' + RT_N + ' ' + pctA(q.rt) : '', thumb: ovImg(it, 'hm-th ov-th', i + 1), c: it.c, t: esc(title(it.n)), // 2026-11-08 「여기도 썸네일」
-        v: isRt && q.rt != null ? RT_N + ' ' + pctA(q.rt) : q.n == null ? '자료 없음' : mn + ' ' + fmtK(q.n), vc: q.n == null ? 'mu' : '',
-        m: whenTxt(it.d) + (m !== 'v' ? ' · 조회 ' + fmtK(mainVal(it)) : '') });
+      const q = qOf(it), t = tier(it), few = t === 1 && q.n != null;
+      const tip = (q.rt != null ? mn + ' ' + fmtK(q.n) + ' · ' + RT_N + ' ' + pctA(q.rt) + (q.r != null ? ' · 평소 ' + vsTxt(q.r) : '') : '') + (t === 2 ? ' · 이벤트라 순위에서 뺐어요' : few ? ' · ' + mn + ' ' + RACE_CNT + '개 미만이라 비율이 크게 흔들려요' : '');
+      return hmRow({ tag: 'li', attr: 'data-r="' + i + '" tabindex="0" role="button" aria-label="' + esc(title(it.n)) + ' 상세 보기"', tip, thumb: ovImg(it, 'hm-th ov-th', i + 1), c: it.c, t: esc(title(it.n)), // 2026-11-08 「여기도 썸네일」
+        v: isRt && q.rt != null && !few ? RT_N + ' ' + pctA(q.rt) : q.n == null ? '자료 없음' : mn + ' ' + fmtK(q.n), vc: q.n == null || t ? 'mu' : '',
+        m: whenTxt(it.d) + (t === 2 ? ' · 이벤트' : few ? ' · 개수 적음' : '') + (m !== 'v' ? ' · 조회 ' + fmtK(mainVal(it)) : '') });
     }).join('') + '</ol></div>';
   }
   const raceSel = m => '<label class="race-m"><select id="raceM" aria-label="볼 값 고르기">' + RACE_M.map(x => '<option value="' + x[0] + '"' + (x[0] === m ? ' selected' : '') + '>' + x[1] + '</option>').join('') + '<option value="kpi"' + (m === 'kpi' ? ' selected' : '') + '>KPI</option></select></label>';
