@@ -218,7 +218,8 @@
     return archFresh(it) ? null : { r, age, k: 'low', rr, sh, sv, likes };
   }
   // 보관함(2026-11-01): 서버 「보관 게시물」 탭 — API 목록에서 사라진 게시물(보관 또는 삭제). 값은 보관 전 마지막 값에서 멈추고 평소 계산에는 그대로 둠(살아남은 것만 남으면 평소가 부풀어서)
-  const archTag = it => { if (it.arc) return '<span class="tag arch" title="' + esc(md2(it.arc) + '부터 인스타 목록에 안 보여요 · 숫자는 보관 전 마지막 값' + (it.arw ? ' · 이유: ' + it.arw : '')) + '">보관함</span>'; const a = archRec(it); return a ? '<span class="tag arch rec" title="' + esc(a.k === 'low' ? '올린 지 ' + a.age + '일 · 도달 평소 대비 ' + vsP(a.rr) + ' · 공유 ' + (a.sh * 100).toFixed(2) + '%(기준 0.5%) · 저장 ' + (a.sv * 100).toFixed(2) + '%(기준 0.15%) · 좋아요 ' + a.likes + '(기준 100) · 그리드를 보고 정해요' : '기간이 끝났을 이벤트·모집·신청 게시물 · 올린 지 ' + a.age + '일 · 도달·공유·저장·좋아요가 모두 낮아요 · 기간과 당첨 발표까지 끝났으면 보관해요') + '">보관 후보</span>' : ''; };
+  // 보관 후보 칩·빨간 테두리는 2026-11-08 뺌(담당자 「보관 추천은 알림에만」 → 「응 빼」). 목록엔 이미 보관한 「보관함」 칩만
+  const archTag = it => { if (it.arc) return '<span class="tag arch" title="' + esc(md2(it.arc) + '부터 인스타 목록에 안 보여요 · 숫자는 보관 전 마지막 값' + (it.arw ? ' · 이유: ' + it.arw : '')) + '">보관함</span>'; return ''; };
   const credTag = it => {
     if (!OWN.includes(it.c) || !it.w || !it.w.length || !['자체 제작', '근로장학생'].includes(it.p)) return '';
     const amb = it.w.filter(n => (D.roles || {})[n] === '홍보대사');
@@ -270,9 +271,9 @@
       // 순위 탭(2026-10-24): opt.top이 있으면 오른쪽 위 = 그 탭이 줄 세운 값, 평소 대비는 오른쪽 아래(색만 유지)
       const vsLow = v ? '<b class="' + vc + '">' + (r != null && !yg && !it.ad && !it.hid ? vsTxt(r) : yg && pr != null ? agName(pc.e) + ' ' + vsP(pr) : v) + '</b>' : '';
       const top = opt.top ? opt.top(it, mvTxt) : null;
-      return hmRow({ tag: 'li', cls: 'hm-rk' + (!it.arc && archRec(it) ? ' is-arch' : ''), attr: 'tabindex="0" data-i="' + i + '"', tip, thumb: opt.thumb === 0 ? '' : ovImg(it, 'hm-th ov-th', opt.rank ? i + 1 : 0), c: it.c, t: esc(title(it.n)), v: top != null ? top : v, vc: top != null ? '' : vc,
+      return hmRow({ tag: 'li', cls: 'hm-rk', attr: 'tabindex="0" data-i="' + i + '"', tip, thumb: opt.thumb === 0 ? '' : ovImg(it, 'hm-th ov-th', opt.rank ? i + 1 : 0), c: it.c, t: esc(title(it.n)), v: top != null ? top : v, vc: top != null ? '' : vc,
         // 경고(보관 후보 등)를 앞에 — 끝에 두면 휴대폰에서 「보…」로 잘림(2026-11-01)
-        m: [...(opt.pre && opt.pre(it) ? [opt.pre(it)] : []), ...warn.map(w => w === '보관 후보' ? '<span class="arch-b">보관 후보</span>' : '<span class="down">' + esc(w) + '</span>'), '<span title="' + esc(dot(it.d)) + '">' + whenTxt(it.d) + '</span>', ty ? esc(ty) : ''].filter(Boolean).join(' · '),
+        m: [...(opt.pre && opt.pre(it) ? [opt.pre(it)] : []), ...warn.map(w => '<span class="down">' + esc(w) + '</span>'), '<span title="' + esc(dot(it.d)) + '">' + whenTxt(it.d) + '</span>', ty ? esc(ty) : ''].filter(Boolean).join(' · '),
         r: opt.right ? opt.right(it) : top != null ? vsLow : mName(it) + ' <span class="num">' + mvTxt + '</span>' });
     }).join('') || '<li class="empty">조건에 맞는 콘텐츠가 없어요.</li>';
   }
@@ -1038,9 +1039,9 @@
     const how = isRt ? RT_N + ' = ' + mn + ' ÷ 도달 · 유튜브는 ÷ 조회<br>' : '';
     return '<div class="race hm-rx"><div class="hm-h"><h3>' + (wk.length ? '이번 주 올린 게시물' : '최근 게시물') + '</h3>' + sel + '</div><p class="hm-note">' + how + '어제·오늘 올린 건 맨 위 오늘 칸에 있어요</p><ol class="hm-list">' + L.map((it, i) => {
       const q = raceVal(it, m);
-      return hmRow({ tag: 'li', cls: archRec(it) ? 'is-arch' : '', attr: 'data-r="' + i + '" tabindex="0" role="button" aria-label="' + esc(title(it.n)) + ' 상세 보기"', tip: q.rt != null ? mn + ' ' + fmtK(q.n) + ' · ' + RT_N + ' ' + pctA(q.rt) : '', thumb: ovImg(it, 'hm-th ov-th', i + 1), c: it.c, t: esc(title(it.n)), // 2026-11-08 「여기도 썸네일」
+      return hmRow({ tag: 'li', attr: 'data-r="' + i + '" tabindex="0" role="button" aria-label="' + esc(title(it.n)) + ' 상세 보기"', tip: q.rt != null ? mn + ' ' + fmtK(q.n) + ' · ' + RT_N + ' ' + pctA(q.rt) : '', thumb: ovImg(it, 'hm-th ov-th', i + 1), c: it.c, t: esc(title(it.n)), // 2026-11-08 「여기도 썸네일」
         v: isRt && q.rt != null ? RT_N + ' ' + pctA(q.rt) : q.n == null ? '자료 없음' : mn + ' ' + fmtK(q.n), vc: q.n == null ? 'mu' : '',
-        m: (archRec(it) ? '<span class="arch-b">보관 후보</span> · ' : '') + whenTxt(it.d) + (m !== 'v' ? ' · 조회 ' + fmtK(mainVal(it)) : '') });
+        m: whenTxt(it.d) + (m !== 'v' ? ' · 조회 ' + fmtK(mainVal(it)) : '') });
     }).join('') + '</ol></div>';
   }
   const raceSel = m => '<label class="race-m"><select id="raceM" aria-label="볼 값 고르기">' + RACE_M.map(x => '<option value="' + x[0] + '"' + (x[0] === m ? ' selected' : '') + '>' + x[1] + '</option>').join('') + '<option value="kpi"' + (m === 'kpi' ? ' selected' : '') + '>KPI</option></select></label>';
@@ -1057,9 +1058,9 @@
     if (!L.length) return '';
     return '<div class="race hm-rx"><div class="hm-h"><h3>' + (wk.length ? '이번 주 올린 게시물' : '최근 게시물') + '</h3>' + raceSel('kpi') + '</div><p class="hm-note">인스타·hong 공유율 · 롱폼 평소 · 쇼츠 시청 비율<br>목표 대비 높은 순</p><ol class="hm-list">' + L.map((it, i) => {
       const k = kOf(it);
-      return hmRow({ tag: 'li', cls: archRec(it) ? 'is-arch' : '', attr: 'data-r="' + i + '" tabindex="0" role="button" aria-label="' + esc(title(it.n)) + ' 상세 보기"', tip: k.tip, thumb: ovImg(it, 'hm-th ov-th', i + 1), c: it.c, t: esc(title(it.n)),
+      return hmRow({ tag: 'li', attr: 'data-r="' + i + '" tabindex="0" role="button" aria-label="' + esc(title(it.n)) + ' 상세 보기"', tip: k.tip, thumb: ovImg(it, 'hm-th ov-th', i + 1), c: it.c, t: esc(title(it.n)),
         v: k.v || k.na, vc: k.v ? (k.ok ? 'up' : 'down') : 'mu',
-        m: (archRec(it) ? '<span class="arch-b">보관 후보</span> · ' : '') + whenTxt(it.d) + (k.sub ? ' · ' + k.sub : ' · 조회 ' + fmtK(mainVal(it))),
+        m: whenTxt(it.d) + (k.sub ? ' · ' + k.sub : ' · 조회 ' + fmtK(mainVal(it))),
         r: k.v ? '<b class="' + (k.ok ? 'up' : 'mu') + '">' + k.goal + '</b>' : '' });
     }).join('') + '</ol></div>';
   }
