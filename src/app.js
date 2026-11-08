@@ -2988,7 +2988,7 @@
     if (!ms.includes(S.hm)) S.hm = 0;
     const m = S.hm, chips = '<div class="chips" id="hallM">' + ms.map(k => '<button class="chip" type="button" data-m="' + k + '" aria-pressed="' + (k === m) + '">' + MN[k] + '</button>').join('') + '</div>';
     const note = '<p class="hm-note hall-note">광고 집행·스토리·비공개로 보이는 영상은 빼요 · 유튜브는 전체 기간 값 · 인스타 2024-12-27 이전 게시물은 2026-01-01 기록 값' + (D.updated ? ' · ' + mdLabel(D.updated) + ' 기록 기준' : '') + '</p>';
-    let html = '<section class="sec"><div class="sh"><div><h2>명예의 전당</h2><p>' + (S.ch === '전체' ? '채널마다 ' : chName(S.ch) + ' ') + MN[m] + ' 많은 순 · 처음 기록부터 지금까지 누적 숫자 그대로</p></div></div>' + chips + '</section>';
+    let html = '<section class="sec"><div class="sh"><div><h2>명예의 전당</h2><p>' + (S.ch === '전체' ? '채널마다 ' : chName(S.ch) + ' ') + MN[m] + ' 많은 순 · 누적 숫자 그대로</p></div></div>' + chips + '</section>';
     const L = {};
     if (S.ch === '전체') {
       chs.forEach(ch => {
