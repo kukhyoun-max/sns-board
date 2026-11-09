@@ -4039,7 +4039,7 @@
     const C = tdCurves(P.concat((d.wk || []).filter(p => chs.includes(p.c))).sort((a, b) => a.at < b.at ? 1 : -1));
     let mo = false; try { mo = localStorage.getItem('sb-td-ch') === '1'; } catch (e) {}
     const list = hmSec2(tp.length ? who + ' 올린 게시물' : '어제 올린 게시물', '퍼센트는 같은 시간 조회 평소 대비', '<ol class="hm-list">' + L + '</ol>' +
-      (C.length ? '<details class="hm-fold" id="tdChF"' + (mo ? ' open' : '') + '><summary class="hm-btn"><svg viewBox="0 0 20 20" width="18" height="18" aria-hidden="true"><path d="M3 16h14M5 13l4-4 3 3 4-6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>시간별 조회 그래프</summary>' + tdGroups(C).map((g, k, A) => '<div class="td-g"><div class="td-chh">' + badge(g.c) + '</div><div class="chart" style="height:' + (A.length > 1 ? 160 : 220) + 'px"><canvas id="tdC' + k + '"></canvas></div></div>').join('') + '<p class="note">이번 주 올린 게시물 · 1시간마다 받아 둔 값(이틀 넘으면 지금 값까지 이음) · 회색 점선 = 같은 형식 평소 조회 · 시간별 자료가 모이기 전엔 올린 지 하루 된 평소(없으면 다 자란 평소)</p></details>' : ''));
+      (C.length ? '<details class="hm-fold" id="tdChF"' + (mo ? ' open' : '') + '><summary class="hm-btn"><svg viewBox="0 0 20 20" width="18" height="18" aria-hidden="true"><path d="M3 16h14M5 13l4-4 3 3 4-6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>시간별 조회 그래프</summary>' + tdPanel(C) + '<p class="note">이번 주 올린 게시물 · 1시간마다 받아 둔 값(이틀 넘으면 지금 값까지 이음) · 회색 점선 = 같은 형식 평소 조회 · 시간별 자료가 모이기 전엔 올린 지 하루 된 평소(없으면 다 자란 평소)</p></details>' : ''));
     // ⑤ 팔로워 카드(오늘 아침 대비) · 누르면 추이(팔로워 30일 · 유튜브 구독자 1년)
     const FT = [];
     ['인스타그램', 'hong._.video'].filter(c => chs.includes(c)).forEach(c => {
@@ -4140,10 +4140,16 @@
   }
   // 채널별로 그래프를 나눔(2026-10-22 「유튜브 그래프도 잘 보이게」): 인스타 수천과 유튜브 수십을 한 세로축에 그리면 유튜브가 바닥에 붙음
   function tdGroups(C) { return ['인스타그램', 'hong._.video', '유튜브'].map(c => ({ c, C: C.filter(x => x.p.c === c) })).filter(g => g.C.length); }
+  // 그래프는 하나만, 위 채널 탭으로 바꿔 봄(2026-11-09 담당자 「그래프 하나만 나오고 위에 채널 탭」). 고른 채널은 기기에 기억
+  function tdSel(G) { let s = TD.cht; if (!s) try { s = localStorage.getItem('sb-td-cht'); } catch (e) {} return G.some(g => g.c === s) ? s : G[0].c; }
+  function tdPanel(C) {
+    const G = tdGroups(C), sel = tdSel(G);
+    return '<div class="td-g">' + (G.length > 1 ? '<div class="seg td-seg" id="tdChT" role="group" aria-label="그래프 채널">' + G.map(g => '<button type="button" data-v="' + esc(g.c) + '" aria-pressed="' + (g.c === sel) + '">' + esc(chName(g.c)) + '</button>').join('') + '</div>' : '<div class="td-chh">' + badge(G[0].c) + '</div>') + '<div class="chart" style="height:220px"><canvas id="tdC0"></canvas></div></div>';
+  }
   function tdDraw() {
     const fd = $('tdChF'); if (!$('tdC0') || !TD.d || (fd && !fd.open)) return;
     // 이번 주(월요일~그제) 게시물(wk)도 함께(2026-11-04 「이번주에 올린 콘텐츠는 그래프에 나오게」)
-    const P = (TD.d.posts || []).concat(TD.d.wk || []).filter(p => TD.chs.includes(p.c)).sort((a, b) => a.at < b.at ? 1 : -1), G = tdGroups(tdCurves(P)), hb = TD.d.hbase || {};
+    const P = (TD.d.posts || []).concat(TD.d.wk || []).filter(p => TD.chs.includes(p.c)).sort((a, b) => a.at < b.at ? 1 : -1), G0 = tdGroups(tdCurves(P)), G = G0.length ? G0.filter(g => g.c === tdSel(G0)) : G0, hb = TD.d.hbase || {};
     // 가로축은 모든 그래프가 같게(위아래로 시간을 맞춰 보게). 끝은 눈금 간격의 배수로(「25시간」처럼 앞 눈금과 겹치지 않게)
     const XM = Math.max(...G.map(g => Math.max(...g.C.map(c => Math.ceil(c.a[c.a.length - 1][0])))));
     const x1 = Math.max(6, XM), xSt = x1 <= 6 ? 2 : x1 <= 12 ? 3 : x1 <= 30 ? 6 : x1 <= 48 ? 12 : 24, xMax = Math.ceil(x1 / xSt) * xSt, byDay = xMax > 48;
@@ -4199,6 +4205,7 @@
     box.querySelectorAll('[data-wa]').forEach(b => b.addEventListener('click', () => { const it = (window.__attn || [])[+b.dataset.wa]; if (it) openDetail(it); }));
     box.querySelectorAll('[data-ti]').forEach(b => b.addEventListener('click', () => { const it = (window.__tdIdea || [])[+b.dataset.ti]; if (it) openDetail(it); }));
     box.querySelectorAll('ol[data-tdc]').forEach(el => wireRank(el, (window.__tdCombo || [])[+el.dataset.tdc] || []));
+    box.querySelectorAll('#tdChT button').forEach(b => b.addEventListener('click', () => { TD.cht = b.dataset.v; try { localStorage.setItem('sb-td-cht', TD.cht); } catch (e) {} box.querySelectorAll('#tdChT button').forEach(x => x.setAttribute('aria-pressed', String(x === b))); tdDraw(); }));
     const fd = $('tdChF'); if (fd) fd.addEventListener('toggle', () => { try { localStorage.setItem('sb-td-ch', fd.open ? '1' : '0'); } catch (e) {} if (fd.open) tdDraw(); });
     const L = window.__td || [];
     box.querySelectorAll('li[data-td]').forEach(li => { const go = () => { const p = L[+li.dataset.td], it = p && tdItem(p); if (it) openDetail(it); else if (p && p.u) window.open(p.u, '_blank', 'noopener'); }; li.addEventListener('click', go); li.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); go(); } }); });
