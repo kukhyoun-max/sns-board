@@ -53,9 +53,44 @@ var Ana = (function () {
   }
   function pick(B, it) { var k = B[it.c + '|' + typ(it)]; return k && k.n >= MIN_N ? k : B[it.c + '|*']; }
 
+  // 조회 속도(2026-11-09 담당자 「조회수 속도에 대한 분석도 콘텐츠 분석에」): it.sp = [[경과 시간, 조회, 도달] | null] × 올린 지 1·3·6·24시간(서버 loadSpeed_, 「게시물 시간별」 2026-10-20~)
+  // 평소 = 같은 채널·형식 게시물이 같은 시간에 받은 조회 중간값(나를 빼고 3개 이상 = 보드 오늘 칸 hbase와 같은 수), 순위 = 기록이 있는 같은 채널·형식 중 조회 순위
+  // 인스타 캐러셀 조회는 장 넘김까지 세서 장 수에 따라 부풀므로 도달 배수를 함께 씀
+  var SP_H = [1, 3, 6, 24], SP_MIN = 3, SP_MAIN = 1; // SP_MAIN = 대표 칸(3시간), 없으면 있는 것 중 가장 늦은 시간
+  function speedPool(D) {
+    var P = {};
+    D.items.forEach(function (it) {
+      if (OWN.indexOf(it.c) < 0 || !live(it) || !it.sp) return;
+      var p = P[it.c + '|' + typ(it)] = P[it.c + '|' + typ(it)] || [[], [], [], []];
+      it.sp.forEach(function (x, j) { if (x && x[1] != null) p[j].push({ it: it, v: x[1], r: x[2] }); });
+    });
+    return P;
+  }
+  function speed(P, it) {
+    var pool = it.sp && P[it.c + '|' + typ(it)];
+    if (!pool) return null;
+    var res = [];
+    it.sp.forEach(function (x, j) {
+      if (!x || x[1] == null) return;
+      var o = pool[j].filter(function (y) { return y.it !== it; }), mv = med(o.map(function (y) { return y.v; })), mr = med(o.map(function (y) { return y.r; }));
+      res.push({ h: SP_H[j], v: x[1], r: x[2], n: o.length + 1, rank: 1 + o.filter(function (y) { return y.v > x[1]; }).length,
+        vr: o.length >= SP_MIN && mv ? x[1] / mv : null, rr: o.length >= SP_MIN && mr && x[2] != null ? x[2] / mr : null });
+    });
+    if (!res.length) return null;
+    var main = res.filter(function (s) { return s.h === SP_H[SP_MAIN]; })[0] || res[res.length - 1];
+    return { all: res, main: main };
+  }
+  function spTxt(S, t) {
+    if (!S) return '';
+    var m = S.main, w = m.h + '시간';
+    if (m.vr == null) return '첫 ' + w + ' 조회 ' + m.v.toLocaleString() + ' · 같은 형식 기록이 적어 비교 안 함';
+    return '첫 ' + w + ' 조회 같은 형식 평소의 ' + fx(m.vr) + (m.rr != null && t === '캐러셀' ? ' · 도달 ' + fx(m.rr) : '') + ' · 기록된 ' + m.n + '개 중 ' + m.rank + '위';
+  }
+
   // 게시물 하나 판정 → { 모양, 한 줄 }
-  function judge(D, B, it) {
+  function judge(D, B, it, P) {
     var U = D.updated, a = age(it.d, U), b = pick(B, it), v = last(it), out = { it: it, age: a, title: nm(it.n), c: it.c, t: it.t, u: it.u || '' };
+    out.sp = P ? speed(P, it) : null;
     if (!b || !v) { out.shape = '기준 없음'; out.line = '비교할 평소 자료가 아직 적어요'; return out; }
     var ab = a < 14 ? ageBase(b, a) : null;
     out.views = v[0];
@@ -89,7 +124,8 @@ var Ana = (function () {
     var f = ft(it), hint = [];
     if (f.indexOf('p') >= 0) hint.push(sr != null && sr >= 1.1 ? '장소 정보 있음(공유 잘 되는 패턴과 맞음)' : '장소 정보 있음');
     if (f.indexOf('q') >= 0) hint.push('질문형 첫 줄');
-    out.shape = sh; out.line = head + ' · ' + why + (hint.length ? ' · ' + hint.join(' · ') : '') + (a < 14 ? ' (아직 느는 중)' : '');
+    var st = a < 14 ? spTxt(out.sp, it.t) : ''; // 판정 확정(14일) 줄에는 속도를 다시 쓰지 않음
+    out.shape = sh; out.line = head + (st ? ' · ' + st : '') + ' · ' + why + (hint.length ? ' · ' + hint.join(' · ') : '') + (a < 14 ? ' (아직 느는 중)' : '');
     return out;
   }
 
@@ -136,11 +172,11 @@ var Ana = (function () {
   // 전체: 어제(월요일이면 금~일) 올린 것 + 오늘로 14일째가 된 것(판정 확정)
   // o.days: 보드는 최근 7일을 보여 줌(메일은 어제, 월요일은 금~일)
   function build(D, o) {
-    var U = D.updated, B = bases(D), wd = new Date(day(U)).getUTCDay(), back = (o && o.days) || (wd === 1 ? 3 : 1);
+    var U = D.updated, B = bases(D), P = speedPool(D), wd = new Date(day(U)).getUTCDay(), back = (o && o.days) || (wd === 1 ? 3 : 1);
     var mine = D.items.filter(function (it) { return OWN.indexOf(it.c) >= 0 && live(it); });
-    var yest = mine.filter(function (it) { var a = age(it.d, U); return a >= 1 && a <= back; }).sort(function (a, b) { return a.d < b.d ? -1 : 1; }).map(function (it) { return judge(D, B, it); });
+    var yest = mine.filter(function (it) { var a = age(it.d, U); return a >= 1 && a <= back; }).sort(function (a, b) { return a.d < b.d ? -1 : 1; }).map(function (it) { return judge(D, B, it, P); });
     var done = mine.filter(function (it) { return age(it.d, U) === 14 || (back > 1 && age(it.d, U) >= 14 && age(it.d, U) <= 16); }).map(function (it) { return judge(D, B, it); });
-    return { at: U, from: addD(U, -back), yest: yest, done: done, g: groups(D), kpi: kpi(D), fx: fx, pc: pc, pc2: pc2 };
+    return { at: U, from: addD(U, -back), yest: yest, done: done, g: groups(D), kpi: kpi(D), fx: fx, pc: pc, pc2: pc2, SP_H: SP_H };
   }
   return { build: build, featOf: featOf, FEAT: FEAT, MIN_N: MIN_N };
 })();

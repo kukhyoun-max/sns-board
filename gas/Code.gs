@@ -1724,6 +1724,7 @@ function buildDashboardData_() {
   try { coMark_(ss, list); } catch (e) {}
   try { arcMark_(ss, list); } catch (e) {}
   try { aiMark_(list); } catch (e) {}
+  try { const SP = loadSpeed_(ss); list.forEach(it => { const s = it.u && SP[it.u]; if (s) it.sp = s; }); } catch (e) {}
 
   return {
     updated: dates[dates.length - 1] || '',
@@ -5857,6 +5858,14 @@ function morningHtml_(A, note) {
   let h = '<div style="font-family:Apple SD Gothic Neo,Malgun Gothic,sans-serif;color:#191f28;max-width:640px;font-size:14px;line-height:1.6">';
   h += '<p style="color:#4e5968;font-size:13px;margin:0">숫자 규칙으로만 판정했어요(사진·말투는 안 봄). 기준 = 같은 채널·형식 최근 1년 평소, 올린 지 14일 전이면 「아직 느는 중」</p>';
   if (A.yest.length) h += sec(A.from === addDays_(A.at, -1) ? '어제 올린 게시물' : A.from.slice(5).replace('-', '/') + '부터 올린 게시물', '<table style="width:100%;border-collapse:collapse">' + A.yest.map(row).join('') + '</table>');
+  // 조회 속도(2026-11-09): 판정한 게시물의 올린 지 1·3·6·24시간 조회 = 같은 채널·형식 평소 대비 · 기록된 것 중 순위
+  const spd = A.yest.filter(x => x.sp && x.sp.all.some(s => s.vr != null));
+  if (spd.length) {
+    const sc = s => s ? '<td style="text-align:right;padding:6px 0 6px 8px;white-space:nowrap;font-weight:700;color:' + (s.vr == null ? '#8b95a1' : s.vr >= 1.15 ? '#1e7a4c' : s.vr < 0.85 ? '#c0392b' : '#4e5968') + '">' + (s.vr == null ? '–' : briefRatioText_(s.vr)) + '<div style="font-size:11px;font-weight:400;color:#8b95a1">' + s.rank + '위/' + s.n + '</div></td>' : '<td style="text-align:right;padding:6px 0 6px 8px;color:#8b95a1">–</td>';
+    h += sec('조회 속도', '<table style="width:100%;border-collapse:collapse;font-size:13px"><tr style="color:#8b95a1;font-size:12px"><td>올린 뒤 조회 · 같은 형식 평소 대비</td>' + A.SP_H.map(t => '<td style="text-align:right;padding-left:8px">' + t + '시간</td>').join('') + '</tr>'
+      + spd.map(x => '<tr style="border-top:1px solid #eee"><td style="padding:6px 0">' + e(x.title.slice(0, 22)) + '<div style="font-size:11px;color:#8b95a1">' + e((CH[x.c] || [x.c])[0]) + ' · ' + e(x.t) + '</div></td>' + A.SP_H.map(t => sc(x.sp.all.filter(s => s.h === t)[0])).join('') + '</tr>').join('')
+      + '</table><div style="color:#8b95a1;font-size:12px">「게시물 시간별」 기록(10/20~) 기준 · 순위 = 같은 채널·형식 중 조회 순위 · 캐러셀 조회는 장 넘김까지 세요</div>');
+  }
   if (A.done.length) h += sec('오늘 판정 확정(올린 지 14일)', '<table style="width:100%;border-collapse:collapse">' + A.done.map(row).join('') + '</table>');
   h += sec('인스타 최근 90일 신호', '<div>공유 ÷ 도달 <b>' + A.pc2(K.share) + '</b>(목표 1.0%)' + ok(K.share, K.target.share) + ' · 캐러셀 저장 ÷ 도달 <b>' + A.pc2(K.save) + '</b>(목표 0.3%)' + ok(K.save, K.target.save) + '</div><div>공지·소식 비율 ' + A.pc(K.notice) + ' · 릴스 ' + K.reels + '개(작년 같은 90일 ' + K.reelsLy + '개) · 도달 중앙값 ' + (K.reach || 0).toLocaleString() + '명(작년 ' + (K.reachLy || 0).toLocaleString() + '명)</div>');
   const G = A.g, gr = g => '<tr><td style="padding:4px 8px 4px 0">' + e(g.k) + '</td><td style="text-align:right;padding:4px 8px">' + g.n + '</td><td style="text-align:right;padding:4px 8px">' + A.pc2(g.s) + '</td><td style="text-align:right;padding:4px 8px">' + A.pc2(g.sv) + '</td><td style="padding:4px 0 4px 8px">' + e(g.vd) + '</td></tr>';
@@ -6363,6 +6372,25 @@ function postHourly_(ss) {
   sh.getRange(at, 3, rows.length, 1).setNumberFormat('@'); // 인스타 게시물 ID는 17자리 넘어 숫자로 바뀌면 끝자리가 틀어짐
   sh.getRange(at, 1, rows.length, HOURLY_HEAD.length).setValues(rows);
   return rows.length;
+}
+// 조회 속도(2026-11-09 담당자 「조회수 속도에 대한 분석도 콘텐츠 분석에」): 「게시물 시간별」에서 올린 지 1·3·6·24시간에 가장 가까운 기록
+// → 보드 응답 it.sp = [[경과(시간), 조회, 도달] | null × 4]. 게시물 ID(미디어 ID)는 「게시물 일별」의 미디어 ID → 주소로 게시물에 붙임(인스타·hong)
+// 시간별 기록은 2026-10-20부터·올린 날과 다음 날만 쌓이므로 그 전 게시물은 sp가 없음. 판정은 src/ana.js(매일 분석·아침 메일)
+const SPEED_H = [1, 3, 6, 24], SPEED_TOL = [0.5, 0.75, 1, 2];
+function loadSpeed_(ss) {
+  const out = {}, hs = ss.getSheetByName(HOURLY_SHEET), ps = ss.getSheetByName(PDAY_SHEET);
+  if (!hs || hs.getLastRow() < 2 || !ps || ps.getLastRow() < 2) return out;
+  const url = {};
+  ps.getRange(2, 11, ps.getLastRow() - 1, 2).getDisplayValues().forEach(r => { if (r[0] && r[1]) url[String(r[0])] = r[1]; });
+  const num = v => { const x = Number(String(v).replace(/,/g, '')); return v === '' || isNaN(x) ? null : x; };
+  hs.getRange(2, 1, hs.getLastRow() - 1, HOURLY_HEAD.length).getDisplayValues().forEach(r => {
+    const u = url[String(r[2])], h = num(r[5]), v = num(r[6]);
+    if (!u || h == null || v == null || h < 0) return;
+    const s = out[u] = out[u] || [null, null, null, null];
+    SPEED_H.forEach((t, j) => { const d = Math.abs(h - t); if (d <= SPEED_TOL[j] && (!s[j] || d <= Math.abs(s[j][0] - t))) s[j] = [h, v, num(r[11])]; });
+  });
+  Object.keys(out).forEach(u => { if (!out[u].some(Boolean)) delete out[u]; });
+  return out;
 }
 // 오늘 게시물의 시간별 [경과(시간), 조회] · 지난 게시물로 만든 평소 {채널|형식|경과 시간(반올림): 조회 중간값}(게시물 3개 이상)
 // 같은 게시물이 한 시간 칸에 두 번 기록되면(이어서 실행 등) 마지막 값 하나만 셈(2026-10-27, 줄 수가 아니라 게시물 수로 3개)
