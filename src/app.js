@@ -422,13 +422,16 @@
     const vAt = (it, i) => { if (i == null || i < 0) return 0; for (let k = i; k >= 0; k--) { const h = it.h[k]; if (h && h[mainM(it.c)] != null) return h[mainM(it.c)]; } return 0; };
     // 7일 전 기록이 없는 예전 게시물은 뺌(기록 전 값을 0으로 보면 누적 조회 전체가 「늘어난 조회」가 됨)
     const has0 = it => i0 != null && it.h[i0] && it.h[i0][mainM(it.c)] != null;
-    const top = P.filter(it => it.h && (it.d > s7 || has0(it))).map(it => ({ it, g: vAt(it, D.dates.length - 1) - (it.d > s7 ? 0 : vAt(it, i0)) })).filter(x => x.g > 0).sort((a, b) => b.g - a.g).slice(0, 5);
+    const top = P.filter(it => it.h && (it.d > s7 || has0(it))).map(it => ({ it, g: vAt(it, D.dates.length - 1) - (it.d > s7 ? 0 : vAt(it, i0)) })).filter(x => x.g > 0).sort((a, b) => b.g - a.g);
+    // 좋아요·댓글·공유·저장도 같은 방법으로 7일 늘어난 값(2026-11-09 「최근 게시물에 있는 기능 목록」을 여기로)
+    const jAt = (it, i, j) => { if (i == null || i < 0) return 0; for (let k = i; k >= 0; k--) { const h = it.h[k]; if (h && h[j] != null) return h[j]; } return 0; };
+    const gain = (it, j) => jAt(it, D.dates.length - 1, j) - (it.d > s7 ? 0 : jAt(it, i0, j));
     // 인스타 공유율(2026-11-08 「전체 메인에 팔로워가 맞나」 → 관찰 지표 대신 KPI): 전략 KPI와 같은 정의 = 게시물마다 공유 ÷ 도달(도달 300 이상, 이벤트 뺌)의 중간값, 목표 1.0%
     // 지난 7일 올린 게시물 vs 그 앞 7일 올린 게시물. 막 올린 게시물도 공유·도달이 함께 늘어 비율은 크게 안 흔들림
     const igS = chs.includes('인스타그램') ? P.filter(it => it.c === '인스타그램' && it.tg !== '이벤트') : [];
     const sRows = igS.filter(it => it.d > s7 && it.d <= end).map(it => ({ it, d: it.d, v: k7Rate(it, 3) })).filter(x => x.v != null).sort((a, b) => a.d < b.d ? -1 : 1);
     const sCur = median(sRows.map(x => x.v)), sPrev = median(igS.filter(it => it.d > s14 && it.d <= s7).map(it => k7Rate(it, 3)));
-    return { okc, cur, vCur, vPrev, share, fNow, fWas, fDays, fc, posts, avg8, nDays, top, P, sRows, sCur, sPrev, sOn: S.ch === '전체' && igS.length > 0 };
+    return { okc, cur, vCur, vPrev, share, fNow, fWas, fDays, fc, posts, avg8, nDays, top, gain, P, sRows, sCur, sPrev, sOn: S.ch === '전체' && igS.length > 0 };
   }
   function ovHtml(chs) {
     if (!chs.some(c => OWN.includes(c))) return '';
@@ -463,10 +466,10 @@
       (stk ? '<div class="ov-sh ov-sh-in" role="img" aria-label="' + esc('지난 7일 조회 증가 채널별 비중: ' + M.share.map(x => chName(x.c) + ' ' + pct0(x.v / tot)).join(', ')) + '">' + M.share.filter(x => x.v > 0).map(x => '<i style="width:' + (x.v / tot * 100).toFixed(1) + '%;background:' + chColor(x.c) + '" title="' + esc(chName(x.c) + ' ' + pct0(x.v / tot)) + '"></i>').join('') + '</div>' : '') +
       (stk ? '<div class="ov-lg ov-lg-in">' + M.share.map(x => '<div><i style="background:' + chColor(x.c) + '"></i><span>' + esc(chName(x.c)) + '</span><b class="num">' + fmtM(x.v) + '</b><span class="mu">' + pct0(x.v / tot) + '</span></div>').join('') + '</div>' : '') +
       '<p class="note">' + (m === 'v' ? '하루에 늘어난 조회' + (stk ? ' · 색 = 채널' : '') + (B.some(x => x.wide) ? ' · 연한 막대는 그 사이 기록이 없어 며칠을 합친 값' : '') : m === 's' ? '목표 ' + pctA(KPI_D20.share) + ' 넘은 게시물 ' + B.filter(x => x.v >= KPI_D20.share).length + '/' + B.length + '개 · 게시물마다 공유 ÷ 도달, 도달 300 이상·이벤트 뺌' : m === 'f' ? '하루 팔로워 증감 · ' + esc(M.fc.map(chName).join('·')) : '날짜별 올린 게시물 수') + '</p>' : '<p class="note">이 기간 기록이 아직 없어요</p>';
-    window.__ovTop = M.top.map(x => x.it);
-    const top = M.top.length ? '<div class="ov-sec"><div class="hm-h"><h2>이 기간 인기 콘텐츠</h2><span>지난 7일 늘어난 조회 순</span></div><ol class="hm-list ov-top" id="ovTop">' +
-      M.top.map((x, i) => hmRow({ tag: 'li', cls: 'hm-rk', attr: 'tabindex="0" data-i="' + i + '"', thumb: ovImg(x.it, 'hm-th ov-th', i + 1), c: x.it.c, t: esc(title(x.it.n)), v: '+' + fmtK(x.g), vc: '',
-        m: [esc(typeShort(x.it.t) || ''), whenTxt(x.it.d)].filter(Boolean).join(' · '), r: mName(x.it) + ' ' + fmtK(mainVal(x.it)) })).join('') + '</ol></div>' : '';
+    const TT = ovTopRows(M);
+    window.__ovTop = TT.L.map(x => x.it);
+    const top = M.top.length || M.posts.length ? '<div class="ov-sec"><div class="hm-h"><h2>이 기간 인기 콘텐츠</h2>' + raceSel(TT.m) + '</div><p class="hm-note">' + TT.note + '</p><ol class="hm-list ov-top" id="ovTop">' +
+      TT.L.map((x, i) => hmRow(Object.assign({ tag: 'li', cls: 'hm-rk', attr: 'tabindex="0" data-i="' + i + '"', thumb: ovImg(x.it, 'hm-th ov-th', i + 1), c: x.it.c, t: esc(title(x.it.n)), vc: '' }, x.row))).join('') + (TT.L.length ? '' : hmRow({ tag: 'li', t: '지난 7일 ' + (TT.m === 'reach' ? '도달 자료가 있는 게시물이' : TT.m === 'kpi' ? '올린 게시물이' : '늘어난 값이') + ' 없어요' })) + '</ol></div>' : '';
     // 프로필에 보이는 대로: 보관한 것은 빼고, hong이 올리고 우리와 공동작업한 것은 넣음(우리 /media 목록엔 없음, 합계엔 안 더함, 2026-11-05)
     const igs = chs.includes('인스타그램') ? M.P.filter(it => it.c === '인스타그램' && it.u && !it.arc).concat(D.items.filter(it => it.c === 'hong._.video' && it.u && !it.arc && String(it.co || '').split(', ').includes('jjuniv'))).sort((a, b) => a.d < b.d ? 1 : -1).slice(0, 6) : [];
     window.__ovIg = igs;
@@ -474,7 +477,30 @@
       igs.map((it, i) => '<button type="button" class="hm-rk" data-i="' + i + '" aria-label="' + esc(title(it.n)) + ' 조회 ' + fmtK(mainVal(it)) + '">' + ovImg(it, 'ov-gi') + '<em class="num">' + fmtK(mainVal(it)) + '</em></button>').join('') + '</div></div>' : '';
     return '<section class="sec ov"><h2 class="ov-lead">' + lead + '</h2>' + (sub ? '<p class="ov-sub">' + sub + '</p>' : '') + tabs + bars + top + grid + '</section>';
   }
+  // 「이 기간 인기 콘텐츠」 고르기(2026-11-09 담당자 「최근 게시물에 있는 기능 목록 누르고 선택한 데이터값이랑 순위」)
+  // 조회·좋아요·댓글·공유·저장 = 지난 7일 늘어난 값 순(예전 게시물 포함). 도달·KPI = 누적·비율이라 예전 게시물이 위를 다 차지해서(25년 hong 릴스 도달 223만 등) 지난 7일 올린 게시물만
+  function ovTopRows(M) {
+    const m = S.raceM === 'kpi' || RACE_M.some(x => x[0] === S.raceM) ? S.raceM : 'v', C = M.top.map(x => x.it), R = M.posts.filter(it => OWN.includes(it.c)), N = 5;
+    const typ = it => [esc(typeShort(it.t) || ''), whenTxt(it.d)].filter(Boolean).join(' · ');
+    if (m === 'v') return { m, note: '지난 7일 늘어난 조회 순', L: M.top.slice(0, N).map(x => ({ it: x.it, row: { v: '+' + fmtK(x.g), m: typ(x.it), r: mName(x.it) + ' ' + fmtK(mainVal(x.it)) } })) };
+    if (m === 'reach') return { m, note: '지난 7일 올린 게시물 도달 순',
+      L: R.filter(it => it.r > 0).sort((a, b) => b.r - a.r).slice(0, N).map(it => ({ it, row: { v: '도달 ' + fmtK(it.r), m: typ(it), r: mName(it) + ' ' + fmtK(mainVal(it)) } })) };
+    if (m === 'kpi') {
+      const { y1: yr, own } = k7Ctx(), ytB = median(own.filter(it => it.c === '유튜브' && it.t !== '1분 이하' && it.d >= yr && !young(it)).map(mainVal));
+      const K = new Map(R.map(it => [it, kpiOf(it, ytB)])), g = it => K.get(it).g == null ? -1 : K.get(it).g;
+      return { m, note: '지난 7일 올린 게시물 · 인스타·hong 공유율 · 롱폼 평소 · 쇼츠 시청 비율 · 목표 대비 높은 순',
+        L: R.slice().sort((a, b) => g(b) - g(a) || mainVal(b) - mainVal(a)).slice(0, N).map(it => { const k = K.get(it); return { it, row: { tip: k.tip, v: k.v || k.na, vc: k.v ? (k.ok ? 'up' : 'down') : 'mu', m: typ(it) + (k.sub ? ' · ' + k.sub : ''), r: k.v ? '<b class="' + (k.ok ? 'up' : 'mu') + '">' + k.goal + '</b>' : mName(it) + ' ' + fmtK(mainVal(it)) } }; }) };
+    }
+    // 좋아요·댓글·공유·저장: 이벤트는 참여 조건이라 맨 아래
+    const e = RACE_M.find(x => x[0] === m), j = e[2], ev = it => raceEv(it) ? 1 : 0, cur = it => (last(it) || [])[j];
+    const L = C.map(it => ({ it, g: M.gain(it, j) })).filter(x => x.g > 0).sort((a, b) => ev(a.it) - ev(b.it) || b.g - a.g).slice(0, N);
+    return { m, note: '지난 7일 늘어난 ' + e[1] + ' 순' + (L.some(x => ev(x.it)) ? ' · 이벤트는 아래' : ''),
+      L: L.map(x => ({ it: x.it, row: { v: '+' + fmtK(x.g), vc: ev(x.it) ? 'mu' : '', m: typ(x.it) + (ev(x.it) ? ' · 이벤트' : ''), r: e[1] + ' ' + fmtK(cur(x.it) || 0) } })) };
+  }
   function wireOv(chs) {
+    const ms = $('raceM');
+    // 새 고르기에 focus를 주지 않음(아이폰은 focus만으로 선택 목록이 다시 열림)
+    if (ms) ms.addEventListener('change', () => { S.raceM = ms.value; save(); const box = $('ov'); if (box) { box.innerHTML = ovHtml(chs); wireOv(chs); } });
     const box = $('ov'); if (!box) return;
     box.querySelectorAll('.ov-t').forEach(b => b.addEventListener('click', () => { S.ovM = b.dataset.m; save(); box.innerHTML = ovHtml(chs); wireOv(chs); }));
     wireRank($('ovTop'), window.__ovTop || []); wireRank($('ovGrid'), window.__ovIg || []);
@@ -800,7 +826,7 @@
     const w = calWeek(chs), dn = daysBetween(w.mon, w.end) + 1;
     return '<section class="sec top-sec"><div class="sh"><div><h2>' + (S.ch === '전체' ? '이번 주 한눈에' : chName(S.ch) + ' 이번 주') + '</h2><p>' + md2(w.mon) + '~' + md2(addDays(w.mon, 6)) + ', 지난주 같은 요일까지와 비교</p></div>' +
       '<div class="top-act"><button type="button" class="btn sm" id="repCopy"><svg viewBox="0 0 20 20" width="16" height="16" aria-hidden="true"><path d="M7 7h9v9H7zM4 13V4h9" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>주간 보고 복사</button><button type="button" class="btn sm" id="repPrint"><svg viewBox="0 0 20 20" width="16" height="16" aria-hidden="true"><path d="M6 8V3h8v5M6 14H4V8h12v6h-2M6 11h8v6H6z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>인쇄·PDF</button></div></div>' +
-      calKpiHtml(chs, w) + raceHtml(chs, w) + '</section>';
+      calKpiHtml(chs, w) + '</section>';
   }
   // ───── 달력 주 ─────
   const wdOf = d => new Date(d + 'T00:00:00Z').getUTCDay();
@@ -964,31 +990,7 @@
   // 조회 = 올린 지 같은 날 평소와(paceOf). 도달 = 조회 비교에 「조회 대비 도달」이 평소보다 많고 적은 만큼을 곱해 짐작.
   // 좋아요·댓글·공유·저장 = 도달(유튜브는 조회) 대비 비율을 같은 형식 평소 비율과 비교(비율이라 올린 지 며칠이어도 견줄 수 있음)
   const RACE_M = [['v', '조회'], ['reach', '도달'], ['l', '좋아요', 1], ['cm', '댓글', 2], ['sh', '공유', 3], ['sv', '저장', 4]];
-  const RCB = {}, RACE_CNT = 5; // 비율로 줄 세울 최소 개수(2026-11-09)
   const raceEv = it => it.tg === '이벤트' || /이벤트|EVENT|추첨|당첨|응모/i.test(it.n || '');
-  const rcDen = it => { const v = last(it); if (!v) return null; return it.c === '유튜브' ? (v[0] >= 100 ? v[0] : null) : (it.r >= 300 ? it.r : null); };
-  const rcRate = (it, j) => { const v = last(it), d = rcDen(it); return !v || !d || v[j] == null ? null : v[j] / d; };
-  const rcRv = it => { const v = last(it); return v && v[0] > 0 && it.r > 0 ? it.r / v[0] : null; }; // 조회 대비 도달
-  function rcBase(it, k, fn) {
-    const key = it.c + '|' + it.t + '|' + k;
-    if (!(key in RCB)) {
-      const pk = g => D.items.filter(x => x.c === it.c && !x.ad && !x.hid && x.t !== '스토리' && !young(x) && x.d >= addDays(D.updated, -365) && g(x)).map(fn).filter(v => v != null);
-      let a = pk(x => x.t === it.t); if (a.length < BASE_T_MIN) a = pk(() => true);
-      RCB[key] = a.length >= MIN_N ? median(a) : null;
-    }
-    return RCB[key];
-  }
-  function raceVal(it, m) {
-    const v = last(it);
-    if (m === 'v') { const p = paceOf(it); return { n: mainVal(it), r: p ? p.r : null, tip: p ? paceTip(p) + (p.base ? ' · 다 자란 평소 게시물과 비교' : p.b.mixed ? ' · 같은 형식이 적어 채널 전체와 비교' : '') : '' }; }
-    if (m === 'reach') {
-      if (!(it.r > 0)) return { n: null, r: null, tip: '이 채널은 도달 자료가 없어요' };
-      const p = paceOf(it), rv = rcRv(it), b = rv == null ? null : rcBase(it, 'rv', rcRv), old = !young(it), r = old ? reachRatio(it) : p && !p.base && b ? p.r * rv / b : null;
-      return { n: it.r, r, tip: r == null ? '비교할 평소 자료가 아직 적어요' : old ? '같은 형식 최근 1년 도달 중간값 대비' : '올린 지 같은 날 조회 평소 대비에 「조회 대비 도달」(평소 ' + pctA(b) + ', 이 게시물 ' + pctA(rv) + ')을 곱해 짐작' };
-    }
-    const j = RACE_M.find(x => x[0] === m)[2], n = v ? v[j] : null, rt = rcRate(it, j), b = rt == null ? null : rcBase(it, m, x => rcRate(x, j)), dn = it.c === '유튜브' ? '조회' : '도달';
-    return { n, rt, r: b ? rt / b : null, tip: rt == null ? (n == null ? '이 채널은 자료가 없어요' : dn + '가 적어 비율을 아직 안 봐요') : dn + ' 대비 ' + pctA(rt) + (b ? ' · 같은 형식 평소 ' + pctA(b) : ' · 같은 형식 게시물이 적어 비교 전') };
-  }
   // 2026-11-08 담당자 「수치만 보여주고, KPI 모드를 누르면 KPI 데이터」: 게시물 하나의 KPI 값(전략 KPI 7개와 같은 정의)
   // 인스타 = 공유율(공유 ÷ 도달, 도달 300 이상·이벤트 뺌, 목표 1.0%) + 캐러셀은 저장률(목표 0.3%) · 유튜브 롱폼 = 조회 ÷ 채널 롱폼 1년 중간값(목표 평소) + 3~10분은 시청 비율(목표 25%) · hong = 공유율(1.3%) · 쇼츠 = 시청 비율(70%)(2026-11-08)
   function kpiOf(it, ytB) {
@@ -1021,74 +1023,11 @@
     }
     return { na: 'KPI 없음', tip: '이 형식은 KPI가 없어요' };
   }
-  function raceHtml(chs, w) {
-    window.__raceArgs = [chs, w];
-    if (S.raceM === 'kpi') return raceKpi(chs, w);
-    const m = RACE_M.some(x => x[0] === S.raceM) ? S.raceM : 'v', mn = RACE_M.find(x => x[0] === m)[1];
-    const all = D.items.filter(it => chs.includes(it.c) && OWN.includes(it.c) && it.t !== '스토리' && (S.ads || !it.ad)).sort((a, b) => a.d < b.d ? 1 : a.d > b.d ? -1 : 0);
-    // 어제·오늘 올린 건 위 「오늘」 목록에 있어 뺌(점검 7번: 홈에 같은 게시물이 세 번 나옴)
-    const kst = new Date(Date.now() + 9 * 3600000).toISOString().slice(0, 10), y1 = addDays(kst, -1), cut = it => it.d < y1;
-    const wk = w ? all.filter(it => it.d >= w.mon && cut(it)) : [];
-    // 2026-11-08 「1」: 비율 지표(좋아요·댓글·공유·저장)는 오른쪽 위를 횟수 대신 비율로. 같은 날 「수치만 보여주고」로 평소 대비 줄은 빼고 순서도 보이는 값 큰 순
-    // 2026-11-09 담당자 「평균의 함정 같은 오류」 → 추천 1~4: ① 비율은 개수 RACE_CNT개 미만이면 「적음」(댓글 1개로 0.19% 2위가 되던 것) ② 이벤트는 맨 아래(댓글·공유가 참여 조건)
-    // ③ 비율 순서 = 같은 채널·형식 평소 대비(인스타 ÷ 도달·유튜브 ÷ 조회, hong 평소가 달라 값끼리 줄 세우면 틀림), 보이는 값은 비율 그대로 ④ 댓글은 대부분 0~몇 개라 비율 대신 개수
-    // 2026-11-09 담당자 「공유율이 아니고 데이터(수치)를 보여주기로 했던 거, 나머지도 마찬가지」: 좋아요·공유·저장도 횟수 그대로·횟수 큰 순.
-    // 비율·평소 대비는 마우스 올림(tip)에만, 비율로 보는 건 KPI 모드. 이벤트는 참여 조건이라 계속 아래(②)
-    const isRt = false, RT_N = { l: '좋아요율', sh: '공유율', sv: '저장률' }[m], evM = ['l', 'cm', 'sh', 'sv'].includes(m);
-    const QV = new Map(), qOf = it => { if (!QV.has(it)) QV.set(it, raceVal(it, m)); return QV.get(it); };
-    const tier = it => evM && raceEv(it) ? 2 : 0;
-    const rk = it => { const q = qOf(it); return q.n == null ? -1 : q.n; };
-    const byV = X => X.slice().sort((a, b) => tier(a) - tier(b) || rk(b) - rk(a) || (qOf(b).n || 0) - (qOf(a).n || 0));
-    const L = wk.length ? byV(wk).slice(0, 8) : byV(all.filter(it => cut(it) && daysBetween(it.d, D.updated) <= 14)).slice(0, 4);
-    window.__race = L;
-    if (!L.length) return '';
-    // 홈 시안 2 모양: hmRow 한 줄(윗줄 제목 + 평소 대비, 아랫줄 채널 · 올린 날 + 고른 값). 판정 단계(낮음·잘 됨…)와 비교 기준은 마우스를 올리면
-    const sel = raceSel(m);
-    // 2026-11-08 담당자 「수치만 보여주고」: 오른쪽 아래 평소 대비를 빼고 고른 값만. 평소 비교는 KPI 모드에서
-    const how = evM ? '이벤트는 아래 · 비율은 KPI에서<br>' : '';
-    return '<div class="race hm-rx"><div class="hm-h"><h3>' + (wk.length ? '이번 주 올린 게시물' : '최근 게시물') + '</h3>' + sel + '</div><p class="hm-note">' + how + '어제·오늘 올린 건 맨 위 오늘 칸에 있어요</p><ol class="hm-list">' + L.map((it, i) => {
-      const q = qOf(it), t = tier(it), few = t === 1 && q.n != null;
-      const tip = (q.rt != null && RT_N ? RT_N + ' ' + pctA(q.rt) + (q.r != null ? ' · 평소 ' + vsTxt(q.r) : '') : '') + (t === 2 ? ' · 이벤트라 순위에서 뺐어요' : '');
-      return hmRow({ tag: 'li', attr: 'data-r="' + i + '" tabindex="0" role="button" aria-label="' + esc(title(it.n)) + ' 상세 보기"', tip, thumb: ovImg(it, 'hm-th ov-th', i + 1), c: it.c, t: esc(title(it.n)), // 2026-11-08 「여기도 썸네일」
-        v: isRt && q.rt != null && !few ? RT_N + ' ' + pctA(q.rt) : q.n == null ? '자료 없음' : mn + ' ' + fmtK(q.n), vc: q.n == null || t ? 'mu' : '',
-        // 아랫줄 = 올린 때 · 조회(2026-11-09 횟수로 되돌리며 평소 대비 줄은 다시 뺌)
-        m: whenTxt(it.d) + (t === 2 ? ' · 이벤트' : few ? ' · 개수 적음' : isRt && q.r != null ? ' · ' + vsTxt(q.r) : '') + (m !== 'v' && !(isRt && !t && q.r != null) ? ' · 조회 ' + fmtK(mainVal(it)) : '') });
-    }).join('') + '</ol></div>';
-  }
+  // 2026-11-09 담당자 「최근 게시물은 없애고」 → 고르기 목록은 홈 「이 기간 인기 콘텐츠」(ovTopRows)로 옮김
   const raceSel = m => '<label class="race-m"><select id="raceM" aria-label="볼 값 고르기">' + RACE_M.map(x => '<option value="' + x[0] + '"' + (x[0] === m ? ' selected' : '') + '>' + x[1] + '</option>').join('') + '<option value="kpi"' + (m === 'kpi' ? ' selected' : '') + '>KPI</option></select></label>';
-  // KPI 모드: 오른쪽 위 = 그 게시물의 KPI 값(목표 넘으면 파랑, 아래면 주황), 오른쪽 아래 = 목표까지 남은 만큼, 순서 = 목표 대비 높은 순(KPI 없는 게시물은 맨 아래)
-  function raceKpi(chs, w) {
-    const all = D.items.filter(it => chs.includes(it.c) && OWN.includes(it.c) && it.t !== '스토리' && (S.ads || !it.ad)).sort((a, b) => a.d < b.d ? 1 : a.d > b.d ? -1 : 0);
-    const kst = new Date(Date.now() + 9 * 3600000).toISOString().slice(0, 10), y1 = addDays(kst, -1), cut = it => it.d < y1;
-    const wk = w ? all.filter(it => it.d >= w.mon && cut(it)) : [];
-    const { y1: yr, own } = k7Ctx(), ytB = median(own.filter(it => it.c === '유튜브' && it.t !== '1분 이하' && it.d >= yr && !young(it)).map(mainVal));
-    const K = new Map(), kOf = it => { if (!K.has(it)) K.set(it, kpiOf(it, ytB)); return K.get(it); };
-    const byK = X => X.slice().sort((a, b) => (kOf(b).g == null ? -1 : kOf(b).g) - (kOf(a).g == null ? -1 : kOf(a).g) || (mainVal(b) || 0) - (mainVal(a) || 0));
-    const L = wk.length ? byK(wk).slice(0, 8) : byK(all.filter(it => cut(it) && daysBetween(it.d, D.updated) <= 14)).slice(0, 4);
-    window.__race = L;
-    if (!L.length) return '';
-    return '<div class="race hm-rx"><div class="hm-h"><h3>' + (wk.length ? '이번 주 올린 게시물' : '최근 게시물') + '</h3>' + raceSel('kpi') + '</div><p class="hm-note">인스타·hong 공유율 · 롱폼 평소 · 쇼츠 시청 비율<br>목표 대비 높은 순</p><ol class="hm-list">' + L.map((it, i) => {
-      const k = kOf(it);
-      return hmRow({ tag: 'li', attr: 'data-r="' + i + '" tabindex="0" role="button" aria-label="' + esc(title(it.n)) + ' 상세 보기"', tip: k.tip, thumb: ovImg(it, 'hm-th ov-th', i + 1), c: it.c, t: esc(title(it.n)),
-        v: k.v || k.na, vc: k.v ? (k.ok ? 'up' : 'down') : 'mu',
-        m: whenTxt(it.d) + (k.sub ? ' · ' + k.sub : ' · 조회 ' + fmtK(mainVal(it))),
-        r: k.v ? '<b class="' + (k.ok ? 'up' : 'mu') + '">' + k.goal + '</b>' : '' });
-    }).join('') + '</ol></div>';
-  }
   // 판정 단계(밤 10시 브리핑 BR_TIER와 같은 기준): 평소의 0.7배 미만 낮음 · 1.3배 미만 평소 수준 · 2배 잘 됨 · 5배 아주 잘 됨 · 그 이상 대박
   const tierOf = r => r < 0.7 ? ['낮음', 'lo'] : r < 1.3 ? ['평소 수준', 'mid'] : r < 2 ? ['잘 됨', 'hi'] : r < 5 ? ['아주 잘 됨', 'hi2'] : ['대박', 'hi3'];
-  function wireRace() {
-    const L = window.__race || [], ms = $('raceM');
-    if (ms) ms.addEventListener('change', () => {
-      S.raceM = ms.value; save();
-      const box = ms.closest('.race'), a = window.__raceArgs; if (!box || !a) return;
-      const tmp = document.createElement('div'); tmp.innerHTML = raceHtml(a[0], a[1]); box.replaceWith(tmp.firstChild); wireRace();
-      // 새 고르기에 focus를 주지 않음(아이폰은 focus만으로 선택 목록이 다시 열림)
-    });
-    document.querySelectorAll('.race li[data-r]').forEach(li => { const go = () => openDetail(L[+li.dataset.r]); li.addEventListener('click', go); li.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); go(); } }); });
-  }
   function wireTop(chs) {
-    wireRace();
     document.querySelectorAll('.wa-r[data-wa]').forEach(b => b.addEventListener('click', () => { const it = (window.__attn || [])[+b.dataset.wa]; if (it) openDetail(it); }));
     document.querySelectorAll('.s2-r[data-si]').forEach(b => b.addEventListener('click', () => { const it = (window.__sum || [])[+b.dataset.si]; if (it) openDetail(it); }));
     document.querySelectorAll('.kpi-t[data-kpi]').forEach(b => { const go = () => openKpi(b.dataset.kpi, chs); b.addEventListener('click', go); b.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); go(); } }); });
