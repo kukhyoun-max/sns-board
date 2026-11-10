@@ -2279,22 +2279,44 @@ function ensureTagSheets_(ss) {
   promoteYtTagFixOnce_(ss);
   setExpOnce_(ss);
   markLeftOnce_(ss);
+  rosterAddOnce_(ss);
   tagFixSetOnce_(ss);
 }
 // 담당자가 채팅에서 정한 주제를 「태그 수정」에 한 번 적음(출처 비움 = 사람). 같은 주소 줄이 있으면 B열만 바꿈. 키마다 한 번만
 // 2026-11-08: 정림건축 강연 캐러셀(자동 규칙 「창업」 E13) → 짠중앙 강연 릴스와 같은 「취업·진로·현장실습」 E12
-const TAGFIX_SET = [['https://www.instagram.com/p/DfRq72mkxeb/', 'E12', '2026-11-08 담당자 확인: 기업 실무자 강연(창업 아님)']];
+// 2026-11-10: 축구학과 인터뷰 카드뉴스 — 크레딧 이름이 명단에 없어 근로장학생으로 잡힘 → 제작 「자체 제작」(일반 재학생 섭외, 주제는 그대로)
+// 줄: [주소, 주제 코드(비우면 그대로), 메모, 제작(비우면 그대로)]
+const TAGFIX_SET = [['https://www.instagram.com/p/DfRq72mkxeb/', 'E12', '2026-11-08 담당자 확인: 기업 실무자 강연(창업 아님)'],
+  ['https://www.instagram.com/p/DfhFY-akzCS/', '', '2026-11-10 담당자 확인: 일반 재학생 섭외 인터뷰(근로장학생 아님)', '자체 제작']];
 function tagFixSetOnce_(ss) {
   const p = PropertiesService.getScriptProperties(), sh = ss.getSheetByName(TAGFIX_SHEET);
   if (!sh) return;
-  TAGFIX_SET.forEach(([k, code, memo]) => {
-    const pk = 'TAGFIX_SET_' + k.replace(/\W/g, '').slice(-24) + '_' + code;
+  TAGFIX_SET.forEach(([k, code, memo, prod]) => {
+    const pk = 'TAGFIX_SET_' + k.replace(/\W/g, '').slice(-24) + '_' + (code || '') + (prod ? '_' + prod.replace(/\s/g, '') : '');
     if (p.getProperty(pk)) return;
     const n = sh.getLastRow() - 1, v = n > 0 ? sh.getRange(2, 1, n, 1).getValues() : [];
     const i = v.findIndex(r => String(r[0]).trim() === k);
-    if (i >= 0) { sh.getRange(i + 2, 2).setValue(code); sh.getRange(i + 2, 4).setValue(memo); sh.getRange(i + 2, 8).setValue(''); }
-    else { const at = sh.getLastRow() + 1; sh.getRange(at, 1).setNumberFormat('@'); sh.getRange(at, 1, 1, 8).setValues([[k, code, '', memo, '', '', '', '']]); }
+    if (i >= 0) {
+      if (code) { sh.getRange(i + 2, 2).setValue(code); sh.getRange(i + 2, 8).setValue(''); }
+      if (prod) sh.getRange(i + 2, 3).setValue(prod);
+      sh.getRange(i + 2, 4).setValue(memo);
+    } else { const at = sh.getLastRow() + 1; sh.getRange(at, 1).setNumberFormat('@'); sh.getRange(at, 1, 1, 8).setValues([[k, code || '', prod || '', memo, '', '', '', '']]); }
     p.setProperty(pk, new Date().toISOString());
+  });
+}
+// 「명단」에 사람 한 번 넣기(2026-11-10): 실명이라 git 밖 IdSeed.gs의 rosterAddSeed_()에만 둠. 이름이 이미 있으면 그대로
+function rosterAddOnce_(ss) {
+  if (typeof rosterAddSeed_ !== 'function') return;
+  const sh = ss.getSheetByName(ROSTER_SHEET);
+  if (!sh || sh.getLastRow() < 2) return;
+  const have = sh.getRange(2, 1, sh.getLastRow() - 1, 1).getValues().map(r => String(r[0]).trim());
+  rosterAddSeed_().forEach(row => {
+    if (have.indexOf(row[0]) >= 0) return;
+    // 맨 아래 안내 문구(※) 줄 위에 넣음
+    const last = sh.getLastRow(), note = /^※/.test(String(sh.getRange(last, 1).getValue()));
+    if (note) { sh.insertRowBefore(last); sh.getRange(last, 1, 1, 3).setValues([row]); }
+    else sh.getRange(last + 1, 1, 1, 3).setValues([row]);
+    have.push(row[0]);
   });
 }
 // 나간 홍보대사(2026-10-27): 이름은 실명이라 git 밖 IdSeed.gs의 leftSeed_()에만 둠 → 「명단」 메모에 「활동 끝」을 한 번 적음(이미 있으면 그대로). 앞으로는 메모 칸에 직접 적으면 됨
