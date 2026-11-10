@@ -3643,7 +3643,7 @@
   const peerOf = (it, f) => medOf(D.items.filter(x => x !== it && x.c === it.c && x.t === it.t && !x.ad && x.d >= addDays(D.updated, -365) && x.d <= addDays(D.updated, -AGE_MIN)).map(f));
   // 상세 칸(2026-11-10 「깔끔하게 디자인화」): 회색 칸 = 이름 · 큰 값 · (평소 값 · 평소 대비, 높을수록 좋은 지표만 색)
   // g = 올린 지 14일 전: 다 자란 게시물과 견준 값이라 색 없이 회색(2026-11-10 「각 데이터마다 평균 대비 %」)
-  const tileP = (k, v, p, r, g, inv) => '<div class="kt"><span>' + esc(k) + '</span><b>' + v + '</b>' + (p ? '<small class="' + (g ? 'flat' : r > 0 ? xCls(inv ? 1 / r : r) : 'flat') + '"' + (g ? ' title="올린 지 14일 전이라 아직 모이는 중 · 평소는 다 자란 게시물 값"' : '') + '>평소 ' + p + (r > 0 ? ' · ' + (g ? '지금 ' : '') + dTxt(r - 1, 1) : '') + '</small>' : '') + '</div>';
+  const tileP = (k, v, p, r, g, inv) => '<div class="kt"><span>' + esc(k) + '</span><b>' + v + '</b>' + (p ? '<small class="' + (g ? 'flat' : r > 0 ? xCls(inv ? 1 / r : r) : 'flat') + '"' + (g ? ' title="올린 지 14일 전이라 아직 모이는 중 · 평소는 다 자란 게시물 값"' : '') + '>평소 ' + p + (r > 0 ? ' · ' + (g ? '지금 ' : '') + (r >= 2 ? '▲ ' + fmt(Math.round(r)) + '배' : dTxt(r - 1, 1)) : '') + '</small>' : '') + '</div>';
   // 개수 칸: 같은 채널·형식 1년 중간값(peerOf)과 견줌, 광고는 비교 안 함
   const tileC = (it, k, val, f, fm, g, inv) => { fm = fm || fmt; const p = val == null || it.ad ? null : peerOf(it, f); return tileP(k, val == null ? '–' : fm(val), p == null ? '' : fm(p), val != null && p > 0 ? val / p : null, g == null ? young(it) : g, inv); };
   function wireDeepDetail(it) {
