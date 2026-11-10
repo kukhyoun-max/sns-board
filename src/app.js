@@ -4303,6 +4303,7 @@
   }
   // 성과 진단 문장의 이름(주제·시리즈·제작): 「」 대신 진하게(2026-10-28 담당자 「칸을 치는 게 띄어쓰기도 어색하고 공간도 차지」)
   const nmz = t => esc(t).replace(/「([^」]*)」/g, '<em class="nm">$1</em>');
+  const SIG_OWN = ['반응', '속도', '순위', '시청', '광고', '참고'];
   function signals(it) {
     const out = [];
     const r = ratio(it), base = baseFor(it), v = last(it) || [];
@@ -4327,9 +4328,12 @@
     }
     if (it.c === '유튜브' && covFrom('유튜브') && it.d < covFrom('유튜브')) out.push(['info', '참고', dot(covFrom('유튜브')) + ' 이후 조회만 센 영상이에요.', '그 전 누적 조회는 원본 수집 범위 밖']);
     // 결과·요약 다음은 잘 되는 특징(+)부터(2026-10-31 담당자 「+인 성과 분석을 먼저」) — 평소보다 낮게 끝난 게시물은 약한 특징부터
-    const low = r != null && !young(it) && r < 1, ord = low ? { bad: 0, info: 1, good: 2 } : { good: 0, info: 1, bad: 2 };
+    // 2026-11-10 담당자 「B로 하되 색상이 생긴 거를 우선 순위로, 결과·요약 다음으로」: 「이 게시물」(이 게시물 값) · 「이런 조합은 보통」(같은 특징 과거 게시물) 두 묶음, 묶음 안에서 색 있는 줄 먼저·회색은 끝
+    const low = r != null && !young(it) && r < 1, ord = low ? { bad: 0, good: 1, info: 2 } : { good: 0, bad: 1, info: 2 };
     const head = out.filter(x => x[1] === '결과' || x[1] === '요약'), rest = out.filter(x => !head.includes(x));
-    return head.concat(rest.map((x, i) => [x, i]).sort((a, b) => (ord[a[0][0]] - ord[b[0][0]]) || (a[1] - b[1])).map(x => x[0]));
+    const srt = L => L.map((x, i) => [x, i]).sort((a, b) => (ord[a[0][0]] - ord[b[0][0]]) || (a[1] - b[1])).map(x => x[0]);
+    const mine = srt(rest.filter(x => SIG_OWN.includes(x[1]))), past = srt(rest.filter(x => !SIG_OWN.includes(x[1])));
+    return head.concat(mine.length ? [['hdr', '이 게시물']].concat(mine) : [], past.length ? [['hdr', '이런 조합은 보통', '같은 특징을 가진 과거 게시물의 평소 대비']].concat(past) : []);
   }
   function whyText(it) {
     if (it.ad) {
@@ -4427,8 +4431,8 @@
       deepDetailHtml(it) +
       '<div class="gap"></div><section class="dsec" id="dInfo"><h3 class="dh3">게시물 정보</h3><div class="kinfo">' + metrics.map(m2 => '<div><span>' + esc(m2[0]) + '</span><b>' + esc(m2[1]) + '</b></div>').join('') + '</div></section>' +
       '<div class="gap"></div><section class="dsec why"><div class="lb"><span>' + ICO.spark + ' ' + (it.ad ? '광고 집행 정보' : d == null || young(it) ? '성과 요약' : d >= 0 ? '왜 잘 됐을까?' : '왜 아쉬웠을까?') + '</span><small>' + mdLabel(D.updated) + ' 기준</small></div>' + (wy => typeof wy === 'string' ? '<p>' + esc(wy) + '</p>' : '<dl class="wy">' + wy.map(w => '<div><dt>' + esc(w[0]) + '</dt><dd>' + esc(w[1]) + '</dd></div>').join('') + '</dl>')(whyText(it)) + '</section>' +
-      '<div class="gap"></div><section class="dsec sig" id="dSig"><h3>성과 진단</h3><div class="h">' + (OWN.includes(it.c) ? '우리 과거 게시물·타 대학 게시물과 견준 결과' : '이 학교 과거 게시물과 견준 결과') + '</div>' +
-        signals(it).map(s => '<div class="sg"><span class="k ' + s[0] + '">' + s[1] + '</span><div><b>' + nmz(s[2]) + '</b>' + (s[3] ? '<span>' + nmz(s[3]) + '</span>' : '') + (s[4] || '') + '</div></div>').join('') +
+      '<div class="gap"></div><section class="dsec sig" id="dSig"><h3>성과 진단</h3><div class="h">' + (OWN.includes(it.c) ? '우리 과거 게시물·타 대학 게시물과 견준 결과' : '이 학교 과거 게시물과 견준 결과') + '</div><div class="sg-lg"><span><i class="up"></i>평소 1.2배 이상</span><span><i class="down"></i>0.85배 이하</span><span><i></i>그 사이</span></div>' +
+        signals(it).map(s => s[0] === 'hdr' ? '<div class="sg-hd"><b>' + s[1] + '</b>' + (s[2] ? '<small>' + s[2] + '</small>' : '') + '</div>' : '<div class="sg"><span class="k ' + s[0] + '">' + s[1] + '</span><div><b>' + nmz(s[2]) + '</b>' + (s[3] ? '<span>' + nmz(s[3]) + '</span>' : '') + (s[4] || '') + '</div></div>').join('') +
         '<p class="note">우리 자료는 최근 2년 게시물 중간값이에요 · 타 대학 제목·소재는 2026년 10월 대학·입시 채널 15곳 유튜브 조사 · 함께 나타난 특징이라 원인이라고 단정하진 않아요 · 평균 차이일 뿐 게시물 하나를 맞히는 힘은 약해요(2026-10-23 시간 순서 검증, 인스타 저장률만 형식·분류로 오차 13~20% 줄어요)</p></section>' +
       (String(it.n || '').trim() ? '<div class="gap"></div><section class="dsec"><h3 class="dh3">캡션</h3><p class="caption">' + esc(String(it.n || '').trim()) + '</p></section>' : '') +
       '<div class="gap"></div><section class="dsec" id="dSim"><h3 class="dh3">같은 주제의 다른 콘텐츠</h3>' + simNote + '<ol class="rank" id="dSimList">' + rankRows(sim, { pre: x => it.s && x.s !== it.s ? '<span class="mu" title="' + esc('주제 ' + (x.s || '없음')) + '">다른 주제</span>' : '' }) + '</ol></section>' +
