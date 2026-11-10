@@ -1433,3 +1433,5 @@ img[src*="/oardefault.jpg"]:not(.ok), img[src*="/oar2.jpg"]:not(.ok), img.wt { v
 /* 성과 진단 회색 칸도 칸으로(2026-11-10 「색깔이 없는 애들도 그레이 색상 칸」): --plane이 흰색이라 안 보이던 것 */
 .sg .k.info { background: var(--hm-card); color: var(--sub); box-shadow: none; }
 .sig .sg-lg i { background: var(--hm-card); box-shadow: none; }
+/* 상세 칩 중 색이 없는 것(형식·참여자)도 칸으로(2026-11-10 「이 부분도 칩으로」): --plane이 흰색이라 글자만 보이던 것 */
+.dtags .tag:not([class*=" "]) { background: var(--hm-card); color: var(--sub); }
