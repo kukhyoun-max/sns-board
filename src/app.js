@@ -3643,7 +3643,7 @@
   const peerOf = (it, f) => medOf(D.items.filter(x => x !== it && x.c === it.c && x.t === it.t && !x.ad && x.d >= addDays(D.updated, -365) && x.d <= addDays(D.updated, -AGE_MIN)).map(f));
   // 상세 칸(2026-11-10 「깔끔하게 디자인화」): 회색 칸 = 이름 · 큰 값 · (평소 값 · 평소 대비, 높을수록 좋은 지표만 색)
   // g = 올린 지 14일 전: 다 자란 게시물과 견준 값이라 색 없이 회색(2026-11-10 「각 데이터마다 평균 대비 %」)
-  const tileP = (k, v, p, r, g, inv) => '<div class="kt"><span>' + esc(k) + '</span><b>' + v + '</b>' + (p ? '<small class="' + (g ? 'flat' : r > 0 ? xCls(inv ? 1 / r : r) : 'flat') + '"' + (g ? ' title="올린 지 14일 전이라 아직 모이는 중 · 평소는 다 자란 게시물 값"' : '') + '>평소 ' + p + (r > 0 ? ' · ' + (g ? '지금 ' : '') + (r >= 10 ? '▲' + fmt(Math.round(r)) + '배' : dTxt(r - 1)) : '') + '</small>' : '') + '</div>';
+  const tileP = (k, v, p, r, g, inv) => '<div class="kt"><span>' + esc(k) + '</span><b>' + v + '</b>' + (p ? '<small class="' + (g ? 'flat' : r > 0 ? xCls(inv ? 1 / r : r) : 'flat') + '"' + (g ? ' title="올린 지 14일 전이라 아직 모이는 중 · 평소는 다 자란 게시물 값"' : '') + '>평소 ' + p + (r > 0 ? ' · ' + (g ? '지금 ' : '') + dTxt(r - 1, 1) : '') + '</small>' : '') + '</div>';
   // 개수 칸: 같은 채널·형식 1년 중간값(peerOf)과 견줌, 광고는 비교 안 함
   const tileC = (it, k, val, f, fm, g, inv) => { fm = fm || fmt; const p = val == null || it.ad ? null : peerOf(it, f); return tileP(k, val == null ? '–' : fm(val), p == null ? '' : fm(p), val != null && p > 0 ? val / p : null, g == null ? young(it) : g, inv); };
   function wireDeepDetail(it) {
@@ -4417,9 +4417,9 @@
         '<p class="note" style="text-align:center">' + (detailLine(it) ? '올린 날부터 쌓인 값 ' + MN[m] : '이 콘텐츠 · 같은 분류 · 같은 형식 중간값' + (young(it) ? ' · 중간값은 다 자란 게시물의 최종 조회' : '')) + '</p></section>' +
       '<div class="gap"></div><section class="dsec" id="dMet"><h3 class="dh3">지표</h3><div class="ktg">' + KN.join('') + '</div>' +
         (KR.length ? '<div class="ktg r2">' + KR.map(t => tileP(t[0], esc(t[1]), t[2], t[3])).join('') + '</div>' : '') +
-        (it.ad ? '' : '<p class="note">평소 = 같은 채널·형식 최근 1년 게시물 중간값' + (young(it) ? ' · 올린 지 14일 전이라 개수는 회색, 조회는 같은 날수 평소와 견줘요' : '') + '</p>') +
-        '<div class="kinfo">' + metrics.map(m2 => '<div><span>' + esc(m2[0]) + '</span><b>' + esc(m2[1]) + '</b></div>').join('') + '</div></section>' +
+        (it.ad ? '' : '<p class="note">평소 = 같은 채널·형식 최근 1년 게시물 중간값' + (young(it) ? ' · 올린 지 14일 전이라 개수는 회색, 조회는 같은 날수 평소와 견줘요' : '') + '</p>') + '</section>' +
       deepDetailHtml(it) +
+      '<div class="gap"></div><section class="dsec" id="dInfo"><h3 class="dh3">게시물 정보</h3><div class="kinfo">' + metrics.map(m2 => '<div><span>' + esc(m2[0]) + '</span><b>' + esc(m2[1]) + '</b></div>').join('') + '</div></section>' +
       '<div class="gap"></div><section class="dsec why"><div class="lb"><span>' + ICO.spark + ' ' + (it.ad ? '광고 집행 정보' : d == null || young(it) ? '성과 요약' : d >= 0 ? '왜 잘 됐을까?' : '왜 아쉬웠을까?') + '</span><small>' + mdLabel(D.updated) + ' 기준</small></div><p>' + esc(whyText(it)) + '</p></section>' +
       '<div class="gap"></div><section class="dsec sig" id="dSig"><h3>성과 진단</h3><div class="h">' + (OWN.includes(it.c) ? '우리 과거 게시물·타 대학 게시물과 견준 결과' : '이 학교 과거 게시물과 견준 결과') + '</div>' +
         signals(it).map(s => '<div class="sg"><span class="k ' + s[0] + '">' + s[1] + '</span><div><b>' + nmz(s[2]) + '</b>' + (s[3] ? '<span>' + nmz(s[3]) + '</span>' : '') + (s[4] || '') + '</div></div>').join('') +
@@ -4767,8 +4767,15 @@
       if (!P.length || P[0].x > 0) P.unshift({ x: 0, y: 0, d: p0, s: 1 });
       const span = P[P.length - 1].x, dOf = x => { const t = new Date(p0 + 'T00:00:00Z'); t.setUTCDate(t.getUTCDate() + Math.round(x)); return t.toISOString().slice(0, 10); };
       const gap = P[0].s ? 1 : -1; // 점선으로 그릴 구간(올린 날 → 첫 기록)
-      draw('dCanvas', { type: 'line', data: { datasets: [{ label: MN[m], data: P, parsing: false, borderColor: col, borderWidth: 2, pointRadius: P.length <= 5 ? 3 : 0, pointBackgroundColor: col, pointHoverRadius: 4, cubicInterpolationMode: 'monotone', spanGaps: true, segment: { borderDash: c => c.p1DataIndex === gap ? [4, 4] : undefined } }] },
-        options: chartOpts({ layout: { padding: { top: 12 } }, scales: { x: { type: 'linear', min: 0, max: Math.max(span, 1), ticks: { maxRotation: 0, autoSkip: true, maxTicksLimit: 5, precision: 0, callback: v => (span > 300 ? dot : md2)(dOf(v)) } }, y: { beginAtZero: true, display: true, position: 'right', grid: { color: css('--line') }, border: { display: false }, ticks: { maxTicksLimit: 3, font: { size: 14 }, color: css('--muted'), callback: v => fmt(v) } } }, plugins: { tooltip: { callbacks: { title: c => dot(P[c[0].dataIndex].d) + (P[c[0].dataIndex].s ? ' 올린 날' : ''), label: c => MN[m] + ' ' + fmt(P[c.dataIndex].y) } } } }) });
+      // 2026-11-10 담당자 「오늘 부분은 네모칸, 연한 그레이」: 오늘 점을 가운데 둔 연회색 칸(하루 폭, 기간이 길어 좁으면 40px), 아래에 「오늘」
+      const tX = daysBetween(p0, new Date(Date.now() + 9 * 36e5).toISOString().slice(0, 10)), tOn = tX >= 0 && tX <= span + 1;
+      const BOX = 40, xEnd = tOn ? Math.max(span, tX) : Math.max(span, 1);
+      const xLim = s => { if (!tOn) return; const w = Math.max(s.chart.width - 90, 100); s.max = xEnd + Math.max(0.5, (BOX / 2 + 2) * xEnd / w); }; // 칸 오른쪽 반이 잘리지 않게 끝을 늘림
+      const todayBox = { id: 'todayBox', beforeDatasetsDraw(ch) { if (!tOn) return; const x = ch.ctx, a = ch.chartArea, s = ch.scales.x, cx = s.getPixelForValue(tX), hw = Math.max((s.getPixelForValue(tX + 0.5) - s.getPixelForValue(tX - 0.5)) / 2, BOX / 2), l = Math.max(cx - hw, a.left), r = Math.min(cx + hw, a.right);
+        x.save(); x.fillStyle = css('--hm-card'); const R = 6; x.beginPath(); x.roundRect ? x.roundRect(l, a.top, r - l, a.bottom - a.top, R) : x.rect(l, a.top, r - l, a.bottom - a.top); x.fill();
+        x.font = '700 13px ' + css('--font'); x.fillStyle = css('--muted'); x.textAlign = 'center'; x.textBaseline = 'bottom'; x.fillText('오늘', (l + r) / 2, a.bottom - 6); x.restore(); } };
+      draw('dCanvas', { type: 'line', plugins: [todayBox], data: { datasets: [{ label: MN[m], data: P, parsing: false, borderColor: col, borderWidth: 2, pointRadius: P.length <= 5 ? 3 : 0, pointBackgroundColor: col, pointHoverRadius: 4, cubicInterpolationMode: 'monotone', spanGaps: true, segment: { borderDash: c => c.p1DataIndex === gap ? [4, 4] : undefined } }] },
+        options: chartOpts({ layout: { padding: { top: 12 } }, scales: { x: { type: 'linear', min: 0, max: xEnd, afterDataLimits: xLim, afterBuildTicks: s => { s.ticks = s.ticks.filter(t => Number.isInteger(t.value)); }, ticks: { maxRotation: 0, autoSkip: true, maxTicksLimit: 5, precision: 0, callback: v => (span > 300 ? dot : md2)(dOf(v)) } }, y: { beginAtZero: true, display: true, position: 'right', grid: { color: css('--line') }, border: { display: false }, ticks: { maxTicksLimit: 3, font: { size: 14 }, color: css('--muted'), callback: v => fmt(v) } } }, plugins: { tooltip: { callbacks: { title: c => dot(P[c[0].dataIndex].d) + (P[c[0].dataIndex].s ? ' 올린 날' : ''), label: c => MN[m] + ' ' + fmt(P[c.dataIndex].y) } } } }) });
       return;
     }
     const base = baseFor(it);
