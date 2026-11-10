@@ -3642,7 +3642,10 @@
   // 같은 채널·형식, 최근 1년·올린 지 14일 지난 게시물(광고 제외)의 중간값
   const peerOf = (it, f) => medOf(D.items.filter(x => x !== it && x.c === it.c && x.t === it.t && !x.ad && x.d >= addDays(D.updated, -365) && x.d <= addDays(D.updated, -AGE_MIN)).map(f));
   // 상세 칸(2026-11-10 「깔끔하게 디자인화」): 회색 칸 = 이름 · 큰 값 · (평소 값 · 평소 대비, 높을수록 좋은 지표만 색)
-  const tileP = (k, v, p, r) => '<div class="kt"><span>' + esc(k) + '</span><b>' + v + '</b>' + (p ? '<small class="' + (r > 0 ? xCls(r) : 'flat') + '">평소 ' + p + (r > 0 ? ' · ' + dTxt(r - 1) : '') + '</small>' : '') + '</div>';
+  // g = 올린 지 14일 전: 다 자란 게시물과 견준 값이라 색 없이 회색(2026-11-10 「각 데이터마다 평균 대비 %」)
+  const tileP = (k, v, p, r, g, inv) => '<div class="kt"><span>' + esc(k) + '</span><b>' + v + '</b>' + (p ? '<small class="' + (g ? 'flat' : r > 0 ? xCls(inv ? 1 / r : r) : 'flat') + '"' + (g ? ' title="올린 지 14일 전이라 아직 모이는 중 · 평소는 다 자란 게시물 값"' : '') + '>평소 ' + p + (r > 0 ? ' · ' + (g ? '지금 ' : '') + (r >= 10 ? '▲' + fmt(Math.round(r)) + '배' : dTxt(r - 1)) : '') + '</small>' : '') + '</div>';
+  // 개수 칸: 같은 채널·형식 1년 중간값(peerOf)과 견줌, 광고는 비교 안 함
+  const tileC = (it, k, val, f, fm, g, inv) => { fm = fm || fmt; const p = val == null || it.ad ? null : peerOf(it, f); return tileP(k, val == null ? '–' : fm(val), p == null ? '' : fm(p), val != null && p > 0 ? val / p : null, g == null ? young(it) : g, inv); };
   function wireDeepDetail(it) {
     const box = $('dDeepB'); if (!box) return;
     const same = () => $('dDeepB') === box && !$('detail').hidden;
@@ -3653,21 +3656,22 @@
         const a = d && d.vid[id], s = d && d.src[id];
         if (!a && !s) { box.innerHTML = '이 영상은 분석 자료가 아직 없어요 · 2024년 이후 영상만 받아요'; return; }
         let h = '';
+        const yq = i => x => { const q = d.vid[ytId(x.u)]; return q ? q[i] : null; }, ys = (o, i) => x => { const q = d[o] && d[o][ytId(x.u)]; return q ? q[i] : null; };
         if (a) {
           const per = (x, v) => x && x[0] > 0 && v != null ? v / x[0] * 1000 : null;
           const net = a[0] == null ? null : a[0] - (a[1] || 0), pNet = peerOf(it, x => { const q = d.vid[ytId(x.u)]; const v = last(x); return q && v && v[0] > 0 ? (q[0] - (q[1] || 0)) / v[0] * 1000 : null; });
           const pAvp = peerOf(it, x => { const q = d.vid[ytId(x.u)]; return q ? q[3] : null; });
-          h += '<div class="ktg">' + tileP('구독 증가', fmt(a[0])) + tileP('구독 감소', fmt(a[1])) + tileP('조회 1천 회당 늘어난 구독자', per(last(it), net) == null ? '–' : per(last(it), net).toFixed(1) + '명', pNet == null ? '' : pNet.toFixed(1) + '명', per(last(it), net) != null && pNet > 0 ? per(last(it), net) / pNet : null)
-            + tileP('공유', fmt(a[2])) + tileP('평균 시청률', a[3] == null ? '–' : a[3].toFixed(1) + '%', pAvp == null ? '' : pAvp.toFixed(1) + '%', a[3] != null && pAvp > 0 ? a[3] / pAvp : null) + tileP('시청 시간', a[4] == null ? '–' : fmt(a[4] / 60) + '시간') + '</div>';
+          h += '<div class="ktg">' + tileC(it, '구독 증가', a[0], yq(0)) + tileC(it, '구독 감소', a[1], yq(1), null, null, true) + tileP('조회 1천 회당 늘어난 구독자', per(last(it), net) == null ? '–' : per(last(it), net).toFixed(1) + '명', pNet == null ? '' : pNet.toFixed(1) + '명', per(last(it), net) != null && pNet > 0 ? per(last(it), net) / pNet : null)
+            + tileC(it, '공유', a[2], yq(2)) + tileP('평균 시청률', a[3] == null ? '–' : a[3].toFixed(1) + '%', pAvp == null ? '' : pAvp.toFixed(1) + '%', a[3] != null && pAvp > 0 ? a[3] / pAvp : null) + tileC(it, '시청 시간', a[4], yq(4), m => fmt(m / 60) + '시간') + '</div>';
         }
         const vi = d.vimp && d.vimp[id], vx = d.vx && d.vx[id], vc = d.cm && d.cm[id];
         if (vi || vx || vc) {
           const pc = peerOf(it, x => { const q = d.vimp && d.vimp[ytId(x.u)]; return q && q[0] >= 100 ? q[1] : null; });
           h += '<div class="ktg">';
-          if (vi) h += tileP('노출', fmtK(vi[0])) + tileP('노출 클릭률', pctA(vi[1]), pc == null ? '' : pctA(pc), pc > 0 && vi[1] != null ? vi[1] / pc : null);
-          if (vx && vx[0] != null) h += tileP('재생목록에 담음', fmt(vx[0]));
-          if (vx && vx[3] > 0 && vx[4] > 0) h += tileP('카드 클릭률', pctA((vx[4] || 0) / vx[3]));
-          if (vc) h += tileP('댓글', fmt(vc[0]) + '개') + tileP('우리가 답한 댓글', fmt(vc[1]) + '개');
+          if (vi) h += tileC(it, '노출', vi[0], ys('vimp', 0), fmtK) + tileP('노출 클릭률', pctA(vi[1]), pc == null ? '' : pctA(pc), pc > 0 && vi[1] != null ? vi[1] / pc : null);
+          if (vx && vx[0] != null) h += tileC(it, '재생목록에 담음', vx[0], ys('vx', 0));
+          if (vx && vx[3] > 0 && vx[4] > 0) h += tileC(it, '카드 클릭률', (vx[4] || 0) / vx[3], x => { const q = d.vx && d.vx[ytId(x.u)]; return q && q[3] > 0 ? (q[4] || 0) / q[3] : null; }, pctA, false);
+          if (vc) h += tileC(it, '댓글', vc[0], ys('cm', 0), c => fmt(c) + '개') + tileC(it, '우리가 답한 댓글', vc[1], ys('cm', 1), c => fmt(c) + '개');
           h += '</div>';
         }
         if (s && s.length) h += '<h3 class="sub">어디서 보러 왔나</h3>' + pbars(shareRows(s.map(p => [audKo(d.srcN[p[0]]), p[1]])));
@@ -3701,13 +3705,14 @@
       const pk = i => peerOf(it, x => { const q = d.post[igKey(x.u)]; return q && q[i] != null && x.r > 0 ? q[i] / x.r * 1000 : null; });
       const pw = peerOf(it, x => { const q = d.post[igKey(x.u)]; return q ? q[4] : null; });
       const f1 = x => x == null ? '' : x.toFixed(1) + '명';
+      const iq = i => x => { const q = d.post[igKey(x.u)]; return q ? q[i] : null; }, nm = c => fmt(c) + '명';
       let h = '<div class="ktg">';
-      if (a[0] != null) h += tileP('팔로우 유입', fmt(a[0]) + '명') + tileP('도달 1천 명당 팔로우', f1(k1(a[0], reach)) || '–', f1(pk(0)), k1(a[0], reach) != null && pk(0) > 0 ? k1(a[0], reach) / pk(0) : null);
-      if (a[1] != null) h += tileP('프로필 방문', fmt(a[1]));
-      if (a[2] != null) h += tileP('프로필 활동', fmt(a[2])) + tileP('도달 1천 명당 프로필 활동', f1(k1(a[2], reach)) || '–', f1(pk(2)), k1(a[2], reach) != null && pk(2) > 0 ? k1(a[2], reach) / pk(2) : null);
-      if (a[3] != null) h += tileP('상호작용', fmt(a[3]));
+      if (a[0] != null) h += tileC(it, '팔로우 유입', a[0], iq(0), nm) + tileP('도달 1천 명당 팔로우', f1(k1(a[0], reach)) || '–', f1(pk(0)), k1(a[0], reach) != null && pk(0) > 0 ? k1(a[0], reach) / pk(0) : null);
+      if (a[1] != null) h += tileC(it, '프로필 방문', a[1], iq(1));
+      if (a[2] != null) h += tileC(it, '프로필 활동', a[2], iq(2)) + tileP('도달 1천 명당 프로필 활동', f1(k1(a[2], reach)) || '–', f1(pk(2)), k1(a[2], reach) != null && pk(2) > 0 ? k1(a[2], reach) / pk(2) : null);
+      if (a[3] != null) h += tileC(it, '상호작용', a[3], iq(3));
       if (a[4] != null) h += tileP('릴스 평균 시청', a[4].toFixed(1) + '초', pw == null ? '' : pw.toFixed(1) + '초', pw > 0 ? a[4] / pw : null);
-      if (a[5] != null) h += tileP('릴스 총 시청', fmt(a[5] / 3600) + '시간');
+      if (a[5] != null) h += tileC(it, '릴스 총 시청', a[5], iq(5), s => fmt(s / 3600) + '시간');
       h += '</div>' + more + '<p class="note">평소 = 같은 채널·형식 최근 1년 게시물 중간값 · 팔로우 유입은 피드 게시물만, 릴스 시청은 릴스만 메타가 줘요</p>';
       box.innerHTML = h; box.classList.remove('h');
     });
@@ -3745,7 +3750,7 @@
     const xp = one('함께 올린 곳(페이스북 등) 조회'), fb = one('페이스북 조회');
     if (xp && xp[2] > 0) t += tileP('다른 앱에서 본 조회', fmt(xp[2]));
     if (fb && fb[2] > 0) t += tileP('페이스북 조회', fmt(fb[2]));
-    if (cm) t += tileP('댓글', fmt(cm[0]) + '개') + tileP('우리가 답한 댓글', fmt(cm[1]) + '개');
+    if (cm) { const cq = i => x => { const q = d.cmt && d.cmt[igKey(x.u)]; return q ? q[i] : null; }; t += tileC(it, '댓글', cm[0], cq(0), c => fmt(c) + '개') + tileC(it, '우리가 답한 댓글', cm[1], cq(1), c => fmt(c) + '개'); }
     const act = pm.filter(x => x[0] === '프로필 활동' && x[1] && x[1] !== '전체' && x[2] > 0).map(x => [audKo(x[1]), x[2]]);
     return (t ? '<div class="ktg">' + t + '</div>' : '') + (act.length ? '<h3 class="sub">프로필에서 누른 것</h3>' + pbars(shareRows(act)) : '');
   }
@@ -4367,19 +4372,21 @@
     const cls = d == null || young(it) ? 'flat' : dCls(d);
     const wk = weekly() ? inc(it, m) : null;
     // 지표(2026-11-10 「그래프 아래에 · 깔끔하게 디자인화」): 숫자 칸(KN) · 비율 칸(KR, 평소 = 같은 채널·형식 1년 중간값) · 정보 줄(metrics)
-    const KN = [['조회', fmt(v[0])], ['좋아요', fmt(v[1])], ['댓글', fmt(v[2])]], KR = [], metrics = [];
+    const vi = i => x => (last(x) || [])[i], pc = young(it) ? paceOf(it) : null;
+    // 조회: 14일 전이면 같은 날수 평소(paceOf)와 견줌 → 색 그대로, 그 밖 개수는 다 자란 평소와 견줘 회색
+    const KN = [pc && !pc.base ? tileP('조회', fmt(v[0]), fmtK(pc.b.m), pc.r, false) : (bf => !it.ad && bf && bf.v > 0 && !young(it) && ratio(it) != null ? tileP('조회', fmt(mainVal(it)), fmt(bf.v), ratio(it)) : tileC(it, '조회', v[0], vi(0), null, young(it)))(baseFor(it)), tileC(it, '좋아요', v[1], vi(1)), tileC(it, '댓글', v[2], vi(2))], KR = [], metrics = [];
     const rt = (k, val, f, fm) => { fm = fm || pct; const p = val == null || it.ad || isBench(it.c) ? null : peerOf(it, f); return [k, val == null ? '–' : fm(val), p == null ? '' : fm(p), val != null && p > 0 ? val / p : null]; };
     if (it.c === '인스타그램' || (it.c === 'hong._.video' && v[3] != null)) {
-      KN.push(['공유', fmt(v[3])], ['저장', fmt(v[4])], ['도달', fmt(it.r)]);
+      KN.push(tileC(it, '공유', v[3], vi(3)), tileC(it, '저장', v[4], vi(4)), tileC(it, '도달', it.r, x => x.r));
       KR.push(rt('도달 대비 반응', it.r >= 300 ? engagement(it) : null, x => x.r >= 300 ? engagement(x) : null), rt('도달 대비 저장', it.r >= 300 ? (v[4] || 0) / it.r : null, x => x.r >= 300 ? ((last(x) || [])[4] || 0) / x.r : null));
     }
     // 유튜브 시청 지표가 셋 다 비면 「–」 칸 대신 정보 한 줄
     if (it.c === '유튜브') {
       metrics.push(['영상 길이', it.l ? Math.floor(it.l / 60) + '분 ' + (it.l % 60) + '초' : '–']);
-      if (it.a || completion(it) != null || it.e != null) { KN.push(['실제 시청 조회', fmt(it.e)]); KR.push(rt('평균 시청', it.a || null, x => x.a || null, s => fmt(s) + '초'), rt('끝까지 본 비율', completion(it), completion)); } else metrics.push(['시청 자료', '게시 2~3일 뒤 들어와요']);
+      if (it.a || completion(it) != null || it.e != null) { KN.push(tileC(it, '실제 시청 조회', it.e, x => x.e)); KR.push(rt('평균 시청', it.a || null, x => x.a || null, s => fmt(s) + '초'), rt('끝까지 본 비율', completion(it), completion)); } else metrics.push(['시청 자료', '게시 2~3일 뒤 들어와요']);
     }
     if (isBench(it.c) || it.c === 'hong._.video') KR.push(rt('좋아요율', likeRate(it), likeRate));
-    if (it.x && it.im != null) KN.push(['노출', fmt(it.im)]);
+    if (it.x && it.im != null) KN.push(tileC(it, '노출', it.im, x => x.im));
     metrics.push(['게시일', whenTxt(it.d) === dot(it.d) ? dot(it.d) : dot(it.d) + ' · ' + whenTxt(it.d)], ['형식', fmtType(it.t)]);
     // 유형(2026-10-30 「여기에 유형도」): 큰 유형 · 세부 유형, 사람이 정한 값이 아니면 출처를 붙임
     if (it.t !== '스토리' && !isBench(it.c)) metrics.push(['유형', it.ty ? (it.tg && it.tg !== it.ty ? it.tg + ' · ' : '') + it.ty + (it.tya || it.src === 'c' ? ' · ' + srcTxt(it, it.tya) : '') : '아직 없음']);
@@ -4408,8 +4415,9 @@
         '<div class="cmp"><canvas id="dCanvas"></canvas></div>' +
         // 누를 수 없는 토글 대신 실제로 그린 차트 이름 한 줄
         '<p class="note" style="text-align:center">' + (detailLine(it) ? '올린 날부터 쌓인 값 ' + MN[m] : '이 콘텐츠 · 같은 분류 · 같은 형식 중간값' + (young(it) ? ' · 중간값은 다 자란 게시물의 최종 조회' : '')) + '</p></section>' +
-      '<div class="gap"></div><section class="dsec" id="dMet"><h3 class="dh3">지표</h3><div class="ktg">' + KN.map(t => tileP(t[0], esc(t[1]))).join('') + '</div>' +
+      '<div class="gap"></div><section class="dsec" id="dMet"><h3 class="dh3">지표</h3><div class="ktg">' + KN.join('') + '</div>' +
         (KR.length ? '<div class="ktg r2">' + KR.map(t => tileP(t[0], esc(t[1]), t[2], t[3])).join('') + '</div>' : '') +
+        (it.ad ? '' : '<p class="note">평소 = 같은 채널·형식 최근 1년 게시물 중간값' + (young(it) ? ' · 올린 지 14일 전이라 개수는 회색, 조회는 같은 날수 평소와 견줘요' : '') + '</p>') +
         '<div class="kinfo">' + metrics.map(m2 => '<div><span>' + esc(m2[0]) + '</span><b>' + esc(m2[1]) + '</b></div>').join('') + '</div></section>' +
       deepDetailHtml(it) +
       '<div class="gap"></div><section class="dsec why"><div class="lb"><span>' + ICO.spark + ' ' + (it.ad ? '광고 집행 정보' : d == null || young(it) ? '성과 요약' : d >= 0 ? '왜 잘 됐을까?' : '왜 아쉬웠을까?') + '</span><small>' + mdLabel(D.updated) + ' 기준</small></div><p>' + esc(whyText(it)) + '</p></section>' +
