@@ -4406,6 +4406,9 @@
       metrics.push(['영상 길이', it.l ? Math.floor(it.l / 60) + '분 ' + (it.l % 60) + '초' : '–']);
       if (it.a || completion(it) != null || it.e != null) { KN.push(tileC(it, '실제 시청 조회', it.e, x => x.e)); KR.push(rt('평균 시청', it.a || null, x => x.a || null, s => fmt(s) + '초'), rt('끝까지 본 비율', completion(it), completion)); } else metrics.push(['시청 자료', '게시 2~3일 뒤 들어와요']);
     }
+    // 릴스 분량(2026-11-10 담당자 「게시물 정보에 해당 릴스 분량」): 인스타 API는 길이를 안 줘서 「호남권 릴스」(Apify, part=hreel) 길이(r[6])를 게시물 코드로 맞춤. 받은 릴스에 없으면 「–」
+    const isReel = it.c === '인스타그램' && /릴스/.test(it.t) && igCode(it.u);
+    if (isReel) metrics.push(['릴스 분량', '불러오는 중', 'dLen']);
     if (isBench(it.c) || it.c === 'hong._.video') KR.push(rt('좋아요율', likeRate(it), likeRate));
     if (it.x && it.im != null) KN.push(tileC(it, '노출', it.im, x => x.im));
     metrics.push(['게시일', whenTxt(it.d) === dot(it.d) ? dot(it.d) : dot(it.d) + ' · ' + whenTxt(it.d)], ['형식', fmtType(it.t)]);
@@ -4440,7 +4443,7 @@
         (KR.length ? '<div class="ktg r2">' + KR.map(t => tileP(t[0], esc(t[1]), t[2], t[3])).join('') + '</div>' : '') +
         (it.ad ? '' : '<p class="note">평소 = 같은 채널·형식 최근 1년 게시물 중간값' + (young(it) ? ' · 올린 지 14일 전이라 개수는 회색, 조회는 같은 날수 평소와 견줘요' : '') + '</p>') + '</section>' +
       deepDetailHtml(it) +
-      '<div class="gap"></div><section class="dsec" id="dInfo"><h3 class="dh3">게시물 정보</h3><div class="kinfo">' + metrics.map(m2 => '<div><span>' + esc(m2[0]) + '</span><b>' + esc(m2[1]) + '</b></div>').join('') + '</div></section>' +
+      '<div class="gap"></div><section class="dsec" id="dInfo"><h3 class="dh3">게시물 정보</h3><div class="kinfo">' + metrics.map(m2 => '<div><span>' + esc(m2[0]) + '</span><b' + (m2[2] ? ' id="' + m2[2] + '"' : '') + '>' + esc(m2[1]) + '</b></div>').join('') + '</div></section>' +
       '<div class="gap"></div><section class="dsec why"><div class="lb"><span>' + ICO.spark + ' ' + (it.ad ? '광고 집행 정보' : d == null || young(it) ? '성과 요약' : d >= 0 ? '왜 잘 됐을까?' : '왜 아쉬웠을까?') + '</span><small>' + mdLabel(D.updated) + ' 기준</small></div>' + (wy => typeof wy === 'string' ? '<p>' + esc(wy) + '</p>' : '<dl class="wy">' + wy.map(w => '<div><dt>' + esc(w[0]) + '</dt><dd>' + esc(w[1]) + '</dd></div>').join('') + '</dl>')(whyText(it)) + '</section>' +
       '<div class="gap"></div><section class="dsec sig" id="dSig"><h3>성과 진단</h3><div class="h">' + (OWN.includes(it.c) ? '우리 과거 게시물·타 대학 게시물과 견준 결과' : '이 학교 과거 게시물과 견준 결과') + '</div><div class="sg-lg"><span><i class="up"></i>평소 1.2배 이상</span><span><i class="down"></i>0.85배 이하</span><span><i></i>그 사이</span></div>' +
         signals(it).map(s => s[0] === 'hdr' ? '<div class="sg-hd"><b>' + s[1] + '</b>' + (s[2] ? '<small>' + s[2] + '</small>' : '') + '</div>' : '<div class="sg"><span class="k ' + s[0] + '">' + s[1] + '</span><div><b>' + nmz(s[2]) + '</b>' + (s[3] ? '<span>' + nmz(s[3]) + '</span>' : '') + (s[4] || '') + '</div></div>').join('') +
@@ -4451,6 +4454,12 @@
     el.hidden = false; el.scrollTop = 0; document.body.style.overflow = 'hidden'; detPush();
     $('dClose').focus();
     $('dClose').addEventListener('click', closeDetail);
+    if (isReel) loadPart('hreel').then(H => {
+      const b = $('dLen'); if (!b) return;
+      const r = H && H.v && H.v.find(x => x[0] === igCode(it.u)), s = r && Math.round(+r[6]);
+      b.textContent = s > 0 ? (s >= 60 ? Math.floor(s / 60) + '분 ' : '') + (s % 60) + '초' : '–';
+      if (!(s > 0)) b.title = '호남권 릴스 수집(월요일, 최근 릴스)에 없는 게시물이라 길이를 몰라요';
+    });
     el.querySelectorAll('.dtabs button').forEach(b => b.addEventListener('click', () => {
       el.querySelectorAll('.dtabs button').forEach(x => x.setAttribute('aria-selected', x === b));
       el.scrollTo({ top: $(b.dataset.s).offsetTop - 120, behavior: SM() });
