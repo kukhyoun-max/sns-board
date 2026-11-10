@@ -2341,8 +2341,7 @@ const TAGFIX_IMPORTS = [
 ];
 function importTagFixOnce_(ss) {
   TAGFIX_IMPORTS.forEach(s => { try { importTagFixFrom_(ss, s.id, s.memo); } catch (e) {} });
-  // 2026-10-29 담당자 「주제 없음이 너무 많아」 → 「2번 먼저」: 규칙으로만 판정되던 인스타 과거·hong·유튜브 1,005건. 값은 git 밖 TagSeed.gs(Apps Script 프로젝트에만)
-  try { if (typeof tagSeed1029_ === 'function') importTagFixRows_(ss, 'TAGFIX_IMPORTED_seed1029', tagSeed1029_(), 'Claude 판정 2026-10-29 (인스타 과거·hong)'); } catch (e) {}
+  // 2026-10-29 1,005건(TagSeed.gs)은 「태그 수정」에 이미 들어가 2026-11-10 파일을 뺌. 원본 = 05_데이터 분석/02_분석 결과/2026-10-29_주제·유형 정독 라벨 인스타 과거·hong(시험).tsv
 }
 function importTagFixFrom_(ss, id, memo) {
   const pk = 'TAGFIX_IMPORTED_' + id.slice(0, 12);
