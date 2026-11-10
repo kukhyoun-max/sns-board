@@ -909,7 +909,7 @@ button.hm-row:active, a.hm-row:active, li.hm-row:active { opacity: .7; }
 .hm-rb { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
 .hm-r1, .hm-r2 { display: flex; align-items: baseline; gap: 12px; min-width: 0; }
 .hm-t { flex: 1; min-width: 0; font-size: 16px; font-weight: 700; line-height: 1.4; color: var(--fg); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.hm-r1 > b { flex: none; font-size: 16px; font-weight: 700; color: var(--fg); }
+.hm-r1 > b { flex: none; max-width: 55%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 16px; font-weight: 700; color: var(--fg); }
 .hm-r1 > b.mu { font-size: 14px; }
 .hm-m { flex: 1; min-width: 0; font-size: 14px; line-height: 1.4; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .hm-x { flex: none; font-size: 14px; line-height: 1.4; color: var(--muted); white-space: nowrap; }

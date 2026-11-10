@@ -4034,6 +4034,13 @@
         if (i >= 0) { q.lk[j] = pool[i].u; pool.splice(i, 1); q.ok[j] = 1; q.early = 1; }
       });
     });
+    // 예상 값 줄이기(2026-11-10 「유튜브 게시 예정 이상해」): 설명 「예상: 롱폼 조회 800~1,500 / 쇼츠 조회 1,000~2,500」처럼 길면 제목 자리를 다 밀어냄 → 첫 범위만 「800~1.5천」, 전문은 마우스 올림
+    const fcShort = s => {
+      const r = String(s || '').match(/([\d.,]+)\s*(만|천)?\s*~\s*([\d.,]+)\s*(만|천)?/);
+      if (!r) return String(s || '').slice(0, 12);
+      const n = (v, u) => Number(v.replace(/,/g, '')) * (u === '만' ? 1e4 : u === '천' ? 1e3 : 1);
+      return fmtK(n(r[1], r[2] || (Number(r[1].replace(/,/g, '')) < 100 ? r[4] : ''))) + '~' + fmtK(n(r[3], r[4]));
+    };
     const anyTh = PL.some(q => /^data:image/.test(q.x[4] || ''));
     const rows = pl.length ? PL.map(({ x, m, ks, ok, lk }) => {
       const done = ks.length && ks.every((k, j) => ok[j]), some = ok.some(Boolean), now = x[0] === d.today;
@@ -4042,8 +4049,9 @@
       const meta = '<span class="' + (now ? 'hm-now' : '') + '">' + (now ? '오늘' : md2(x[0]) + ' ' + wd(x[0])) + '</span> · ' + ks.map((k, j) => '<span class="hm-ch' + (ok[j] ? ' ok' : '') + '" style="--c:' + chInk(pch(k)) + '"' + (ok[j] ? ' title="올라간 것 확인"' : '') + '>' + esc(k) + '</span>').join(' ');
       // 미리보기(2026-11-08 「여기도 미리보기 이미지」): 서버가 업로드 폴더 cover·첫 이미지를 data URI로 [4]에. 한 줄이라도 있으면 모든 줄에 칸(없으면 채널 색 옅은 칸)
       const im = /^data:image/.test(x[4] || '') ? x[4] : '', thumb = anyTh ? '<span class="hm-th" style="--c:' + chColor(pch(ks[0] || '')) + '" aria-hidden="true">' + (im ? '<img src="' + esc(im) + '" alt="" loading="lazy">' : '') + '</span>' : '';
-      return hmRow({ tag: href ? 'a' : 'div', attr: href ? 'href="' + esc(href) + '" target="_blank" rel="noopener" title="' + (pu ? '올린 게시물 열기' : '업로드 폴더 열기') + '"' : '', cls: done ? 'done' : '', thumb,
-        t: esc(m ? m[2] : x[1]), m: meta, v: done ? '게시 완료' : some ? '일부 올림' : x[3] ? '예상 ' + esc(x[3]) : '', vc: done || some ? 'up' : '', r: pu ? '게시물 ›' : x[2] ? '폴더 ›' : '' });
+      return hmRow({ tag: href ? 'a' : 'div', attr: href ? 'href="' + esc(href) + '" target="_blank" rel="noopener" title="' + (pu ? '올린 게시물 열기' : '업로드 폴더 열기') + (x[3] ? ' · 예상 ' + esc(x[3]) : '') + '"' : '', cls: done ? 'done' : '', thumb,
+        tip: !href && x[3] ? '예상 ' + x[3] : '',
+        t: esc(m ? m[2] : x[1]), m: meta, v: done ? '게시 완료' : some ? '일부 올림' : x[3] ? '예상 ' + esc(fcShort(x[3])) : '', vc: done || some ? 'up' : '', r: pu ? '게시물 ›' : x[2] ? '폴더 ›' : '' });
     }).join('') : hmRow({ t: '7일 안에 잡힌 일정이 없어요', m: '공식 SNS 발행 일정 캘린더 기준' });
     return hmSec2('게시 예정', pl.length ? '공식 SNS 발행 일정 · 7일' : '', '<div class="hm-list">' + rows + '</div>');
   }
