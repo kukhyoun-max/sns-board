@@ -460,14 +460,15 @@ function freshStats_(prevRows, bySrc, prevDate, today) {
     out[name] = { changed: changed, total: total, latest: latest, prev: prevDate || '', d: today };
     // 타 대학이 좋아요를 숨기면(원광대) 조회는 주 1회 원본·좋아요는 늘 0이라 댓글만 바뀜 → 하루 사이 댓글이 그대로면 멈춘 게 아닌데 「미갱신」으로 보였음(2026-11-01 밤 메일). 미갱신 판정에서 뺌
     if (name !== ch && total >= 5 && !liked) out[name].hidden = 1;
+    if (name !== ch && BENCH_API_OK_[name]) out[name].api = 1;
   }));
   return out;
 }
 
 function freshLog_(ch, f) {
   if (f.error) return [new Date(), '원본 갱신·' + ch, 0, '오류: ' + f.error];
-  const stale = f.total >= 5 && f.changed === 0 && !f.hidden;
-  const msg = (stale ? '경고: 원본 미갱신 — ' : '정상 — ') + (f.hidden ? '좋아요 비공개라 댓글만 비교 · ' : '') + '바뀐 게시물 ' + f.changed + '/' + f.total +
+  const stale = f.total >= 5 && f.changed === 0 && !f.hidden && !f.api;
+  const msg = (stale ? '경고: 원본 미갱신 — ' : '정상 — ') + (f.hidden ? '좋아요 비공개라 댓글만 비교 · ' : '')+ (f.api && !f.changed ? '타대학 API로 받아 그대로여도 정상 · ' : '') + '바뀐 게시물 ' + f.changed + '/' + f.total +
     (f.prev ? ' (비교 ' + f.prev + ')' : ' (첫 기록)') + ' · 원본 최신 게시 ' + (f.latest || '없음');
   return [new Date(), '원본 갱신·' + ch, f.changed, msg];
 }
@@ -1280,7 +1281,7 @@ function saveAgeViews_(ss, bySrc, today, at) {
 // 원본이 안 바뀐 채널 {채널: 1} — 이번 기록의 원본 갱신 여부(FRESH)에서 두 기록에 모두 있는 게시물 5개 이상인데 값이 하나도 안 바뀐 채널(벤치는 「벤치·계정」 이름으로)
 function staleChs_() {
   const f = loadFresh_(), out = {};
-  Object.keys(f).forEach(c => { const x = f[c]; if (x && x.total >= 5 && x.changed === 0 && !x.hidden) { out[c] = 1; out[BENCH_PREFIX + c] = 1; } });
+  Object.keys(f).forEach(c => { const x = f[c]; if (x && x.total >= 5 && x.changed === 0 && !x.hidden && !x.api) { out[c] = 1; out[BENCH_PREFIX + c] = 1; } });
   return out;
 }
 // 한 번만: 「스냅샷」 탭에 이미 있는 기록으로 채우기 (메뉴·편집기에서 실행)
@@ -4813,6 +4814,8 @@ const benchType_ = m => m.media_product_type === 'REELS' ? '릴스' : (m.media_t
 //  · 그래야 화~일 임시 기록도 값이 바뀌어 「원본 미갱신」으로 빠지지 않음. 조회(릴스 재생)는 API가 주지 않아 원본 값 유지
 //  · 게시물 연결은 igMatch_(캡션 앞 30자 + 날짜 ±1일). IG_API = on이고 META_TOKEN이 있을 때만, 실패하면 원본 값 그대로
 const BENCH_API_LOG_ = { n: 0, msg: '' };
+// 이번 실행에서 business_discovery로 좋아요·댓글을 받은 타 대학 계정 → 하루 사이 값이 그대로여도 「원본 미갱신」이 아님(2026-11-10 우석대 밤사이 12시간 0/96 거짓 알림)
+const BENCH_API_OK_ = {};
 function benchOverlay_(out, today, cutoff) {
   if (PropertiesService.getScriptProperties().getProperty('IG_API') !== 'on') return;
   const since = cutoff || shiftDate_(today, -BENCH_DAYS), recent = shiftDate_(today, -IG_NEW_DAYS);
@@ -4850,6 +4853,7 @@ function benchOverlay_(out, today, cutoff) {
         const hv = hreelViews_();
         Object.keys(ch).forEach(k => { const v = hv[igShort_(ch[k].url)]; if (v != null && v > (Number(ch[k].views) || 0)) { ch[k].views = v; rv++; } });
       }
+      BENCH_API_OK_[u] = 1;
       parts.push(u + ' 갱신 ' + upd + '·새 ' + add + (mt.amb ? '·겹침 ' + mt.amb : '') + (rv ? '·릴스 조회 ' + rv : ''));
     } catch (e) { parts.push(u + ' 오류(원본 값 사용): ' + String(e.message).slice(0, 80)); }
   });

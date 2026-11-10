@@ -4989,11 +4989,13 @@
     const moved = (it, i) => it.h[i][0] !== it.h[i - 1][0] || it.h[i][1] !== it.h[i - 1][1] || it.h[i][2] !== it.h[i - 1][2];
     const fresh = (c, i) => D.items.some(it => it.c === c && it.h[i] && !it.h[i - 1] && it.d > D.dates[i - 1]); // 그 기록에 새 게시물이 들어옴
     for (let i = 1; i <= ni; i++) Object.keys(D.rec).forEach(c => {
+      if (isBench(c)) return; // 타 대학은 서버가 매일 API로 좋아요·댓글을 받아 값이 그대로면 실제로 안 바뀐 것(2026-11-10 우석대 거짓 알림) — API 실패만 서버 fresh로 판정
       if (!hasRec(c, i) || !hasRec(c, i - 1)) return;
       const both = D.items.filter(it => it.c === c && it.h[i] && it.h[i - 1]);
       if (both.length >= 5 && !both.some(it => moved(it, i)) && !fresh(c, i)) (D.staleIdx[c] = D.staleIdx[c] || []).push(i);
     });
     if (ni >= 1) Object.keys(D.rec).forEach(c => {
+      if (isBench(c)) return;
       if (!hasRec(c, ni) || !hasRec(c, ni - 1)) return;
       const both = D.items.filter(it => it.c === c && it.h[ni] && it.h[ni - 1]);
       const changed = both.filter(it => moved(it, ni)).length;
@@ -5003,7 +5005,7 @@
     if (D.fresh && typeof D.fresh === 'object') Object.entries(D.fresh).forEach(([c, f]) => {
       if (!f || f.total == null) return;
       if (f.prev && D.dates.indexOf(f.prev) < 0) return; // 비교 상대가 지워진 임시 기록(화~일)이면 남아 있는 직전 기록과 직접 비교한 결과를 씀
-      if (f.total >= 5 && !f.changed && !f.hidden) D.stale[c] = { n: f.total, d0: f.prev || D.dates[ni - 1], d1: f.d || D.dates[ni] };
+      if (f.total >= 5 && !f.changed && !f.hidden && !f.api) D.stale[c] = { n: f.total, d0: f.prev || D.dates[ni - 1], d1: f.d || D.dates[ni] };
       else delete D.stale[c];
     });
     D.acctStale = {};
