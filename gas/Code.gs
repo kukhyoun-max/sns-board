@@ -6484,6 +6484,53 @@ function todayWarm() {
   const ss = SpreadsheetApp.openById(SS_ID);
   try { cachePut_(JSON.stringify(partToday_(ss)), 'part:today', TODAY_TTL); }
   catch (e) { logRows_(ss, [[new Date(), '오늘 칸 미리 만들기', 0, '오류: ' + String(e.message).slice(0, 120)]]); }
+  try { reelLenTest_(ss); } catch (e) {}
+}
+// 릴스 길이 시험(2026-11-10 담당자 「C로 먼저 시도」): 인스타 API로 예전 릴스 길이를 받을 수 있는지 한 번만 확인 → 실행 로그 「릴스 길이 시험」
+//  ① 게시물 필드 video_duration이 있는지 ② media_url(우리 계정 영상 파일) 앞·뒤 일부만 받아 mp4 머리(mvhd)의 길이를 읽기. Apify 값과 나란히 적음. 확인 뒤 지움
+function reelLenTest_(ss) {
+  const p = PropertiesService.getScriptProperties();
+  if (p.getProperty('RLEN_TEST') === 'done') return;
+  p.setProperty('RLEN_TEST', 'done');
+  const out = [];
+  try {
+    const hr = {}, hs = ss.getSheetByName(HREEL_SHEET);
+    if (hs) hs.getDataRange().getValues().slice(1).forEach(r => { hr[String(r[0])] = r[8]; });
+    igxChannels_().forEach(c => {
+      const j = igxGet_(c.conf, c.user + '/media', { fields: 'id,shortcode,media_product_type,media_url,timestamp', limit: 50 });
+      const reels = (j.data || []).filter(x => x.media_product_type === 'REELS');
+      const pick = reels.slice(0, 3).concat(reels.slice(-2)); // 최근 3개 + 이 쪽에서 가장 옛 것 2개
+      pick.forEach((x, i) => {
+        let api = '';
+        if (i === 0) { try { const d = igxGet_(c.conf, x.id, { fields: 'id,video_duration' }); api = ' · video_duration=' + d.video_duration; } catch (e) { api = ' · 필드 오류 ' + String(e.message).slice(0, 70); } }
+        let mp4;
+        try { mp4 = mp4Dur_(x.media_url); } catch (e) { mp4 = '오류 ' + String(e.message).slice(0, 40); }
+        out.push(c.ch + ' ' + x.shortcode + ' ' + String(x.timestamp || '').slice(0, 10) + ': mp4=' + mp4 + (hr[x.shortcode] !== undefined ? ' · apify=' + hr[x.shortcode] : '') + api);
+      });
+    });
+    logRows_(ss, [[new Date(), '릴스 길이 시험', out.length, out.join(' | ').slice(0, 1500)]]);
+  } catch (e) { logRows_(ss, [[new Date(), '릴스 길이 시험', 0, '오류: ' + String(e.message).slice(0, 150)]]); }
+}
+// mp4 머리(moov/mvhd)의 길이(초). 앞 512KB에 없으면 뒤 512KB. 영상 전체는 받지 않음(서버가 Range를 무시하면 전체가 옴 → 크기를 적음)
+function mp4Dur_(url) {
+  if (!url) return '주소 없음';
+  const u32 = (b, o) => (b[o] & 255) * 16777216 + ((b[o + 1] & 255) << 16) + ((b[o + 2] & 255) << 8) + (b[o + 3] & 255);
+  const read = b => {
+    for (let i = 0; i + 36 < b.length; i++) {
+      if (b[i] !== 0x6d || b[i + 1] !== 0x76 || b[i + 2] !== 0x68 || b[i + 3] !== 0x64) continue;
+      const v = b[i + 4], ts = v === 1 ? u32(b, i + 24) : u32(b, i + 16), du = v === 1 ? u32(b, i + 28) * 4294967296 + u32(b, i + 32) : u32(b, i + 20);
+      if (ts > 0) return Math.round(du / ts * 10) / 10;
+    }
+    return null;
+  };
+  const get = rg => { const r = UrlFetchApp.fetch(url, { headers: { Range: rg }, muteHttpExceptions: true }); return { code: r.getResponseCode(), b: r.getContent() }; };
+  const a = get('bytes=0-524287');
+  if (a.code >= 400) return 'HTTP ' + a.code;
+  let s = read(a.b);
+  if (s != null) return s + '초(앞·' + a.code + '·' + Math.round(a.b.length / 1024) + 'KB)';
+  const z = get('bytes=-524288');
+  s = z.code < 400 ? read(z.b) : null;
+  return s != null ? s + '초(뒤·' + z.code + ')' : '못 읽음(' + a.code + '·' + Math.round(a.b.length / 1024) + 'KB)';
 }
 const THUMB_CACHE = 'part:thumbs', THUMB_TTL = 21600;
 const PLAN_CAL = '공식 SNS 발행 일정';
