@@ -1412,6 +1412,7 @@ img[src*="/oardefault.jpg"]:not(.ok), img[src*="/oar2.jpg"]:not(.ok), img.wt { v
 @media (max-width: 560px) {
   .ktg { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .kt { padding: 12px 14px; }
+  .ktg > .kt:last-child:nth-child(odd) { grid-column: 1 / -1; }
 }
 /* 성과 요약 항목별 줄(2026-11-10 「내용별로 구분」) */
 .why .wy { margin: 10px 0 0; }

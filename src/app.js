@@ -3715,7 +3715,7 @@
       if (a[3] != null) h += tileC(it, '상호작용', a[3], iq(3));
       if (a[4] != null) h += tileP('릴스 평균 시청', a[4].toFixed(1) + '초', pw == null ? '' : pw.toFixed(1) + '초', pw > 0 ? a[4] / pw : null);
       if (a[5] != null) h += tileC(it, '릴스 총 시청', a[5], iq(5), s => fmt(s / 3600) + '시간');
-      h += '</div>' + more + '<p class="note">평소 = 같은 채널·형식 최근 1년 게시물 중간값 · 팔로우 유입은 피드 게시물만, 릴스 시청은 릴스만 메타가 줘요</p>';
+      h += more[0] + '</div>' + more[1] + '<p class="note">평소 = 같은 채널·형식 최근 1년 게시물 중간값 · 팔로우 유입은 피드 게시물만, 릴스 시청은 릴스만 메타가 줘요</p>';
       box.innerHTML = h; box.classList.remove('h');
     });
   }
@@ -3754,7 +3754,7 @@
     if (fb && fb[2] > 0) t += tileP('페이스북 조회', fmt(fb[2]));
     if (cm) { const cq = i => x => { const q = d.cmt && d.cmt[igKey(x.u)]; return q ? q[i] : null; }; t += tileC(it, '댓글', cm[0], cq(0), c => fmt(c) + '개') + tileC(it, '우리가 답한 댓글', cm[1], cq(1), c => fmt(c) + '개'); }
     const act = pm.filter(x => x[0] === '프로필 활동' && x[1] && x[1] !== '전체' && x[2] > 0).map(x => [audKo(x[1]), x[2]]);
-    return (t ? '<div class="ktg">' + t + '</div>' : '') + (act.length ? '<h3 class="sub">프로필에서 누른 것</h3>' + pbars(shareRows(act)) : '');
+    return [t, (act.length ? '<h3 class="sub">프로필에서 누른 것</h3>' + pbars(shareRows(act)) : '')];
   }
 
   // ───────── 오늘(2026-10-20 「수시로 들어가는데 매번 같은 내용이면 새로 알 게 없다」): ?part=today ─────────
