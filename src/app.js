@@ -4407,7 +4407,7 @@
         '<div class="dtags">' + gTag(it) + tyTag(it) + ptag(it.p) + adtag(it) + coTag(it) + aiTag(it) + archTag(it) + credTag(it) + susTag(it) + hidTag(it) + histTag(it) + '<span class="tag">' + esc(fmtType(it.t)) + '</span>' + (it.w || []).map(n => '<span class="tag">' + esc(n) + '</span>').join('') + '</div>' +
         '<div class="cmp"><canvas id="dCanvas"></canvas></div>' +
         // 누를 수 없는 토글 대신 실제로 그린 차트 이름 한 줄
-        '<p class="note" style="text-align:center">' + (detailLine(it) ? '기록 날짜별 쌓인 값 ' + MN[m] : '이 콘텐츠 · 같은 분류 · 같은 형식 중간값' + (young(it) ? ' · 중간값은 다 자란 게시물의 최종 조회' : '')) + '</p></section>' +
+        '<p class="note" style="text-align:center">' + (detailLine(it) ? '올린 날부터 쌓인 값 ' + MN[m] : '이 콘텐츠 · 같은 분류 · 같은 형식 중간값' + (young(it) ? ' · 중간값은 다 자란 게시물의 최종 조회' : '')) + '</p></section>' +
       '<div class="gap"></div><section class="dsec" id="dMet"><h3 class="dh3">지표</h3><div class="ktg">' + KN.map(t => tileP(t[0], esc(t[1]))).join('') + '</div>' +
         (KR.length ? '<div class="ktg r2">' + KR.map(t => tileP(t[0], esc(t[1]), t[2], t[3])).join('') + '</div>' : '') +
         '<div class="kinfo">' + metrics.map(m2 => '<div><span>' + esc(m2[0]) + '</span><b>' + esc(m2[1]) + '</b></div>').join('') + '</div></section>' +
@@ -4752,9 +4752,15 @@
   function drawDetailChart(it) {
     const m = mainM(it.c), col = chColor(it.c);
     if (detailLine(it)) {
-      const idx = D.dates.map((d, i) => i).filter(i => it.h[i] && it.h[i][m] != null), i0 = idx[0], ds = D.dates.slice(i0);
-      draw('dCanvas', { type: 'line', data: { labels: ds.map(md2), datasets: [{ label: MN[m], data: ds.map((d, k) => it.h[i0 + k] ? it.h[i0 + k][m] : null), borderColor: col, borderWidth: 2, pointRadius: idx.length <= 4 ? 3 : 0, pointBackgroundColor: col, pointHoverRadius: 4, cubicInterpolationMode: 'monotone', spanGaps: true }] },
-        options: chartOpts({ layout: { padding: { top: 12 } }, scales: { x: { ticks: { maxRotation: 0, autoSkip: true, maxTicksLimit: 5 } }, y: { beginAtZero: false, display: true, position: 'right', grid: { color: css('--line') }, border: { display: false }, ticks: { maxTicksLimit: 3, font: { size: 14 }, color: css('--muted'), callback: v => fmt(v) } } }, plugins: { tooltip: { callbacks: { title: c => dot(ds[c[0].dataIndex]), label: c => MN[m] + ' ' + fmt(c.raw) } } } }) });
+      // 2026-11-10 담당자 「그래프 시작은 올린 날짜 기준」: x = 올린 날부터 지난 날수, 첫 점 = 올린 날 0. 올린 날~첫 기록은 기록이 없어 점선
+      const idx = D.dates.map((d, i) => i).filter(i => it.h[i] && it.h[i][m] != null);
+      const p0 = it.d && it.d.length >= 10 ? it.d.slice(0, 10) : D.dates[idx[0]];
+      const P = idx.map(i => ({ x: daysBetween(p0, D.dates[i]), y: it.h[i][m], d: D.dates[i] })).filter(p => p.x >= 0);
+      if (!P.length || P[0].x > 0) P.unshift({ x: 0, y: 0, d: p0, s: 1 });
+      const span = P[P.length - 1].x, dOf = x => { const t = new Date(p0 + 'T00:00:00Z'); t.setUTCDate(t.getUTCDate() + Math.round(x)); return t.toISOString().slice(0, 10); };
+      const gap = P[0].s ? 1 : -1; // 점선으로 그릴 구간(올린 날 → 첫 기록)
+      draw('dCanvas', { type: 'line', data: { datasets: [{ label: MN[m], data: P, parsing: false, borderColor: col, borderWidth: 2, pointRadius: P.length <= 5 ? 3 : 0, pointBackgroundColor: col, pointHoverRadius: 4, cubicInterpolationMode: 'monotone', spanGaps: true, segment: { borderDash: c => c.p1DataIndex === gap ? [4, 4] : undefined } }] },
+        options: chartOpts({ layout: { padding: { top: 12 } }, scales: { x: { type: 'linear', min: 0, max: Math.max(span, 1), ticks: { maxRotation: 0, autoSkip: true, maxTicksLimit: 5, precision: 0, callback: v => (span > 300 ? dot : md2)(dOf(v)) } }, y: { beginAtZero: true, display: true, position: 'right', grid: { color: css('--line') }, border: { display: false }, ticks: { maxTicksLimit: 3, font: { size: 14 }, color: css('--muted'), callback: v => fmt(v) } } }, plugins: { tooltip: { callbacks: { title: c => dot(P[c[0].dataIndex].d) + (P[c[0].dataIndex].s ? ' 올린 날' : ''), label: c => MN[m] + ' ' + fmt(P[c.dataIndex].y) } } } }) });
       return;
     }
     const base = baseFor(it);
