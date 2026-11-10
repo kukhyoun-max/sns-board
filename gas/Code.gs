@@ -5637,9 +5637,18 @@ function nightBrief(test) {
   let errs = null, cells = null;
   try { errs = briefErrors_(ss, today); } catch (e) { notes.push('실행 로그 읽기 실패: ' + String(e.message).slice(0, 80)); }
   if (isMonday_(today) || test) { try { cells = briefCells_(ss); } catch (e) { notes.push('시트 크기 계산 실패: ' + String(e.message).slice(0, 80)); } }
+  // 밤 묶음(2026-11-10): JJ 스튜디오 확인할 것 + Claude 업무 브리핑을 같은 메일에
+  let work = null, jj = null;
+  try { work = nightWork_(today); } catch (e) { notes.push('업무 브리핑 읽기 실패: ' + String(e.message).slice(0, 80)); }
+  try { jj = nightJj_(); } catch (e) { notes.push('JJ 확인할 것 읽기 실패: ' + String(e.message).slice(0, 80)); }
   const to = String(PropertiesService.getScriptProperties().getProperty('BRIEF_TO') || '').trim();
-  const subject = '[SNS 브리핑] ' + briefDay_(today) + ' 오늘 올린 콘텐츠 ' + posts.length + '개' + (errs && errs.stop.length ? ' · 수집 중단 경고' : '') + (test ? ' (테스트)' : '');
-  if (to) MailApp.sendEmail({ to: to, subject: subject, htmlBody: briefHtml_(posts, stories, recent, notes, today, stamp, ideas, chans, errs, cells), name: 'SNS 성과 보드' });
+  const wdN = '일월화수목금토'[Number(Utilities.formatDate(new Date(today + 'T12:00:00+09:00'), TZ, 'u')) % 7];
+  // 제목 날짜(YYYY-MM-DD)는 메일 답장 처리(편성판 prompt_sync.md)가 「다음 주 추천」 번호를 맞추는 기준 — 형식을 바꾸지 않는다
+  const subject = (test ? '(테스트) ' : '') + '[밤 브리핑] ' + today + ' (' + wdN + ') · 오늘 올린 콘텐츠 ' + posts.length + '개'
+    + (jj ? ' · JJ 확인할 것 ' + jj.cnt + '건' : '') + (errs && errs.stop.length ? ' · 수집 중단 경고' : '');
+  let mailed = false;
+  if (to) { MailApp.sendEmail({ to: to, subject: subject, htmlBody: briefHtml_(posts, stories, recent, notes, today, stamp, ideas, chans, errs, cells, nightExtra_(jj, work)), name: 'SNS 성과 보드' }); mailed = true; }
+  if (mailed && jj && !test) { try { jj.sh.deleteRows(2, jj.n); } catch (e) { notes.push('JJ 대기 줄 지우기 실패(내일 다시 실림): ' + String(e.message).slice(0, 60)); } }
   let saved = '';
   if (posts.length) {
     const rows = posts.map(x => [today, x.ch, x.id, x.type, Utilities.formatDate(x.at, TZ, 'yyyy-MM-dd HH:mm'), Math.round(x.hours * 10) / 10,
@@ -5649,6 +5658,7 @@ function nightBrief(test) {
     }
   }
   const msg = (to ? '보냄' : '보내지 않음: 스크립트 속성 BRIEF_TO 없음') + ' · 게시물 ' + posts.length + ' · 스토리 ' + stories.length
+    + ' · 업무 브리핑 ' + (work ? '포함' : '없음') + ' · JJ 확인할 것 ' + (jj ? jj.cnt + '건' : '없음')
     + (saved && saved !== 'ok' ? ' · 「' + BRIEF_SHEET + '」 기록 실패: ' + saved : '') + (notes.length ? ' · ' + notes.join(' · ') : '');
   try { logRows_(ss, [[new Date(), '밤 브리핑', posts.length, msg]]); } catch (e) { Logger.log(msg); }
 }
@@ -6063,7 +6073,7 @@ function briefChannels_(ss, today) {
   try { PropertiesService.getScriptProperties().setProperty('NIGHT_ACCT', JSON.stringify(keep)); } catch (e) {}
   return out;
 }
-function briefHtml_(posts, stories, recent, notes, today, stamp, ideas, chans, errs, cells) {
+function briefHtml_(posts, stories, recent, notes, today, stamp, ideas, chans, errs, cells, extra) {
   const wrap = s => '<div style="background:' + BR.soft + ';padding:20px 12px"><div style="font-family:\'Noto Sans KR\',\'Apple SD Gothic Neo\',sans-serif;max-width:560px;margin:0 auto;color:' + BR.fg + ';line-height:1.7">' + s + '</div></div>';
   const card = s => '<div style="background:#fff;border:1px solid ' + BR.line + ';border-radius:16px;padding:16px 18px;margin:0 0 12px">' + s + '</div>';
   const h2 = (t, sub) => '<div style="margin:18px 4px 8px"><div style="font-size:16px;font-weight:800">' + t + '</div>' + (sub ? '<div style="font-size:12px;color:' + BR.mu + '">' + sub + '</div>' : '') + '</div>';
@@ -6202,7 +6212,37 @@ function briefHtml_(posts, stories, recent, notes, today, stamp, ideas, chans, e
   if (notes.length) h += '<div style="font-size:12px;color:' + BR.mu + ';margin:4px 4px 12px">' + notes.map(briefEsc_).join('<br>') + '</div>';
   h += '<div style="text-align:center;margin:18px 0 6px"><a href="' + BOARD_URL + '" style="display:inline-block;background:' + BR.up + ';color:#fff;text-decoration:none;padding:12px 22px;border-radius:12px;font-weight:800;font-size:14px">성과 보드에서 자세히 보기</a></div>';
   h += '<div style="font-size:11px;color:' + BR.mu + ';text-align:center;line-height:1.6">반응률 = 인스타는 좋아요·댓글·공유·저장 ÷ 도달, 유튜브·hong은 좋아요·댓글 ÷ 조회수<br>평소 = 최근 1년 같은 형식 게시물을 그 값 순으로 줄 세웠을 때 가운데 값 · 광고 제외</div>';
-  return wrap(h);
+  return wrap(h + (extra || ''));
+}
+
+// ───────── 밤 묶음 메일(2026-11-10 담당자 「비슷한 시간대에 오는 건 하나로」 → 「밤 성과를 22시로 합쳐」) ─────────
+// 22시 메일 하나에 ① 밤 성과(위) ② JJ 스튜디오 확인할 것 ③ Claude 업무 브리핑을 싣는다. 못 읽은 칸만 빠지고 메일은 나간다
+// ② JJ 서버(History.gs hsDigest_)가 기획서 시트 「밤 메일 대기」 탭에 [시각, 보호 칸, 실행 실패, html]을 쌓고, 여기서 메일을 보낸 뒤 지운다
+//    (시트 ID는 저장소 밖 gas/JjPlan.gs의 JJ_PLAN_ID — 공개 저장소라 넣지 않음)
+// ③ PC(_도구/scripts/업무브리핑/run.ps1 -Evening, 21:30)가 드라이브 「업무 브리핑.json」 {day, at, html}에 쓴 것 중 오늘 것만
+const NIGHT_JJ_TAB = '밤 메일 대기';
+function nightWork_(today) {
+  const it = DriveApp.getFilesByName('업무 브리핑.json'); let best = null;
+  while (it.hasNext()) { const f = it.next(); if (!best || f.getLastUpdated() > best.getLastUpdated()) best = f; }
+  if (!best) return null;
+  const j = JSON.parse(best.getBlob().getDataAsString('UTF-8'));
+  return j && j.day === today && j.html ? j : null;
+}
+function nightJj_() {
+  if (typeof JJ_PLAN_ID === 'undefined' || !JJ_PLAN_ID) return null;
+  const sh = SpreadsheetApp.openById(JJ_PLAN_ID).getSheetByName(NIGHT_JJ_TAB);
+  if (!sh || sh.getLastRow() < 2) return null;
+  const n = sh.getLastRow() - 1, rows = sh.getRange(2, 1, n, 4).getValues().filter(r => String(r[3]).trim());
+  if (!rows.length) return null;
+  return { sh: sh, n: n, rows: rows, cnt: rows.reduce((a, r) => a + (Number(r[1]) || 0) + (Number(r[2]) || 0), 0) };
+}
+function nightExtra_(jj, work) {
+  const h1 = (t, sub) => '<div style="margin:30px 4px 10px;padding-top:16px;border-top:2px solid ' + BR.line + '"><div style="font-size:19px;font-weight:800">' + t + '</div>' + (sub ? '<div style="font-size:12px;color:' + BR.mu + '">' + sub + '</div>' : '') + '</div>';
+  const card = s => '<div style="background:#fff;border:1px solid ' + BR.line + ';border-radius:16px;padding:16px 18px;margin:0 0 12px">' + s + '</div>';
+  let h = '';
+  if (jj) h += h1('JJ 스튜디오 확인할 것', '기획서 보호 칸이 이력 없이 바뀐 것·자동매칭 실행 실패') + jj.rows.map(r => card(String(r[3]))).join('');
+  if (work) h += h1('Claude 업무 브리핑', '오늘 Claude Code로 한 일 · 이번 주 편성 · 꼭 답할 결정') + work.html;
+  return h;
 }
 
 // ───────── 보드 분석 데이터(part, 2026-10-20): API로 쌓은 탭을 보드가 필요할 때 따로 받음 ─────────
