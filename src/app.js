@@ -3635,13 +3635,14 @@
   }
   // ── 상세 패널: 유튜브 영상 「시청 분석」 · 인스타 게시물 「게시물 인사이트」
   function deepDetailHtml(it) {
-    if (it.c === '유튜브' && ytId(it.u)) return '<div class="gap"></div><section class="dsec" id="dDeep"><h3 style="margin:0 0 6px;font-size:var(--fs-xl);font-weight:700">시청 분석</h3><div class="h" id="dDeepB">분석 데이터를 불러오는 중이에요</div></section>';
-    if ((it.c === '인스타그램' || it.c === 'hong._.video') && it.u) return '<div class="gap"></div><section class="dsec" id="dDeep"><h3 style="margin:0 0 6px;font-size:var(--fs-xl);font-weight:700">게시물 인사이트</h3><div class="h" id="dDeepB">분석 데이터를 불러오는 중이에요</div></section>';
+    if (it.c === '유튜브' && ytId(it.u)) return '<div class="gap"></div><section class="dsec" id="dDeep"><h3 class="dh3">시청 분석</h3><div class="h" id="dDeepB">분석 데이터를 불러오는 중이에요</div></section>';
+    if ((it.c === '인스타그램' || it.c === 'hong._.video') && it.u) return '<div class="gap"></div><section class="dsec" id="dDeep"><h3 class="dh3">게시물 인사이트</h3><div class="h" id="dDeepB">분석 데이터를 불러오는 중이에요</div></section>';
     return '';
   }
   // 같은 채널·형식, 최근 1년·올린 지 14일 지난 게시물(광고 제외)의 중간값
   const peerOf = (it, f) => medOf(D.items.filter(x => x !== it && x.c === it.c && x.t === it.t && !x.ad && x.d >= addDays(D.updated, -365) && x.d <= addDays(D.updated, -AGE_MIN)).map(f));
-  const tileP = (k, v, p) => '<div><span>' + esc(k) + '</span><b>' + v + (p ? ' <small class="mu">· 평소 ' + p + '</small>' : '') + '</b></div>';
+  // 상세 칸(2026-11-10 「깔끔하게 디자인화」): 회색 칸 = 이름 · 큰 값 · (평소 값 · 평소 대비, 높을수록 좋은 지표만 색)
+  const tileP = (k, v, p, r) => '<div class="kt"><span>' + esc(k) + '</span><b>' + v + '</b>' + (p ? '<small class="' + (r > 0 ? xCls(r) : 'flat') + '">평소 ' + p + (r > 0 ? ' · ' + dTxt(r - 1) : '') + '</small>' : '') + '</div>';
   function wireDeepDetail(it) {
     const box = $('dDeepB'); if (!box) return;
     const same = () => $('dDeepB') === box && !$('detail').hidden;
@@ -3656,14 +3657,14 @@
           const per = (x, v) => x && x[0] > 0 && v != null ? v / x[0] * 1000 : null;
           const net = a[0] == null ? null : a[0] - (a[1] || 0), pNet = peerOf(it, x => { const q = d.vid[ytId(x.u)]; const v = last(x); return q && v && v[0] > 0 ? (q[0] - (q[1] || 0)) / v[0] * 1000 : null; });
           const pAvp = peerOf(it, x => { const q = d.vid[ytId(x.u)]; return q ? q[3] : null; });
-          h += '<div class="mgrid">' + tileP('구독 증가', fmt(a[0])) + tileP('구독 감소', fmt(a[1])) + tileP('조회 1천 회당 늘어난 구독자', per(last(it), net) == null ? '–' : per(last(it), net).toFixed(1) + '명', pNet == null ? '' : pNet.toFixed(1) + '명')
-            + tileP('공유', fmt(a[2])) + tileP('평균 시청률', a[3] == null ? '–' : a[3].toFixed(1) + '%', pAvp == null ? '' : pAvp.toFixed(1) + '%') + tileP('시청 시간', a[4] == null ? '–' : fmt(a[4] / 60) + '시간') + '</div>';
+          h += '<div class="ktg">' + tileP('구독 증가', fmt(a[0])) + tileP('구독 감소', fmt(a[1])) + tileP('조회 1천 회당 늘어난 구독자', per(last(it), net) == null ? '–' : per(last(it), net).toFixed(1) + '명', pNet == null ? '' : pNet.toFixed(1) + '명', per(last(it), net) != null && pNet > 0 ? per(last(it), net) / pNet : null)
+            + tileP('공유', fmt(a[2])) + tileP('평균 시청률', a[3] == null ? '–' : a[3].toFixed(1) + '%', pAvp == null ? '' : pAvp.toFixed(1) + '%', a[3] != null && pAvp > 0 ? a[3] / pAvp : null) + tileP('시청 시간', a[4] == null ? '–' : fmt(a[4] / 60) + '시간') + '</div>';
         }
         const vi = d.vimp && d.vimp[id], vx = d.vx && d.vx[id], vc = d.cm && d.cm[id];
         if (vi || vx || vc) {
           const pc = peerOf(it, x => { const q = d.vimp && d.vimp[ytId(x.u)]; return q && q[0] >= 100 ? q[1] : null; });
-          h += '<div class="mgrid">';
-          if (vi) h += tileP('노출', fmtK(vi[0])) + tileP('노출 클릭률', pctA(vi[1]), pc == null ? '' : pctA(pc));
+          h += '<div class="ktg">';
+          if (vi) h += tileP('노출', fmtK(vi[0])) + tileP('노출 클릭률', pctA(vi[1]), pc == null ? '' : pctA(pc), pc > 0 && vi[1] != null ? vi[1] / pc : null);
           if (vx && vx[0] != null) h += tileP('재생목록에 담음', fmt(vx[0]));
           if (vx && vx[3] > 0 && vx[4] > 0) h += tileP('카드 클릭률', pctA((vx[4] || 0) / vx[3]));
           if (vc) h += tileP('댓글', fmt(vc[0]) + '개') + tileP('우리가 답한 댓글', fmt(vc[1]) + '개');
@@ -3700,12 +3701,12 @@
       const pk = i => peerOf(it, x => { const q = d.post[igKey(x.u)]; return q && q[i] != null && x.r > 0 ? q[i] / x.r * 1000 : null; });
       const pw = peerOf(it, x => { const q = d.post[igKey(x.u)]; return q ? q[4] : null; });
       const f1 = x => x == null ? '' : x.toFixed(1) + '명';
-      let h = '<div class="mgrid">';
-      if (a[0] != null) h += tileP('팔로우 유입', fmt(a[0]) + '명') + tileP('도달 1천 명당 팔로우', f1(k1(a[0], reach)) || '–', f1(pk(0)));
+      let h = '<div class="ktg">';
+      if (a[0] != null) h += tileP('팔로우 유입', fmt(a[0]) + '명') + tileP('도달 1천 명당 팔로우', f1(k1(a[0], reach)) || '–', f1(pk(0)), k1(a[0], reach) != null && pk(0) > 0 ? k1(a[0], reach) / pk(0) : null);
       if (a[1] != null) h += tileP('프로필 방문', fmt(a[1]));
-      if (a[2] != null) h += tileP('프로필 활동', fmt(a[2])) + tileP('도달 1천 명당 프로필 활동', f1(k1(a[2], reach)) || '–', f1(pk(2)));
+      if (a[2] != null) h += tileP('프로필 활동', fmt(a[2])) + tileP('도달 1천 명당 프로필 활동', f1(k1(a[2], reach)) || '–', f1(pk(2)), k1(a[2], reach) != null && pk(2) > 0 ? k1(a[2], reach) / pk(2) : null);
       if (a[3] != null) h += tileP('상호작용', fmt(a[3]));
-      if (a[4] != null) h += tileP('릴스 평균 시청', a[4].toFixed(1) + '초', pw == null ? '' : pw.toFixed(1) + '초');
+      if (a[4] != null) h += tileP('릴스 평균 시청', a[4].toFixed(1) + '초', pw == null ? '' : pw.toFixed(1) + '초', pw > 0 ? a[4] / pw : null);
       if (a[5] != null) h += tileP('릴스 총 시청', fmt(a[5] / 3600) + '시간');
       h += '</div>' + more + '<p class="note">평소 = 같은 채널·형식 최근 1년 게시물 중간값 · 팔로우 유입은 피드 게시물만, 릴스 시청은 릴스만 메타가 줘요</p>';
       box.innerHTML = h; box.classList.remove('h');
@@ -3728,7 +3729,7 @@
       h += '<h3 class="sub">썸네일이 어디서 보였나</h3>' + pbars(is.slice(0, 6).map(r => [YTR_SRC[r[0]] || r[0], r[1], r[1] / tot, '노출 ' + fmtK(r[1]) + ' · 클릭률 ' + pctA(r[2] / r[1])]));
     }
     const en = (v.end || []).filter(r => r[1] > 0);
-    if (en.length) h += '<h3 class="sub">최종 화면</h3><div class="mgrid">' + en.slice(0, 4).map(r => tileP(r[0], '클릭 ' + fmt(r[2]) + ' <small class="mu">· 노출 ' + fmtK(r[1]) + '</small>')).join('') + '</div>';
+    if (en.length) h += '<h3 class="sub">최종 화면</h3><div class="ktg">' + en.slice(0, 4).map(r => tileP(r[0], '클릭 ' + fmt(r[2]) + ' <small class="mu">· 노출 ' + fmtK(r[1]) + '</small>')).join('') + '</div>';
     const cm = v.cm || [];
     if (cm.length) h += '<h3 class="sub">공감을 많이 받은 댓글</h3><ul class="cml">' + cm.map(r => '<li><span class="cml-t">' + esc(r[1]) + '</span><small>' + esc(r[0] ? md2(r[0]) : '') + ' · 좋아요 ' + fmt(r[2]) + (r[3] ? ' · 답글 ' + fmt(r[3]) : '') + '</small></li>').join('') + '</ul>';
     return h;
@@ -3746,7 +3747,7 @@
     if (fb && fb[2] > 0) t += tileP('페이스북 조회', fmt(fb[2]));
     if (cm) t += tileP('댓글', fmt(cm[0]) + '개') + tileP('우리가 답한 댓글', fmt(cm[1]) + '개');
     const act = pm.filter(x => x[0] === '프로필 활동' && x[1] && x[1] !== '전체' && x[2] > 0).map(x => [audKo(x[1]), x[2]]);
-    return (t ? '<div class="mgrid">' + t + '</div>' : '') + (act.length ? '<h3 class="sub">프로필에서 누른 것</h3>' + pbars(shareRows(act)) : '');
+    return (t ? '<div class="ktg">' + t + '</div>' : '') + (act.length ? '<h3 class="sub">프로필에서 누른 것</h3>' + pbars(shareRows(act)) : '');
   }
 
   // ───────── 오늘(2026-10-20 「수시로 들어가는데 매번 같은 내용이면 새로 알 게 없다」): ?part=today ─────────
@@ -4365,13 +4366,21 @@
     // 아직 판정 전(조회 모이는 중)은 하락색이 아니라 회색
     const cls = d == null || young(it) ? 'flat' : dCls(d);
     const wk = weekly() ? inc(it, m) : null;
-    const metrics = [['조회', fmt(v[0])], ['좋아요', fmt(v[1])], ['댓글', fmt(v[2])]];
-    if (it.c === '인스타그램' || (it.c === 'hong._.video' && v[3] != null)) metrics.push(['공유', fmt(v[3])], ['저장', fmt(v[4])], ['도달', fmt(it.r)], ['도달 대비 반응', pct(engagement(it))], ['도달 대비 저장', it.r ? pct((v[4] || 0) / it.r) : '–']);
-    // 유튜브 시청 지표가 셋 다 비면 「–」 세 줄 대신 한 줄
-    if (it.c === '유튜브') { if (it.a || completion(it) != null || it.e != null) metrics.push(['영상 길이', it.l ? Math.floor(it.l / 60) + '분 ' + (it.l % 60) + '초' : '–'], ['평균 시청', it.a ? fmt(it.a) + '초' : '–'], ['끝까지 본 비율', pct(completion(it))], ['실제 시청 조회', fmt(it.e)]); else metrics.push(['영상 길이', it.l ? Math.floor(it.l / 60) + '분 ' + (it.l % 60) + '초' : '–'], ['시청 자료', '게시 2~3일 뒤 들어와요']); }
-    if (isBench(it.c) || it.c === 'hong._.video') metrics.push(['좋아요율', pct(likeRate(it))]);
-    if (it.x && it.im != null) metrics.push(['노출', fmt(it.im)]);
-    metrics.push(['게시일', dot(it.d) + ' · ' + whenTxt(it.d)], ['형식', fmtType(it.t)]);
+    // 지표(2026-11-10 「그래프 아래에 · 깔끔하게 디자인화」): 숫자 칸(KN) · 비율 칸(KR, 평소 = 같은 채널·형식 1년 중간값) · 정보 줄(metrics)
+    const KN = [['조회', fmt(v[0])], ['좋아요', fmt(v[1])], ['댓글', fmt(v[2])]], KR = [], metrics = [];
+    const rt = (k, val, f, fm) => { fm = fm || pct; const p = val == null || it.ad || isBench(it.c) ? null : peerOf(it, f); return [k, val == null ? '–' : fm(val), p == null ? '' : fm(p), val != null && p > 0 ? val / p : null]; };
+    if (it.c === '인스타그램' || (it.c === 'hong._.video' && v[3] != null)) {
+      KN.push(['공유', fmt(v[3])], ['저장', fmt(v[4])], ['도달', fmt(it.r)]);
+      KR.push(rt('도달 대비 반응', it.r >= 300 ? engagement(it) : null, x => x.r >= 300 ? engagement(x) : null), rt('도달 대비 저장', it.r >= 300 ? (v[4] || 0) / it.r : null, x => x.r >= 300 ? ((last(x) || [])[4] || 0) / x.r : null));
+    }
+    // 유튜브 시청 지표가 셋 다 비면 「–」 칸 대신 정보 한 줄
+    if (it.c === '유튜브') {
+      metrics.push(['영상 길이', it.l ? Math.floor(it.l / 60) + '분 ' + (it.l % 60) + '초' : '–']);
+      if (it.a || completion(it) != null || it.e != null) { KN.push(['실제 시청 조회', fmt(it.e)]); KR.push(rt('평균 시청', it.a || null, x => x.a || null, s => fmt(s) + '초'), rt('끝까지 본 비율', completion(it), completion)); } else metrics.push(['시청 자료', '게시 2~3일 뒤 들어와요']);
+    }
+    if (isBench(it.c) || it.c === 'hong._.video') KR.push(rt('좋아요율', likeRate(it), likeRate));
+    if (it.x && it.im != null) KN.push(['노출', fmt(it.im)]);
+    metrics.push(['게시일', whenTxt(it.d) === dot(it.d) ? dot(it.d) : dot(it.d) + ' · ' + whenTxt(it.d)], ['형식', fmtType(it.t)]);
     // 유형(2026-10-30 「여기에 유형도」): 큰 유형 · 세부 유형, 사람이 정한 값이 아니면 출처를 붙임
     if (it.t !== '스토리' && !isBench(it.c)) metrics.push(['유형', it.ty ? (it.tg && it.tg !== it.ty ? it.tg + ' · ' : '') + it.ty + (it.tya || it.src === 'c' ? ' · ' + srcTxt(it, it.tya) : '') : '아직 없음']);
     if (it.x) metrics.push(['데이터', '엑셀 과거 기록(기록 당시 수치)']);
@@ -4390,7 +4399,7 @@
     const el = $('detail');
     el.innerHTML = '<div class="dwrap">' +
       '<div class="dh"><button type="button" id="dClose" aria-label="뒤로">‹</button><div class="ctr"><small>' + esc(chName(it.c)) + ' · ' + esc(glab(it)) + '</small><b class="num ' + cls + '">' + MN[m] + ' ' + fmtK(mainVal(it)) + (d == null ? (it.hid ? ' · 비공개로 보임' : '') : young(it) ? ' · 모이는 중' : ' · ' + vsTxt(d + 1)) + '</b></div><span></span></div>' +
-      '<div class="dtabs" role="tablist"><button type="button" role="tab" aria-selected="true" data-s="dChart">성과</button><button type="button" role="tab" aria-selected="false" data-s="dSig">성과 진단</button><button type="button" role="tab" aria-selected="false" data-s="dMet">지표</button><button type="button" role="tab" aria-selected="false" data-s="dSim">비슷한 콘텐츠</button></div>' +
+      '<div class="dtabs" role="tablist"><button type="button" role="tab" aria-selected="true" data-s="dChart">성과</button><button type="button" role="tab" aria-selected="false" data-s="dMet">지표</button><button type="button" role="tab" aria-selected="false" data-s="dSig">성과 진단</button><button type="button" role="tab" aria-selected="false" data-s="dSim">비슷한 콘텐츠</button></div>' +
       '<section class="dsec" id="dChart"><h1 class="dtitle">' + line(it) + '</h1>' +
         '<div class="dbig num">' + fmt(mainVal(it)) + '<small class="' + cls + '">' + (it.ad ? '광고 영상이라 평소 대비는 계산하지 않아요' : it.hid ? '비공개로 보임 · 평소 계산에서 뺌' : d == null ? '' : (young(it) ? (youngTxt(it) ? youngTxt(it) + ' · 조회 모이는 중' : '조회 모이는 중 · ' + youngWait(it)) : MN[m] + ' ' + vsTxt(d + 1))) + '</small></div>' +
         (wk != null ? '<div class="num ' + (wk >= 0 ? 'up' : 'down') + '" style="font-weight:700;margin-top:2px">이번 주 ' + MN[m] + ' ' + sgn(wk) + fmt(wk) + '</div>' : '') +
@@ -4399,14 +4408,16 @@
         '<div class="cmp"><canvas id="dCanvas"></canvas></div>' +
         // 누를 수 없는 토글 대신 실제로 그린 차트 이름 한 줄
         '<p class="note" style="text-align:center">' + (detailLine(it) ? '기록 날짜별 쌓인 값 ' + MN[m] : '이 콘텐츠 · 같은 분류 · 같은 형식 중간값' + (young(it) ? ' · 중간값은 다 자란 게시물의 최종 조회' : '')) + '</p></section>' +
+      '<div class="gap"></div><section class="dsec" id="dMet"><h3 class="dh3">지표</h3><div class="ktg">' + KN.map(t => tileP(t[0], esc(t[1]))).join('') + '</div>' +
+        (KR.length ? '<div class="ktg r2">' + KR.map(t => tileP(t[0], esc(t[1]), t[2], t[3])).join('') + '</div>' : '') +
+        '<div class="kinfo">' + metrics.map(m2 => '<div><span>' + esc(m2[0]) + '</span><b>' + esc(m2[1]) + '</b></div>').join('') + '</div></section>' +
+      deepDetailHtml(it) +
       '<div class="gap"></div><section class="dsec why"><div class="lb"><span>' + ICO.spark + ' ' + (it.ad ? '광고 집행 정보' : d == null || young(it) ? '성과 요약' : d >= 0 ? '왜 잘 됐을까?' : '왜 아쉬웠을까?') + '</span><small>' + mdLabel(D.updated) + ' 기준</small></div><p>' + esc(whyText(it)) + '</p></section>' +
       '<div class="gap"></div><section class="dsec sig" id="dSig"><h3>성과 진단</h3><div class="h">' + (OWN.includes(it.c) ? '우리 과거 게시물·타 대학 게시물과 견준 결과' : '이 학교 과거 게시물과 견준 결과') + '</div>' +
         signals(it).map(s => '<div class="sg"><span class="k ' + s[0] + '">' + s[1] + '</span><div><b>' + nmz(s[2]) + '</b>' + (s[3] ? '<span>' + nmz(s[3]) + '</span>' : '') + (s[4] || '') + '</div></div>').join('') +
         '<p class="note">우리 자료는 최근 2년 게시물 중간값이에요 · 타 대학 제목·소재는 2026년 10월 대학·입시 채널 15곳 유튜브 조사 · 함께 나타난 특징이라 원인이라고 단정하진 않아요 · 평균 차이일 뿐 게시물 하나를 맞히는 힘은 약해요(2026-10-23 시간 순서 검증, 인스타 저장률만 형식·분류로 오차 13~20% 줄어요)</p></section>' +
-      deepDetailHtml(it) +
-      '<div class="gap"></div><section class="dsec" id="dMet"><h3 style="margin:0 0 6px;font-size:var(--fs-xl);font-weight:700">지표</h3><div class="mgrid">' + metrics.map(m2 => '<div><span>' + esc(m2[0]) + '</span><b>' + esc(m2[1]) + '</b></div>').join('') + '</div>' +
-        '<h3 style="margin:22px 0 10px;font-size:var(--fs-lg);font-weight:700">캡션</h3><p class="caption">' + esc(String(it.n || '').trim()) + '</p></section>' +
-      '<div class="gap"></div><section class="dsec" id="dSim"><h3 style="margin:0 0 6px;font-size:var(--fs-xl);font-weight:700">같은 주제의 다른 콘텐츠</h3>' + simNote + '<ol class="rank" id="dSimList">' + rankRows(sim, { pre: x => it.s && x.s !== it.s ? '<span class="mu" title="' + esc('주제 ' + (x.s || '없음')) + '">다른 주제</span>' : '' }) + '</ol></section>' +
+      (String(it.n || '').trim() ? '<div class="gap"></div><section class="dsec"><h3 class="dh3">캡션</h3><p class="caption">' + esc(String(it.n || '').trim()) + '</p></section>' : '') +
+      '<div class="gap"></div><section class="dsec" id="dSim"><h3 class="dh3">같은 주제의 다른 콘텐츠</h3>' + simNote + '<ol class="rank" id="dSimList">' + rankRows(sim, { pre: x => it.s && x.s !== it.s ? '<span class="mu" title="' + esc('주제 ' + (x.s || '없음')) + '">다른 주제</span>' : '' }) + '</ol></section>' +
       '</div><div class="cta">' + (it.u ? '<a href="' + esc(it.u) + '" target="_blank" rel="noopener">원본 보기</a>' : '<span>원본 링크는 인스타그램 앱에서 확인해 주세요</span>') + '</div>';
     el.hidden = false; el.scrollTop = 0; document.body.style.overflow = 'hidden'; detPush();
     $('dClose').focus();
@@ -4722,7 +4733,7 @@
   function openKpi(key, chs) {
     const K = kpiPage(key, chs); if (!K) return;
     lastFocus = document.activeElement;
-    const el = $('detail'), h3 = t => '<h3 style="margin:0 0 6px;font-size:var(--fs-xl);font-weight:700">' + t + '</h3>';
+    const el = $('detail'), h3 = t => '<h3 class="dh3">' + t + '</h3>';
     el.innerHTML = '<div class="dwrap">' +
       '<div class="dh"><button type="button" id="dClose" aria-label="뒤로">‹</button><div class="ctr"><small>' + esc(K.scope) + '</small><b>' + K.title + '</b></div><span></span></div>' +
       '<section class="dsec"><h1 class="dtitle">' + K.title + '</h1><div class="dbig num">' + K.big + (K.sub ? '<small>' + K.sub + '</small>' : '') + '</div>' +

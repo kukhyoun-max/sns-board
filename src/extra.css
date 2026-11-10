@@ -1387,3 +1387,29 @@ img[src*="/oardefault.jpg"]:not(.ok), img[src*="/oar2.jpg"]:not(.ok), img.wt { v
 /* 역대(명예의 전당) 2026-11-09 */
 .hall-note { margin: 0; }
 #view .sec .sh .btn[data-hch] { white-space: nowrap; }
+
+/* 상세 「지표」·「게시물 인사이트」·「시청 분석」 칸(2026-11-10 「그래프 아래 · 깔끔하게 디자인화」)
+   숫자 칸 = 회색 면 둥근 칸(이름 → 큰 값), 비율 칸은 두 칸 폭 + 아랫줄 평소 · 평소 대비(색), 정보는 선 목록 */
+.dh3 { margin: 0 0 14px; font-size: var(--fs-xl); font-weight: 700; letter-spacing: -0.01em; }
+#dDeep > .h { font-size: var(--fs-sm); color: var(--muted); }
+.dsec h3.sub { margin: 26px 0 10px; font-size: var(--fs-lg); font-weight: 700; }
+.ktg { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.ktg + .ktg { margin-top: 8px; }
+.ktg.r2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.kt { min-width: 0; display: flex; flex-direction: column; gap: 4px; padding: 14px 16px; border-radius: var(--r-md); background: var(--hm-card); }
+.kt > span { font-size: var(--fs-sm); color: var(--sub); line-height: 1.4; word-break: keep-all; }
+.kt > b { font-size: var(--fs-xl); font-weight: 700; letter-spacing: -0.02em; line-height: 1.25; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.kt > b small.mu { margin-left: 2px; font-size: var(--fs-tag); font-weight: 600; letter-spacing: 0; color: var(--muted); }
+.kt > small { font-size: var(--fs-tag); font-weight: 700; color: var(--sub); }
+.kt > small.up { color: var(--up-tx); }
+.kt > small.down { color: var(--down); }
+.kinfo { margin-top: 12px; }
+.kinfo > div { display: flex; justify-content: space-between; align-items: baseline; gap: 16px; padding: 13px 0; border-bottom: 1px solid var(--line); font-size: var(--fs-md); }
+.kinfo > div:last-child { border-bottom: 0; }
+.kinfo > div > span { flex: none; color: var(--sub); }
+.kinfo > div > b { min-width: 0; font-weight: 600; text-align: right; font-variant-numeric: tabular-nums; }
+#dDeep .note { margin-top: 12px; }
+@media (max-width: 560px) {
+  .ktg { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .kt { padding: 12px 14px; }
+}
