@@ -4407,9 +4407,12 @@
       metrics.push(['영상 길이', it.l ? Math.floor(it.l / 60) + '분 ' + (it.l % 60) + '초' : '–']);
       if (it.a || completion(it) != null || it.e != null) { KN.push(tileC(it, '실제 시청 조회', it.e, x => x.e)); KR.push(rt('평균 시청', it.a || null, x => x.a || null, s => fmt(s) + '초'), rt('끝까지 본 비율', completion(it), completion)); } else metrics.push(['시청 자료', '게시 2~3일 뒤 들어와요']);
     }
-    // 릴스 분량(2026-11-10 담당자 「게시물 정보에 해당 릴스 분량」): 인스타 API는 길이를 안 줘서 「호남권 릴스」(Apify, part=hreel) 길이(r[6])를 게시물 코드로 맞춤. 받은 릴스에 없으면 「–」
-    const isReel = it.c === '인스타그램' && /릴스/.test(it.t) && igCode(it.u);
-    if (isReel) metrics.push(['릴스 분량', '불러오는 중', 'dLen']);
+    // 릴스 분량(2026-11-10 담당자 「게시물 정보에 해당 릴스 분량」): 서버 「릴스 길이」 탭(it.rl, 영상 파일 머리에서 읽음, 2026-11-11~ 인스타·hong)이 먼저,
+    // 아직 없으면 인스타는 「호남권 릴스」(Apify, part=hreel) 길이(r[6])를 게시물 코드로 맞춤. 둘 다 없으면 「–」
+    const lenTxt = s => (s >= 60 ? Math.floor(s / 60) + '분 ' : '') + (s % 60) + '초';
+    const isReel = !it.rl && it.c === '인스타그램' && /릴스/.test(it.t) && igCode(it.u);
+    if (it.rl) metrics.push(['릴스 분량', lenTxt(Math.round(it.rl))]);
+    else if (isReel) metrics.push(['릴스 분량', '불러오는 중', 'dLen']);
     if (isBench(it.c) || it.c === 'hong._.video') KR.push(rt('좋아요율', likeRate(it), likeRate));
     if (it.x && it.im != null) KN.push(tileC(it, '노출', it.im, x => x.im));
     metrics.push(['게시일', whenTxt(it.d) === dot(it.d) ? dot(it.d) : dot(it.d) + ' · ' + whenTxt(it.d)], ['형식', fmtType(it.t)]);
@@ -4458,8 +4461,8 @@
     if (isReel) loadPart('hreel').then(H => {
       const b = $('dLen'); if (!b) return;
       const r = H && H.v && H.v.find(x => x[0] === igCode(it.u)), s = r && Math.round(+r[6]);
-      b.textContent = s > 0 ? (s >= 60 ? Math.floor(s / 60) + '분 ' : '') + (s % 60) + '초' : '–';
-      if (!(s > 0)) b.title = '호남권 릴스 수집(월요일, 최근 릴스)에 없는 게시물이라 길이를 몰라요';
+      b.textContent = s > 0 ? lenTxt(s) : '–';
+      if (!(s > 0)) b.title = '아직 길이를 읽지 못한 게시물이에요(1시간마다 채워요)';
     });
     el.querySelectorAll('.dtabs button').forEach(b => b.addEventListener('click', () => {
       el.querySelectorAll('.dtabs button').forEach(x => x.setAttribute('aria-selected', x === b));

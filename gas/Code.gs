@@ -1725,6 +1725,7 @@ function buildDashboardData_() {
   try { coMark_(ss, list); } catch (e) {}
   try { arcMark_(ss, list); } catch (e) {}
   try { aiMark_(list); } catch (e) {}
+  try { rlMark_(ss, list); } catch (e) {}
   try { const SP = loadSpeed_(ss); list.forEach(it => { const s = it.u && SP[it.u]; if (s) it.sp = s; }); } catch (e) {}
 
   return {
@@ -4416,6 +4417,8 @@ function storySnapshot() {
   try { collabStep_(ss); } catch (e) { logRows_(ss, [[new Date(), COLLAB_SHEET, 0, '오류: ' + String(e.message).slice(0, 150)]]); }
   try { collabOwnStep_(ss, 60); } catch (e) { logRows_(ss, [[new Date(), COLLAB_OWN_SHEET, 0, '오류: ' + String(e.message).slice(0, 150)]]); }
   try { postHourly_(ss); } catch (e) { logRows_(ss, [[new Date(), HOURLY_SHEET, 0, '오류: ' + String(e.message).slice(0, 150)]]); }
+  // 릴스 길이(2026-11-11): 아직 탭에 없는 영상만 mp4 머리로 읽음, 남으면 다음 시간에
+  try { const r = reelLenStep_(ss, runT0); if (r && (r.read || r.fail || r.left)) logRows_(ss, [[new Date(), RLEN_SHEET, r.read, '정상 — 읽음 ' + r.read + '개' + (r.fail ? ' · 못 읽음 ' + r.fail + '개' : '') + (r.left ? ' · 남은 ' + r.left + '개는 다음 시간에' : '')]]); } catch (e) { logRows_(ss, [[new Date(), RLEN_SHEET, 0, '오류: ' + String(e.message).slice(0, 150)]]); }
   // 학과 계정(2026-11-03): 하루 한 번, 오늘 아직 확인하지 않은 계정만 — 시간이 모자라면 다음 시간에 이어서
   try { const r = deptStep_(ss, runT0); if (r && r.skip) logRows_(ss, [[new Date(), DEPT_SHEET, 0, '건너뜀: ' + r.skip]]); else if (r) logRows_(ss, [[new Date(), DEPT_SHEET, r.posts, '정상 — 확인 ' + r.tried + '개 중 받아짐 ' + r.ok + '개' + (r.left ? ' · 남은 ' + r.left + '개는 다음 시간에' : '')]]); } catch (e) { logRows_(ss, [[new Date(), DEPT_SHEET, 0, '오류: ' + String(e.message).slice(0, 150)]]); }
 }
@@ -6484,53 +6487,82 @@ function todayWarm() {
   const ss = SpreadsheetApp.openById(SS_ID);
   try { cachePut_(JSON.stringify(partToday_(ss)), 'part:today', TODAY_TTL); }
   catch (e) { logRows_(ss, [[new Date(), '오늘 칸 미리 만들기', 0, '오류: ' + String(e.message).slice(0, 120)]]); }
-  try { reelLenTest_(ss); } catch (e) {}
 }
-// 릴스 길이 시험(2026-11-10 담당자 「C로 먼저 시도」): 인스타 API로 예전 릴스 길이를 받을 수 있는지 한 번만 확인 → 실행 로그 「릴스 길이 시험」
-//  ① 게시물 필드 video_duration이 있는지 ② media_url(우리 계정 영상 파일) 앞·뒤 일부만 받아 mp4 머리(mvhd)의 길이를 읽기. Apify 값과 나란히 적음. 확인 뒤 지움
-function reelLenTest_(ss) {
-  const p = PropertiesService.getScriptProperties();
-  if (p.getProperty('RLEN_TEST') === 'done') return;
-  p.setProperty('RLEN_TEST', 'done');
-  const out = [];
-  try {
-    const hr = {}, hs = ss.getSheetByName(HREEL_SHEET);
-    if (hs) hs.getDataRange().getValues().slice(1).forEach(r => { hr[String(r[0])] = r[8]; });
-    igxChannels_().forEach(c => {
-      const j = igxGet_(c.conf, c.user + '/media', { fields: 'id,shortcode,media_product_type,media_url,timestamp', limit: 50 });
-      const reels = (j.data || []).filter(x => x.media_product_type === 'REELS');
-      const pick = reels.slice(0, 3).concat(reels.slice(-2)); // 최근 3개 + 이 쪽에서 가장 옛 것 2개
-      pick.forEach((x, i) => {
-        let api = '';
-        if (i === 0) { try { const d = igxGet_(c.conf, x.id, { fields: 'id,video_duration' }); api = ' · video_duration=' + d.video_duration; } catch (e) { api = ' · 필드 오류 ' + String(e.message).slice(0, 70); } }
-        let mp4;
-        try { mp4 = mp4Dur_(x.media_url); } catch (e) { mp4 = '오류 ' + String(e.message).slice(0, 40); }
-        out.push(c.ch + ' ' + x.shortcode + ' ' + String(x.timestamp || '').slice(0, 10) + ': mp4=' + mp4 + (hr[x.shortcode] !== undefined ? ' · apify=' + hr[x.shortcode] : '') + api);
-      });
+// 릴스 길이(2026-11-11 담당자 「진행해」): 인스타 API에는 영상 길이 필드가 없음(11-10 시험: video_duration = code 100).
+//  → 우리 계정(jjuniv·hong) 영상의 media_url 앞 512KB(없으면 뒤 512KB)만 받아 mp4 머리(mvhd)의 길이를 읽어 「릴스 길이」 탭에 쌓음. 영상 전체는 받지 않음
+//  · 11-10 시험 10개 모두 읽힘, Apify 값(소수점 버림)과 4/4 같음, 2026-03 영상도 읽힘
+//  · 1시간마다 storySnapshot이 탭에 아직 없는 영상만 읽음(한 번에 RLEN_MAX_MS 안, 남으면 다음 시간에). 못 읽은 영상은 상태를 적고 RLEN_RETRY_DAYS일 뒤 다시
+//  · 보드: buildDashboardData_ → rlMark_가 items `rl`(초). 유튜브 길이 `l`과 섞지 않음(끝까지 본 비율 등 계산에 안 들어가게)
+const RLEN_SHEET = '릴스 길이';
+const RLEN_HEAD = ['게시물 코드', '계정', '올린 날', '길이(초)', '받은 시각', '상태'];
+const RLEN_MAX_MS = 90000, RLEN_RETRY_DAYS = 7;
+function reelLenStep_(ss, runT0) {
+  const chs = igxChannels_();
+  if (!chs.length) return null;
+  let sh = ss.getSheetByName(RLEN_SHEET);
+  if (!sh) {
+    sh = ss.insertSheet(RLEN_SHEET);
+    sh.getRange('A:C').setNumberFormat('@'); sh.getRange('E:F').setNumberFormat('@');
+    sh.getRange(1, 1, 1, RLEN_HEAD.length).setValues([RLEN_HEAD]); sh.setFrozenRows(1);
+  }
+  const have = {}, last = sh.getLastRow();
+  if (last > 1) sh.getRange(2, 1, last - 1, RLEN_HEAD.length).getValues().forEach((r, i) => { have[String(r[0])] = { row: i + 2, ok: r[3] !== '' && r[3] != null, at: String(r[4]) }; });
+  const retry = Utilities.formatDate(new Date(Date.now() - RLEN_RETRY_DAYS * 864e5), TZ, 'yyyy-MM-dd HH:mm');
+  const now = Utilities.formatDate(new Date(), TZ, 'yyyy-MM-dd HH:mm'), t0 = Date.now(), add = [], upd = [];
+  let read = 0, fail = 0, left = 0;
+  chs.forEach(c => {
+    const vids = [];
+    let after = '';
+    for (let pg = 0; pg < 30; pg++) {
+      const prm = { fields: 'id,shortcode,media_type,media_url,timestamp', limit: 100 };
+      if (after) prm.after = after;
+      const j = igxGet_(c.conf, c.user + '/media', prm);
+      (j.data || []).forEach(x => { if (x.media_type === 'VIDEO' && x.shortcode) vids.push(x); });
+      after = j.paging && j.paging.next && j.paging.cursors && j.paging.cursors.after || '';
+      if (!after) break;
+    }
+    vids.forEach(x => {
+      const h = have[x.shortcode];
+      if (h && (h.ok || h.at > retry)) return;
+      if (Date.now() - t0 > RLEN_MAX_MS || (runT0 && Date.now() - runT0 > 300000)) { left++; return; }
+      let sec = null, st;
+      if (!x.media_url) st = '주소 없음';
+      else { try { sec = mp4Sec_(x.media_url); st = sec == null ? '못 읽음' : '정상'; } catch (e) { st = '오류 ' + String(e.message).slice(0, 40); } }
+      if (sec == null) fail++; else read++;
+      const row = [x.shortcode, c.ch, String(x.timestamp || '').slice(0, 10), sec == null ? '' : sec, now, st];
+      if (h) upd.push([h.row, row]); else add.push(row);
     });
-    logRows_(ss, [[new Date(), '릴스 길이 시험', out.length, out.join(' | ').slice(0, 1500)]]);
-  } catch (e) { logRows_(ss, [[new Date(), '릴스 길이 시험', 0, '오류: ' + String(e.message).slice(0, 150)]]); }
+  });
+  upd.forEach(u => sh.getRange(u[0], 1, 1, RLEN_HEAD.length).setValues([u[1]]));
+  if (add.length) sh.getRange(sh.getLastRow() + 1, 1, add.length, RLEN_HEAD.length).setValues(add);
+  return { read: read, fail: fail, left: left };
 }
-// mp4 머리(moov/mvhd)의 길이(초). 앞 512KB에 없으면 뒤 512KB. 영상 전체는 받지 않음(서버가 Range를 무시하면 전체가 옴 → 크기를 적음)
-function mp4Dur_(url) {
-  if (!url) return '주소 없음';
+// mp4 머리(moov/mvhd)의 길이(초, 소수 한 자리). 앞 512KB에 없으면 뒤 512KB, 둘 다 없으면 null
+function mp4Sec_(url) {
   const u32 = (b, o) => (b[o] & 255) * 16777216 + ((b[o + 1] & 255) << 16) + ((b[o + 2] & 255) << 8) + (b[o + 3] & 255);
   const read = b => {
     for (let i = 0; i + 36 < b.length; i++) {
       if (b[i] !== 0x6d || b[i + 1] !== 0x76 || b[i + 2] !== 0x68 || b[i + 3] !== 0x64) continue;
       const v = b[i + 4], ts = v === 1 ? u32(b, i + 24) : u32(b, i + 16), du = v === 1 ? u32(b, i + 28) * 4294967296 + u32(b, i + 32) : u32(b, i + 20);
-      if (ts > 0) return Math.round(du / ts * 10) / 10;
+      if (ts > 0 && du > 0) return Math.round(du / ts * 10) / 10;
     }
     return null;
   };
-  const get = rg => { const r = UrlFetchApp.fetch(url, { headers: { Range: rg }, muteHttpExceptions: true }); return { code: r.getResponseCode(), b: r.getContent() }; };
+  const get = rg => { const r = UrlFetchApp.fetch(url, { headers: { Range: rg }, muteHttpExceptions: true }); return r.getResponseCode() < 400 ? r.getContent() : null; };
   const a = get('bytes=0-524287');
-  if (a.code >= 400) return 'HTTP ' + a.code;
-  let s = read(a.b);
-  if (s != null) return s + '초(앞·' + a.code + '·' + Math.round(a.b.length / 1024) + 'KB)';
+  if (!a) throw new Error('파일 받기 실패');
+  const s = read(a);
+  if (s != null) return s;
   const z = get('bytes=-524288');
-  s = z.code < 400 ? read(z.b) : null;
-  return s != null ? s + '초(뒤·' + z.code + ')' : '못 읽음(' + a.code + '·' + Math.round(a.b.length / 1024) + 'KB)';
+  return z ? read(z) : null;
+}
+// 보드 items `rl` = 「릴스 길이」 탭 길이(초), 인스타·hong만
+function rlMark_(ss, list) {
+  const sh = ss.getSheetByName(RLEN_SHEET);
+  if (!sh || sh.getLastRow() < 2) return;
+  const map = {};
+  sh.getRange(2, 1, sh.getLastRow() - 1, 4).getValues().forEach(r => { const s = Number(r[3]); if (r[0] && s > 0) map[String(r[0])] = s; });
+  list.forEach(it => { if (it.c !== '유튜브' && it.u) { const s = map[igShort_(it.u)]; if (s) it.rl = s; } });
 }
 const THUMB_CACHE = 'part:thumbs', THUMB_TTL = 21600;
 const PLAN_CAL = '공식 SNS 발행 일정';
