@@ -925,6 +925,7 @@ button.hm-row:active, a.hm-row:active, li.hm-row:active { opacity: .7; }
 .hm-btn svg { color: var(--up-tx); }
 .hm-fold[open] > .hm-btn { margin-bottom: 8px; }
 .hm-fol { margin-top: 24px; }
+.hm-sec > .hm-fol { margin-top: 0; }
 .hm-fol > summary .hm-cards { margin-top: 0; }
 .hm-fol .kpi-row { margin-top: 8px; }
 .hm-wk { padding: 16px; gap: 12px; }

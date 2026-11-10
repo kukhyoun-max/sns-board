@@ -4001,7 +4001,8 @@
       if (H.length > 1) FT.push(kpiTile('유튜브 구독자', fmt(y.subs) + '<small>명</small>', yr ? '1년 전보다 ' + dNum(y.subs - yr[1], '명') : '', '', spark(hv, '최근 1년 구독자 수 · 날마다 늘고 준 수로 거꾸로 계산(유튜브 분석은 1~2일 늦음)') + '<div class="td-foot">' + (y.subs >= hi ? '1년 중 가장 많아요' : '1년 최고 ' + fmt(hi) + '명') + '</div>'));
     }
     const FG = hmFol(chs, d, today, 'day');
-    const fol = FG.length ? '<details class="hm-fold hm-fol"><summary title="누르면 추이">' + (FG.length === 1 ? '<div class="hm-cards n1">' + folWide(FG[0]) + '</div>' : hmCards(FG.map(g => folCard(g)))) + '</summary>' + (FT.length ? '<div class="kpi-row td-k n' + FT.length + '">' + FT.join('') + '</div>' : '') + '</details>' : '';
+    // 팔로워는 따로 구역 제목(2026-11-10 담당자 「게시 예정탭이랑 팔로우탭에 구분이 없어서 헷갈린다」 — 제목 없이 게시 예정 바로 아래 붙어 한 덩어리로 보였음)
+    const fol = FG.length ? hmSec2('팔로워', '누르면 추이', '<details class="hm-fold hm-fol"><summary title="누르면 추이">' + (FG.length === 1 ? '<div class="hm-cards n1">' + folWide(FG[0]) + '</div>' : hmCards(FG.map(g => folCard(g)))) + '</summary>' + (FT.length ? '<div class="kpi-row td-k n' + FT.length + '">' + FT.join('') + '</div>' : '') + '</details>') : '';
     return '<section class="sec hm">' + hero + hmCards(M) + list + attn + tdPlan(d) + fol + secClose;
   }
   // 게시 예정(「공식 SNS 발행 일정」 오늘~7일). 오늘 예정이 실제로 올라갔으면 「게시 완료」, 누르면 업로드 폴더(게시 완료면 올린 게시물, 2026-10-27)
