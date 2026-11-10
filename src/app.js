@@ -648,7 +648,8 @@
   // ═════════ 홈 ① 이번 주 현황 — 기록과 기록 사이 실제로 늘어난 조회 (새 게시물 / 기존 게시물) ═════════
   const OKGAP = 10; // 비교 구간으로 쓸 최대 기록 간격(일) — 과거 월 단위 기록은 제외
   // j = 비교 시작 기록(기본은 바로 앞 기록), m = 지표(MN 순서, 기본 조회)
-  function weekPart(chs, i, j, m) {
+  // incl = 시작 기록일 당일 게시물도 새 게시물로(이번 기간 카드 전용, 2026-11-10 「월요일에 올렸는데 새 게시물 없음」). 이력 표는 두 기간에 겹쳐 세지 않게 끔
+  function weekPart(chs, i, j, m, incl) {
     if (j == null) j = i - 1; m = m || 0;
     if (i <= 0 || j < 0 || j >= i) return null;
     const d0 = D.dates[j], d1 = D.dates[i];
@@ -656,8 +657,9 @@
     if (!ok.length) return null;
     // 스토리는 24시간 뒤 사라지고 조회가 따로 집계되지 않아 이번 주 증가·목록에서 뺀다
     const its = D.items.filter(it => ok.includes(it.c) && it.t !== '스토리' && (S.ads || !it.ad));
-    // 새 게시물 = 직전 기록일 다음 날 이후 게시 + 직전 기록일 당일에 올렸는데 직전 기록에 없던 것
-    const isNew = it => it.d <= d1 && (it.d > d0 || (it.d === d0 && !it.h[j]));
+    // 새 게시물 = 직전 기록일 다음 날 이후 게시 + 직전 기록일 당일에 올렸는데 직전 기록에 없던 것(incl이면 당일 게시 전부)
+    // 값(증가)은 그대로 시작 기록부터 센다 — 나누는 칸만 바뀜
+    const isNew = it => it.d <= d1 && (it.d > d0 || (it.d === d0 && (incl || !it.h[j])));
     const nw = its.filter(isNew), old = its.filter(it => it.d <= d0 && !isNew(it));
     // 늦게 들어온 예전 게시물(직전 기록에 없고 그보다 먼저 올림): 증가 합계에서 빼고 콘텐츠로만 보여 줌
     const late = old.filter(it => it.h[i] && !it.h[j]);
@@ -678,7 +680,7 @@
     const n = D.dates.length;
     if (n < 2) return null;
     const i = n - 1, j = weekBase(i), jp = j > 0 ? weekBase(j) : -1;
-    const cur = weekPart(chs, i, j, m);
+    const cur = weekPart(chs, i, j, m, 1);
     let prev = jp >= 0 ? weekPart(chs, j, jp, m) : null;
     if (prev && prev.days > 14) prev = null;
     // 직전 기간에 원본이 멈춰 있던 채널(이번 기간은 셈)
@@ -688,7 +690,7 @@
     if (cur && prev) {
       const both = cur.ok.filter(c => prev.ok.includes(c));
       if (both.length) {
-        const a = both.length === cur.ok.length ? cur : weekPart(both, i, j, m), b = both.length === prev.ok.length ? prev : weekPart(both, j, jp, m);
+        const a = both.length === cur.ok.length ? cur : weekPart(both, i, j, m, 1), b = both.length === prev.ok.length ? prev : weekPart(both, j, jp, m);
         if (a && b && b.v > 0) cmp = { d: (a.v / a.days) / (b.v / b.days) - 1, days: b.days, chs: both, partial: both.length < cur.ok.length };
       }
     }
