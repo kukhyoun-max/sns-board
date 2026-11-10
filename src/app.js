@@ -2156,6 +2156,48 @@
     const sm = $('stratMore');
     if (sm && !sm.open) { const t = () => { if (sm.open) { sm.removeEventListener('toggle', t); go(); } }; sm.addEventListener('toggle', t); } else go();
   }
+  // 영상 길이와 평균 시청(2026-11-11 담당자 「영상 분량과 평균 시청 시간의 상관 관계」 → 「전략 부분에 넣어」): 길이 구간별 평균 시청 중간값 + 길이 2배일 때 평균 시청 배수(로그 기울기)
+  // 인스타·hong = 길이 it.rl(「릴스 길이」 탭) → 없으면 「호남권 릴스」, 평균 시청 = part=ig post[4](다시 본 시간 포함). 유튜브 = it.l · it.a, 쇼츠는 2025-03-31 이후, 롱폼은 최근 2년
+  // 광고·비공개·올린 지 14일 안 된 게시물은 뺌. 상관이지 원인이 아님(콘텐츠 종류가 길이와 함께 움직임)
+  const LW_G = [['ig', '인스타 릴스', '인스타그램', [[0, 15, '~15초'], [15, 30, '15~30초'], [30, 60, '30~60초'], [60, 1e9, '60초~']]],
+    ['hong', 'hong', 'hong._.video', [[0, 15, '~15초'], [15, 30, '15~30초'], [30, 60, '30~60초'], [60, 1e9, '60초~']]],
+    ['sh', '쇼츠', '유튜브', [[0, 20, '~20초'], [20, 30, '20~30초'], [30, 45, '30~45초'], [45, 61, '45~60초']]],
+    ['lg', '롱폼', '유튜브', [[61, 180, '1~3분'], [180, 300, '3~5분'], [300, 600, '5~10분'], [600, 1200, '10~20분'], [1200, 1e9, '20분~']]]];
+  const LWS = { g: null, IG: null, HR: null };
+  function lwRows(g) {
+    const ripe = addDays(D.updated, -AGE_MIN), ok = it => !it.ad && !it.hid && it.d <= ripe;
+    if (g === 'sh' || g === 'lg') return D.items.filter(it => it.c === '유튜브' && ok(it) && it.a > 0 && it.l > 0 && (g === 'sh' ? it.l <= 60 && it.d >= '2025-03-31' : it.l > 60 && it.d >= addDays(D.updated, -730))).map(it => [it.l, it.a]);
+    const ch = g === 'ig' ? '인스타그램' : 'hong._.video', post = LWS.IG && LWS.IG.post || {}, hr = {};
+    ((LWS.HR && LWS.HR.v) || []).forEach(r => { if (+r[6] > 0) hr[r[0]] = +r[6]; });
+    return D.items.filter(it => it.c === ch && ok(it) && it.u).map(it => { const q = post[igKey(it.u)], l = it.rl || hr[igCode(it.u)]; return q && q[4] > 0 && l > 0 ? [l, q[4]] : null; }).filter(Boolean);
+  }
+  const lwSec = s => s >= 60 ? Math.floor(s / 60) + '분 ' + Math.round(s % 60) + '초' : (s < 10 ? s.toFixed(1) : Math.round(s)) + '초';
+  function lwInner(chs) {
+    const G = LW_G.filter(x => chs.includes(x[2]));
+    if (!G.find(x => x[0] === LWS.g)) LWS.g = G[0][0];
+    const g = G.find(x => x[0] === LWS.g), R = lwRows(g[0]);
+    let h = '<div class="seg" id="lwBy" role="group" aria-label="볼 영상">' + G.map(x => '<button type="button" data-g="' + x[0] + '" aria-pressed="' + (x[0] === g[0]) + '">' + x[1] + '</button>').join('') + '</div>';
+    if (R.length < MIN_N) return h + '<p class="note">' + (g[2] === '유튜브' ? '' : '길이를 읽은 릴스가 ') + '아직 ' + R.length + '개라 비교하지 않아요' + (g[2] === '유튜브' ? '' : ' · 1시간마다 길이를 채워요') + '</p>';
+    // 길이 2배일 때 평균 시청 배수 = 2^(log 길이에 대한 log 평균 시청 기울기)
+    const x = R.map(r => Math.log(r[0])), y = R.map(r => Math.log(r[1])), mx = x.reduce((a, b) => a + b) / x.length, my = y.reduce((a, b) => a + b) / y.length;
+    let sxy = 0, sxx = 0; x.forEach((v, i) => { sxy += (v - mx) * (y[i] - my); sxx += (v - mx) ** 2; });
+    const k = sxx ? Math.pow(2, sxy / sxx) : null;
+    const B = g[3].map(b => { const s = R.filter(r => r[0] >= b[0] && r[0] < b[1]); return { lab: b[2], n: s.length, w: median(s.map(r => r[1])), p: median(s.map(r => r[1] / r[0])) }; }).filter(b => b.n);
+    const top = Math.max(...B.map(b => b.w || 0)) || 1;
+    h += '<div class="hm-rx hm-stack co-st"><div class="bc-b ins-c"><div class="co-h"><span>' + R.length + '개 · 길이 2배면 평균 시청</span><b class="num mu">' + (k == null ? '–' : k.toFixed(1) + '배') + '</b></div>' +
+      B.map(b => '<div class="ins-r co-r" title="' + esc(b.lab + ' · ' + b.n + '개 · 끝까지 본 비율 중간값 ' + pct0(b.p)) + '"><span class="ins-n"><b>' + b.lab + '</b> <small class="num">' + b.n + '개</small></span><span class="bc-t"><i style="width:' + Math.max(2, b.w / top * 100).toFixed(1) + '%;background:' + chColor(g[2]) + '"></i></span><b class="num ins-v' + (b.n < MIN_N ? ' mu' : '') + '">' + lwSec(b.w) + '</b></div>').join('') +
+      '<div class="wk-f">끝까지 본 비율 ' + B.map(b => b.lab + ' ' + pct0(b.p)).join(' · ') + '</div></div></div>' +
+      '<p class="note">막대 = 길이 구간별 평균 시청 중간값 · 2배보다 작으면 길어진 만큼은 안 봐요 · ' + (g[2] === '유튜브' ? '' : '평균 시청에 다시 본 시간이 들어가 짧은 릴스는 비율이 높게 나와요 · ') + '콘텐츠 종류가 길이와 함께 달라 원인으로 단정하지 않아요 · ' + MIN_N + '개 미만 구간은 회색</p>';
+    return h;
+  }
+  function lwHtml(chs) { return LW_G.some(x => chs.includes(x[2])) ? secOpen('영상 길이와 평균 시청', '길이 구간별 비교') + '<div id="lwBox"><p class="note">불러오는 중이에요</p></div>' + secClose : ''; }
+  function wireLw(chs) {
+    if (!$('lwBox')) return;
+    const paint = () => { const b = $('lwBox'); if (!b) return; b.innerHTML = lwInner(chs); b.querySelectorAll('#lwBy button').forEach(x => x.addEventListener('click', () => { LWS.g = x.dataset.g; paint(); })); };
+    const go = () => Promise.all([chs.some(c => c !== '유튜브') ? loadPart('ig') : null, chs.includes('인스타그램') ? loadPart('hreel') : null]).then(([I, H]) => { LWS.IG = I; LWS.HR = H; paint(); });
+    const sm = $('stratMore');
+    if (sm && !sm.open) { const t = () => { if (sm.open) { sm.removeEventListener('toggle', t); go(); } }; sm.addEventListener('toggle', t); } else go();
+  }
   // 클로드 작업 성과(2026-11-07 「나중에 비율이나 분석 데이터로」): 기록이 시작된 날부터, 채널마다 비율과 평소 대비(같은 채널·같은 형식 기준이라 형식 차이는 빠짐). 14일 지난 게시물만 비교
   const AIS = { L: [] };
   function aiHtml(chs) {
@@ -2223,7 +2265,7 @@
       top += anaHtml();
       // 「보관한 게시물」 칸은 2026-11-08 뺌(담당자 「전략에서 보관 처리를 보여줄 필요 없어」 → 홈 전체 탭 「보관할 콘텐츠」에 지금 후보만)
       top += secOpen('이번 주 처방', (ch ? '' : esc(scopeLabel()) + ' · ') + '잘 되는데 최근 2달 덜 올린 것 · 많이 올렸는데 약한 것') + rxHtml(RX) + secClose;
-      { const co = coHtml(chs), pr = prHtml(chs), ai = aiHtml(chs); if (co) FN.push('공동작업'); if (pr) FN.push('릴스·쇼츠 짝'); if (ai) FN.push('클로드 작업'); fold += co + pr + ai; }
+      { const co = coHtml(chs), pr = prHtml(chs), lw = lwHtml(chs), ai = aiHtml(chs); if (co) FN.push('공동작업'); if (pr) FN.push('릴스·쇼츠 짝'); if (lw) FN.push('영상 길이'); if (ai) FN.push('클로드 작업'); fold += co + pr + lw + ai; }
       fold += secOpen('시도한 전략 채점', '「전략 기록」 탭에 적은 시도가 평소보다 잘 됐는지 채점해요') + stratHtml() + secClose; FN.push('전략 채점');
       FN.push('잘 되는 조건'); fold += secOpen('잘 되는 조건', '해당 게시물과 나머지가 25% 넘게 차이 나는 조건만 골랐어요') + rulesHtml(chs) + secClose;
       top += secOpen((+monthStart(D.updated, 1).slice(5, 7)) + '월 편성 제안', '최근 6달 올린 양에서 잘 되는 형식은 늘리고 약한 건 줄였어요 · 작년 같은 달 인기 주제도 함께') + planHtml(PLAN) + secClose;
@@ -2260,6 +2302,7 @@
     $('view').querySelectorAll('.mx td[data-k]').forEach(td => { if (td.classList.contains('none')) return; td.addEventListener('click', () => { S.mx = S.mx === td.dataset.k ? null : td.dataset.k; viewStrategy(); if (S.mx) setTimeout(() => { const el = $('mxList'); if (el) el.scrollIntoView({ behavior: SM(), block: 'nearest' }); }, 30); }); });
     wireCo(chs);
     wirePr();
+    wireLw(chs);
     if ($('aiList')) wireRank($('aiList'), AIS.L);
     document.querySelectorAll('#anaList [data-ai]').forEach(li => { const go = () => { const x = (window.__ana || [])[+li.dataset.ai]; if (x) openDetail(x.it); }; li.addEventListener('click', go); li.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); go(); } }); });
     if (S.mx) { const [g, t] = S.mx.split('|'); wireRank($('mxList'), L.filter(it => it[MXB] === g && it.t === t).sort((a, b) => (ratio(b) || 0) - (ratio(a) || 0)).slice(0, 20)); }
