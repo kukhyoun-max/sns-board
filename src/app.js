@@ -4347,19 +4347,25 @@
         (ml ? ' 같은 해(' + yr + '년) 게시물의 좋아요 중간값은 ' + fmtK(ml) + '개인데, 이 게시물은 ' + fmt(v[1]) + '개예요.' : '') +
         (it.r > 0 ? ' 도달 ' + fmtK(it.r) + '.' : '');
     }
+    // 2026-11-10 담당자 「성과 요약 잘 읽히지 않는데, 내용별로 구분」: 한 문단 → [항목, 내용] 줄
     const r = ratio(it), g = groupBy(D.items.filter(x => x.c === it.c && !x.ad && !x.x && x.t !== '스토리'), 'g').find(x => x.k === it.g);
-    const parts = [];
+    const rows = [], M = MN[mainM(it.c)];
     const bs = baseFor(it);
-    // 「조회 모이는 중」 설명은 진단 「참고」 카드 한 곳에만 · 괄호 대신 두 문장
-    if (r != null && young(it)) { const yt = youngTxt(it); parts.push('지금까지 ' + MN[mainM(it.c)] + ' ' + fmtK(mainVal(it)) + (yt ? '로 ' + yt + '예요.' : '예요. 아직 다 자란 게시물과 견주기엔 일러요.'));
-      const pp = paceOf(it); if (pp && !pp.base) parts.push('비교: 이 게시물 ' + agName(pp.e) + ' ' + fmtK(Math.round(pp.r * pp.b.m)) + ' ÷ ' + (pp.b.mixed ? '채널 전체' : '같은 형식') + ' ' + pp.b.n + '개가 올린 지 ' + pp.b.lo + '~' + pp.b.hi + '일에 받은 ' + MN[mainM(it.c)] + ' 중간값 ' + fmtK(Math.round(pp.b.m)) + (it.c === '유튜브' ? ' · 둘 다 유튜브 분석 값' : '') + '.'); }
-    else if (r != null) parts.push('지금 ' + MN[mainM(it.c)] + ' ' + fmtK(mainVal(it)) + ', ' + vsTxt(r) + (r >= HIT ? '예요. 히트 기준(평소의 1.5배)을 넘었어요.' : r >= 1 ? '로 평소보다 조금 잘 됐어요.' : r >= 0.5 ? '로 평소보다 조금 낮아요.' : '로 평소의 절반에 못 미쳤어요.') + ' 평소는 ' + (bs.by === '형식' ? '같은 형식 최근 1년 중간값' : '채널 중간값') + ' ' + fmtK(bs.v) + '이에요.');
-    else if (it.hid) parts.push('조회 ' + fmt(mainVal(it)) + '로 비공개·일부 공개나 중복 업로드로 보여요. 평소 계산에서 뺐어요.');
-    if (g && g.idx != null && !young(it)) parts.push('「' + it.g + '」 분류 게시물은 보통 ' + mW(it.c) + '가 ' + vsTxt(g.idx) + '인데, 이 콘텐츠는 ' + (r != null && r > g.idx ? '그보다 높아요.' : '그보다 낮아요.'));
-    if (it.c === '인스타그램' && it.r > 0) parts.push('도달한 ' + fmtK(it.r) + '명 중 ' + pct(engagement(it)) + '가 좋아요·댓글·공유·저장으로 반응했어요.');
-    if (it.w && it.w.length) parts.push('만든 사람: ' + it.w.join(', ') + ' · ' + it.p + '.');
-    return parts.join(' ');
+    if (r != null && young(it)) {
+      const yt = youngTxt(it), pp = paceOf(it);
+      rows.push(['지금', M + ' ' + fmtK(mainVal(it)) + (yt ? ' · ' + yt : ' · 아직 다 자란 게시물과 견주기엔 일러요')]);
+      if (pp && !pp.base) rows.push(['비교 기준', (pp.b.mixed ? '채널 전체' : '같은 형식') + ' ' + pp.b.n + '개 · 올린 지 ' + pp.b.lo + '~' + pp.b.hi + '일 ' + M + ' 중간값 ' + fmtK(Math.round(pp.b.m)) + (it.c === '유튜브' ? ' · 둘 다 유튜브 분석 값' : '')]);
+    } else if (r != null) {
+      rows.push(['지금', M + ' ' + fmtK(mainVal(it)) + ' · ' + vsTxt(r)]);
+      rows.push(['판정', r >= HIT ? '히트 기준 평소의 1.5배를 넘었어요' : r >= 1 ? '평소보다 조금 잘 됐어요' : r >= 0.5 ? '평소보다 조금 낮아요' : '평소의 절반에 못 미쳤어요']);
+      rows.push(['비교 기준', (bs.by === '형식' ? '같은 형식 최근 1년 중간값' : '채널 중간값') + ' ' + fmtK(bs.v)]);
+    } else if (it.hid) rows.push(['평소 계산', '조회 ' + fmt(mainVal(it)) + '로 비공개·일부 공개나 중복 업로드로 보여 뺐어요']);
+    if (g && g.idx != null && !young(it)) rows.push(['같은 분류', '「' + it.g + '」 보통 ' + vsTxt(g.idx) + ' · 이 게시물이 ' + (r != null && r > g.idx ? '더 높아요' : '더 낮아요')]);
+    if (it.c === '인스타그램' && it.r > 0) rows.push(['반응', '도달 ' + fmtK(it.r) + '명 중 ' + pct(engagement(it)) + '가 좋아요·댓글·공유·저장']);
+    if (it.w && it.w.length) rows.push(['만든 사람', it.w.join(', ') + ' · ' + it.p]);
+    return rows;
   }
+
   function openDetail(it) {
     if (!it) return;
     if (TD.d) tdLive(TD.d); // 기본 데이터보다 「오늘」 응답이 먼저 왔을 때도 지금 값으로
@@ -4420,7 +4426,7 @@
         (it.ad ? '' : '<p class="note">평소 = 같은 채널·형식 최근 1년 게시물 중간값' + (young(it) ? ' · 올린 지 14일 전이라 개수는 회색, 조회는 같은 날수 평소와 견줘요' : '') + '</p>') + '</section>' +
       deepDetailHtml(it) +
       '<div class="gap"></div><section class="dsec" id="dInfo"><h3 class="dh3">게시물 정보</h3><div class="kinfo">' + metrics.map(m2 => '<div><span>' + esc(m2[0]) + '</span><b>' + esc(m2[1]) + '</b></div>').join('') + '</div></section>' +
-      '<div class="gap"></div><section class="dsec why"><div class="lb"><span>' + ICO.spark + ' ' + (it.ad ? '광고 집행 정보' : d == null || young(it) ? '성과 요약' : d >= 0 ? '왜 잘 됐을까?' : '왜 아쉬웠을까?') + '</span><small>' + mdLabel(D.updated) + ' 기준</small></div><p>' + esc(whyText(it)) + '</p></section>' +
+      '<div class="gap"></div><section class="dsec why"><div class="lb"><span>' + ICO.spark + ' ' + (it.ad ? '광고 집행 정보' : d == null || young(it) ? '성과 요약' : d >= 0 ? '왜 잘 됐을까?' : '왜 아쉬웠을까?') + '</span><small>' + mdLabel(D.updated) + ' 기준</small></div>' + (wy => typeof wy === 'string' ? '<p>' + esc(wy) + '</p>' : '<dl class="wy">' + wy.map(w => '<div><dt>' + esc(w[0]) + '</dt><dd>' + esc(w[1]) + '</dd></div>').join('') + '</dl>')(whyText(it)) + '</section>' +
       '<div class="gap"></div><section class="dsec sig" id="dSig"><h3>성과 진단</h3><div class="h">' + (OWN.includes(it.c) ? '우리 과거 게시물·타 대학 게시물과 견준 결과' : '이 학교 과거 게시물과 견준 결과') + '</div>' +
         signals(it).map(s => '<div class="sg"><span class="k ' + s[0] + '">' + s[1] + '</span><div><b>' + nmz(s[2]) + '</b>' + (s[3] ? '<span>' + nmz(s[3]) + '</span>' : '') + (s[4] || '') + '</div></div>').join('') +
         '<p class="note">우리 자료는 최근 2년 게시물 중간값이에요 · 타 대학 제목·소재는 2026년 10월 대학·입시 채널 15곳 유튜브 조사 · 함께 나타난 특징이라 원인이라고 단정하진 않아요 · 평균 차이일 뿐 게시물 하나를 맞히는 힘은 약해요(2026-10-23 시간 순서 검증, 인스타 저장률만 형식·분류로 오차 13~20% 줄어요)</p></section>' +

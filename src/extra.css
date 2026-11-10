@@ -1413,3 +1413,10 @@ img[src*="/oardefault.jpg"]:not(.ok), img[src*="/oar2.jpg"]:not(.ok), img.wt { v
   .ktg { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .kt { padding: 12px 14px; }
 }
+/* 성과 요약 항목별 줄(2026-11-10 「내용별로 구분」) */
+.why .wy { margin: 10px 0 0; }
+.why .wy > div { display: grid; grid-template-columns: 4.6em 1fr; gap: 12px; padding: 11px 0; border-bottom: 1px solid var(--line); }
+.why .wy > div:last-child { border-bottom: 0; }
+.why .wy dt { color: var(--sub); font-size: var(--fs-sm); padding-top: 2px; }
+.why .wy dd { margin: 0; font-size: var(--fs-md); font-weight: 600; line-height: 1.5; letter-spacing: -0.01em; font-variant-numeric: tabular-nums; }
+.why .wy > div:first-child dd { font-size: var(--fs-lg); font-weight: 700; }
