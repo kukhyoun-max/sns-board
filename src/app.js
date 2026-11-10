@@ -3821,7 +3821,7 @@
   }
   // 오늘 칸(2026-10-22 홈 위계 시안 반영 「바꾸자」): 큰 숫자 하나(어제·오늘 게시물 조회와 평소 비교) → 카드 없는 지표 한 줄 → 게시물 목록 줄 → 게시 예정 → 팔로워 한 줄. 그래프·팔로워 추이는 접어 둠
   // 목록 썸네일(2026-10-22, 토스·Stripe 목록처럼 왼쪽 작은 그림): 인스타·hong = 서버가 받은 img, 유튜브 = 영상 번호로 만든 주소
-  const tdThumb = p => { const src = p.img || (p.c === '유튜브' && /^[\w-]{11}$/.test(p.id) ? ytThumb(p.id, ytShortish(p.t)) : ''); return '<span class="hm-th" style="--c:' + chColor(p.c) + '" aria-hidden="true">' + (src ? '<img src="' + esc(src) + '" alt="" loading="lazy" referrerpolicy="no-referrer" ' + IMG_ERR + '>' : '') + '</span>'; };
+  const tdThumb = (p, rk) => { const src = p.img || (p.c === '유튜브' && /^[\w-]{11}$/.test(p.id) ? ytThumb(p.id, ytShortish(p.t)) : ''); return '<span class="hm-th" style="--c:' + chColor(p.c) + '" aria-hidden="true">' + (src ? '<img src="' + esc(src) + '" alt="" loading="lazy" referrerpolicy="no-referrer" ' + IMG_ERR + '>' : '') + (rk ? '<span class="ov-rk num' + (rk === 1 ? ' r1' : '') + '">' + rk + '</span>' : '') + '</span>'; };
   // 홈 시안 2(2026-10-23 「이대로」, 캔버스 「디자인 기준」): 글자 40·20·16·14, 굵기 400·700, 카드 둥글기 16 · 버튼 알약, 간격 8·12·16·24.
   // 목록은 모두 hmRow 한 모양 — 윗줄 = 제목 + 오른쪽 값, 아랫줄 = 채널 색 글자 · 이름표 + 오른쪽 보조
   function hmRow(o) {
@@ -3965,6 +3965,7 @@
     const st = (d.story || []).filter(x => chs.includes(x.ch));
     if (M.length < 3 && st.length) M.push(hmCard('오늘 스토리', fmtK(sum(st.map(x => x.views))), st.length + '개', '', '1시간마다 받아요'));
     // ③ 게시물 목록: 오른쪽 위 = 조회, 오른쪽 아래 = 조회 평소 대비(하루치 평소와 견줄 땐 20시간 뒤부터, 유튜브는 6시간 뒤부터), 아랫줄 = 채널·시간·반응 + 오른쪽 조회
+    // 조회 높은 순 + 사진 위 순위 숫자(2026-11-10 담당자 「순위 메기기 하기로 하지 않았음?」 — 11-08 순위 숫자 적용 때 이 목록이 빠졌음)
     const PV = P.slice().sort((a, b) => (b.v == null ? -1 : b.v) - (a.v == null ? -1 : a.v));
     window.__td = PV;
     const L = PV.slice(0, 6).map((p, i) => {
@@ -3977,7 +3978,7 @@
       const fc = fcOf(p.c, p.u, p.id);
       const tip = (vb ? '조회 ' + fmt(p.v) + ' · 평소 ' + (vb.k === 'h' ? '올린 지 ' + Math.round(vb.h) + '시간' : '첫날') + ' 조회 ' + fmt(vb.v) : '') + (rx != null ? ' · 반응률 ' + pctA(rx) + (u ? '(평소 ' + pctA(u) + ')' : '') : '') + (vr == null ? ' · ' + wait : '') +
         (fc ? ' · 업로드 전 예상(2주 조회) ' + fmt(fc.lo) + '~' + fmt(fc.hi) + (fc.rate ? ', ' + fc.rate : '') : '');
-      return hmRow({ tag: 'li', attr: 'data-td="' + i + '" tabindex="0" role="button" aria-label="' + esc(title(p.n)) + ' 열기"', tip, thumb: tdThumb(p), t: esc(title(p.n)),
+      return hmRow({ tag: 'li', attr: 'data-td="' + i + '" tabindex="0" role="button" aria-label="' + esc(title(p.n)) + ' 열기"', tip, thumb: tdThumb(p, p.v == null ? 0 : i + 1), t: esc(title(p.n)),
         // 2026-10-24 위 = 결과(조회), 아래 = 평소 대비(색). 퍼센트만 위에 있으면 무엇이 몇 %인지 몰라서
         v: '조회 ' + fmtK(p.v) + (was > 0 ? ' <small class="up">+' + fmtK(was) + '</small>' : ''), vc: '', c: p.c,
         m: tdAgo(p.at, now) + (r == null || few ? '' : ' · <span class="' + xCls(r) + '">반응 ' + vsP(r) + '</span>') + ((tdItem(p) || {}).co ? ' · 공동작업' : '') + (fc ? ' · 예상 ' + fcRange(fc) : ''),
