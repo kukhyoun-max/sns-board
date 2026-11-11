@@ -1076,6 +1076,8 @@ body { background: var(--bg); }
 .ov-ch + .note { margin-top: 18px; }
 .ov-sec > * { min-width: 0; }
 .ov-sec { display: grid; grid-template-columns: minmax(0, 1fr); gap: 10px; padding-top: 16px; border-top: 1px solid var(--line); margin-top: 4px; }
+/* 「이 기간 인기 콘텐츠」 제목·설명·목록 간격 좁힘(2026-11-11 담당자 「제목과 설명 리스트 사이 간격이 너무 넓다」): 제목 줄은 고르기 칸 44px 때문에 높아서 설명을 위로 당기고, p 기본 아래 여백 14px 없앰 */
+.ov-sec > .hm-note { margin: -8px 0 -2px; }
 .ov-sh { display: flex; gap: 2px; height: 10px; border-radius: 5px; overflow: hidden; }
 .ov-sh i { display: block; }
 .ov-lg { display: grid; gap: 6px; }
