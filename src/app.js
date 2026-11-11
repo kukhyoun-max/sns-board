@@ -4494,7 +4494,7 @@
         '<div class="dtags">' + gTag(it) + tyTag(it) + ptag(it.p) + adtag(it) + coTag(it) + aiTag(it) + archTag(it) + credTag(it) + susTag(it) + hidTag(it) + histTag(it) + '<span class="tag">' + esc(fmtType(it.t)) + '</span>' + (it.w || []).map(n => '<span class="tag">' + esc(n) + '</span>').join('') + '</div>' +
         '<div class="cmp"><canvas id="dCanvas"></canvas></div>' +
         // 누를 수 없는 토글 대신 실제로 그린 차트 이름 한 줄
-        '<p class="note" style="text-align:center">' + (detailLine(it) ? '올린 날부터 쌓인 값 ' + MN[m] : '이 콘텐츠 · 같은 분류 · 같은 형식 중간값' + (young(it) ? ' · 중간값은 다 자란 게시물의 최종 조회' : '')) + '</p></section>' +
+        '<p class="note" style="text-align:center">' + (hourOf(it) ? '올린 시각부터 1시간마다 쌓인 ' + MN[m] : detailLine(it) ? '올린 날부터 하루 한 번 기록한 ' + MN[m] : '이 콘텐츠 · 같은 분류 · 같은 형식 중간값' + (young(it) ? ' · 중간값은 다 자란 게시물의 최종 조회' : '')) + '</p></section>' +
       '<div class="gap"></div><section class="dsec" id="dMet"><h3 class="dh3">지표</h3><div class="ktg">' + KN.join('') + '</div>' +
         (KR.length ? '<div class="ktg r2">' + KR.map(t => tileP(t[0], esc(t[1]), t[2], t[3])).join('') + '</div>' : '') +
         (it.ad ? '' : '<p class="note">평소 = 같은 채널·형식 최근 1년 게시물 중간값' + (young(it) ? ' · 올린 지 14일 전이라 개수는 회색, 조회는 같은 날수 평소와 견줘요' : '') + '</p>') + '</section>' +
@@ -4842,9 +4842,35 @@
     if (K.chart) draw('kCanvas', K.chart);
   }
   // 상세 선 차트: 이 게시물 기록이 2개 이상일 때만, 첫 기록부터. 점이 적으면 점을 찍고 날짜 글자는 기울이지 않음
-  const detailLine = it => { const m = mainM(it.c); return D.dates.filter((d, i) => it.h[i] && it.h[i][m] != null).length >= 2; };
+  // 2026-11-12 담당자 「시간대별 데이터는 체감이 안 돼」: 일별 기록(하루 한 점)만 이으면 직선이라, 이번 주 게시물은 「오늘」 응답의 1시간마다 기록(hist)으로 그림
+  const hourOf = it => {
+    if (!TD.d || !TD.d.hist || mainM(it.c) !== 0) return null;
+    const tp = (TD.d.posts || []).concat(TD.d.wk || []).find(p => tdItem(p) === it), H = tp && TD.d.hist[tp.id];
+    const mt = tp && /(\d{4}-\d\d-\d\d)[T ](\d{1,2}):(\d\d)/.exec(tp.at); if (!mt || !H || !H.length) return null;
+    const oh = +mt[2] + mt[3] / 60, T0 = Date.parse(mt[1] + 'T00:00:00+09:00') + oh * 36e5, nowH = (TD.d.ts ? new Date(TD.d.ts) - T0 : Date.now() - T0) / 36e5;
+    const hm = h => { const t = new Date(T0 + h * 36e5 + 9 * 36e5); return md2(t.toISOString().slice(0, 10)) + ' ' + t.getUTCHours() + '시'; };
+    const pts = [{ x: oh / 24, y: 0, lab: hm(0) + ' 올림' }].concat(H.filter(a => a[1] != null).map(a => ({ x: (oh + a[0]) / 24, y: a[1], lab: hm(a[0]) })));
+    if (tp.v != null && nowH > H[H.length - 1][0]) pts.push({ x: (oh + nowH) / 24, y: tp.v, lab: hm(nowH) + ' 지금', now: 1 });
+    return { day: mt[1], pts };
+  };
+  const detailLine = it => { const m = mainM(it.c); return !!hourOf(it) || D.dates.filter((d, i) => it.h[i] && it.h[i][m] != null).length >= 2; };
   function drawDetailChart(it) {
-    const m = mainM(it.c), col = chColor(it.c);
+    const m = mainM(it.c), col = chColor(it.c), HO = hourOf(it);
+    if (HO) {
+      // 1시간마다 기록: x = 올린 날 0시부터 지난 날수(소수). 날짜 글자는 그날 칸 가운데, 오늘 칸 = 오늘 0~24시
+      const P = HO.pts, p0 = HO.day, tX = daysBetween(p0, new Date(Date.now() + 9 * 36e5).toISOString().slice(0, 10));
+      const xEnd = Math.max(Math.ceil(P[P.length - 1].x), tX + 1, 1), st = Math.max(1, Math.ceil(xEnd / 4)), tks = [];
+      for (let i = xEnd - 1; i >= 0; i -= st) tks.unshift(i + 0.5);
+      const dOf = x => { const t = new Date(p0 + 'T00:00:00Z'); t.setUTCDate(t.getUTCDate() + Math.floor(x)); return t.toISOString().slice(0, 10); };
+      const dayBox = { id: 'dayBox', beforeDatasetsDraw(ch) { const x = ch.ctx, a = ch.chartArea, s = ch.scales.x; x.save();
+        // 날짜 경계 세로선(옅게) + 오늘 칸
+        x.strokeStyle = css('--line'); x.lineWidth = 1; for (let i = 1; i < xEnd; i++) { const px = Math.round(s.getPixelForValue(i)) + 0.5; x.beginPath(); x.moveTo(px, a.top); x.lineTo(px, a.bottom); x.stroke(); }
+        if (tX >= 0 && tX < xEnd) { const l = s.getPixelForValue(tX), r = Math.min(s.getPixelForValue(tX + 1), a.right); x.fillStyle = css('--hm-card'); x.beginPath(); x.roundRect ? x.roundRect(l, a.top, r - l, a.bottom - a.top, 6) : x.rect(l, a.top, r - l, a.bottom - a.top); x.fill(); }
+        x.restore(); } };
+      draw('dCanvas', { type: 'line', plugins: [dayBox], data: { datasets: [{ label: MN[m], data: P, parsing: false, borderColor: col, borderWidth: 2, pointRadius: c => c.dataIndex === P.length - 1 ? 3 : 0, pointBackgroundColor: col, pointHoverRadius: 4, cubicInterpolationMode: 'monotone' }] },
+        options: chartOpts({ layout: { padding: { top: 12 } }, scales: { x: { type: 'linear', min: 0, max: xEnd, grid: { display: false }, afterBuildTicks: s => { s.ticks = tks.map(v => ({ value: v })); }, ticks: { maxRotation: 0, autoSkip: false, callback: v => Math.floor(v) === tX ? '오늘' : md2(dOf(v)) } }, y: { beginAtZero: true, display: true, position: 'right', grid: { color: css('--line') }, border: { display: false }, ticks: { maxTicksLimit: 3, font: { size: 14 }, color: css('--muted'), callback: v => fmt(v) } } }, plugins: { tooltip: { callbacks: { title: c => P[c[0].dataIndex].lab, label: c => MN[m] + ' ' + fmt(P[c.dataIndex].y) } } } }) });
+      return;
+    }
     if (detailLine(it)) {
       // 2026-11-10 담당자 「그래프 시작은 올린 날짜 기준」: x = 올린 날부터 지난 날수, 첫 점 = 올린 날 0. 올린 날~첫 기록은 기록이 없어 점선
       const idx = D.dates.map((d, i) => i).filter(i => it.h[i] && it.h[i][m] != null);
