@@ -4851,17 +4851,25 @@
       const p0 = it.d && it.d.length >= 10 ? it.d.slice(0, 10) : D.dates[idx[0]];
       const P = idx.map(i => ({ x: daysBetween(p0, D.dates[i]), y: it.h[i][m], d: D.dates[i] })).filter(p => p.x >= 0);
       if (!P.length || P[0].x > 0) P.unshift({ x: 0, y: 0, d: p0, s: 1 });
+      const dOf0 = (b, x) => { const t = new Date(b + 'T00:00:00Z'); t.setUTCDate(t.getUTCDate() + Math.round(x)); return t.toISOString().slice(0, 10); };
       const span = P[P.length - 1].x, dOf = x => { const t = new Date(p0 + 'T00:00:00Z'); t.setUTCDate(t.getUTCDate() + Math.round(x)); return t.toISOString().slice(0, 10); };
       const gap = P[0].s ? 1 : -1; // 점선으로 그릴 구간(올린 날 → 첫 기록)
       // 2026-11-10 담당자 「오늘 부분은 네모칸, 연한 그레이」: 오늘 점을 가운데 둔 연회색 칸(하루 폭, 기간이 길어 좁으면 40px), 아래에 「오늘」
       const tX = daysBetween(p0, new Date(Date.now() + 9 * 36e5).toISOString().slice(0, 10)), tOn = tX >= 0 && tX <= span + 1;
-      const BOX = 40, xEnd = tOn ? Math.max(span, tX) : Math.max(span, 1);
+      // 2026-11-12 담당자 「그래프가 안 맞고」: 마지막 기록(전날 20시)에서 선이 끝나 큰 숫자(지금 값)·오늘 칸과 어긋남 → 지금 값이 더 크면 오늘 칸 가운데에 지금 점을 더함
+      const nowV = mainVal(it), lastP = P[P.length - 1];
+      if (tOn && nowV != null && lastP.x < tX && nowV > lastP.y) P.push({ x: tX, y: nowV, d: dOf0(p0, tX), now: 1 });
+      const BOX = 40, xEnd = tOn ? Math.max(P[P.length - 1].x, tX) : Math.max(P[P.length - 1].x, 1);
+      // 날짜 눈금: 끝(오늘)에서 거꾸로 같은 간격, 맨 앞은 올린 날. 너무 붙는 눈금은 뺌(11/11·11/12 겹침)
+      const tStep = Math.max(1, Math.ceil(xEnd / 4)), tks = [];
+      for (let v = xEnd; v > 0; v -= tStep) tks.unshift(v);
+      if (tks.length && tks[0] < tStep * 0.6) tks[0] = 0; else tks.unshift(0);
       const xLim = s => { if (!tOn) return; const w = Math.max(s.chart.width - 90, 100); s.max = xEnd + Math.max(0.5, (BOX / 2 + 2) * xEnd / w); }; // 칸 오른쪽 반이 잘리지 않게 끝을 늘림
       const todayBox = { id: 'todayBox', beforeDatasetsDraw(ch) { if (!tOn) return; const x = ch.ctx, a = ch.chartArea, s = ch.scales.x, cx = s.getPixelForValue(tX), hw = Math.max((s.getPixelForValue(tX + 0.5) - s.getPixelForValue(tX - 0.5)) / 2, BOX / 2), l = Math.max(cx - hw, a.left), r = Math.min(cx + hw, a.right);
         x.save(); x.fillStyle = css('--hm-card'); const R = 6; x.beginPath(); x.roundRect ? x.roundRect(l, a.top, r - l, a.bottom - a.top, R) : x.rect(l, a.top, r - l, a.bottom - a.top); x.fill();
         x.font = '700 13px ' + css('--font'); x.fillStyle = css('--muted'); x.textAlign = 'center'; x.textBaseline = 'bottom'; x.fillText('오늘', (l + r) / 2, a.bottom - 6); x.restore(); } };
       draw('dCanvas', { type: 'line', plugins: [todayBox], data: { datasets: [{ label: MN[m], data: P, parsing: false, borderColor: col, borderWidth: 2, pointRadius: P.length <= 5 ? 3 : 0, pointBackgroundColor: col, pointHoverRadius: 4, cubicInterpolationMode: 'monotone', spanGaps: true, segment: { borderDash: c => c.p1DataIndex === gap ? [4, 4] : undefined } }] },
-        options: chartOpts({ layout: { padding: { top: 12 } }, scales: { x: { type: 'linear', min: 0, max: xEnd, afterDataLimits: xLim, afterBuildTicks: s => { s.ticks = s.ticks.filter(t => Number.isInteger(t.value)); }, ticks: { maxRotation: 0, autoSkip: true, maxTicksLimit: 5, precision: 0, callback: v => (span > 300 ? dot : md2)(dOf(v)) } }, y: { beginAtZero: true, display: true, position: 'right', grid: { color: css('--line') }, border: { display: false }, ticks: { maxTicksLimit: 3, font: { size: 14 }, color: css('--muted'), callback: v => fmt(v) } } }, plugins: { tooltip: { callbacks: { title: c => dot(P[c[0].dataIndex].d) + (P[c[0].dataIndex].s ? ' 올린 날' : ''), label: c => MN[m] + ' ' + fmt(P[c.dataIndex].y) } } } }) });
+        options: chartOpts({ layout: { padding: { top: 12 } }, scales: { x: { type: 'linear', min: 0, max: xEnd, afterDataLimits: xLim, afterBuildTicks: s => { s.ticks = tks.map(v => ({ value: v })); }, ticks: { maxRotation: 0, autoSkip: false, precision: 0, callback: v => (span > 300 ? dot : md2)(dOf(v)) } }, y: { beginAtZero: true, display: true, position: 'right', grid: { color: css('--line') }, border: { display: false }, ticks: { maxTicksLimit: 3, font: { size: 14 }, color: css('--muted'), callback: v => fmt(v) } } }, plugins: { tooltip: { callbacks: { title: c => dot(P[c[0].dataIndex].d) + (P[c[0].dataIndex].s ? ' 올린 날' : P[c[0].dataIndex].now ? ' 지금' : ''), label: c => MN[m] + ' ' + fmt(P[c.dataIndex].y) } } } }) });
       return;
     }
     const base = baseFor(it);
