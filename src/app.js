@@ -4055,7 +4055,7 @@
     // 캘린더 제목 「(인스타) 제목」·「(유튜브/인스타) 제목」 → 채널 색 글자 + 제목 한 줄
     const pch = k => /유튜브|숏츠|쇼츠/.test(k) ? '유튜브' : /hong|홍/.test(k) ? 'hong._.video' : '인스타그램';
     const wd = x => '일월화수목금토'[new Date(x + 'T00:00:00Z').getUTCDay()];
-    const PL = pl.slice(0, 6).map(x => { const m = String(x[1]).match(/^\(([^)]+)\)\s*(.*)$/); return { x, m, ks: m ? m[1].split('/').map(k => k.trim()) : [], ok: [], lk: [] }; });
+    const PL = pl.slice(0, 6).map(x => { const m = String(x[1]).match(/^\(([^)]+)\)\s*(.*)$/); return { x, m, ks: m ? m[1].split('/').map(k => k.trim()) : [], ok: [], lk: [], nm: [] }; });
     // 오늘 예정이 실제로 올라갔는지(2026-10-22): 오늘 올린 게시물·스토리와 채널로 맞춤. 제목 낱말이 캡션에 겹치는 게시물을 먼저, 없으면 같은 채널 아무거나(게시물 하나는 한 예정에만)
     const pool = (d.posts || []).filter(p => p.at.slice(0, 10) === d.today), words = t => (String(t).match(/[가-힣A-Za-z0-9]{2,}/g) || []);
     // 스토리(2026-11-11 「밑에꺼가 올라갔고 위에꺼는 아직」): 스토리는 캡션이 없어 일정 순서대로 채우면 09:10 일정이 09:40 일정 대신 「게시 완료」가 됨
@@ -4075,7 +4075,7 @@
         const one = PL.filter(o => o.x[0] === d.today && o.ks.some(kk => !/스토리/.test(kk) && pch(kk) === pch(k))).length === 1;
         if (!strict && !one) return;
         const W = words(q.m ? q.m[2] : q.x[1]), i = pool.findIndex(p => p.c === pch(k) && (!strict || W.some(w => String(p.n).includes(w))));
-        if (i >= 0) { q.lk[j] = pool[i].u; pool.splice(i, 1); q.ok[j] = 1; }
+        if (i >= 0) { q.lk[j] = pool[i].u; q.nm[j] = pool[i].n; pool.splice(i, 1); q.ok[j] = 1; }
       });
     }));
     // 날짜보다 먼저 올린 것(2026-10-28 「캠퍼스 투어 2화」 10/29 일정이 28일에 올라감): 오늘 남은 게시물 중 제목 낱말이 2개 이상 겹치면 그 예정도 올라간 것으로
@@ -4085,7 +4085,7 @@
       q.ks.forEach((k, j) => {
         if (/스토리/.test(k)) return;
         const i = pool.findIndex(p => p.c === pch(k) && W.filter(w => String(p.n).includes(w)).length >= 2);
-        if (i >= 0) { q.lk[j] = pool[i].u; pool.splice(i, 1); q.ok[j] = 1; q.early = 1; }
+        if (i >= 0) { q.lk[j] = pool[i].u; q.nm[j] = pool[i].n; pool.splice(i, 1); q.ok[j] = 1; q.early = 1; }
       });
     });
     // 예상 값 줄이기(2026-11-10 「유튜브 게시 예정 이상해」): 설명 「예상: 롱폼 조회 800~1,500 / 쇼츠 조회 1,000~2,500」처럼 길면 제목 자리를 다 밀어냄 → 첫 범위만 「800~1.5천」, 전문은 마우스 올림
@@ -4096,16 +4096,18 @@
       return fmtK(n(r[1], r[2] || (Number(r[1].replace(/,/g, '')) < 100 ? r[4] : ''))) + '~' + fmtK(n(r[3], r[4]));
     };
     const anyTh = PL.some(q => /^data:image/.test(q.x[4] || ''));
-    const rows = pl.length ? PL.map(({ x, m, ks, ok, lk }) => {
+    const rows = pl.length ? PL.map(({ x, m, ks, ok, lk, nm }) => {
       const done = ks.length && ks.every((k, j) => ok[j]), some = ok.some(Boolean), now = x[0] === d.today;
       // 게시 완료면 올린 게시물로(채널이 여럿이면 피드 게시물 먼저), 주소를 못 받았으면 폴더 그대로
       const pu = done && (ks.map((k, j) => /스토리/.test(k) ? '' : lk[j]).find(Boolean) || lk.find(Boolean)), href = pu || x[2];
+      // 올라간 게시물은 실제 올린 제목으로(2026-11-11 「실제 업로드된 제목으로」): 피드 게시물 첫 줄(서버 briefTitle_), 스토리는 제목이 없어 일정 제목 그대로. 일정 제목은 마우스 올림
+      const real = nm.find(s => s && s !== '(캡션 없음)'), calT = m ? m[2] : x[1];
       const meta = '<span class="' + (now ? 'hm-now' : '') + '">' + (now ? '오늘' : md2(x[0]) + ' ' + wd(x[0])) + '</span> · ' + ks.map((k, j) => '<span class="hm-ch' + (ok[j] ? ' ok' : '') + '" style="--c:' + chInk(pch(k)) + '"' + (ok[j] ? ' title="올라간 것 확인"' : '') + '>' + esc(k) + '</span>').join(' ');
       // 미리보기(2026-11-08 「여기도 미리보기 이미지」): 서버가 업로드 폴더 cover·첫 이미지를 data URI로 [4]에. 한 줄이라도 있으면 모든 줄에 칸(없으면 채널 색 옅은 칸)
       const im = /^data:image/.test(x[4] || '') ? x[4] : '', thumb = anyTh ? '<span class="hm-th" style="--c:' + chColor(pch(ks[0] || '')) + '" aria-hidden="true">' + (im ? '<img src="' + esc(im) + '" alt="" loading="lazy">' : '') + '</span>' : '';
       return hmRow({ tag: href ? 'a' : 'div', attr: href ? 'href="' + esc(href) + '" target="_blank" rel="noopener" title="' + (pu ? '올린 게시물 열기' : '업로드 폴더 열기') + (x[3] ? ' · 예상 ' + esc(x[3]) : '') + '"' : '', cls: done ? 'done' : '', thumb,
         tip: !href && x[3] ? '예상 ' + x[3] : '',
-        t: esc(m ? m[2] : x[1]), m: meta, v: done ? '게시 완료' : some ? '일부 올림' : x[3] ? '예상 ' + esc(fcShort(x[3])) : '', vc: done || some ? 'up' : '', r: pu ? '게시물 ›' : x[2] ? '폴더 ›' : '' });
+        t: real ? '<span title="일정: ' + esc(calT) + '">' + esc(real) + '</span>' : esc(calT), m: meta, v: done ? '게시 완료' : some ? '일부 올림' : x[3] ? '예상 ' + esc(fcShort(x[3])) : '', vc: done || some ? 'up' : '', r: pu ? '게시물 ›' : x[2] ? '폴더 ›' : '' });
     }).join('') : hmRow({ t: '7일 안에 잡힌 일정이 없어요', m: '공식 SNS 발행 일정 캘린더 기준' });
     return hmSec2('게시 예정', pl.length ? '공식 SNS 발행 일정 · 7일' : '', '<div class="hm-list">' + rows + '</div>');
   }
