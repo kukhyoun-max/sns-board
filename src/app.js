@@ -4059,8 +4059,8 @@
     // 오늘 예정이 실제로 올라갔는지(2026-10-22): 오늘 올린 게시물·스토리와 채널로 맞춤. 제목 낱말이 캡션에 겹치는 게시물을 먼저, 없으면 같은 채널 아무거나(게시물 하나는 한 예정에만)
     const pool = (d.posts || []).filter(p => p.at.slice(0, 10) === d.today), words = t => (String(t).match(/[가-힣A-Za-z0-9]{2,}/g) || []);
     // 스토리(2026-11-11 「밑에꺼가 올라갔고 위에꺼는 아직」): 스토리는 캡션이 없어 일정 순서대로 채우면 09:10 일정이 09:40 일정 대신 「게시 완료」가 됨
-    // → 일정 시각([5] HH:mm)과 올린 시각이 가까운 것끼리 짝(시각 없는 일정은 맨 뒤, 그다음 일정 순서)
-    const ST = d.story || [], mn = s => { const r = /^(\d\d):(\d\d)/.exec(s || ''); return r ? +r[1] * 60 + +r[2] : null; }, SL = [], PR = [];
+    // → 일정 시각([5] HH:mm)과 올린 시각이 가까운 것끼리 짝(시각 없는 일정은 맨 뒤, 그다음 일정 순서). 스토리 시각은 「9:43」처럼 앞 0이 없음
+    const ST = d.story || [], mn = s => { const r = /^(\d{1,2}):(\d\d)/.exec(String(s || '').trim()); return r ? +r[1] * 60 + +r[2] : null; }, SL = [], PR = [];
     PL.forEach((q, qi) => { if (q.x[0] === d.today) q.ks.forEach((k, j) => { if (/스토리/.test(k)) SL.push({ q, j, t: mn(q.x[5]), o: qi }); }); });
     SL.forEach((s, si) => ST.forEach((st, ti) => { const a = mn(st.at); PR.push([s.t == null || a == null ? 1e4 + s.o : Math.abs(a - s.t), si, ti]); }));
     const usedS = {}, usedT = {};
