@@ -2507,7 +2507,7 @@
       prod.concat(ads.length ? [{ k: '광고 영상', n: ads.length, hit: null, arr: ads, v: median(ads.map(mainVal)) }] : []).map(r => '<tr><td>' + ptag(r.k) + '</td><td class="n">' + r.n + '</td><td class="n">' + pct0(r.hit) + '</td><td class="n">' + fmtK(sum(r.arr.map(mainVal))) + '</td><td class="n">' + fmtK(r.v) + '</td></tr>').join('') +
       '</tbody></table></div><dl class="defs">' + Object.keys(DEF).filter(k => shown.includes(k)).map(k => '<div><dt>' + k + '</dt><dd>' + DEF[k] + '</dd></div>').join('') + '</dl></div></div>' + secClose;
     // 사람별
-    let ps = peopleStats(noAd);
+    let ps = peopleStats(L); // 사람별은 광고 집행 게시물도 셈(2026-11-11 담당자 「제작 사람 부분에서는 광고도 포함」, JJ 「내 성과」와 맞춤)
     const pMob = window.matchMedia && matchMedia('(max-width:560px)').matches;
     if (S.roleF !== '전체') ps = ps.filter(p => p.role === S.roleF);
     const sk = { n: p => p.k, views: p => p.views, idx: p => p.idx || 0, hits: p => p.hits, score: p => p.score }[S.psort] || (p => p.k);
