@@ -6653,7 +6653,7 @@ function partToday_(ss) {
   try {
     const cal = CalendarApp.getCalendarsByName(PLAN_CAL)[0];
     if (cal) plan = cal.getEvents(new Date(today + 'T00:00:00+09:00'), new Date(shiftDate_(today, 8) + 'T00:00:00+09:00'))
-      .slice(0, 12).map(e => [Utilities.formatDate(e.getStartTime(), TZ, 'yyyy-MM-dd'), String(e.getTitle()).slice(0, 80), planFolder_(e.getDescription()), planFc_(e.getDescription())]);
+      .slice(0, 12).map(e => [Utilities.formatDate(e.getStartTime(), TZ, 'yyyy-MM-dd'), String(e.getTitle()).slice(0, 80), planFolder_(e.getDescription()), planFc_(e.getDescription()), '', e.isAllDayEvent() ? '' : Utilities.formatDate(e.getStartTime(), TZ, 'HH:mm')]); // [5] 시각 = 스토리 짝짓기(2026-11-11)
     // 미리보기(2026-11-08 「여기도 미리보기 이미지」): 업로드 폴더의 cover → 첫 이미지 → 영상 썸네일을 작은 data URI로 [4]에. 드라이브 주소는 로그인 없이 안 보여서 서버에서 받음
     plan.forEach(x => { x[4] = planThumb_(x[2]); });
   } catch (e) { notes.push('게시 예정 확인 실패'); }

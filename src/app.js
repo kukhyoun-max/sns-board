@@ -4058,13 +4058,20 @@
     const PL = pl.slice(0, 6).map(x => { const m = String(x[1]).match(/^\(([^)]+)\)\s*(.*)$/); return { x, m, ks: m ? m[1].split('/').map(k => k.trim()) : [], ok: [], lk: [] }; });
     // 오늘 예정이 실제로 올라갔는지(2026-10-22): 오늘 올린 게시물·스토리와 채널로 맞춤. 제목 낱말이 캡션에 겹치는 게시물을 먼저, 없으면 같은 채널 아무거나(게시물 하나는 한 예정에만)
     const pool = (d.posts || []).filter(p => p.at.slice(0, 10) === d.today), words = t => (String(t).match(/[가-힣A-Za-z0-9]{2,}/g) || []);
-    const ST = d.story || [];
-    let stLeft = ST.length;
+    // 스토리(2026-11-11 「밑에꺼가 올라갔고 위에꺼는 아직」): 스토리는 캡션이 없어 일정 순서대로 채우면 09:10 일정이 09:40 일정 대신 「게시 완료」가 됨
+    // → 일정 시각([5] HH:mm)과 올린 시각이 가까운 것끼리 짝(시각 없는 일정은 맨 뒤, 그다음 일정 순서)
+    const ST = d.story || [], mn = s => { const r = /^(\d\d):(\d\d)/.exec(s || ''); return r ? +r[1] * 60 + +r[2] : null; }, SL = [], PR = [];
+    PL.forEach((q, qi) => { if (q.x[0] === d.today) q.ks.forEach((k, j) => { if (/스토리/.test(k)) SL.push({ q, j, t: mn(q.x[5]), o: qi }); }); });
+    SL.forEach((s, si) => ST.forEach((st, ti) => { const a = mn(st.at); PR.push([s.t == null || a == null ? 1e4 + s.o : Math.abs(a - s.t), si, ti]); }));
+    const usedS = {}, usedT = {};
+    PR.sort((a, b) => a[0] - b[0] || a[1] - b[1] || a[2] - b[2]).forEach(([, si, ti]) => {
+      if (usedS[si] || usedT[ti]) return; usedS[si] = usedT[ti] = 1; SL[si].q.lk[SL[si].j] = ST[ti].u; SL[si].q.ok[SL[si].j] = 1;
+    });
     [true, false].forEach(strict => PL.forEach(q => {
       if (q.x[0] !== d.today) return;
       q.ks.forEach((k, j) => {
         if (q.ok[j]) return;
-        if (/스토리/.test(k)) { if (!strict && stLeft > 0) { q.lk[j] = ST[ST.length - stLeft].u; stLeft--; q.ok[j] = 1; } return; }
+        if (/스토리/.test(k)) return;
         const one = PL.filter(o => o.x[0] === d.today && o.ks.some(kk => !/스토리/.test(kk) && pch(kk) === pch(k))).length === 1;
         if (!strict && !one) return;
         const W = words(q.m ? q.m[2] : q.x[1]), i = pool.findIndex(p => p.c === pch(k) && (!strict || W.some(w => String(p.n).includes(w))));
