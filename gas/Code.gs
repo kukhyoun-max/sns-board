@@ -428,6 +428,7 @@ function runSnapshot_() {
       logs.push([new Date(), '임시 기록 교체', 0, '보류: 원본 읽기 실패가 있어 ' + tail.provDates.join(', ') + ' 기록을 남겨 둠']);
     }
     if (keepToday.length) logs.push([new Date(), '스냅샷', keepToday.length, '읽기 실패 채널은 오늘 앞서 기록한 값 유지']);
+    try { logs.push([new Date(), '게시 시각 넘기기', tsMidSave_(bySrc, today), '정상 — 이어서 실행에서 경과 시간·미디어 ID용']); } catch (e) {}
     logRows_(ss, logs.splice(0));
 
     // 4) 나머지 단계 (5분이 넘으면 멈추고 이어서 실행)
@@ -577,9 +578,36 @@ function stepBySrc_(ctx, needFull) {
       METRICS.forEach((m, i) => { it[m] = r[M0 + i]; });
       (byCh[ch] = byCh[ch] || {})[k] = it;
     });
+    tsMidAttach_(byCh, ctx.today);
     ctx.snapBySrc = [byCh];
   }
   return ctx.snapBySrc;
+}
+
+// 게시 시각·미디어 ID 넘기기(2026-11-16): 「게시물 일별」·「게시 후 조회」는 거의 늘 시간 초과 뒤 「이어서 실행」에서 돌고, 그때는 스냅샷 탭에서 다시 읽어
+// it.ts·it.mid가 없었음 → 경과 시간 열·인스타 미디어 ID(조회 속도 sp 연결)가 늘 비었음. 첫 실행에서 읽은 값을 캐시(6시간)에 두고 이어서 실행이 붙임
+const TSMID_DAYS = 120; // 「게시물 일별」 90일·「게시 후 조회」 20일보다 넉넉히
+function tsMidSave_(bySrc, today) {
+  const m = {}, from = shiftDate_(today, -TSMID_DAYS);
+  (bySrc || []).forEach(byCh => Object.keys(byCh).forEach(ch => {
+    if (OWN_CHANNELS.indexOf(ch) < 0) return;
+    Object.keys(byCh[ch]).forEach(k => { const it = byCh[ch][k]; if ((it.ts || it.mid) && it.date >= from) m[ch + '§' + k] = [String(it.mid || ''), String(it.ts || '')]; });
+  }));
+  try { CacheService.getScriptCache().put('TSMID', JSON.stringify({ d: today, m: m }), 21600); } catch (e) {}
+  return Object.keys(m).length;
+}
+function tsMidAttach_(byCh, today) {
+  let o = null;
+  try { o = JSON.parse(CacheService.getScriptCache().get('TSMID') || 'null'); } catch (e) {}
+  if (!o || o.d !== today || !o.m) return 0;
+  let n = 0;
+  Object.keys(byCh).forEach(ch => Object.keys(byCh[ch]).forEach(k => {
+    const v = o.m[ch + '§' + k], it = byCh[ch][k]; if (!v) return;
+    if (v[0] && !it.mid) it.mid = v[0];
+    if (v[1] && !it.ts) it.ts = v[1];
+    n++;
+  }));
+  return n;
 }
 
 function savePending_(date, steps, n) {
@@ -1216,8 +1244,11 @@ function fmtDate_(v) {
 //  · 경과 열(E·G·I)은 그대로 「온전히 지난 날 수」, 시간 열이 빈 칸은 예전처럼 날짜 차이로 센 값 → 두 뜻을 시간 열로 가를 수 있음
 //  · 같은 칸에서 시간 기준 값은 날짜 차이 값으로 덮지 않고, 날짜 차이 값은 시간 기준 값이 오면 바꿈
 const AGE_SHEET = '게시 후 조회';
-const AGE_HEADER = ['채널', '콘텐츠키', '게시일', '1일 조회', '1일 경과', '3일 조회', '3일 경과', '7일 조회', '7일 경과', '갱신일', '1일 시간', '3일 시간', '7일 시간'];
-const AGE_WIN = [[1, 2], [3, 6], [7, 10]]; // [최소, 최대] 경과일
+// 14일 열·출처 열(2026-11-16 담당자 「진행해」): 앞 13열 위치는 그대로 두고 끝에 더함. 출처 = 「분석 API 3·7·14일」처럼 유튜브 분석 API 일별 합으로 채운 칸
+const AGE_HEADER = ['채널', '콘텐츠키', '게시일', '1일 조회', '1일 경과', '3일 조회', '3일 경과', '7일 조회', '7일 경과', '갱신일', '1일 시간', '3일 시간', '7일 시간',
+  '14일 조회', '14일 경과', '14일 시간', '출처'];
+const AGE_WIN = [[1, 2], [3, 6], [7, 10], [14, 20]]; // [최소, 최대] 경과일
+const AGE_VC = [3, 5, 7, 13], AGE_HC = [10, 11, 12, 15], AGE_SRC = 16; // 구간별 조회 열·시간 열(경과 = 조회 열 + 1), 출처 열
 function ageSheet_(ss) {
   let sh = ss.getSheetByName(AGE_SHEET);
   if (!sh) {
@@ -1233,13 +1264,18 @@ function wideHead_(sh, head) {
   if (sh.getLastColumn() < head.length || sh.getLastRow() === 0) sh.getRange(1, 1, 1, head.length).setValues([head]).setFontWeight('bold');
 }
 // obs: [[채널, 키, 게시일, 조회, 기록일, 경과 시간(모르면 null)], ...] → 탭에 반영. 반환: 새로 채운 칸 수
-function mergeAgeViews_(ss, obs) {
+// opt.fill = 처음부터 비어 있던 칸만 채움(과거 채우기: 실제로 기록한 값은 덮지 않음), opt.src = 채운 칸을 「출처」 열에 적을 이름
+function mergeAgeViews_(ss, obs, opt) {
+  opt = opt || {};
   const sh = ageSheet_(ss);
   const W = AGE_HEADER.length, map = {}, order = [];
   if (sh.getLastRow() > 1) sh.getRange(2, 1, sh.getLastRow() - 1, W).getValues().forEach(r => {
     const k = r[0] + '§' + r[1]; if (!map[k]) order.push(k); map[k] = r.map((x, j) => j === 2 ? fmtDate_(x) : j === 9 ? fmtDate_(x) : x);
   });
   const blank = x => x === '' || x === null || x === undefined;
+  const was = {}; // 처음 값이 있던 칸(opt.fill일 때 건드리지 않음)
+  if (opt.fill) Object.keys(map).forEach(k => AGE_VC.forEach((c, j) => { if (!blank(map[k][c])) was[k + '|' + j] = 1; }));
+  const srcOf = {}; // 키 → 이번에 opt.src로 채운 구간
   let n = 0;
   obs.forEach(o => {
     const ch = o[0], key = o[1], posted = fmtDate_(o[2]), views = o[3] === '' || o[3] == null ? null : num_(o[3]), day = fmtDate_(o[4]);
@@ -1250,8 +1286,9 @@ function mergeAgeViews_(ss, obs) {
     let r = map[k];
     AGE_WIN.forEach((w, j) => {
       if (age < w[0] || age > w[1]) return;
-      if (!r) { r = map[k] = [ch, key, posted, '', '', '', '', '', '', day, '', '', '']; order.push(k); }
-      const c = 3 + j * 2, hc = 10 + j, oldH = blank(r[hc]) ? null : Number(r[hc]);
+      if (opt.fill && was[k + '|' + j]) return;
+      if (!r) { r = map[k] = AGE_HEADER.map(() => ''); r[0] = ch; r[1] = key; r[2] = posted; r[9] = day; order.push(k); }
+      const c = AGE_VC[j], hc = AGE_HC[j], oldH = blank(r[hc]) ? null : Number(r[hc]);
       // 같은 구간에서는 목표 나이(최소값)에 가장 가까운 관측을 남김. 시간 기준 > 날짜 차이
       let take;
       if (blank(r[c])) take = true;
@@ -1259,8 +1296,19 @@ function mergeAgeViews_(ss, obs) {
       else if (hrs == null && oldH != null) take = false;
       else if (hrs != null) take = Math.abs(hrs - w[0] * 24) < Math.abs(oldH - w[0] * 24);
       else take = Math.abs(age - w[0]) < Math.abs(Number(r[c + 1]) - w[0]);
-      if (take) { r[c] = views; r[c + 1] = age; r[hc] = hrs == null ? '' : Math.round(hrs * 10) / 10; r[9] = day; n++; }
+      if (take) {
+        if (blank(r[c])) n++;
+        r[c] = views; r[c + 1] = age; r[hc] = hrs == null ? '' : Math.round(hrs * 10) / 10; r[9] = day;
+        (srcOf[k] = srcOf[k] || {})[j] = opt.src ? 1 : -1; // -1 = 기록 값으로 바뀐 칸(출처 표시에서 뺌)
+      }
     });
+  });
+  // 출처: 이번에 채운 구간을 기존 표시와 합쳐 「분석 API 1·3·7·14일」로
+  Object.keys(srcOf).forEach(k => {
+    const r = map[k], old = String(r[AGE_SRC] || ''), m = old.match(/^(.*) (\d+(?:·\d+)*)일$/), had = m ? m[2].split('·') : [];
+    if (!m && !opt.src) return;
+    const days = AGE_WIN.map(w => String(w[0])).filter((d, j) => srcOf[k][j] === 1 || (srcOf[k][j] !== -1 && had.indexOf(d) >= 0));
+    r[AGE_SRC] = days.length ? (opt.src || m[1]) + ' ' + days.join('·') + '일' : '';
   });
   putRows_(sh, order.map(k => { const r = map[k]; while (r.length < W) r.push(''); return r.slice(0, W); }), W);
   return n;
@@ -1297,9 +1345,13 @@ function backfillAgeViews_() {
 function loadAgeViews_(ss) {
   const sh = ss.getSheetByName(AGE_SHEET), out = {};
   if (!sh || sh.getLastRow() < 2) return out;
-  sh.getRange(2, 1, sh.getLastRow() - 1, AGE_HEADER.length).getValues().forEach(r => {
-    const g = j => r[3 + j * 2] === '' || r[3 + j * 2] === null ? null : [Number(r[3 + j * 2]), Number(r[4 + j * 2])];
-    out[r[0] + '§' + r[1]] = [g(0), g(1), g(2)];
+  // [조회, 경과일, 경과 시간(모르면 null), 분석 API로 채운 칸이면 1] × 1·3·7·14일 — 보드·ana.js는 앞 두 값만 씀
+  const W = Math.min(AGE_HEADER.length, sh.getLastColumn());
+  sh.getRange(2, 1, sh.getLastRow() - 1, W).getValues().forEach(r => {
+    const src = String(r[AGE_SRC] || '').match(/(\d+(?:·\d+)*)일$/), sd = src ? src[1].split('·') : [];
+    const g = j => { const c = AGE_VC[j], h = r[AGE_HC[j]]; if (c >= W || r[c] === '' || r[c] === null) return null;
+      return [Number(r[c]), Number(r[c + 1]), h === '' || h == null ? null : Number(h), sd.indexOf(String(AGE_WIN[j][0])) >= 0 ? 1 : 0]; };
+    out[r[0] + '§' + r[1]] = AGE_WIN.map((w, j) => g(j));
   });
   return out;
 }
@@ -4523,7 +4575,7 @@ function ytaRecentFetch_(days, today) {
     let old = false;
     (r.items || []).forEach(x => {
       const d = Utilities.formatDate(new Date(x.contentDetails.videoPublishedAt || x.snippet.publishedAt), TZ, 'yyyy-MM-dd');
-      if (d >= cut) out.push({ id: x.contentDetails.videoId, title: String(x.snippet.title || '').slice(0, 60), date: d }); else old = true;
+      if (d >= cut) out.push({ id: x.contentDetails.videoId, title: String(x.snippet.title || '').slice(0, 60), date: d, ts: String(x.contentDetails.videoPublishedAt || x.snippet.publishedAt || '') }); else old = true;
     });
     tok = r.nextPageToken || '';
     if (old || !tok) break;
@@ -6486,6 +6538,7 @@ const TODAY_TTL = 1200;
 function todayWarm() {
   if (Number(Utilities.formatDate(new Date(), TZ, 'H')) < 8) return;
   try { cellTidy_(); } catch (e) {} // 시트 칸 정리(2026-11-16, 한 번만)
+  try { ageFill_(); } catch (e) {}  // 게시 후 조회 과거 채우기(2026-11-16, 끝나면 멈춤)
   const ss = SpreadsheetApp.openById(SS_ID);
   try { cachePut_(JSON.stringify(partToday_(ss)), 'part:today', TODAY_TTL); }
   catch (e) { logRows_(ss, [[new Date(), '오늘 칸 미리 만들기', 0, '오류: ' + String(e.message).slice(0, 120)]]); }
@@ -7707,6 +7760,90 @@ function partPair_(ss) {
 //  · 백업: 드라이브 사본 TIDY_BACKUP_ID(11-16 08:55) + D 드라이브 CSV(doGet ?dump=<탭>, 「분석 스크립트」 키에만, 「보드 접근」 탭은 안 줌)
 //  · 1단계(todayWarm에서 한 번): 사본 대조 + 탭마다 칸·값 있는 범위 측정 + 줄·열 자동 확장 시험 → 새 파일 「보드 시트 정리 보고 2026-11-16」, 실행 로그 한 줄
 //  · 2단계(TIDY_GO = true로 올린 뒤 한 번): 값이 있는 마지막 줄 뒤(빈 줄 1개 남김)·마지막 열 뒤의 빈 줄·빈 열만 지움
+// ───────── 「게시 후 조회」 과거 채우기(2026-11-16 담당자 「진행해」) ─────────
+// 스크립트 속성 AGE_FILL: '' → 「게시물 일별」(10-31~ 매일 값)로 빈 칸만 채움 → 'yt:N' 유튜브 영상을 N번째부터 분석 API 일별 조회로 → 'done'
+//  · 유튜브: 영상마다 dimensions=day·filters=video==ID로 게시일~20일 뒤 일별 조회를 받아 누적. 분석 API 날짜는 태평양 시간(PT)이라
+//    「그날 끝(PT 자정)까지 누적」의 경과 시간을 게시 시각에서 정확히 셈 → 1·3·7·14일에 가장 가까운 날 끝 값을 씀
+//  · 이미 기록한 칸은 덮지 않음(fill). 채운 칸은 「출처」 열에 「분석 API 3·7·14일」처럼 남김(공개 조회수와 집계가 조금 다를 수 있어 구분)
+//  · todayWarm(8~24시 10분마다)이 한 번에 AGEFILL_MS까지만. 실패하면 그 자리에서 멈추고 다음에 다시
+const AGEFILL_MS = 180000, AGEFILL_BATCH = 20, AGEFILL_SRC = '분석 API', PT_TZ = 'America/Los_Angeles';
+function ageFill_() {
+  const p = PropertiesService.getScriptProperties(), st = p.getProperty('AGE_FILL') || '';
+  if (st === 'done' || st === 'stop') return;
+  if (!p.getProperty('YT_REFRESH') && st.indexOf('yt:') === 0) return;
+  const lock = LockService.getScriptLock();
+  if (!lock.tryLock(1000)) return;
+  const ss = SpreadsheetApp.openById(SS_ID), t0 = Date.now();
+  try {
+    if (!st) {
+      const n = ageFillPday_(ss);
+      p.setProperty('AGE_FILL', 'yt:0');
+      logRows_(ss, [[new Date(), '게시 후 조회 과거 채우기', n, '정상 — 「게시물 일별」로 빈 칸 ' + n + '개 채움(기록한 칸은 그대로)']]);
+      return;
+    }
+    const r = ageFillYt_(ss, Number(st.slice(3)) || 0, t0);
+    p.setProperty('AGE_FILL', r.done ? 'done' : 'yt:' + r.next);
+    logRows_(ss, [[new Date(), '게시 후 조회 과거 채우기', r.cells, (r.err ? '경고: ' + r.err + ' — 다음 실행에서 이어서 · ' : '정상 — ') +
+      '유튜브 영상 ' + r.from + '~' + r.next + '/' + r.total + '번째 · 빈 칸 ' + r.cells + '개 채움' + (r.cmp ? ' · ' + r.cmp : '') + (r.done ? ' · 끝' : '')]]);
+  } catch (e) { logRows_(ss, [[new Date(), '게시 후 조회 과거 채우기', 0, '오류: ' + String(e.message).slice(0, 150)]]); }
+  finally { lock.releaseLock(); }
+}
+// 「게시물 일별」 [날짜, 채널, 게시물 키, 게시일, 조회 …] → 빈 칸만(주로 14일)
+function ageFillPday_(ss) {
+  const sh = ss.getSheetByName(PDAY_SHEET);
+  if (!sh || sh.getLastRow() < 2) return 0;
+  const ymd = v => v instanceof Date ? Utilities.formatDate(v, TZ, 'yyyy-MM-dd') : String(v || '').slice(0, 10);
+  const obs = sh.getRange(2, 1, sh.getLastRow() - 1, 5).getValues().filter(r => r[1] && r[2] && r[4] !== '')
+    .map(r => [String(r[1]), String(r[2]), ymd(r[3]), r[4], ymd(r[0]), null]);
+  return mergeAgeViews_(ss, obs, { fill: true });
+}
+function ptDay_(s, n) { const d = new Date(s + 'T00:00:00Z'); d.setUTCDate(d.getUTCDate() + n); return d.toISOString().slice(0, 10); }
+function ageFillYt_(ss, from, t0) {
+  const today = Utilities.formatDate(new Date(), TZ, 'yyyy-MM-dd'), last = shiftDate_(today, -23); // 20일 + 분석 집계 지연 3일
+  const vids = ytaRecent_(YTA_ALL_DAYS, today).filter(v => v.ts && v.date <= last)
+    .sort((a, b) => a.date < b.date ? -1 : a.date > b.date ? 1 : a.id < b.id ? -1 : 1);
+  const tok = ytBrandToken_(), obs = [], had = loadAgeViews_(ss), cmp = [];
+  let i = from, err = '', skip = 0;
+  while (i < vids.length && Date.now() - t0 < AGEFILL_MS) {
+    const part = vids.slice(i, i + AGEFILL_BATCH);
+    const res = UrlFetchApp.fetchAll(part.map(v => {
+      const s = Utilities.formatDate(new Date(v.ts), PT_TZ, 'yyyy-MM-dd');
+      const q = { ids: 'channel==MINE', metrics: 'views', dimensions: 'day', filters: 'video==' + v.id, startDate: s, endDate: ptDay_(s, 20), sort: 'day' };
+      return { url: 'https://youtubeanalytics.googleapis.com/v2/reports?' + Object.keys(q).map(k => k + '=' + encodeURIComponent(q[k])).join('&'),
+        headers: { Authorization: 'Bearer ' + tok }, muteHttpExceptions: true };
+    }));
+    let bad = -1;
+    res.forEach((x, j) => {
+      if (bad >= 0) return;
+      const js = JSON.parse(x.getContentText() || '{}');
+      if (x.getResponseCode() === 400) { skip++; return; } // 이 영상만 분석 값을 못 받음(예: 분석 대상 아님) → 건너뛰고 다음 영상
+      if (js.error || x.getResponseCode() !== 200) { bad = j; err = 'HTTP ' + x.getResponseCode() + ' ' + String((js.error && js.error.message) || '').slice(0, 80); return; }
+      const v = part[j], P = new Date(v.ts).getTime(), s = Utilities.formatDate(new Date(v.ts), PT_TZ, 'yyyy-MM-dd'), day = {}, mine = [];
+      (js.rows || []).forEach(r => { day[String(r[0])] = Number(r[1]) || 0; });
+      let cum = 0;
+      for (let k = 0; k <= 20; k++) {
+        const d = ptDay_(s, k); cum += day[d] || 0;
+        const end = Utilities.parseDate(ptDay_(s, k + 1), PT_TZ, 'yyyy-MM-dd').getTime(), hrs = (end - P) / 36e5;
+        if (hrs < 24) continue;
+        mine.push(['유튜브', 'yt:' + v.id, v.date, cum, Utilities.formatDate(new Date(end), TZ, 'yyyy-MM-dd'), hrs]);
+      }
+      Array.prototype.push.apply(obs, mine);
+      // 이미 기록한 7일 값과 비교(같은 칸은 덮지 않으니 차이만 로그로): 분석 누적 ÷ 기록 값
+      const g = had['유튜브§yt:' + v.id], rec = g && g[2];
+      if (rec && rec[0] > 0 && mine.length) {
+        const near = mine.slice().sort((a, b) => Math.abs(a[5] - rec[1] * 24) - Math.abs(b[5] - rec[1] * 24))[0];
+        cmp.push(near[3] / rec[0]);
+      }
+    });
+    if (bad >= 0) { i += bad; break; }
+    i += part.length;
+  }
+  const cells = obs.length ? mergeAgeViews_(ss, obs, { fill: true, src: AGEFILL_SRC }) : 0;
+  const med = a => { a = a.slice().sort((x, y) => x - y); return a.length ? a[Math.floor(a.length / 2)] : null; };
+  return { from: from, next: i, total: vids.length, done: !err && i >= vids.length, cells: cells, err: err,
+    cmp: (skip ? '분석 값 없는 영상 ' + skip + '개 건너뜀 · ' : '') + (cmp.length ? '이미 기록한 7일 값과 비교(분석 ÷ 기록) 중앙값 ' + med(cmp).toFixed(2) + '배(' + cmp.length + '개)' : '') };
+}
+
 const TIDY_BACKUP_ID = '1mpk1SJrz-njLYMwhfFM0sAYyNJEIxPAANaBynkzShZQ';
 const TIDY_GO = true; // 11-16 09:09 측정: 칸 11,638,392 · 값 범위 2,788,655 · 백업 대조 87개 같음 · 자동 확장 됨 → 담당자 승인 범위(빈 줄·열만)로 실행
 // 건드리지 않는 탭: 사람이 직접 적는 탭(빈 입력 칸 유지) · Supermetrics가 쓰는 탭(애드온이 칸을 스스로 늘리는지 모름) — 합쳐도 약 40만 칸
