@@ -227,7 +227,7 @@ function setupDaily() {
 }
 // 하루 여러 번 기록: 같은 날 기록은 바꿔 써서(runSnapshot_ 3단계) 줄이 쌓이지 않음. 원본 읽기·API 단계가 다시 돌아 화면 값이 그만큼 새로워짐
 const SNAP_HOURS = [8, 12, 16, 20];
-const TRIG_VER = '2026-11-07 하루 4번·스토리 1시간·API 단독 비교 14시·아침 분석 9시·오늘 칸 10분';
+const TRIG_VER = '2026-11-17 새벽 5시 유튜브 분석·하루 4번·스토리 1시간·API 단독 비교 14시·아침 분석 9시·오늘 칸 10분';
 // 트리거 버전이 바뀌면 기록·스토리·밤 브리핑 트리거를 다시 맞춤(편집기에서 setup을 다시 돌리지 않아도 되게). 과거 채우기·스토리 실행이 부름
 function ensureTriggers_() {
   const p = PropertiesService.getScriptProperties();
@@ -238,6 +238,9 @@ function ensureTriggers_() {
   ScriptApp.newTrigger('storySnapshot').timeBased().everyHours(1).create();
   ts.filter(t => t.getHandlerFunction() === 'todayWarm').forEach(t => ScriptApp.deleteTrigger(t));
   ScriptApp.newTrigger('todayWarm').timeBased().everyMinutes(10).create();
+  // 2026-11-17: 유튜브 분석(ytaStep_)을 새벽 5시에 따로 — 8시 기록이 6분 한도에 걸리지 않게, 9시 아침 분석 전에 값이 들어와 있게
+  ts.filter(t => t.getHandlerFunction() === 'dawnExtras').forEach(t => ScriptApp.deleteTrigger(t));
+  ScriptApp.newTrigger('dawnExtras').timeBased().everyDays(1).atHour(5).nearMinute(0).inTimezone(TZ).create();
   if (!ts.some(t => t.getHandlerFunction() === 'nightBrief')) ScriptApp.newTrigger('nightBrief').timeBased().everyDays(1).atHour(22).nearMinute(0).inTimezone(TZ).create();
   // Supermetrics 없이 API만으로 만든 목록과 비교(2026-11-01~, 전환이 끝나면 지움). 12시 기록이 끝난 뒤
   if (!ts.some(t => t.getHandlerFunction() === 'morningBrief')) ScriptApp.newTrigger('morningBrief').timeBased().everyDays(1).atHour(9).nearMinute(0).inTimezone(TZ).create();
@@ -5439,6 +5442,15 @@ function weeklyRun_(more) {
 function ensureWeeklyTrigger_() {
   if (ScriptApp.getProjectTriggers().some(t => t.getHandlerFunction() === 'weeklyExtras')) return;
   ScriptApp.newTrigger('weeklyExtras').timeBased().onWeekDay(ScriptApp.WeekDay.MONDAY).atHour(10).inTimezone(TZ).create();
+}
+// 새벽 5시(2026-11-17): 유튜브 분석 매일 몫만 미리. 끝까지 받으면 YTA_DAY = 오늘이라 8시 기록의 yta 단계는 건너뜀(실패하면 8시가 다시 받음)
+function dawnExtras() {
+  const ss = SpreadsheetApp.getActive() || SpreadsheetApp.openById(SS_ID);
+  const today = Utilities.formatDate(new Date(), TZ, 'yyyy-MM-dd');
+  const logs = [], t0 = Date.now();
+  try { ytaStep_(ss, today, logs); } catch (e) { logs.push([new Date(), '유튜브 추가 수집', 0, '오류: ' + e.message]); }
+  logs.forEach(l => { l[3] = '(새벽 5시) ' + l[3] + ' — ' + Math.round((Date.now() - t0) / 1000) + '초'; });
+  logRows_(ss, logs);
 }
 // 편집기·메뉴에서 바로 한 번: 매일 몫(유튜브·인스타 추가)
 function collectMoreNow() {
