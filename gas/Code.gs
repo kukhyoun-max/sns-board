@@ -4827,14 +4827,16 @@ const IGM_METRICS = {
   FEED: ['total_interactions', 'profile_activity', 'follows', 'profile_visits'], // follows·profile_visits는 메타가 주지 않으면 빈칸
 };
 
-function igmMedia_(ss, today, all, deadline) {
+function igmMedia_(ss, today, all, deadline, skip) {
   const now = today, rows = [], miss = [], bad = { REELS: [], FEED: [] };
-  let stopped = false;
+  let stopped = false, k = 0, next = skip || 0; // k = 두 채널을 이어 센 순번, skip 앞은 지난 실행에서 받음
   igxChannels_().forEach(c => {
     const cut = all ? IG_CH[c.ch].from : shiftDate_(today, -30);
     const list = igMedia_(c.conf, c.user, 'id,timestamp,permalink,media_type,media_product_type', 100, cut);
     list.forEach(m => {
+      if (k++ < (skip || 0)) return;
       if (stopped || (deadline && Date.now() > deadline)) { stopped = true; return; }
+      next = k;
       const kind = m.media_product_type === 'REELS' ? 'REELS' : 'FEED';
       const want = IGM_METRICS[kind].filter(x => bad[kind].indexOf(x) < 0), mm = [];
       const v = want.length ? igxInsights_(c.conf, m.id, want, null, mm) : {};
@@ -4847,7 +4849,7 @@ function igmMedia_(ss, today, all, deadline) {
   if (rows.length) igxUpsert_(ss, '인스타 게시물 추가', ['채널', '게시물 ID', '게시 시각', '유형', '링크', '팔로우 유입', '프로필 방문', '프로필 활동', '상호작용', '릴스 평균 시청(초)', '릴스 총 시청(초)', '기록일'], [0, 1], rows);
   // 2026-11-07: J·K열이 날짜 서식이면 getValues가 Date를 줘 총 시청이 조 단위로 읽힘 → 숫자 서식으로 고정(값은 그대로)
   if (rows.length) { const igmS = ss.getSheetByName('인스타 게시물 추가'); igmS.getRange(2, 10, igmS.getLastRow() - 1, 2).setNumberFormat('0.0'); }
-  return { n: rows.length, miss: miss, stopped: stopped };
+  return { n: rows.length, miss: miss, stopped: stopped, next: next, total: k };
 }
 
 function igmOnline_(ss, today) {
@@ -5220,11 +5222,12 @@ function igmMediaMore_(ss, today, all, deadline, start) {
 // 댓글·답글: 최근 N일 게시물(all이면 전체). 권한이 없으면 첫 실패에서 멈추고 'perm' 표시
 const IGC_HEAD = ['채널', '댓글 ID', '상위 댓글 ID', '게시물 ID', '작성 시각', '내용', '좋아요', '답글 수', '우리 계정 답글', '기록일'];
 // from: 이 날 이후 게시물(없으면 채널 시작일부터), start: 이어서 할 순번. 반환 next·total
-function igxComments_(ss, today, from, deadline, start) {
+const IGC_PAGES = 60;
+function igxComments_(ss, today, from, deadline, start, minCount) {
   const rows = [], list = [];
   let perm = false, posts = 0;
   const ts = x => Utilities.formatDate(new Date(x), TZ, 'yyyy-MM-dd HH:mm');
-  igxChannels_().forEach(c => igMedia_(c.conf, c.user, 'id,timestamp,comments_count', 100, from || IG_CH[c.ch].from).filter(m => Number(m.comments_count) > 0).forEach(m => list.push({ c: c, m: m })));
+  igxChannels_().forEach(c => igMedia_(c.conf, c.user, 'id,timestamp,comments_count', 100, from || IG_CH[c.ch].from).filter(m => Number(m.comments_count) > (minCount || 0)).forEach(m => list.push({ c: c, m: m })));
   let i = start || 0;
   for (; i < list.length; i++) {
     if (deadline && Date.now() > deadline) break;
@@ -5232,7 +5235,7 @@ function igxComments_(ss, today, from, deadline, start) {
       const c = list[i].c, m = list[i].m;
       let after = '';
       try {
-        for (let p = 0; p < 10; p++) {
+        for (let p = 0; p < IGC_PAGES; p++) { // 2026-11-16: 10쪽(원댓글 500개)에서 멈춰 이벤트 게시물 4건이 잘렸음 → 60쪽
           const j = igxGet_(c.conf, m.id + '/comments', Object.assign({ fields: 'id,text,timestamp,like_count,replies.limit(50){id,text,timestamp,like_count,from}', limit: 50 }, after ? { after: after } : {}));
           (j.data || []).forEach(x => {
             const rp = (x.replies && x.replies.data) || [];
@@ -5337,7 +5340,7 @@ function ytaPlaylists_(ss, today) {
 function ytaTrafficDetail_(ss, today) {
   const yday = shiftDate_(today, -1), now = today, rows = [];
   const vids = ytaRecent_(YTA_RECENT_DAYS, today).filter(v => v.date <= yday);
-  vids.forEach(v => ['EXT_URL', 'RELATED_VIDEO', 'PLAYLIST', 'NOTIFICATION'].forEach(t => {
+  vids.forEach(v => ['EXT_URL', 'RELATED_VIDEO', 'NOTIFICATION'].forEach(t => {
     try { ytaReport_({ startDate: v.date, endDate: yday, dimensions: 'insightTrafficSourceDetail', metrics: 'views', filters: 'video==' + v.id + ';insightTrafficSourceType==' + t, sort: '-views', maxResults: 10 })
       .forEach(r => rows.push([v.id, v.title, YTA_TRAFFIC[t] || t, r.insightTrafficSourceDetail, r.views, now])); } catch (e) { ytaFail_('유입 세부'); }
   }));
@@ -5360,25 +5363,61 @@ function ytaFlushReplies_(ss) {
 
 // 주간 수집(월요일 10시 트리거, 메뉴로도 실행): 무거운 것 — 시청 지속률·태그·재생목록·지난달 시청자 분포·인스타 전체 게시물·접속 시간대
 // 매일 기록과 따로 돌려 한 실행이 6분 한도를 넘지 않게 함. 시간이 모자라면 남은 것은 다음 주에(또는 다시 실행하면) 이어서
-function weeklyExtras() {
+// 2026-11-16 담당자 「진행」: 앞 단계(시청 지속률·태그)가 5분을 거의 다 써서 뒤 단계가 매주 「다음에」로 밀려 한 번도 안 돌았음
+// → 못 돈 단계를 스크립트 속성 WEEKLY_LEFT에 남기고 1분 뒤 weeklyExtrasMore가 그 단계부터 이어서(한 주에 최대 WEEKLY_MAX_RUNS번).
+//   이어서 실행은 따로 함수 이름을 써서 월요일 트리거(weeklyExtras)를 지우지 않음. 인스타 전체 게시물은 IGM_ALL_I에 어디까지 받았는지 남김
+const WEEKLY_MAX_RUNS = 8;
+function weeklyExtras() { weeklyRun_(false); }
+function weeklyExtrasMore() {
+  ScriptApp.getProjectTriggers().filter(t => t.getHandlerFunction() === 'weeklyExtrasMore').forEach(t => ScriptApp.deleteTrigger(t));
+  weeklyRun_(true);
+}
+function weeklyRun_(more) {
   const t0 = Date.now(), deadline = t0 + 5 * 60 * 1000;
   const ss = SpreadsheetApp.getActive() || SpreadsheetApp.openById(SS_ID);
+  const pp = PropertiesService.getScriptProperties();
   const today = Utilities.formatDate(new Date(), TZ, 'yyyy-MM-dd');
-  const parts = [];
-  const run = (name, fn) => { if (Date.now() > deadline - 60 * 1000) { parts.push(name + ' 다음에'); return; } try { parts.push(name + ' ' + fn()); } catch (e) { parts.push(name + ' 오류: ' + String(e.message).slice(0, 120)); } };
-  if (PropertiesService.getScriptProperties().getProperty('YT_REFRESH')) {
-    run('시청 지속률', () => ytaRecentVideos_(ss, today, true).ret + '줄');
-    run('태그·재생목록', () => ytaVideoInfo_(ss, today) + '개');
-    run('재생목록 성과', () => ytaPlaylists_(ss, today) + '개');
-    run('유입 세부', () => ytaTrafficDetail_(ss, today) + '줄');
-    run('영상별 시청자(최근 90일 영상)', () => { const yday = shiftDate_(today, -1); return ytaVideoAud_(ss, ytaRecent_(YTA_RECENT_DAYS, today).filter(v => v.date <= yday), yday, deadline - 60 * 1000) + '개'; });
-    run('지난달 시청자', () => { const a = ytaAudience_(ss, today, YTA_MONTHS_PER_RUN); return a.months + '달' + (a.left ? '(남은 ' + a.left + '달)' : ''); });
+  const steps = {};
+  if (pp.getProperty('YT_REFRESH')) {
+    steps['시청 지속률'] = () => ytaRecentVideos_(ss, today, true).ret + '줄';
+    steps['태그·재생목록'] = () => ytaVideoInfo_(ss, today) + '개';
+    steps['재생목록 성과'] = () => ytaPlaylists_(ss, today) + '개';
+    steps['유입 세부'] = () => ytaTrafficDetail_(ss, today) + '줄';
+    steps['영상별 시청자(최근 90일 영상)'] = () => { const yday = shiftDate_(today, -1); return ytaVideoAud_(ss, ytaRecent_(YTA_RECENT_DAYS, today).filter(v => v.date <= yday), yday, deadline - 60 * 1000) + '개'; };
+    steps['지난달 시청자'] = () => { const a = ytaAudience_(ss, today, YTA_MONTHS_PER_RUN); return a.months + '달' + (a.left ? '(남은 ' + a.left + '달)' : ''); };
   }
   if (igxChannels_().length) {
-    run('인스타 접속 시간대', () => igmOnline_(ss, today) + '줄');
-    run('인스타 전체 게시물', () => { const m = igmMedia_(ss, today, true, deadline); return m.n + '개' + (m.stopped ? '(시간 한도로 일부 — 다시 실행하면 이어서)' : '') + (m.miss.length ? '(받지 못한 지표: ' + m.miss.join(', ') + ')' : ''); });
+    steps['인스타 접속 시간대'] = () => igmOnline_(ss, today) + '줄';
+    steps['인스타 전체 게시물'] = () => {
+      const m = igmMedia_(ss, today, true, deadline, Number(pp.getProperty('IGM_ALL_I') || 0));
+      if (m.stopped) { pp.setProperty('IGM_ALL_I', String(m.next)); throw { again: true, text: m.n + '개(' + m.next + '/' + m.total + '번째까지 — 이어서)' }; }
+      pp.deleteProperty('IGM_ALL_I');
+      return m.n + '개' + (m.miss.length ? '(받지 못한 지표: ' + m.miss.join(', ') + ')' : '');
+    };
   }
-  logRows_(ss, [[new Date(), '주간 추가 수집', 0, parts.join(' · ') + ytaFailText_() + ' — ' + Math.round((Date.now() - t0) / 1000) + '초']]);
+  const all = Object.keys(steps);
+  let order = all, runs = 1;
+  if (more) {
+    try { order = JSON.parse(pp.getProperty('WEEKLY_LEFT') || '[]').filter(k => steps[k]); } catch (e) { order = []; }
+    runs = Number(pp.getProperty('WEEKLY_RUNS') || 1) + 1;
+    if (!order.length) return;
+  } else pp.deleteProperty('IGM_ALL_I');
+  const parts = [], left = [];
+  order.forEach(k => {
+    if (Date.now() > deadline - 60 * 1000) { left.push(k); return; }
+    try { parts.push(k + ' ' + steps[k]()); } catch (e) {
+      if (e && e.again) { parts.push(k + ' ' + e.text); left.push(k); } else parts.push(k + ' 오류: ' + String(e && e.message || e).slice(0, 120));
+    }
+  });
+  if (left.length && runs < WEEKLY_MAX_RUNS) {
+    pp.setProperty('WEEKLY_LEFT', JSON.stringify(left)); pp.setProperty('WEEKLY_RUNS', String(runs));
+    ScriptApp.newTrigger('weeklyExtrasMore').timeBased().after(60 * 1000).create();
+    parts.push('남은 단계 ' + left.join('·') + ' — 1분 뒤 이어서(' + runs + '번째 실행)');
+  } else {
+    pp.deleteProperty('WEEKLY_LEFT'); pp.deleteProperty('WEEKLY_RUNS');
+    if (left.length) parts.push('남은 단계 ' + left.join('·') + ' — ' + WEEKLY_MAX_RUNS + '번 실행으로 멈춤, 다음 주에');
+  }
+  logRows_(ss, [[new Date(), '주간 추가 수집', 0, (more ? '(이어서) ' : '') + parts.join(' · ') + ytaFailText_() + ' — ' + Math.round((Date.now() - t0) / 1000) + '초']]);
   Logger.log(parts.join(' · '));
 }
 function ensureWeeklyTrigger_() {
@@ -6539,6 +6578,7 @@ function todayWarm() {
   if (Number(Utilities.formatDate(new Date(), TZ, 'H')) < 8) return;
   try { cellTidy_(); } catch (e) {} // 시트 칸 정리(2026-11-16, 한 번만)
   try { ageFill_(); } catch (e) {}  // 게시 후 조회 과거 채우기(2026-11-16, 끝나면 멈춤)
+  try { igcFull_(); } catch (e) {}  // 댓글 500개에서 잘린 게시물 다시 받기(2026-11-16, 한 번만)
   const ss = SpreadsheetApp.openById(SS_ID);
   try { cachePut_(JSON.stringify(partToday_(ss)), 'part:today', TODAY_TTL); }
   catch (e) { logRows_(ss, [[new Date(), '오늘 칸 미리 만들기', 0, '오류: ' + String(e.message).slice(0, 120)]]); }
@@ -7767,6 +7807,20 @@ function partPair_(ss) {
 //  · 이미 기록한 칸은 덮지 않음(fill). 채운 칸은 「출처」 열에 「분석 API 3·7·14일」처럼 남김(공개 조회수와 집계가 조금 다를 수 있어 구분)
 //  · todayWarm(8~24시 10분마다)이 한 번에 AGEFILL_MS까지만. 실패하면 그 자리에서 멈추고 다음에 다시
 const AGEFILL_MS = 180000, AGEFILL_BATCH = 20, AGEFILL_SRC = '분석 API', PT_TZ = 'America/Los_Angeles';
+// 댓글 상한을 올린 뒤(2026-11-16) 예전에 500개에서 잘린 게시물만 한 번 다시 받음. 스크립트 속성 IGC_FULL: '' → 'i:N'(이어서) → 'done'
+function igcFull_() {
+  const p = PropertiesService.getScriptProperties(), st = p.getProperty('IGC_FULL') || '';
+  if (st === 'done' || st === 'stop') return;
+  const lock = LockService.getScriptLock();
+  if (!lock.tryLock(1000)) return;
+  const ss = SpreadsheetApp.openById(SS_ID), today = Utilities.formatDate(new Date(), TZ, 'yyyy-MM-dd');
+  try {
+    const r = igxComments_(ss, today, IG_ALL_FROM, Date.now() + 150 * 1000, Number(st.replace('i:', '') || 0), 450);
+    if (r.perm) { p.setProperty('IGC_FULL', 'stop'); return; }
+    p.setProperty('IGC_FULL', r.stopped ? 'i:' + r.next : 'done');
+    logRows_(ss, [[new Date(), '인스타 댓글 다시 받기', r.n, '정상 — 댓글 450개 넘는 게시물 ' + r.next + '/' + r.total + '개 · 원댓글·답글 ' + r.n + '줄(상한 500 → 3,000)' + (r.stopped ? ' · 다음 실행에서 이어서' : ' · 끝')]]);
+  } finally { lock.releaseLock(); }
+}
 function ageFill_() {
   const p = PropertiesService.getScriptProperties(), st = p.getProperty('AGE_FILL') || '';
   if (st === 'done' || st === 'stop') return;
