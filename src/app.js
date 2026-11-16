@@ -4859,6 +4859,16 @@
     if (HO) {
       // 1시간마다 기록: x = 올린 날 0시부터 지난 날수(소수). 날짜 글자는 그날 칸 가운데, 오늘 칸 = 오늘 0~24시
       const P = HO.pts, p0 = HO.day, tX = daysBetween(p0, new Date(Date.now() + 9 * 36e5).toISOString().slice(0, 10));
+      // 2026-11-16 담당자 「그래프 이상해」: 올린 지 2시간 기록이 하루 폭(0~24시) 끝에 몰려 수직 기둥처럼 보임 → 30시간 전까지는 가로축 = 올린 시각~지금(시 단위)
+      if ((P[P.length - 1].x - P[0].x) * 24 < 30) {
+        const Q = P.map(p => Object.assign({}, p, { x: p.x * 24 })), h0 = Math.floor(Q[0].x), h1 = Math.max(Math.ceil(Q[Q.length - 1].x + 0.3), h0 + 3);
+        const hs = Math.max(1, Math.ceil((h1 - h0) / 5)), htk = [];
+        for (let v = h0; v <= h1; v += hs) htk.push(v);
+        const hLab = v => { if (v % 24) return (v % 24) + '시'; const t = new Date(p0 + 'T00:00:00Z'); t.setUTCDate(t.getUTCDate() + v / 24); return md2(t.toISOString().slice(0, 10)); };
+        draw('dCanvas', { type: 'line', data: { datasets: [{ label: MN[m], data: Q, parsing: false, borderColor: col, borderWidth: 2, pointRadius: c => c.dataIndex === Q.length - 1 ? 3 : 0, pointBackgroundColor: col, pointHoverRadius: 4, cubicInterpolationMode: 'monotone' }] },
+          options: chartOpts({ layout: { padding: { top: 12 } }, scales: { x: { type: 'linear', min: h0, max: h1, grid: { display: false }, afterBuildTicks: s => { s.ticks = htk.map(v => ({ value: v })); }, ticks: { maxRotation: 0, autoSkip: false, callback: hLab } }, y: { beginAtZero: true, display: true, position: 'right', grid: { color: css('--line') }, border: { display: false }, ticks: { maxTicksLimit: 3, font: { size: 14 }, color: css('--muted'), callback: v => fmt(v) } } }, plugins: { tooltip: { callbacks: { title: c => Q[c[0].dataIndex].lab, label: c => MN[m] + ' ' + fmt(Q[c.dataIndex].y) } } } }) });
+        return;
+      }
       const xEnd = Math.max(Math.ceil(P[P.length - 1].x), tX + 1, 1), st = Math.max(1, Math.ceil(xEnd / 4)), tks = [];
       for (let i = xEnd - 1; i >= 0; i -= st) tks.unshift(i + 0.5);
       const dOf = x => { const t = new Date(p0 + 'T00:00:00Z'); t.setUTCDate(t.getUTCDate() + Math.floor(x)); return t.toISOString().slice(0, 10); };
