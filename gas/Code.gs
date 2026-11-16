@@ -5975,6 +5975,8 @@ function briefDay_(d) { const t = new Date(d + 'T12:00:00+09:00'); return Number
 function briefNum_(v) { if (v === '' || v == null) return '–'; v = Number(v); return v >= 10000 ? (Math.round(v / 1000) / 10) + '만' : Math.round(v).toLocaleString('ko-KR'); }
 function briefPct_(v) { return v == null ? '–' : (Math.round(v * 1000) / 10) + '%'; }
 // ───────── 아침 분석 메일(2026-11-03 담당자 「추천하는대로 진행」) ─────────
+// 월요일 메일 이름(2026-11-16): 우리·타대학 모두 토·일 게시가 거의 없어 「주말 게시물」은 실제로 금요일 것 → 다 금요일이면 「금요일」, 토·일이 섞이면 「금~일」
+function briefSpan_(A) { if (A.from === addDays_(A.at, -1)) return '어제'; return A.yest.length && A.yest.every(x => new Date(x.it.d + 'T00:00:00+09:00').getDay() === 5) ? '금요일' : '금~일'; }
 // 매일 09:00 어제(월요일은 금~일) 올린 게시물과 오늘 14일째가 된 게시물을 숫자 규칙(Ana.gs = src/ana.js)으로 판정해 BRIEF_TO로 보냄. 토큰·PC 필요 없음
 // 원인·다음 기획은 주간(월)·월간(1일) Claude 보고가 맡고, 그 요약은 드라이브 「성과 해석.json」 → 보드 전략 화면·이 메일 아래 칸
 function testMorningBrief() { morningBrief(true); }
@@ -5988,8 +5990,7 @@ function morningBrief(test) {
   const to = String(PropertiesService.getScriptProperties().getProperty('BRIEF_TO') || '').trim();
   const wd = '일월화수목금토'[new Date(A.at + 'T00:00:00+09:00').getDay()];
   const top = A.yest.filter(x => x.vr != null).sort((a, b) => b.vr - a.vr)[0];
-  const one = A.from === addDays_(A.at, -1);
-  const subject = (test ? '(테스트) ' : '') + '[아침 분석] ' + A.at.slice(5).replace('-', '/') + '(' + wd + ') ' + (A.yest.length ? (one ? '어제' : '주말') + ' 게시물 ' + A.yest.length + '개' + (top ? ' · ' + top.shape : '') : '판정 확정 ' + A.done.length + '개');
+  const subject = (test ? '(테스트) ' : '') + '[아침 분석] ' + A.at.slice(5).replace('-', '/') + '(' + wd + ') ' + (A.yest.length ? briefSpan_(A) + ' 게시물 ' + A.yest.length + '개' + (top ? ' · ' + top.shape : '') : '판정 확정 ' + A.done.length + '개');
   const html = morningHtml_(A, D.note);
   if (to) MailApp.sendEmail({ to: to, subject: subject, htmlBody: html, name: 'SNS 성과 보드' });
   else Logger.log('BRIEF_TO 없음 — 보내지 않음');
@@ -6003,7 +6004,7 @@ function morningHtml_(A, note) {
   const K = A.kpi, ok = (v, t) => v == null ? '' : v >= t ? ' <b style="color:#1e7a4c">목표 넘음</b>' : ' <b style="color:#c0392b">목표 아래</b>';
   let h = '<div style="font-family:Apple SD Gothic Neo,Malgun Gothic,sans-serif;color:#191f28;max-width:640px;font-size:14px;line-height:1.6">';
   h += '<p style="color:#4e5968;font-size:13px;margin:0">숫자 규칙으로만 판정했어요(사진·말투는 안 봄). 기준 = 같은 채널·형식 최근 1년 평소, 올린 지 14일 전이면 「아직 느는 중」</p>';
-  if (A.yest.length) h += sec(A.from === addDays_(A.at, -1) ? '어제 올린 게시물' : A.from.slice(5).replace('-', '/') + '부터 올린 게시물', '<table style="width:100%;border-collapse:collapse">' + A.yest.map(row).join('') + '</table>');
+  if (A.yest.length) h += sec(briefSpan_(A) === '어제' ? '어제 올린 게시물' : briefSpan_(A) === '금요일' ? '지난 금요일 올린 게시물' : A.from.slice(5).replace('-', '/') + '부터 올린 게시물', '<table style="width:100%;border-collapse:collapse">' + A.yest.map(row).join('') + '</table>');
   // 조회 속도(2026-11-09): 판정한 게시물의 올린 지 1·3·6·24시간 조회 = 같은 채널·형식 평소 대비 · 기록된 것 중 순위
   const spd = A.yest.filter(x => x.sp && x.sp.all.some(s => s.vr != null));
   if (spd.length) {

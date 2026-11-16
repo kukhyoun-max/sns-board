@@ -1307,11 +1307,11 @@
   }
 
   // ───────── 타 대학 어제 올린 콘텐츠(2026-11-01 담당자 「평일에는 전날 어떤 콘텐츠 올렸는지 리스트로, 대학별로 하나씩」) ─────────
-  // 평일 기록에만 보임(주말엔 숨김). 월요일은 주말까지 금~일. 인스타 = 보드 게시물(누르면 자세히), 유튜브 = ?part=ytb 공개 영상(불러오면 다시 그림)
+  // 평일 기록에만 보임(주말엔 숨김). 월요일은 지난주 월~일 전체(2026-11-16 담당자 「배포해」 — 세 대학·우리 모두 토·일 게시가 9주 0건이라 「금~일」은 금요일만 보여 매주 비었음). 인스타 = 보드 게시물(누르면 자세히), 유튜브 = ?part=ytb 공개 영상(불러오면 다시 그림)
   function ydayRange() {
     const wd = new Date(D.updated + 'T00:00:00').getDay();
     if (wd === 0 || wd === 6) return null;
-    return wd === 1 ? [addDays(D.updated, -3), addDays(D.updated, -1), '지난 금~일'] : [addDays(D.updated, -1), addDays(D.updated, -1), '어제'];
+    return wd === 1 ? [addDays(D.updated, -7), addDays(D.updated, -1), '지난주'] : [addDays(D.updated, -1), addDays(D.updated, -1), '어제'];
   }
   const YD = [];
   function ydayHtml() {
@@ -2314,7 +2314,7 @@
       bars('rxG', RXS.G, RXS.subG, RXS.bench ? null : g => { S.view = 'explore'; S.g = g; S.gs = null; S.rankBy = RXS.k === 'save' || RXS.k === 'share' ? RXS.k : 'hot'; S.rankShown = 10; render(); window.scrollTo({ top: 0 }); });
     }
     // 요일
-    const wd = [1, 2, 3, 4, 5, 6, 0].map(k => { const arr = L.filter(it => new Date(it.d + 'T00:00:00Z').getUTCDay() === k); return { k: WD[k], n: arr.length, idx: median(arr.map(ratio)) }; });
+    const wd = [1, 2, 3, 4, 5, 6, 0].map(k => { const arr = L.filter(it => new Date(it.d + 'T00:00:00Z').getUTCDay() === k); return { d: k, k: WD[k], n: arr.length, idx: median(arr.map(ratio)) }; }).filter(x => x.n || (x.d >= 1 && x.d <= 5)); // 토·일은 올린 게 있을 때만(2026-11-16)
     const wdOk = wd.filter(x => x.n >= MIN_N && x.idx != null).sort((a, b) => b.idx - a.idx), best = wdOk[0], worst = wdOk.length > 1 ? wdOk[wdOk.length - 1] : null;
     $('wdNote').textContent = best ? '가장 좋은 요일 ' + best.k + ' · 조회 ' + vsTxt(best.idx) + ' · ' + best.n + '개' + (worst ? ' / 가장 낮은 요일 ' + worst.k + ' · ' + vsP(worst.idx) + ' · ' + worst.n + '개' : '') + ' · 막대 위 = 조회 평소 대비, 아래 = 게시 수 · 회색 = ' + MIN_N + '개 미만' : '게시물이 적어 요일 비교가 어려워요.';
     // 게시물 MIN_N 미만 요일은 회색, ±3%는 회색. 막대 위는 배수, x축 아래 줄은 게시 수
@@ -4595,7 +4595,7 @@
       if (ft.length) A.push(kRow('info', '형식', ft.map(r => r.k + ' ' + r.n + '개').join(' · '), '최근 30일'));
       const gt = groupBy(c30, 'g').filter(r => r.k && r.k !== 'undefined').sort((a, b) => b.n - a.n).slice(0, 3);
       if (gt.length) A.push(kRow('info', '분류', gt.map(r => r.k + ' ' + r.n + '개').join(' · '), '최근 30일'));
-      const q = pool({ channels: chs, since: addDays(D.updated, -90) }), wd = [1, 2, 3, 4, 5, 6, 0].map(k => [WD[k], q.filter(it => new Date(it.d + 'T00:00:00Z').getUTCDay() === k).length]).sort((a, b) => b[1] - a[1]);
+      const q = pool({ channels: chs, since: addDays(D.updated, -90) }), wd = [1, 2, 3, 4, 5, 6, 0].map(k => [WD[k], q.filter(it => new Date(it.d + 'T00:00:00Z').getUTCDay() === k).length, k]).filter(x => x[1] || (x[2] >= 1 && x[2] <= 5)).sort((a, b) => b[1] - a[1]);
       if (q.length >= MIN_N) A.push(kRow('info', '요일', '많이 올린 요일 ' + wd.slice(0, 2).map(x => x[0] + ' ' + x[1] + '개').join(' · '), '최근 3달 ' + q.length + '개 · 가장 적은 요일 ' + wd[wd.length - 1][0] + ' ' + wd[wd.length - 1][1] + '개'));
       return { scope, title: '최근 30일 올린 게시물', big: c30.length + '<small>개</small>', sub: p30.length ? '직전 30일 대비 ' + sgn(c30.length - p30.length) + (c30.length - p30.length) + '개' : '', A,
         note: '월별 올린 게시물 · 스토리 제외 · 이번 달은 ' + (+D.updated.slice(8, 10)) + '일까지',
