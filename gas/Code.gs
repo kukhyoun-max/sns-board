@@ -1563,6 +1563,7 @@ function doGet(e) {
   let json = null;
   let who = null;
   try { who = accessCheck_(key); } catch (err) { who = null; }
+  if (who === '분석 스크립트' && e.parameter.dump) return tidyDump_(String(e.parameter.dump)); // 시트 칸 정리 백업(2026-11-16)
   if (!who) json = JSON.stringify({ error: 'auth', msg: key ? '접속 키가 맞지 않거나 막혔어요' : '접속 키가 필요해요' });
   // 분석 데이터(part): 키가 맞을 때만, part마다 따로 캐시
   const part = String((e && e.parameter && e.parameter.part) || '');
@@ -6484,6 +6485,7 @@ const TODAY_TTL = 1200;
 // 오늘 칸 미리 만들기(2026-11-07 「새로고침하면 로딩 시간이 너무 길어」): 사람이 열 때 만들면 그 사람이 기다림. 8~24시 10분마다, 실패할 때만 로그
 function todayWarm() {
   if (Number(Utilities.formatDate(new Date(), TZ, 'H')) < 8) return;
+  try { cellTidy_(); } catch (e) {} // 시트 칸 정리(2026-11-16, 한 번만)
   const ss = SpreadsheetApp.openById(SS_ID);
   try { cachePut_(JSON.stringify(partToday_(ss)), 'part:today', TODAY_TTL); }
   catch (e) { logRows_(ss, [[new Date(), '오늘 칸 미리 만들기', 0, '오류: ' + String(e.message).slice(0, 120)]]); }
@@ -7697,4 +7699,81 @@ function partPair_(ss) {
   });
   partRows_(ss, '인스타 게시물 추가', 10).forEach(r => { const k = pairIg_(r[4]); if (k && ig[k]) reel[k] = partN_(r[9]); });
   return { rows: R.use, ban: tab.filter(r => String(r[2] || '').trim() === '뺌').length, vid: vid, src: src, srcN: srcN, reel: reel };
+}
+
+// ───────── 시트 칸 정리(2026-11-16 담당자 「1~3번 바로 진행」) ─────────
+// 스냅샷 시트가 한도 1,000만 칸을 넘음(11-09 밤 메일 1,101.4만). 한도는 빈칸도 셈 — putRows_는 남는 줄을 비우기만 하고, 새 탭은 기본 26열이라
+// 6~13열 탭도 빈 열이 줄마다 붙음. 값이 있는 칸은 지우지 않는다.
+//  · 백업: 드라이브 사본 TIDY_BACKUP_ID(11-16 08:55) + D 드라이브 CSV(doGet ?dump=<탭>, 「분석 스크립트」 키에만, 「보드 접근」 탭은 안 줌)
+//  · 1단계(todayWarm에서 한 번): 사본 대조 + 탭마다 칸·값 있는 범위 측정 + 줄·열 자동 확장 시험 → 새 파일 「보드 시트 정리 보고 2026-11-16」, 실행 로그 한 줄
+//  · 2단계(TIDY_GO = true로 올린 뒤 한 번): 값이 있는 마지막 줄 뒤(빈 줄 1개 남김)·마지막 열 뒤의 빈 줄·빈 열만 지움
+const TIDY_BACKUP_ID = '1mpk1SJrz-njLYMwhfFM0sAYyNJEIxPAANaBynkzShZQ';
+const TIDY_GO = true; // 11-16 09:09 측정: 칸 11,638,392 · 값 범위 2,788,655 · 백업 대조 87개 같음 · 자동 확장 됨 → 담당자 승인 범위(빈 줄·열만)로 실행
+// 건드리지 않는 탭: 사람이 직접 적는 탭(빈 입력 칸 유지) · Supermetrics가 쓰는 탭(애드온이 칸을 스스로 늘리는지 모름) — 합쳐도 약 40만 칸
+const TIDY_SKIP = ['보드 접근', '광고 계획', '광고 매핑', '명단', '태그 수정', '전략 기록', '채널 목표', '릴스·쇼츠 짝', '공동작업(상대 게시)', '학과 계정', '광고 추가 입력', '아이디 매칭',
+  'SupermetricsQueries', '계정_인스타원본', '계정_유튜브원본', '메타 광고', '메타 광고(광고별)'];
+function cellTidy_() {
+  const p = PropertiesService.getScriptProperties(), st = p.getProperty('CELL_TIDY') || '';
+  if (st === 'done' || (st === 'measured' && !TIDY_GO)) return;
+  const lock = LockService.getScriptLock();
+  if (!lock.tryLock(1000)) return;
+  const ss = SpreadsheetApp.openById(SS_ID);
+  try {
+    if (!st) { const t = tidyMeasure_(ss); p.setProperty('CELL_TIDY', 'measured'); logRows_(ss, [[new Date(), '시트 칸 정리', t.n, t.msg]]); }
+    else if (st === 'measured' && TIDY_GO) { const t = tidyTrim_(ss); p.setProperty('CELL_TIDY', 'done'); logRows_(ss, [[new Date(), '시트 칸 정리', t.n, t.msg]]); }
+  } catch (e) { p.setProperty('CELL_TIDY', st === 'measured' ? 'measured' : 'error'); logRows_(ss, [[new Date(), '시트 칸 정리', 0, '오류: ' + String(e.message).slice(0, 150)]]); }
+  finally { lock.releaseLock(); }
+}
+function tidyMeasure_(ss) {
+  const bk = {};
+  SpreadsheetApp.openById(TIDY_BACKUP_ID).getSheets().forEach(s => { bk[s.getName()] = [s.getLastRow(), s.getLastColumn()]; });
+  let tot = 0, real = 0, bad = 0;
+  const rows = ss.getSheets().map(s => {
+    const n = s.getName(), mr = s.getMaxRows(), mc = s.getMaxColumns(), lr = s.getLastRow(), lc = s.getLastColumn(), b = bk[n];
+    const ok = b ? (b[1] === lc && b[0] <= lr && b[0] >= Math.floor(lr * 0.95)) : false;
+    if (!ok && lr > 0) bad++;
+    tot += mr * mc; real += lr * lc;
+    return [n, mr, mc, mr * mc, lr, lc, lr * lc, mr * mc - (lr + 1) * Math.max(lc, 1), b ? b[0] : '', b ? b[1] : '', ok ? '같음' : (lr ? '다름' : '빈 탭'), s.getFrozenRows(), s.getFrozenColumns()];
+  }).sort((a, b) => b[3] - a[3]);
+  // 줄·열 자동 확장 시험: 2×2로 줄인 탭에 바깥 칸을 써 봄(지운 뒤 기록이 끊기지 않는지)
+  const rep = SpreadsheetApp.create('보드 시트 정리 보고 2026-11-16'), t = rep.getSheets()[0];
+  let expand = '';
+  try { t.deleteRows(3, t.getMaxRows() - 2); t.deleteColumns(3, t.getMaxColumns() - 2); t.getRange(4, 4, 3, 3).setValues([[1, 2, 3], [4, 5, 6], [7, 8, 9]]); expand = '줄·열 자동 확장 됨(' + t.getMaxRows() + '×' + t.getMaxColumns() + ')'; }
+  catch (e) { expand = '자동 확장 안 됨: ' + String(e.message).slice(0, 80); }
+  try { t.appendRow([1, 2, 3, 4, 5, 6, 7, 8]); expand += ' · appendRow 됨'; } catch (e) { expand += ' · appendRow 안 됨'; }
+  t.setName('확장 시험');
+  const r = rep.insertSheet('탭별 칸');
+  const head = ['탭', '최대 줄', '최대 열', '칸', '값 마지막 줄', '값 마지막 열', '값 범위 칸', '정리하면 줄어드는 칸', '백업 마지막 줄', '백업 마지막 열', '백업 대조', '고정 줄', '고정 열'];
+  r.getRange(1, 1, 1, head.length).setValues([head]);
+  r.getRange(2, 1, rows.length, head.length).setValues(rows);
+  const saved = rows.reduce((a, x) => a + Math.max(0, x[7]), 0);
+  const msg = '측정 — 탭 ' + rows.length + '개 · 칸 ' + tot + ' · 값 범위 ' + real + ' · 정리하면 약 ' + saved + '칸 줄어듦 · 백업 대조 다름 ' + bad + '개 · ' + expand + ' · 보고 파일 ' + rep.getId();
+  return { n: rows.length, msg: msg };
+}
+function tidyTrim_(ss) {
+  let before = 0, after = 0, n = 0;
+  ss.getSheets().forEach(s => {
+    const mr = s.getMaxRows(), mc = s.getMaxColumns(), lr = s.getLastRow(), lc = s.getLastColumn();
+    before += mr * mc;
+    if (TIDY_SKIP.indexOf(s.getName()) >= 0) { after += mr * mc; return; }
+    const keepR = Math.max(lr, s.getFrozenRows()) + 1, keepC = Math.max(lc, s.getFrozenColumns() + 1, 1);
+    let did = false;
+    if (mr > keepR) { s.deleteRows(keepR + 1, mr - keepR); did = true; }
+    if (mc > keepC) { s.deleteColumns(keepC + 1, mc - keepC); did = true; }
+    if (did) n++;
+    after += s.getMaxRows() * s.getMaxColumns();
+  });
+  return { n: n, msg: '정리 — 탭 ' + n + '개에서 빈 줄·열만 지움 · 칸 ' + before + ' → ' + after + '(한도의 ' + Math.round(after / CELL_LIMIT * 100) + '%)' };
+}
+// D 드라이브 백업용 CSV(읽기 전용, 「분석 스크립트」 키만)
+function tidyDump_(name) {
+  if (/보드 접근|키/.test(name)) return ContentService.createTextOutput('error: 이 탭은 받지 않아요');
+  const s = SpreadsheetApp.openById(SS_ID).getSheetByName(name);
+  if (!s) return ContentService.createTextOutput('error: 탭 없음');
+  const lr = s.getLastRow(), lc = s.getLastColumn();
+  if (!lr || !lc) return ContentService.createTextOutput('').setMimeType(ContentService.MimeType.CSV);
+  const q = v => { v = v instanceof Date ? Utilities.formatDate(v, TZ, 'yyyy-MM-dd HH:mm:ss') : String(v); return /[",\n\r]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v; };
+  const out = [];
+  for (let i = 1; i <= lr; i += 20000) out.push(s.getRange(i, 1, Math.min(20000, lr - i + 1), lc).getValues().map(r => r.map(q).join(',')).join('\n'));
+  return ContentService.createTextOutput(out.join('\n') + '\n').setMimeType(ContentService.MimeType.CSV);
 }
