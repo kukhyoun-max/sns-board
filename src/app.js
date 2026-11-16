@@ -4494,7 +4494,7 @@
         '<div class="dtags">' + gTag(it) + tyTag(it) + ptag(it.p) + adtag(it) + coTag(it) + aiTag(it) + archTag(it) + credTag(it) + susTag(it) + hidTag(it) + histTag(it) + '<span class="tag">' + esc(fmtType(it.t)) + '</span>' + (it.w || []).map(n => '<span class="tag">' + esc(n) + '</span>').join('') + '</div>' +
         '<div class="cmp"><canvas id="dCanvas"></canvas></div>' +
         // 누를 수 없는 토글 대신 실제로 그린 차트 이름 한 줄
-        '<p class="note" style="text-align:center">' + (hourOf(it) ? '올린 시각부터 1시간마다 쌓인 ' + MN[m] : detailLine(it) ? '올린 날부터 하루 한 번 기록한 ' + MN[m] : '이 콘텐츠 · 같은 분류 · 같은 형식 중간값' + (young(it) ? ' · 중간값은 다 자란 게시물의 최종 조회' : '')) + '</p></section>' +
+        '<p class="note" style="text-align:center">' + (hourOf(it) ? '올린 시각부터 1시간마다 쌓인 ' + MN[m] + (hoGuide(hourOf(it), hourOf(it).oh + 30) ? ' · 점선 = 같은 형식 평소' : '') : detailLine(it) ? '올린 날부터 하루 한 번 기록한 ' + MN[m] : '이 콘텐츠 · 같은 분류 · 같은 형식 중간값' + (young(it) ? ' · 중간값은 다 자란 게시물의 최종 조회' : '')) + '</p></section>' +
       '<div class="gap"></div><section class="dsec" id="dMet"><h3 class="dh3">지표</h3><div class="ktg">' + KN.join('') + '</div>' +
         (KR.length ? '<div class="ktg r2">' + KR.map(t => tileP(t[0], esc(t[1]), t[2], t[3])).join('') + '</div>' : '') +
         (it.ad ? '' : '<p class="note">평소 = 같은 채널·형식 최근 1년 게시물 중간값' + (young(it) ? ' · 올린 지 14일 전이라 개수는 회색, 조회는 같은 날수 평소와 견줘요' : '') + '</p>') + '</section>' +
@@ -4851,8 +4851,19 @@
     const hm = h => { const t = new Date(T0 + h * 36e5 + 9 * 36e5); return md2(t.toISOString().slice(0, 10)) + ' ' + t.getUTCHours() + '시'; };
     const pts = [{ x: oh / 24, y: 0, lab: hm(0) + ' 올림' }].concat(H.filter(a => a[1] != null).map(a => ({ x: (oh + a[0]) / 24, y: a[1], lab: hm(a[0]) })));
     if (tp.v != null && nowH > H[H.length - 1][0]) pts.push({ x: (oh + nowH) / 24, y: tp.v, lab: hm(nowH) + ' 지금', now: 1 });
-    return { day: mt[1], pts };
+    return { day: mt[1], pts, oh, c: tp.c, t: tp.t };
   };
+  // 2026-11-16 담당자 「1일차 평균도 있으면 가이드선(회색 점선)」: 오늘 칸 그래프와 같은 평소(같은 채널·형식 중간값)
+  // 시간별 평소(hbase, 올린 지 N시간)가 2개 이상이면 그 곡선, 없으면 첫날 평소(유튜브는 사흘째) 가로선. x = 올린 날 0시부터 시간
+  const hoGuide = (HO, hEnd) => {
+    const hb = TD.d.hbase || {}, bl = [];
+    for (let h = 0; h <= Math.min(Math.ceil(hEnd - HO.oh) + 1, 48); h++) { const v = hb[HO.c + '|' + HO.t + '|' + h]; if (v != null) bl.push({ x: HO.oh + h, y: v }); }
+    for (let i = bl.length - 2; i >= 0; i--) bl[i].y = Math.min(bl[i].y, bl[i + 1].y); // 누적이라 줄지 않게
+    if (bl.length >= 2) return { pts: bl[0].x > HO.oh ? [{ x: HO.oh, y: 0 }].concat(bl) : bl, tip: '같은 형식 올린 지 같은 시간 평소' };
+    const e0 = HO.c === '유튜브' ? 3 : 1, a = agAt(HO.c, HO.t, e0);
+    return a && a.m > 0 ? { pts: [{ x: HO.oh, y: a.m }, { x: hEnd, y: a.m }], tip: '올린 지 ' + (e0 === 3 ? '사흘' : '하루') + ' 됐을 때 평소' } : null;
+  };
+  const guideDs = (G, pts) => ({ label: '평소', data: pts, parsing: false, borderColor: css('--muted'), borderWidth: 1.5, borderDash: [4, 4], pointRadius: 0, pointHoverRadius: 3, pointHitRadius: 6, cubicInterpolationMode: 'monotone', gTip: G.tip });
   const detailLine = it => { const m = mainM(it.c); return !!hourOf(it) || D.dates.filter((d, i) => it.h[i] && it.h[i][m] != null).length >= 2; };
   function drawDetailChart(it) {
     const m = mainM(it.c), col = chColor(it.c), HO = hourOf(it);
@@ -4865,8 +4876,10 @@
         const hs = Math.max(1, Math.ceil((h1 - h0) / 5)), htk = [];
         for (let v = h0; v <= h1; v += hs) htk.push(v);
         const hLab = v => { if (v % 24) return (v % 24) + '시'; const t = new Date(p0 + 'T00:00:00Z'); t.setUTCDate(t.getUTCDate() + v / 24); return md2(t.toISOString().slice(0, 10)); };
-        draw('dCanvas', { type: 'line', data: { datasets: [{ label: MN[m], data: Q, parsing: false, borderColor: col, borderWidth: 2, pointRadius: c => c.dataIndex === Q.length - 1 ? 3 : 0, pointBackgroundColor: col, pointHoverRadius: 4, cubicInterpolationMode: 'monotone' }] },
-          options: chartOpts({ layout: { padding: { top: 12 } }, scales: { x: { type: 'linear', min: h0, max: h1, grid: { display: false }, afterBuildTicks: s => { s.ticks = htk.map(v => ({ value: v })); }, ticks: { maxRotation: 0, autoSkip: false, callback: hLab } }, y: { beginAtZero: true, display: true, position: 'right', grid: { color: css('--line') }, border: { display: false }, ticks: { maxTicksLimit: 3, font: { size: 14 }, color: css('--muted'), callback: v => fmt(v) } } }, plugins: { tooltip: { callbacks: { title: c => Q[c[0].dataIndex].lab, label: c => MN[m] + ' ' + fmt(Q[c.dataIndex].y) } } } }) });
+        // 평소 선은 가로축 끝(h1)에서 자름: 끝 너머 값이 세로축을 키우지 않게
+        const G = hoGuide(HO, h1), gp = []; if (G) for (let i = 0; i < G.pts.length; i++) { const a = G.pts[i]; if (a.x <= h1) { gp.push(a); continue; } const b = G.pts[i - 1]; if (b) gp.push({ x: h1, y: b.y + (a.y - b.y) * (h1 - b.x) / (a.x - b.x) }); break; }
+        draw('dCanvas', { type: 'line', data: { datasets: [{ label: MN[m], data: Q, parsing: false, borderColor: col, borderWidth: 2, pointRadius: c => c.dataIndex === Q.length - 1 ? 3 : 0, pointBackgroundColor: col, pointHoverRadius: 4, cubicInterpolationMode: 'monotone' }].concat(gp.length >= 2 ? [guideDs(G, gp)] : []) },
+          options: chartOpts({ layout: { padding: { top: 12 } }, scales: { x: { type: 'linear', min: h0, max: h1, grid: { display: false }, afterBuildTicks: s => { s.ticks = htk.map(v => ({ value: v })); }, ticks: { maxRotation: 0, autoSkip: false, callback: hLab } }, y: { beginAtZero: true, display: true, position: 'right', grid: { color: css('--line') }, border: { display: false }, ticks: { maxTicksLimit: 3, font: { size: 14 }, color: css('--muted'), callback: v => fmt(v) } } }, plugins: { tooltip: { callbacks: { title: c => c[0].dataset.gTip ? '올린 지 ' + Math.round((c[0].raw.x - HO.oh) * 10) / 10 + '시간' : Q[c[0].dataIndex].lab, label: c => c.dataset.gTip ? '평소 조회 ' + fmt(c.raw.y) + ' · ' + c.dataset.gTip : MN[m] + ' ' + fmt(Q[c.dataIndex].y) } } } }) });
         return;
       }
       const xEnd = Math.max(Math.ceil(P[P.length - 1].x), tX + 1, 1), st = Math.max(1, Math.ceil(xEnd / 4)), tks = [];
@@ -4877,8 +4890,11 @@
         x.strokeStyle = css('--line'); x.lineWidth = 1; for (let i = 1; i < xEnd; i++) { const px = Math.round(s.getPixelForValue(i)) + 0.5; x.beginPath(); x.moveTo(px, a.top); x.lineTo(px, a.bottom); x.stroke(); }
         if (tX >= 0 && tX < xEnd) { const l = s.getPixelForValue(tX), r = Math.min(s.getPixelForValue(tX + 1), a.right); x.fillStyle = css('--hm-card'); x.beginPath(); x.roundRect ? x.roundRect(l, a.top, r - l, a.bottom - a.top, 6) : x.rect(l, a.top, r - l, a.bottom - a.top); x.fill(); }
         x.restore(); } };
-      draw('dCanvas', { type: 'line', plugins: [dayBox], data: { datasets: [{ label: MN[m], data: P, parsing: false, borderColor: col, borderWidth: 2, pointRadius: c => c.dataIndex === P.length - 1 ? 3 : 0, pointBackgroundColor: col, pointHoverRadius: 4, cubicInterpolationMode: 'monotone' }] },
-        options: chartOpts({ layout: { padding: { top: 12 } }, scales: { x: { type: 'linear', min: 0, max: xEnd, grid: { display: false }, afterBuildTicks: s => { s.ticks = tks.map(v => ({ value: v })); }, ticks: { maxRotation: 0, autoSkip: false, callback: v => Math.floor(v) === tX ? '오늘' : md2(dOf(v)) } }, y: { beginAtZero: true, display: true, position: 'right', grid: { color: css('--line') }, border: { display: false }, ticks: { maxTicksLimit: 3, font: { size: 14 }, color: css('--muted'), callback: v => fmt(v) } } }, plugins: { tooltip: { callbacks: { title: c => P[c[0].dataIndex].lab, label: c => MN[m] + ' ' + fmt(P[c.dataIndex].y) } } } }) });
+      // 평소: 올린 지 1·2·3…일 평소(같은 형식 중간값, 오늘 칸 이번 주 그래프와 같게)
+      const gd = [{ x: HO.oh / 24, y: 0 }]; for (let e = 1; HO.oh / 24 + e <= xEnd; e++) { const a = agAt(HO.c, HO.t, e); if (a) gd.push({ x: HO.oh / 24 + e, y: a.m }); }
+      for (let i = gd.length - 2; i >= 1; i--) gd[i].y = Math.min(gd[i].y, gd[i + 1].y);
+      draw('dCanvas', { type: 'line', plugins: [dayBox], data: { datasets: [{ label: MN[m], data: P, parsing: false, borderColor: col, borderWidth: 2, pointRadius: c => c.dataIndex === P.length - 1 ? 3 : 0, pointBackgroundColor: col, pointHoverRadius: 4, cubicInterpolationMode: 'monotone' }].concat(gd.length >= 3 ? [guideDs({ tip: '같은 형식 올린 지 같은 날수 평소' }, gd)] : []) },
+        options: chartOpts({ layout: { padding: { top: 12 } }, scales: { x: { type: 'linear', min: 0, max: xEnd, grid: { display: false }, afterBuildTicks: s => { s.ticks = tks.map(v => ({ value: v })); }, ticks: { maxRotation: 0, autoSkip: false, callback: v => Math.floor(v) === tX ? '오늘' : md2(dOf(v)) } }, y: { beginAtZero: true, display: true, position: 'right', grid: { color: css('--line') }, border: { display: false }, ticks: { maxTicksLimit: 3, font: { size: 14 }, color: css('--muted'), callback: v => fmt(v) } } }, plugins: { tooltip: { callbacks: { title: c => c[0].dataset.gTip ? '올린 지 ' + Math.round(c[0].raw.x - HO.oh / 24) + '일' : P[c[0].dataIndex].lab, label: c => c.dataset.gTip ? '평소 조회 ' + fmt(c.raw.y) + ' · ' + c.dataset.gTip : MN[m] + ' ' + fmt(P[c.dataIndex].y) } } } }) });
       return;
     }
     if (detailLine(it)) {
