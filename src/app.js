@@ -4171,7 +4171,7 @@
     G.forEach((g, k) => {
       const col = chColor(g.c), ds = [];
       // 같은 채널 안 게시물은 실선 · 두 번째부터 옅게(점선은 평소 표시에만)
-      g.C.forEach((c, i) => ds.push({ label: title(c.p.n).slice(0, 7), data: c.a.map(x => ({ x: x[0], y: x[1] })), borderColor: i ? col + '80' : col, backgroundColor: col, borderWidth: i ? 2 : 2.5, pointRadius: 0, tension: 0.3 }));
+      g.C.forEach((c, i) => ds.push({ label: Array.from(title(c.p.n)).slice(0, 7).join(""), data: c.a.map(x => ({ x: x[0], y: x[1] })), borderColor: i ? col + '80' : col, backgroundColor: col, borderWidth: i ? 2 : 2.5, pointRadius: 0, tension: 0.3 }));
       const c = g.C[0], mx = Math.ceil(c.a[c.a.length - 1][0]), bl = [];
       for (let h = 0; h <= Math.min(xMax, 48); h++) { const v = hb[c.p.c + '|' + c.p.t + '|' + h]; if (v != null) bl.push({ x: h, y: v }); }
       // 누적 조회라 평소도 줄면 안 됨: 시간마다 게시물이 달라 튀는 값(앞이 뒤보다 큼)은 뒤 값 이하로 깎음
@@ -4193,7 +4193,7 @@
   }
   function tdChart(id, ds, xMax, xSt) {
     draw(id, { type: 'line', data: { datasets: ds }, plugins: [endLabels],
-      options: chartOpts({ layout: { padding: { top: 12, right: 104 } }, plugins: { endLabels: { max: 9 }, tooltip: { callbacks: { title: it => { const h = it[0].raw.x; return '올린 지 ' + (h >= 48 ? Math.floor(h / 24) + '일 ' + Math.round(h % 24) + '시간' : h + '시간'); }, label: c => (c.dataset.tip || c.dataset.label) + ' 조회 ' + fmt(c.raw.y) } } },
+      options: chartOpts({ layout: { padding: { top: 12, right: 4 } }, plugins: { endLabels: { max: 9, inside: css('--hm-card') }, tooltip: { callbacks: { title: it => { const h = it[0].raw.x; return '올린 지 ' + (h >= 48 ? Math.floor(h / 24) + '일 ' + Math.round(h % 24) + '시간' : h + '시간'); }, label: c => (c.dataset.tip || c.dataset.label) + ' 조회 ' + fmt(c.raw.y) } } },
         scales: { x: { type: 'linear', min: 0, max: xMax, ticks: { stepSize: xSt, maxRotation: 0, autoSkip: false, callback: v => xSt === 24 ? (v ? v / 24 + (v === xMax ? '일' : '') : 0) : v === xMax ? v + '시간' : v } }, y: { display: true, position: 'right', afterFit: sc => { sc.width = 52; }, grid: { color: css('--line') }, border: { display: false }, ticks: { maxTicksLimit: 3, font: { size: 14 }, color: css('--muted'), callback: v => fmtK(v) } } } }) });
   }
   function tdSaveSeen() {
@@ -4966,14 +4966,23 @@
   const endLabels = { id: 'endLabels', afterDatasetsDraw(c, args, po) {
     const LMAX = (po && po.max) || 5;
     const x = c.ctx, a = c.chartArea, X = (c.scales.y && c.scales.y.position === 'right' ? c.scales.y.right : a.right) + 6, L = [];
-    c.data.datasets.forEach((d, i) => { const m = c.getDatasetMeta(i); if (m.hidden) return; let j = d.data.length - 1; while (j >= 0 && d.data[j] == null) j--; if (j < 0 || !m.data[j]) return; L.push({ y: m.data[j].y, t: d.label, col: d.borderColor }); });
+    c.data.datasets.forEach((d, i) => { const m = c.getDatasetMeta(i); if (m.hidden) return; let j = d.data.length - 1; while (j >= 0 && d.data[j] == null) j--; if (j < 0 || !m.data[j]) return; L.push({ x: m.data[j].x, y: m.data[j].y, t: d.label, col: d.borderColor }); });
+    // inside(2026-11-17 담당자 「그래프 안에 넣어 우측은 빼고, 그만큼 그래프 늘리고」): 오른쪽 여백 대신 선 끝 점 바로 위에 오른쪽 맞춤, 값 = 글자 테두리(바탕) 색
+    const IN = po && po.inside;
+    if (IN) { // 글자가 가로로도 겹칠 때만 위 글자를 더 위로(아래로 밀면 선을 덮음)
+      x.save(); x.font = '700 14px ' + css('--font'); L.forEach(l => { l.y -= 14; const t = Array.from(l.t).slice(0, LMAX).join(""); l.r = Math.min(l.x, a.right) - 2; l.w = x.measureText(t).width; }); x.restore();
+      L.sort((p, q) => q.y - p.y); for (let i = 1; i < L.length; i++) for (let j = 0; j < i; j++) { const p = L[j], q = L[i]; if (q.r > p.r - p.w && p.r > q.r - q.w && p.y - q.y < 18) q.y = p.y - 18; }
+      L.forEach(l => { l.y = Math.max(l.y, a.top + 6); });
+    }
     L.forEach(l => { l.y = Math.min(Math.max(l.y, a.top + 6), a.bottom - 6); });
     const GAP = 18; // 14px 글자라 18px 띄워야 줄끼리 안 겹침(2026-10-27 콘텐츠 수명 라벨 겹침)
-    L.sort((p, q) => p.y - q.y); for (let i = 1; i < L.length; i++) if (L[i].y - L[i - 1].y < GAP) L[i].y = L[i - 1].y + GAP;
+    if (!IN) L.sort((p, q) => p.y - q.y); if (!IN) for (let i = 1; i < L.length; i++) if (L[i].y - L[i - 1].y < GAP) L[i].y = L[i - 1].y + GAP;
     // 아래로 밀려 칸 밖으로 나가면 아래에서부터 위로 다시 쌓아 겹치지 않게
-    for (let i = L.length - 1; i >= 0; i--) { const lim = i === L.length - 1 ? a.bottom - 6 : L[i + 1].y - GAP; if (L[i].y > lim) L[i].y = lim; }
-    x.save(); x.textAlign = 'left'; x.textBaseline = 'middle';
-    L.forEach(l => { x.font = '700 14px ' + css('--font'); x.fillStyle = typeof l.col === 'string' ? l.col : css('--sub'); x.fillText(l.t.length > LMAX ? l.t.slice(0, LMAX) : l.t, X, Math.min(Math.max(l.y, a.top + 6), a.bottom)); });
+    if (!IN) for (let i = L.length - 1; i >= 0; i--) { const lim = i === L.length - 1 ? a.bottom - 6 : L[i + 1].y - GAP; if (L[i].y > lim) L[i].y = lim; }
+    x.save(); x.textAlign = IN ? 'right' : 'left'; x.textBaseline = 'middle';
+    L.forEach(l => { const t = Array.from(l.t).slice(0, LMAX).join(""), px = IN ? Math.min(l.x, a.right) - 2 : X, py = Math.min(Math.max(l.y, a.top + 6), a.bottom); x.font = '700 14px ' + css('--font');
+      if (IN) { x.lineWidth = 4; x.lineJoin = 'round'; x.strokeStyle = IN; x.strokeText(t, px, py); }
+      x.fillStyle = typeof l.col === 'string' ? l.col : css('--sub'); x.fillText(t, px, py); });
     x.restore(); } };
   function merge(a, b) { Object.keys(b).forEach(k => { if (b[k] && typeof b[k] === 'object' && !Array.isArray(b[k]) && typeof b[k] !== 'function' && a[k] && typeof a[k] === 'object') merge(a[k], b[k]); else a[k] = b[k]; }); return a; }
   // 차트 대체 텍스트: 화면 낭독기용으로 계열·마지막 값 요약을 붙인다
