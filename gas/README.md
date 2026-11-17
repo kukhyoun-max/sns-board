@@ -5,7 +5,7 @@
 ## 처음 한 번 (PC에서)
 ```bash
 npm install -g @google/clasp
-clasp login                 # 브라우저에서 kukhyoun@jj.ac.kr 로그인
+clasp login                 # 브라우저에서 담당자 학교 계정으로 로그인
 ```
 https://script.google.com/home/usersettings 에서 **Google Apps Script API 사용**을 켜 주세요.
 
