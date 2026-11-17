@@ -4194,7 +4194,7 @@
   function tdChart(id, ds, xMax, xSt) {
     draw(id, { type: 'line', data: { datasets: ds }, plugins: [endLabels],
       options: chartOpts({ layout: { padding: { top: 12, right: 4 } }, plugins: { endLabels: { max: 9, inside: css('--hm-card') }, tooltip: { callbacks: { title: it => { const h = it[0].raw.x; return '올린 지 ' + (h >= 48 ? Math.floor(h / 24) + '일 ' + Math.round(h % 24) + '시간' : h + '시간'); }, label: c => (c.dataset.tip || c.dataset.label) + ' 조회 ' + fmt(c.raw.y) } } },
-        scales: { x: { type: 'linear', min: 0, max: xMax, ticks: { stepSize: xSt, maxRotation: 0, autoSkip: false, callback: v => xSt === 24 ? (v ? v / 24 + (v === xMax ? '일' : '') : 0) : v === xMax ? v + '시간' : v } }, y: { display: true, position: 'right', afterFit: sc => { sc.width = 52; }, grid: { color: css('--line') }, border: { display: false }, ticks: { maxTicksLimit: 3, font: { size: 14 }, color: css('--muted'), callback: v => fmtK(v) } } } }) });
+        scales: { x: { type: 'linear', min: 0, max: xMax, ticks: { stepSize: xSt, maxRotation: 0, autoSkip: false, callback: v => xSt === 24 ? (v ? v / 24 + (v === xMax ? '일' : '') : 0) : v === xMax ? v + '시간' : v } }, y: { display: true, position: 'right', afterFit: sc => { sc.width = 52; }, grid: { color: css('--line') }, border: { display: false }, ticks: { maxTicksLimit: 3, font: { size: 14 }, color: css('--muted'), callback: v => Math.abs(v) >= 1e3 && Math.abs(v) < 1e4 ? +(v / 1e3).toFixed(1) + '천' : fmtK(v) } } } }) });
   }
   function tdSaveSeen() {
     const d = TD.d; if (!d) return;
