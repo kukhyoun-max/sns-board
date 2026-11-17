@@ -4145,20 +4145,26 @@
   // 시간별 곡선: 게시물마다 [경과(시간), 조회] + 지금 값. 점이 2개 이상인 것만
   function tdCurves(P) {
     const H = (TD.d && TD.d.hist) || {}, now = new Date(TD.d.ts);
-    return P.map(p => { const a = (H[p.id] || []).slice(); if (p.v != null) a.push([Math.round((now - new Date(p.at + ':00+09:00')) / 360000) / 10, p.v]); return { p, a }; }).filter(x => x.a.length >= 2).filter((x, i, A) => A.slice(0, i).filter(y => y.p.c === x.p.c).length < 6); // 채널마다 최근 6개
+    return P.map(p => { const a = (H[p.id] || []).slice(); if (p.v != null) a.push([Math.round((now - new Date(p.at + ':00+09:00')) / 360000) / 10, p.v]); return { p, a }; }).filter(x => x.a.length >= 2).filter((x, i, A) => A.slice(0, i).filter(y => y.p.c === x.p.c && (y.p.t === '1분 이하') === (x.p.t === '1분 이하')).length < 6); // 채널마다(유튜브는 롱폼·쇼츠마다) 최근 6개
   }
   // 채널별로 그래프를 나눔(2026-10-22 「유튜브 그래프도 잘 보이게」): 인스타 수천과 유튜브 수십을 한 세로축에 그리면 유튜브가 바닥에 붙음
-  function tdGroups(C) { return ['인스타그램', 'hong._.video', '유튜브'].map(c => ({ c, C: C.filter(x => x.p.c === c) })).filter(g => g.C.length); }
+  // 유튜브는 롱폼·쇼츠를 따로(2026-11-17 담당자 「유튜브 롱폼과 숏츠는 따로 보여주는게 맞을 듯」): 쇼츠 첫날 수백~수천과 롱폼을 한 축·한 평소선에 그리면 서로 가려짐. k = 탭 키
+  function tdGroups(C) {
+    const sh = x => x.p.t === '1분 이하';
+    return [{ k: '인스타그램', c: '인스타그램', f: x => x.p.c === '인스타그램' }, { k: 'hong._.video', c: 'hong._.video', f: x => x.p.c === 'hong._.video' },
+      { k: '유튜브', c: '유튜브', lab: '롱폼', f: x => x.p.c === '유튜브' && !sh(x) }, { k: '유튜브|쇼츠', c: '유튜브', lab: '쇼츠', f: x => x.p.c === '유튜브' && sh(x) }]
+      .map(g => ({ k: g.k, c: g.c, lab: g.lab || chName(g.c), C: C.filter(g.f) })).filter(g => g.C.length);
+  }
   // 그래프는 하나만, 위 채널 탭으로 바꿔 봄(2026-11-09 담당자 「그래프 하나만 나오고 위에 채널 탭」). 고른 채널은 기기에 기억
-  function tdSel(G) { let s = TD.cht; if (!s) try { s = localStorage.getItem('sb-td-cht'); } catch (e) {} return G.some(g => g.c === s) ? s : G[0].c; }
+  function tdSel(G) { let s = TD.cht; if (!s) try { s = localStorage.getItem('sb-td-cht'); } catch (e) {} return G.some(g => g.k === s) ? s : G[0].k; }
   function tdPanel(C) {
     const G = tdGroups(C), sel = tdSel(G);
-    return '<div class="td-g">' + (G.length > 1 ? '<div class="seg td-seg" id="tdChT" role="group" aria-label="그래프 채널">' + G.map(g => '<button type="button" data-v="' + esc(g.c) + '" aria-pressed="' + (g.c === sel) + '">' + esc(chName(g.c)) + '</button>').join('') + '</div>' : '<div class="td-chh">' + badge(G[0].c) + '</div>') + '<div class="chart" style="height:220px"><canvas id="tdC0"></canvas></div></div>';
+    return '<div class="td-g">' + (G.length > 1 ? '<div class="seg td-seg" id="tdChT" role="group" aria-label="그래프 채널">' + G.map(g => '<button type="button" data-v="' + esc(g.k) + '" title="' + esc(g.c === '유튜브' ? '유튜브 ' + g.lab : chName(g.c)) + '" aria-pressed="' + (g.k === sel) + '">' + esc(g.lab) + '</button>').join('') + '</div>' : '<div class="td-chh">' + badge(G[0].c) + (G[0].k !== G[0].c ? ' <span class="mu">' + (G[0].k === '유튜브|쇼츠' ? '쇼츠' : '롱폼') + '</span>' : '') + '</div>') + '<div class="chart" style="height:160px"><canvas id="tdC0"></canvas></div></div>';
   }
   function tdDraw() {
     const fd = $('tdChF'); if (!$('tdC0') || !TD.d || (fd && !fd.open)) return;
     // 이번 주(월요일~그제) 게시물(wk)도 함께(2026-11-04 「이번주에 올린 콘텐츠는 그래프에 나오게」)
-    const P = (TD.d.posts || []).concat(TD.d.wk || []).filter(p => TD.chs.includes(p.c)).sort((a, b) => a.at < b.at ? 1 : -1), G0 = tdGroups(tdCurves(P)), G = G0.length ? G0.filter(g => g.c === tdSel(G0)) : G0, hb = TD.d.hbase || {};
+    const P = (TD.d.posts || []).concat(TD.d.wk || []).filter(p => TD.chs.includes(p.c)).sort((a, b) => a.at < b.at ? 1 : -1), G0 = tdGroups(tdCurves(P)), G = G0.length ? G0.filter(g => g.k === tdSel(G0)) : G0, hb = TD.d.hbase || {};
     // 가로축은 모든 그래프가 같게(위아래로 시간을 맞춰 보게). 끝은 눈금 간격의 배수로(「25시간」처럼 앞 눈금과 겹치지 않게)
     const XM = Math.max(...G.map(g => Math.max(...g.C.map(c => Math.ceil(c.a[c.a.length - 1][0])))));
     const x1 = Math.max(6, XM), xSt = x1 <= 6 ? 2 : x1 <= 12 ? 3 : x1 <= 30 ? 6 : x1 <= 48 ? 12 : 24, xMax = Math.ceil(x1 / xSt) * xSt, byDay = xMax > 48;
@@ -4188,7 +4194,7 @@
   function tdChart(id, ds, xMax, xSt) {
     draw(id, { type: 'line', data: { datasets: ds }, plugins: [endLabels],
       options: chartOpts({ layout: { padding: { top: 12, right: 104 } }, plugins: { endLabels: { max: 9 }, tooltip: { callbacks: { title: it => { const h = it[0].raw.x; return '올린 지 ' + (h >= 48 ? Math.floor(h / 24) + '일 ' + Math.round(h % 24) + '시간' : h + '시간'); }, label: c => (c.dataset.tip || c.dataset.label) + ' 조회 ' + fmt(c.raw.y) } } },
-        scales: { x: { type: 'linear', min: 0, max: xMax, ticks: { stepSize: xSt, maxRotation: 0, autoSkip: false, callback: v => xSt === 24 ? (v ? v / 24 + (v === xMax ? '일' : '') : 0) : v === xMax ? v + '시간' : v } }, y: { display: true, position: 'right', afterFit: sc => { sc.width = 52; }, grid: { color: css('--line') }, border: { display: false }, ticks: { maxTicksLimit: 4, font: { size: 14 }, color: css('--muted'), callback: v => fmtK(v) } } } }) });
+        scales: { x: { type: 'linear', min: 0, max: xMax, ticks: { stepSize: xSt, maxRotation: 0, autoSkip: false, callback: v => xSt === 24 ? (v ? v / 24 + (v === xMax ? '일' : '') : 0) : v === xMax ? v + '시간' : v } }, y: { display: true, position: 'right', afterFit: sc => { sc.width = 52; }, grid: { color: css('--line') }, border: { display: false }, ticks: { maxTicksLimit: 3, font: { size: 14 }, color: css('--muted'), callback: v => fmtK(v) } } } }) });
   }
   function tdSaveSeen() {
     const d = TD.d; if (!d) return;
