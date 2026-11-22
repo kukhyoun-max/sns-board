@@ -6604,6 +6604,7 @@ function hourlyFor_(ss, ids, keep) { // keep = 그래프에도 그리고 평소 
 const TODAY_TTL = 1200;
 // 오늘 칸 미리 만들기(2026-11-07 「새로고침하면 로딩 시간이 너무 길어」): 사람이 열 때 만들면 그 사람이 기다림. 8~24시 10분마다, 실패할 때만 로그
 function todayWarm() {
+  const t0 = Date.now();
   if (Number(Utilities.formatDate(new Date(), TZ, 'H')) < 8) return;
   try { cellTidy_(); } catch (e) {} // 시트 칸 정리(2026-11-16, 한 번만)
   try { ageFill_(); } catch (e) {}  // 게시 후 조회 과거 채우기(2026-11-16, 끝나면 멈춤)
@@ -6612,6 +6613,27 @@ function todayWarm() {
   const ss = SpreadsheetApp.openById(SS_ID);
   try { cachePut_(JSON.stringify(partToday_(ss)), 'part:today', TODAY_TTL); }
   catch (e) { logRows_(ss, [[new Date(), '오늘 칸 미리 만들기', 0, '오류: ' + String(e.message).slice(0, 120)]]); }
+  try { warmRest_(ss, t0); } catch (e) { logRows_(ss, [[new Date(), '보드 캐시 미리 채우기', 0, '오류: ' + String(e.message).slice(0, 120)]]); }
+}
+// 보드 캐시 미리 채우기(2026-11-21 담당자 「느려서」 → 1안): 캐시가 비면 처음 연 사람이 12~15초 기다림(11-20 측정 기본 12.0초·part=yt 15.2초, 캐시 있으면 2~4초).
+//  기록 때 part 캐시를 비우고 onEdit·비공개 판정도 비우므로, 10분마다 비었거나 5시간 넘은 것(6시간이면 지워짐)을 다시 만듦. 기록 중엔 안 함, todayWarm 시작부터 WARM_MAX_MS(4분)까지만 새로 시작(6분 한도)
+const WARM_PARTS = ['', 'yt', 'ig', 'ytb', 'hreel', 'pair'], WARM_OLD_MS = 5 * 3600 * 1000, WARM_MAX_MS = 240000;
+function warmRest_(ss, t0) {
+  if (isRecording_()) return;
+  t0 = t0 || Date.now();
+  const c = CacheService.getScriptCache(), done = [];
+  for (const p of WARM_PARTS) {
+    if (Date.now() - t0 > WARM_MAX_MS) break;
+    const pre = p ? 'part:' + p : CACHE_PREFIX;
+    let meta = null; try { meta = JSON.parse(c.get(pre + ':meta') || 'null'); } catch (e) {}
+    if (meta && meta.n && Date.now() - Number(meta.id) < WARM_OLD_MS && cacheGet_(pre)) continue;
+    const json = JSON.stringify(p ? buildPart_(p, null) : buildDashboardData_());
+    if (isRecording_()) return; // 만드는 사이 기록이 시작되면 넣지 않음(옛 값이 남지 않게)
+    if (p === 'pair' && json.indexOf('"rows":[]') >= 0) continue;
+    cachePut_(json, pre);
+    done.push((p || '기본') + ' ' + Math.round((Date.now() - t0) / 1000) + '초');
+  }
+  if (done.length) logRows_(ss, [[new Date(), '보드 캐시 미리 채우기', done.length, '정상 (' + done.join(', ') + ')']]);
 }
 // 릴스 길이(2026-11-11 담당자 「진행해」): 인스타 API에는 영상 길이 필드가 없음(11-10 시험: video_duration = code 100).
 //  → 우리 계정(jjuniv·hong) 영상의 media_url 앞 512KB(없으면 뒤 512KB)만 받아 mp4 머리(mvhd)의 길이를 읽어 「릴스 길이」 탭에 쌓음. 영상 전체는 받지 않음
