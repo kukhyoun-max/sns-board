@@ -1439,3 +1439,6 @@ img[src*="/oardefault.jpg"]:not(.ok), img[src*="/oar2.jpg"]:not(.ok), img.wt { v
 .sig .sg-lg i { background: var(--hm-card); box-shadow: none; }
 /* 상세 칩 중 색이 없는 것(형식·참여자)도 칸으로(2026-11-10 「이 부분도 칩으로」): --plane이 흰색이라 글자만 보이던 것 */
 .dtags .tag:not([class*=" "]) { background: var(--hm-card); color: var(--sub); }
+
+/* 채널 탭 누름 영역(2026-11-26 화면 점검): 휴대폰 폭에서는 44px */
+@media (max-width: 720px) { .tt { min-height: 44px; } }

@@ -3796,9 +3796,11 @@ function archiveCheck_(ss, ch, tab, api, logs) {
     const rows = sh.getRange(2, 1, sh.getLastRow() - 1, 12).getValues().filter(r => String(r[0]) && !/스토리|STORY/.test(String(r[2])));
     const ids = {};
     api.media.forEach(x => { ids[String(x.id)] = 1; });
-    if (api.media.length < rows.length * 0.9) { logs.push([new Date(), ARCH_SHEET + '·' + ch, 0, '건너뜀: 이번 목록 ' + api.media.length + '개가 탭 ' + rows.length + '줄보다 너무 적음']); return; }
     const as = ss.getSheetByName(ARCH_SHEET), old = {};
     if (as && as.getLastRow() > 1) as.getRange(2, 1, as.getLastRow() - 1, ARCH_HEAD.length).getValues().forEach(r => { if (String(r[0]) === ch) old[String(r[1])] = r; });
+    // 이미 「보관 중」으로 모아 둔 줄은 빼고 견줌(2026-11-26): 보관이 탭의 10%를 넘으면(hong 159줄 중 24줄) 이 안전장치에 걸려 점검이 계속 건너뛰어졌음
+    const act = rows.filter(r => { const o = old[String(r[0])]; return !(o && o[14] === '보관 중'); }).length;
+    if (api.media.length < act * 0.9) { logs.push([new Date(), ARCH_SHEET + '·' + ch, 0, '건너뜀: 이번 목록 ' + api.media.length + '개가 탭 ' + act + '줄(보관 중 빼고)보다 너무 적음']); return; }
     const today = Utilities.formatDate(new Date(), TZ, 'yyyy-MM-dd'), out = [];
     let added = 0, now = 0;
     rows.forEach(r => {

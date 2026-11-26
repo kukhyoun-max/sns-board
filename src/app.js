@@ -445,7 +445,7 @@
     const vdT = vd == null ? '<i class="mu">비교 전</i>' : '<i class="' + (Math.abs(vd) < 0.03 ? 'mu' : vd > 0 ? 'up arr' : 'down arr dn') + '">' + Math.round(Math.abs(vd) * 100) + '%</i>';
     const fdT = fd == null ? '<i class="mu">비교 전</i>' : '<i class="' + (fd === 0 ? 'mu' : fd > 0 ? 'up arr' : 'down arr dn') + '">' + (fd === 0 ? '변화 없음' : fmt(Math.abs(fd)) + '명') + '</i>';
     const sd = M.sCur != null && M.sPrev != null ? M.sCur - M.sPrev : null;
-    const sdT = sd == null ? '<i class="mu">' + (M.sCur == null ? '자료 없음' : '비교 전') + '</i>' : '<i class="' + (Math.abs(sd) < 0.0005 ? 'mu' : sd > 0 ? 'up arr' : 'down arr dn') + '">' + (Math.abs(sd) < 0.0005 ? '비슷해요' : (Math.round(Math.abs(sd) * 1000) / 10) + '%p') + '</i>';
+    const sdT = M.sRows.length && M.sRows.length < 3 ? '<i class="mu">게시물 ' + M.sRows.length + '개뿐</i>' : sd == null ? '<i class="mu">' + (M.sCur == null ? '자료 없음' : '비교 전') + '</i>' : '<i class="' + (Math.abs(sd) < 0.0005 ? 'mu' : sd > 0 ? 'up arr' : 'down arr dn') + '">' + (Math.abs(sd) < 0.0005 ? '비슷해요' : (Math.round(Math.abs(sd) * 1000) / 10) + '%p') + '</i>';
     const tabs = '<div class="ov-ts" role="group" aria-label="지표 고르기">' + tab('v', '조회수', fmtM(M.vCur), vdT) +
       (M.sOn ? tab('s', '인스타 공유율', M.sCur == null ? '–' : pctA(M.sCur), sdT) : M.fc.length ? tab('f', M.fc.length > 1 ? '팔로워' : chName(M.fc[0]) + ' 팔로워', M.fNow == null ? '–' : fmt(M.fNow), fdT) : '') +
       tab('n', '올린 게시물', M.posts.length + '개', '<i class="mu">평소 주 ' + (Math.round(M.avg8 * 10) / 10) + '개</i>') + '</div>';
@@ -1824,7 +1824,8 @@
     const s365 = addDays(D.updated, -365), s60 = addDays(D.updated, -60);
     const L = pool({ channels: chs, since: s365 }).filter(it => ratio(it) != null);
     const hbCh = {}; chs.forEach(c => { hbCh[c] = hitRate(L.filter(it => it.c === c)) || 0; });
-    const combos = groupBy(L, it => it.c + '|' + it.g + '|' + it.t).filter(r => r.n >= MIN_N && r.idx != null);
+    // 「주제 없음」은 처방에서 뺌(2026-11-26): 분류가 안 붙은 묶음이라 「줄이기」를 권해도 무엇을 줄일지 알 수 없음
+    const combos = groupBy(L, it => it.c + '|' + it.g + '|' + it.t).filter(r => r.n >= MIN_N && r.idx != null && r.arr[0].g !== '주제 없음');
     combos.forEach(r => { const p = r.k.split('|'); r.c = p[0]; r.g = p[1]; r.t = p[2]; r.recent = r.arr.filter(it => it.d >= s60).length; r.exp = r.n * 60 / 365; r.hb = hbCh[r.c]; });
     const more = combos.filter(r => r.idx >= 1.25 && (r.hit || 0) >= r.hb && r.recent <= Math.max(1, Math.floor(r.exp))).sort((a, b) => b.idx * (0.5 + (b.hit || 0)) - a.idx * (0.5 + (a.hit || 0))).slice(0, 3);
     const less = combos.filter(r => r.idx <= 0.8 && r.recent >= Math.max(3, Math.ceil(r.exp * 1.2))).sort((a, b) => a.idx - b.idx).slice(0, 2);
@@ -1923,12 +1924,17 @@
         const per = L6.filter(it => it.t === t).length / 6;
         const r = byT.find(x => x.k === t);
         const rr = igR && r ? r.arr.filter(it => it.r > 0).map(it => it.r) : null;
-        const idx = igR ? (rr && rr.length >= 5 && rBase ? median(rr) / rBase : null) : (r && r.n >= 5 ? r.idx : null);
+        // 유튜브·hong은 같은 형식의 최근 6달 추세로 봄(2026-11-26): 전에는 같은 형식 1년 평소로 나눈 값의 1년 중간값(r.idx)이라 15개 넘는 형식은 늘 1배(「조회 ±0% · 유지」)였음.
+        // 채널 전체 평소와 견주면 쇼츠가 롱폼보다 늘 높게 나와(반복 재생) 쓰지 않음 → 이 형식의 최근 6달 게시물이 같은 형식 1년 평소의 몇 배인지
+        const rv = !igR ? L6.filter(it => it.t === t && !it.ad && !young(it)).map(ratio).filter(v => v != null) : null;
+        const idx = igR ? (rr && rr.length >= 5 && rBase ? median(rr) / rBase : null) : (rv && rv.length >= 5 ? median(rv) : null);
         // 판정 · 근거를 짧게: 「늘리기 · 조회 평소의 1.3배」
-        const basis = (igR ? '도달 ' : '조회 ') + vsP(idx), few = r && r.n < 5 ? ' · 참고용' : '';
+        const basis = (igR ? '도달 ' : '최근 6달 조회 ') + vsP(idx), few = r && r.n < 5 ? ' · 참고용' : '';
         let rec = Math.round(per), vd = '유지', bs = idx != null && idx > 0.8 && idx < 1.2 ? basis : '최근 6달 하던 만큼';
         if (idx != null && idx >= 1.2) { rec = Math.max(rec + 1, Math.round(per * 1.3)); vd = '늘리기'; bs = basis; }
         else if (idx != null && idx <= 0.8 && rec > 0) { rec = Math.max(0, Math.min(rec - 1, Math.round(per * 0.7))); vd = '줄이기'; bs = basis; }
+        // 형식이 하나뿐인 채널(hong)은 늘리기·줄이기를 권하지 않고 추세만 보임(형식을 바꿀 곳이 없음)
+        if (types.length === 1 && vd !== '유지') { rec = Math.round(per); vd = '유지'; }
         return { t, per, rec, vd, bs: bs + few, why: vd + ' · ' + bs + few, idx };
       }).filter(r => r.per >= 0.3 || r.rec > 0).sort((a, b) => b.rec - a.rec);
       const past = D.items.filter(it => it.c === ch && it.t !== '스토리' && !it.ad && it.d.slice(5, 7) === mm && it.d.slice(0, 4) < ny && ratio(it) != null);
@@ -3997,7 +4003,9 @@
     const RS = j => D.items.filter(it => it.c === '인스타그램' && it.t !== '스토리' && !it.ad && it.r >= 300 && last(it)).sort((a, b) => a.d < b.d ? -1 : 1).slice(-12).map(it => { const x = last(it); return j === 0 ? ((x[1] || 0) + (x[2] || 0) + (x[3] || 0) + (x[4] || 0)) / it.r : x[3] == null ? null : x[3] / it.r; });
     if (IP.length) {
       const v = median(IP.map(p => p.sh / p.r)), goal = KPI_D20.share;
-      M.push(hmCard('인스타 공유율', pctA(v), '목표 ' + pctA(goal) + (v >= goal ? ' 넘음' : ' 아래'), v >= goal ? 'up' : 'down', '어제·오늘 인스타 게시물 ' + IP.length + '개 · 게시물마다 공유 ÷ 도달의 중간값(KPI와 같은 방식) · 선 = 최근 인스타 게시물 12개', spark(RS(3), '최근 인스타 게시물 12개 공유율')));
+      // 게시물 3개 미만이거나 모두 올린 지 24시간 안이면 목표 판정을 하지 않음(2026-11-26: 4시간 된 캐러셀 1개로 「0.00% · 목표 아래」가 떠 전략 KPI 1.3% 달성과 어긋나 보였음)
+      const few = IP.length < 3 || IP.every(p => Date.now() - new Date(p.at).getTime() < 864e5);
+      M.push(hmCard('인스타 공유율', pctA(v), few ? '게시물 ' + IP.length + '개 · 모이는 중' : '목표 ' + pctA(goal) + (v >= goal ? ' 넘음' : ' 아래'), few ? '' : v >= goal ? 'up' : 'down', (few ? 'KPI 판정(최근 90일)은 전략 화면 · ' : '') +'어제·오늘 인스타 게시물 ' + IP.length + '개 · 게시물마다 공유 ÷ 도달의 중간값(KPI와 같은 방식) · 선 = 최근 인스타 게시물 12개', spark(RS(3), '최근 인스타 게시물 12개 공유율')));
     }
     if (RP.length) {
       const R = sum(RP.map(p => p.r)), n = sum(RP.map(p => (p.l || 0) + (p.cm || 0) + (p.sh || 0) + (p.sv || 0))), v = n / R, us = RP.map(p => [p, tdRate(p.c, p.t, 0)]).filter(x => x[1] != null);
@@ -5124,6 +5132,8 @@
   const EXP = window.SNS_EXP || { names: {}, s: {}, depts: [] };
   const expOf = it => it.ex || it.ec || it.exs || ''; // 「E04,E05」 확정 > 분류표 자동 코드(서버 it.ec, 2026-10-24) > 낱말 제안
   function prep() {
+    // hong 형식 이름 통일(2026-11-26): 10/12까지는 옛 공개 원본의 「릴스/영상」, 10/13부터는 API의 「릴스」로 들어와 평소·히트율 표·편성 제안이 둘로 갈렸음. 서버 메일(briefUsual_)·매일 분석(ana.js typ)과 같게 한 형식으로 봄
+    D.items.forEach(it => { if (it.c === 'hong._.video' && it.t === '릴스/영상') it.t = '릴스'; });
     D.items.forEach(it => { if (it.ex || !(EXP.s)) return; const k = it.c === '유튜브' ? 'yt:' + ytId(it.u) : 'ig:' + igCode(it.u); if (EXP.s[k]) it.exs = EXP.s[k]; });
     if (D.items.some(it => it.L)) { D.coverage = D.coverage || {}; D.coverage['유튜브'] = '2012-01-01'; }
     const igMin = D.items.filter(it => it.c === '인스타그램').map(it => it.d).sort()[0];
