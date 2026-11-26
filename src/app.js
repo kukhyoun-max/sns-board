@@ -4316,10 +4316,70 @@
   const doy = d => daysBetween(d.slice(0, 4) + '-01-01', d);
   // 막대: 이 콘텐츠 / 우리 같은 주제 / 타 대학 같은 주제
   const cmpBars = R => { R = R.filter(x => x && x[1] != null); if (R.length < 2) return ''; const mx = Math.max(1.5, ...R.map(x => x[1])); return '<div class="cmps">' + R.map((x, i) => '<div class="cmpb"><span class="cl">' + x[0] + '</span><span class="ct"><i class="' + (i ? '' : x[1] >= 1 ? 'up' : 'down') + '" style="width:' + Math.min(100, x[1] / mx * 100).toFixed(1) + '%"></i></span><span class="cv num">' + vsP(x[1]) + '</span></div>').join('') + '</div>'; };
+  // 핵심 진단(2026-11-26 담당자 「데이터 조합해서 만드는 분석 문구 말고 현실적인 분석」): 특징 이름을 이어 붙이던 「요약」(「잘 된 이유는 빠른 첫 반응, 예년에도 잘 된 시기」) 대신
+  // 얼마나 퍼졌나(도달) → 반응 건수 → 직전 게시물 흐름 순서로, 평소와 가장 다른 곳을 실제 숫자로 말함. 도달이 있는 인스타·hong만(유튜브는 예전 요약)
+  // 비율은 도달이 작으면 부풀어서(도달 429명에 공유 25건 = 「공유율 +449%」) 건수를 함께 보고, 도달이 평소 절반 아래면 비율로 칭찬하지 않음
+  function coreDx(it) {
+    if (!(it.c === '인스타그램' || it.c === 'hong._.video') || it.x || frozen(it) || it.ad || it.hid || it.t === '스토리' || it.tg === '이벤트') return null;
+    const v = last(it); if (!v || !(it.r > 0)) return null;
+    const peers = D.items.filter(x => x !== it && x.c === it.c && x.t === it.t && !x.ad && !x.x && !x.hid && !frozen(x) && x.r > 0 && last(x) && !young(x));
+    const ripe = peers.filter(x => x.d >= addDays(D.updated, -365));
+    if (ripe.length < MIN_N) return null;
+    const md = f => median(ripe.map(f).filter(x => x != null && isFinite(x)));
+    const bR = md(x => x.r), bS = md(x => last(x)[3]), bV = md(x => last(x)[4]), bL = md(x => last(x)[1]);
+    const yg = young(it), ty = typeShort(it.t);
+    // 퍼진 정도: 다 자란 게시물은 도달 ÷ 평소 도달, 올린 지 14일 전은 같은 날수 조회와 견줌(다 자란 도달과 견주면 늘 낮게 나옴)
+    let S = null, sTxt = '';
+    if (!yg) { if (bR) { S = it.r / bR; sTxt = '도달 ' + fmt(it.r) + '명 · 평소 ' + fmt(bR) + '명'; } }
+    else { const f = (it.ag || []).filter(x => x && x[0] > 0).slice(-1)[0], b = f && agAt(it.c, it.t, f[1], it); if (b && b.m > 0) { S = f[0] / b.m; sTxt = '올린 지 ' + f[1] + '일 조회 ' + fmt(f[0]) + ' · 같은 날수 평소 ' + fmt(b.m); } }
+    if (S == null) return null;
+    const n = j => v[j] == null ? null : v[j];
+    const cnt = [['공유', n(3), bS], ['저장', n(4), bV], ['좋아요', n(1), bL]].filter(x => x[1] != null);
+    const cntTxt = cnt.map(x => x[0] + ' ' + fmt(x[1]) + '건' + (!yg && x[2] != null ? '(평소 ' + fmt(x[2]) + ')' : '')).join(' · ');
+    const xr = (a, b) => a != null && b > 0 ? a / b : null, cS = xr(n(3), bS), cV = xr(n(4), bV), cL = xr(n(1), bL);
+    const xT = r => r >= 10 ? Math.round(r) + '배' : (Math.round(r * 10) / 10) + '배';
+    let cls, h, sub;
+    if (S < 0.5) {
+      cls = 'bad';
+      h = yg ? '퍼지는 속도가 평소의 ' + pct0(S) + '예요. 반응보다 노출에서 막힌 모습이에요.' : '도달이 평소의 ' + pct0(S) + '에 그쳤어요. 반응보다 노출에서 막힌 게시물이에요.';
+      sub = sTxt + ' · ' + cntTxt + ' · 본 사람이 적으면 비율은 높게 나와서 건수로 봐요 · 볼 곳: ' + (it.t === '캐러셀' ? '첫 장' : '첫 3초·커버') + ', 올린 시각';
+    } else if (S >= 1.5 && !yg) {
+      cls = 'good';
+      const F = folAt(it.c, D.updated), fx = F > 0 ? it.r / F : null;
+      const out = fx != null && fx >= 1.2 ? '팔로워(' + fmt(F) + '명)의 ' + xT(fx) + '가 봤어요. 팔로워 밖으로 퍼진 게시물이에요.' : '도달이 평소의 ' + xT(S) + '예요.';
+      const top = [['저장', cV, n(4), bV, '다시 보려고 남길 정보가 있던 게시물이에요.'], ['공유', cS, n(3), bS, '친구에게 보낼 이유가 있던 게시물이에요.']].filter(x => x[1] != null).sort((a, b) => b[1] - a[1])[0];
+      if (top && top[1] >= S * 1.3) h = out + ' ' + top[0] + '이 ' + fmt(top[2]) + '건으로 평소(' + fmt(top[3]) + '건)의 ' + xT(top[1]) + ' — 도달이 늘어난 것(' + xT(S) + ')보다 더 크게 늘었어요. ' + top[4];
+      else h = out + ' 반응은 도달이 늘어난 만큼(' + xT(S) + ') 늘었어요. 반응이 유난했다기보다 넓게 노출된 게시물이에요.';
+      sub = sTxt + ' · ' + cntTxt;
+    } else if (S >= 1.5) {
+      cls = 'good'; h = '퍼지는 속도가 평소의 ' + xT(S) + '예요. 판정은 14일 뒤지만 지금까지는 빠르게 늘고 있어요.'; sub = sTxt + ' · ' + cntTxt;
+    } else {
+      const hi = [['저장', cV, n(4), bV], ['공유', cS, n(3), bS]].filter(x => x[1] != null && x[1] >= 1.5 && x[2] >= 5).sort((a, b) => b[1] - a[1])[0];
+      const lowAll = !yg && [cS, cV, cL].filter(x => x != null).length >= 2 && [cS, cV, cL].filter(x => x != null).every(x => x <= 0.6);
+      const sp = yg ? '퍼지는 속도는 평소 수준(' + vsP(S) + ')' : '도달은 평소 수준(' + vsP(S) + ')';
+      if (hi && !yg) { cls = 'good'; h = sp + '인데 ' + hi[0] + '이 ' + fmt(hi[2]) + '건으로 평소(' + fmt(hi[3]) + '건)의 ' + xT(hi[1]) + '예요. 본 사람의 반응이 좋았던 게시물이에요.'; }
+      else if (lowAll) { cls = 'bad'; h = sp + '인데 반응이 적어요. 보긴 했지만 누르거나 보낼 이유가 약했던 게시물이에요.'; }
+      else { cls = 'info'; h = sp + '이고 반응도 평소 범위예요.'; }
+      sub = sTxt + ' · ' + cntTxt;
+    }
+    // 캐러셀: 도달 1명당 조회(넘겨 본 깊이)
+    if (it.t === '캐러셀' && v[0] > 0 && !yg) { const d = v[0] / it.r, bd = md(x => last(x)[0] / x.r); if (bd) sub += ' · 한 사람당 ' + (Math.round(d * 10) / 10) + '장 봄(평소 ' + (Math.round(bd * 10) / 10) + '장)'; }
+    // 흐름: 직전 같은 형식 5개(다 자란 것)의 도달 — 이 게시물만의 일인지, 채널 흐름인지
+    let trend = null;
+    const prev = peers.filter(x => x.d < it.d).sort((a, b) => a.d < b.d ? 1 : -1).slice(0, 5);
+    if (prev.length >= 4 && bR) {
+      const low = prev.filter(x => x.r < bR * 0.8).length, list = '직전 ' + ty + ' ' + prev.length + '개 도달 ' + prev.map(x => fmtK(x.r)).join(' · ') + ' · 평소 ' + fmtK(bR);
+      if (low >= prev.length - 1) trend = ['bad', '흐름', '직전 ' + ty + ' ' + prev.length + '개 중 ' + low + '개가 평소 도달에 못 미쳤어요. ' + (S < 0.8 ? '이 게시물만의 일이 아니라 채널 도달이 내려온 흐름이에요.' : '그 흐름에서 이 게시물은 선방했어요.'), list];
+      else if (S < 0.5 && low <= 1) trend = ['info', '흐름', '직전 ' + ty + ' ' + prev.length + '개는 대체로 평소 도달이었어요. 이 게시물에서만 떨어졌어요.', list];
+      else if (S >= 1.5 && low <= 1) trend = ['info', '흐름', '직전 ' + ty + ' ' + prev.length + '개는 평소 수준이었고 이 게시물이 튀었어요.', list];
+    }
+    return { main: [cls, '핵심', h, sub], trend, small: S < 0.5, cnt: { save: n(4), share: n(3), like: n(1) } };
+  }
   function diag(it) {
     const out = [], F = [], r = ratio(it), base = baseFor(it), own = OWN.includes(it.c), we = own ? '우리' : chName(it.c), age = daysBetween(it.d, D.updated);
     const P = D.items.filter(x => x !== it && x.c === it.c && x.t !== '스토리' && !x.ad && !x.x && x.d >= addDays(D.updated, -730));
     const baseTxt = base.by === '형식' ? '평소 = 같은 형식 ' + typeShort(it.t) + ' 최근 1년 중간값 ' + fmtK(base.v) : '평소 = 채널 전체 중간값 ' + fmtK(base.v);
+    const cd = own ? coreDx(it) : null;
     // 주제: 우리 같은 분류 · 타 대학 인스타 같은 분류(각 학교 자기 평소 대비 좋아요)
     const tg = it.g ? gStat(P.filter(x => x.g === it.g)) : null;
     const bg = own && it.g ? gStat(D.items.filter(x => benchNames().includes(x.c) && x.g === it.g && x.t !== '스토리' && x.d >= addDays(D.updated, -730))) : null;
@@ -4359,6 +4419,7 @@
       const M = RXM[k], raw = rxRate(it, k), bv = rxBase(it.c, k, it.t);
       const md = arr => { const a = arr.map(x => rxVal(x, k)).filter(v => v != null); return a.length >= MIN_N ? median(a) : null; };
       const lead = raw != null ? M[1] + ' ' + pctA(raw) + '로 ' : M[0] + '이 ';
+      if (cd && cd.small && k !== 'reach' && m >= 1.2 && raw != null && cd.cnt[k] != null) { F.push({ k: '반응', m: 1, ext: true, nm: M[1], h: M[1] + '은 ' + pctA(raw) + '로 평소(' + pctA(bv) + ')보다 높지만 ' + M[0] + ' 건수는 ' + fmt(cd.cnt[k]) + '건이에요. 본 사람이 적어 비율이 높게 나온 거예요.', s: rxDef(k, it.c) }); return; }
       F.push({ k: '반응', m, ext: true, nm: M[1], h: lead + '' + vsTxt(m) + (m >= 1.2 ? '예요. ' + M[3] : m <= 0.85 ? '에 그쳤어요.' : '로 비슷해요.'),
         s: (k === 'reach' ? '평소 = 같은 형식 ' + typeShort(it.t) + ' 최근 1년 도달 중간값' : '평소 = 같은 형식 ' + typeShort(it.t) + ' 최근 1년 중간값 ' + pctA(bv) + ' · ' + rxDef(k, it.c)),
         bars: cmpBars([['이 콘텐츠', m], it.g ? [we + ' 같은 주제', md(P.filter(x => x.g === it.g))] : null]) });
@@ -4367,10 +4428,11 @@
     if (r != null) {
       if (young(it)) out.push(['info', '결과', (age <= 0 ? '오늘 올려서' : '올린 지 ' + age + '일째라') + ' 아직 판정 전이에요.', (youngTxt(it) || youngWait(it)) + ' · ' + AGE_MIN + '일이 지나면 판정해요']);
       else out.push([r >= HIT ? 'good' : r < 0.5 ? 'bad' : 'info', '결과', MN[mainM(it.c)] + '가 ' + vsTxt(r) + (r >= HIT ? '로 히트 게시물이에요.' : r < 0.5 ? '로 절반에 못 미쳤어요.' : r >= 1 ? '로 평소보다 조금 높아요.' : '로 평소보다 조금 낮아요.'), baseTxt]);
-      const use = F.filter(x => !x.ext), pos = use.filter(x => x.m >= 1.2).sort((a, b) => b.m - a.m), neg = use.filter(x => x.m <= 0.85).sort((a, b) => a.m - b.m);
+      const use = F.filter(x => !x.ext && x.k !== '속도' && x.k !== '조건'), pos = use.filter(x => x.m >= 1.2).sort((a, b) => b.m - a.m), neg = use.filter(x => x.m <= 0.85).sort((a, b) => a.m - b.m);
       const names = L => L.slice(0, 3).map(x => x.nm).join(', '); // 이름 안에 「·」가 있어 쉼표로 나눔
       const over = tg && tg.m > 0 && r / tg.m >= 1.5 ? '같은 주제 평소보다도 ' + vsP(r / tg.m) + ' 높아요' : '';
-      if (young(it)) out.push(['info', '요약', pos.length ? '지금 보이는 잘 되는 특징은 ' + ieyo(names(pos)) + '.' : '눈에 띄게 잘 되는 특징은 아직 없어요.', [neg.length ? '약한 특징 ' + names(neg) : '', '잘 된 이유는 ' + AGE_MIN + '일 뒤 판정과 함께 봐요'].filter(Boolean).join(' · ')]);
+      if (cd) { out.push(cd.main); if (cd.trend) out.push(cd.trend); }
+      else if (young(it)) out.push(['info', '요약', '아직 진단할 만큼 자료가 모이지 않았어요.', '하루 지나면 같은 날수 평소와 견주고, ' + AGE_MIN + '일 뒤에 판정해요']);
       else if (r >= 1) out.push(['good', '요약', pos.length ? '잘 된 이유로 보이는 것은 ' + ieyo(names(pos)) + '.' : '주제·시기·제작만 보면 평범한 조합이에요. 장면·편집 같은 콘텐츠 자체의 힘으로 보여요.', [over, neg.length ? '약한 특징 ' + names(neg) : ''].filter(Boolean).join(' · ')]);
       else out.push(['bad', '요약', neg.length ? '아쉬운 이유로 보이는 것은 ' + ieyo(names(neg)) + '.' : pos.length ? names(pos) + '처럼 잘 되는 조합인데 낮았어요. 제목·첫 장면을 살펴볼 만해요.' : '주제·시기·제작은 평범한 조합이에요. 제목·첫 장면을 살펴볼 만해요.', '']);
     }
@@ -4408,7 +4470,7 @@
     // 결과·요약 다음은 잘 되는 특징(+)부터(2026-10-31 담당자 「+인 성과 분석을 먼저」) — 평소보다 낮게 끝난 게시물은 약한 특징부터
     // 2026-11-10 담당자 「B로 하되 색상이 생긴 거를 우선 순위로, 결과·요약 다음으로」: 「이 게시물」(이 게시물 값) · 「이런 조합은 보통」(같은 특징 과거 게시물) 두 묶음, 묶음 안에서 색 있는 줄 먼저·회색은 끝
     const low = r != null && !young(it) && r < 1, ord = low ? { bad: 0, good: 1, info: 2 } : { good: 0, bad: 1, info: 2 };
-    const head = out.filter(x => x[1] === '결과' || x[1] === '요약'), rest = out.filter(x => !head.includes(x));
+    const head = out.filter(x => x[1] === '결과' || x[1] === '요약' || x[1] === '핵심' || x[1] === '흐름'), rest = out.filter(x => !head.includes(x));
     const srt = L => L.map((x, i) => [x, i]).sort((a, b) => (ord[a[0][0]] - ord[b[0][0]]) || (a[1] - b[1])).map(x => x[0]);
     const mine = srt(rest.filter(x => SIG_OWN.includes(x[1]))), past = srt(rest.filter(x => !SIG_OWN.includes(x[1])));
     return head.concat(mine.length ? [['hdr', '이 게시물']].concat(mine) : [], past.length ? [['hdr', '이런 조합은 보통', '같은 특징을 가진 과거 게시물의 평소 대비']].concat(past) : []);
