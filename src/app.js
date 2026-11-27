@@ -34,7 +34,11 @@
   const XLSX_URL = 'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';
   const XLSX_SRI = 'sha384-vtjasyidUo0kW94K5MXDXntzOJpQgBKXmE7e2Ga4LG0skTTLeBi97eFAXsqewJjw';
   let D = null, charts = {};
-  const S = { ads: false, view: 'brief', ch: '전체', range: '365', trendCh: '인스타그램', g: null, rankBy: 'hot', sort: null, rankShown: 10, tblShown: 30, mx: null, person: null, roleF: '전체', season: null, psort: 'n' };
+  // 보관 게시물 빼고 보기(2026-11-27 담당자 「평소에는 보관 처리된 콘텐츠는 빠진 데이터, 버튼을 누르면 실제 데이터」): 받은 원본(RAW)은 그대로 두고,
+  // 평소엔 it.arc(서버 「보관 게시물」 탭에서 보관 중)인 게시물을 D.items에서 뺀 뒤 prep·계산. 「보관 포함」을 누르면 원본 전체로 다시 계산. 버튼 상태는 저장하지 않음(열 때마다 뺀 화면)
+  let RAW = null;
+  const arcCut = d => { d.arcN = (d.items || []).filter(it => it.arc).length; if (!S.arcAll) d.items = (d.items || []).filter(it => !it.arc); return d; };
+  const S = { arcAll: false, ads: false, view: 'brief', ch: '전체', range: '365', trendCh: '인스타그램', g: null, rankBy: 'hot', sort: null, rankShown: 10, tblShown: 30, mx: null, person: null, roleF: '전체', season: null, psort: 'n' };
 
   const $ = id => document.getElementById(id);
   const css = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
@@ -317,6 +321,12 @@
       render(); window.scrollTo({ top: 0 });
     }));
     $('bnav').innerHTML = '<div class="in">' + VIEWS.map(([k, l]) => '<button type="button" data-v="' + k + '"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + ICONS[k] + '</svg><span>' + l + '</span></button>').join('') + '</div>';
+    $('arcTg').addEventListener('click', () => {
+      S.arcAll = !S.arcAll; CS.sel = null; D = arcCut(JSON.parse(RAW));
+      [BASE, MSTART, AGB, RB, RXB, TD_RX].forEach(o => Object.keys(o).forEach(k => { delete o[k]; }));
+      prep(); if (TD.d) tdLive(TD.d); const y = window.scrollY; render(); window.scrollTo(0, y);
+      toast(S.arcAll ? '보관한 게시물 ' + D.arcN + '개까지 넣어 보여줘요' : '보관한 게시물 ' + D.arcN + '개를 빼고 보여줘요');
+    });
     $('adTg').addEventListener('click', () => { S.ads = !S.ads; CS.sel = null; render(); toast(S.ads ? '광고 영상까지 포함해서 보여줘요' : '광고 영상을 빼고 보여줘요'); });
     $('bnav').querySelectorAll('button').forEach(b => b.addEventListener('click', () => { S.view = b.dataset.v; S.g = null; S.mx = null; S.person = null; S.rankShown = 10; S.tblShown = 30; render(); window.scrollTo({ top: 0 }); }));
   }
@@ -331,6 +341,9 @@
     $('rangeNote').hidden = !(rangeOn() && S.range === '7');
     const adOn = !['season', 'export', 'ads', 'hall'].includes(S.view) && S.ch !== '타 대학' && S.ch !== 'hong._.video' && (S.ch !== '인스타그램' || D.items.some(it => it.c === '인스타그램' && it.ad));
     $('adTg').hidden = !adOn;
+    $('arcTg').hidden = !(D.arcN > 0) || ['ads', 'export'].includes(S.view) || S.ch === '유튜브' || S.ch === '타 대학';
+    $('arcTg').setAttribute('aria-pressed', S.arcAll);
+    $('arcTg').title = S.arcAll ? '보관한 게시물 ' + D.arcN + '개까지 넣은 실제 값' : '보관한 게시물 ' + D.arcN + '개는 빼고 보는 중';
     $('adTg').setAttribute('aria-pressed', S.ads);
     $('adTg').textContent = '광고 포함'; $('adTg').title = S.ads ? '광고 영상까지 포함해서 보는 중' : '광고 영상은 빼고 보는 중';
     $('rangeSeg').innerHTML = RANGES.map(([v, l]) => '<button type="button" data-v="' + v + '" aria-pressed="' + (S.range === v) + '">' + l + '</button>').join('');
@@ -4288,7 +4301,7 @@
   function swapMain() {
     if (!mainNext) return;
     const det = $('detail'); if (det && !det.hidden) { setTimeout(swapMain, 20000); return; }
-    D = mainNext; mainNext = null;
+    RAW = JSON.stringify(mainNext); D = arcCut(mainNext); mainNext = null;
     [BASE, MSTART, AGB, RB, RXB, TD_RX].forEach(o => Object.keys(o).forEach(k => { delete o[k]; }));
     prep();
     const y = window.scrollY; render(); window.scrollTo(0, y);
@@ -5309,7 +5322,7 @@
     });
   }
   function boot(data) {
-    D = data;
+    RAW = JSON.stringify(data); D = arcCut(data);
     prep();
     if (TD.d) tdLive(TD.d);
     const sv = load(); if (sv) Object.assign(S, sv);
