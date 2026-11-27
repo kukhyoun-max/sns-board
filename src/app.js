@@ -35,10 +35,10 @@
   const XLSX_SRI = 'sha384-vtjasyidUo0kW94K5MXDXntzOJpQgBKXmE7e2Ga4LG0skTTLeBi97eFAXsqewJjw';
   let D = null, charts = {};
   // 보관 게시물 빼고 보기(2026-11-27 담당자 「평소에는 보관 처리된 콘텐츠는 빠진 데이터, 버튼을 누르면 실제 데이터」): 받은 원본(RAW)은 그대로 두고,
-  // 평소엔 it.arc(서버 「보관 게시물」 탭에서 보관 중)인 게시물을 D.items에서 뺀 뒤 prep·계산. 「보관 포함」을 누르면 원본 전체로 다시 계산. 버튼 상태는 저장하지 않음(열 때마다 뺀 화면)
+  // 평소엔 it.arc(서버 「보관 게시물」 탭에서 보관 중)인 게시물을 D.items에서 뺀 뒤 prep·계산. 「보관 포함」을 누르면 원본 전체로 다시 계산. 버튼 상태는 저장하지 않음(열 때마다 전체 화면 — 2026-11-27 같은 날 담당자 「버튼 남기고 기본은 포함」, 보관 뺀 값은 실장 공유용 요약 보드에서)
   let RAW = null;
   const arcCut = d => { d.arcN = (d.items || []).filter(it => it.arc).length; if (!S.arcAll) d.items = (d.items || []).filter(it => !it.arc); return d; };
-  const S = { arcAll: false, ads: false, view: 'brief', ch: '전체', range: '365', trendCh: '인스타그램', g: null, rankBy: 'hot', sort: null, rankShown: 10, tblShown: 30, mx: null, person: null, roleF: '전체', season: null, psort: 'n' };
+  const S = { arcAll: true, ads: false, view: 'brief', ch: '전체', range: '365', trendCh: '인스타그램', g: null, rankBy: 'hot', sort: null, rankShown: 10, tblShown: 30, mx: null, person: null, roleF: '전체', season: null, psort: 'n' };
 
   const $ = id => document.getElementById(id);
   const css = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
